@@ -1,68 +1,84 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "RetroGame Cloud",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#10B981",
+    "light": "#34D399",
+    "dark": "#059669"
   },
   "favicon": "/favicon.svg",
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentación",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Inicio",
             "pages": [
               "index",
               "quickstart",
-              "development"
+              "architecture"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Infraestructura",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "infrastructure/overview",
+              "infrastructure/eks-cluster",
+              "infrastructure/networking",
+              "infrastructure/monitoring"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Servicios",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "services/auth-service",
+              "services/game-catalog",
+              "services/score-service",
+              "services/ranking-service",
+              "services/user-service"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Frontend",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "frontend/overview",
+              "frontend/jsdos-integration"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Referencia API",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Autenticación",
             "pages": [
-              "api-reference/introduction"
+              "api-reference/auth/login",
+              "api-reference/auth/register",
+              "api-reference/auth/verify"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Juegos",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api-reference/games/list",
+              "api-reference/games/get"
+            ]
+          },
+          {
+            "group": "Puntuaciones",
+            "pages": [
+              "api-reference/scores/submit",
+              "api-reference/scores/get"
+            ]
+          },
+          {
+            "group": "Rankings",
+            "pages": [
+              "api-reference/rankings/global",
+              "api-reference/rankings/by-game"
             ]
           }
         ]
@@ -71,14 +87,14 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "GitHub",
+          "href": "https://github.com/retrogamecloud",
+          "icon": "github"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "Jugar",
+          "href": "https://retrogamehub.games",
+          "icon": "gamepad"
         }
       ]
     }
@@ -90,14 +106,14 @@
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "label": "GitHub",
+        "href": "https://github.com/retrogamecloud"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "label": "Jugar Ahora",
+      "href": "https://retrogamehub.games"
     }
   },
   "contextual": {
@@ -114,9 +130,7 @@
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/retrogamecloud"
     }
   }
 }

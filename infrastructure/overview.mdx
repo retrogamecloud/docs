@@ -1,0 +1,193 @@
+---
+title: "Infrastructure Overview"
+description: "AWS cloud infrastructure managed with Terraform"
+---
+
+## Infrastructure as Code
+
+RetroGame Cloud infrastructure is fully managed using **Terraform**, ensuring reproducible and version-controlled deployments.
+
+## AWS Services Used
+
+<CardGroup cols={2}>
+  <Card title="EKS" icon="dharmachakra">
+    Managed Kubernetes cluster for container orchestration
+  </Card>
+  <Card title="VPC" icon="network-wired">
+    Isolated network with public and private subnets
+  </Card>
+  <Card title="RDS" icon="database">
+    Managed PostgreSQL database
+  </Card>
+  <Card title="ElastiCache" icon="bolt">
+    Managed Redis for caching
+  </Card>
+  <Card title="ALB" icon="scale-balanced">
+    Application Load Balancer with SSL termination
+  </Card>
+  <Card title="Route53" icon="globe">
+    DNS management for retrogamehub.games
+  </Card>
+  <Card title="CloudFront" icon="cloud">
+    CDN for game assets and static content
+  </Card>
+  <Card title="S3" icon="bucket">
+    Object storage for game files and logs
+  </Card>
+  <Card title="ACM" icon="certificate">
+    SSL/TLS certificates
+  </Card>
+  <Card title="IAM" icon="shield">
+    Identity and access management
+  </Card>
+</CardGroup>
+
+## Terraform Structure
+
+```
+terraform/eks_test/
+├── main.tf                  # Provider configuration
+├── variables.tf             # Input variables
+├── outputs.tf               # Output values
+├── vpc.tf                   # VPC and networking
+├── eks.tf                   # EKS cluster configuration
+├── rds.tf                   # PostgreSQL database
+├── s3.tf                    # S3 buckets and CloudFront
+├── route53.tf               # DNS and SSL certificates
+├── alb.tf                   # Application Load Balancer
+├── monitoring.tf            # Prometheus, Grafana, AlertManager
+├── oauth2_proxy.tf          # GitHub OAuth for monitoring
+├── kubernetes.tf            # K8s deployments
+├── kong.tf                  # Kong API Gateway
+└── terraform.tfvars         # Variable values (gitignored)
+```
+
+## Network Architecture
+
+### VPC Configuration
+- **CIDR**: `10.0.0.0/16`
+- **Availability Zones**: 3 (eu-west-1a, eu-west-1b, eu-west-1c)
+
+### Subnets
+
+<Tabs>
+  <Tab title="Public Subnets">
+    - `10.0.1.0/24` (eu-west-1a)
+    - `10.0.2.0/24` (eu-west-1b)
+    - `10.0.3.0/24` (eu-west-1c)
+    
+    **Contains**:
+    - Application Load Balancer
+    - NAT Gateway
+    - Internet Gateway
+  </Tab>
+  
+  <Tab title="Private Subnets">
+    - `10.0.11.0/24` (eu-west-1a)
+    - `10.0.12.0/24` (eu-west-1b)
+    - `10.0.13.0/24` (eu-west-1c)
+    
+    **Contains**:
+    - EKS worker nodes
+    - RDS database
+    - Redis cluster
+    - Application pods
+  </Tab>
+</Tabs>
+
+## State Management
+
+<Info>
+Terraform state is stored remotely in S3 with DynamoDB locking to enable team collaboration.
+</Info>
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket         = "retrogame-terraform-state"
+    key            = "eks-test/terraform.tfstate"
+    region         = "eu-west-1"
+    dynamodb_table = "terraform-lock"
+    encrypt        = true
+  }
+}
+```
+
+## Cost Optimization
+
+### Current Costs (Estimated)
+- **EKS Cluster**: $72/month (control plane)
+- **EC2 Instances**: ~$15-30/month (t3.small nodes)
+- **RDS**: $15-25/month (db.t3.micro)
+- **NAT Gateway**: $32/month
+- **Data Transfer**: Variable
+- **Total**: ~$135-160/month
+
+<Warning>
+t3.micro instances are insufficient for EKS workloads. Minimum recommended: **t3.small** (2GB RAM, 11 pods/node).
+</Warning>
+
+### Free Tier Considerations
+- EKS control plane: **NOT** covered by Free Tier ($72/month unavoidable)
+- t3.micro instances: Only 750 hours/month = 1 instance free
+- RDS: 750 hours/month db.t3.micro included
+- S3: 5GB standard storage free
+- Data Transfer: 100GB out per month free
+
+## Deployment Workflow
+
+<Steps>
+  <Step title="Initialize Terraform">
+    ```bash
+    cd terraform/eks_test
+    terraform init
+    ```
+  </Step>
+  
+  <Step title="Plan Changes">
+    ```bash
+    terraform plan
+    ```
+  </Step>
+  
+  <Step title="Apply Infrastructure">
+    ```bash
+    terraform apply
+    ```
+  </Step>
+  
+  <Step title="Configure kubectl">
+    ```bash
+    aws eks update-kubeconfig --region eu-west-1 --name retrogame
+    ```
+  </Step>
+  
+  <Step title="Verify Deployment">
+    ```bash
+    kubectl get nodes
+    kubectl get pods --all-namespaces
+    ```
+  </Step>
+</Steps>
+
+## Key Resources
+
+<CardGroup cols={2}>
+  <Card title="EKS Cluster Details" icon="dharmachakra" href="/infrastructure/eks-cluster">
+    Learn about Kubernetes configuration
+  </Card>
+  <Card title="Networking Setup" icon="network-wired" href="/infrastructure/networking">
+    Understand VPC and security groups
+  </Card>
+  <Card title="Monitoring Stack" icon="chart-line" href="/infrastructure/monitoring">
+    Prometheus, Grafana, and OAuth setup
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+Ready to dive deeper? Explore the specific infrastructure components:
+
+- [EKS Cluster Configuration](/infrastructure/eks-cluster)
+- [Networking and Security](/infrastructure/networking)
+- [Monitoring and Observability](/infrastructure/monitoring)
