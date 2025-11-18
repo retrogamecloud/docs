@@ -340,9 +340,11 @@ El node group se escala automáticamente basado en:
   </Step>
   
   <Step title="Políticas de Escalado">
-    - **Scale Up**: Cuando hay pods pendientes por >3 minutos
-    - **Scale Down**: Cuando un nodo tiene <50% de utilización por >10 minutos
-    - **Cooldown**: 10 minutos entre operaciones de escalado
+    **Scale Up**: Cuando hay pods pendientes por más de 3 minutos
+    
+    **Scale Down**: Cuando un nodo tiene menos del 50% de utilización por más de 10 minutos
+    
+    **Cooldown**: 10 minutos entre operaciones de escalado
   </Step>
 </Steps>
 
