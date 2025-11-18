@@ -1,0 +1,677 @@
+---
+title: "Auth Service"
+description: "Servicio de autenticación con JWT y gestión de usuarios"
+icon: "lock"
+---
+
+## Descripción
+
+El servicio de autenticación maneja el registro, login y validación de usuarios mediante JSON Web Tokens (JWT). Es el punto de entrada para todos los usuarios de la plataforma.
+
+<CardGroup cols={3}>
+  <Card title="Registro" icon="user-plus">
+    Crear nuevas cuentas
+    
+    Username único requerido
+  </Card>
+  
+  <Card title="Login" icon="right-to-bracket">
+    Autenticación JWT
+    
+    Token válido por 24h
+  </Card>
+  
+  <Card title="Validación" icon="shield-check">
+    Middleware protector
+    
+    Verifica tokens en cada request
+  </Card>
+</CardGroup>
+
+## Arquitectura del Servicio
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    FRONTEND                             │
+└────────────────────┬────────────────────────────────────┘
+                     │ POST /auth/register
+                     │ POST /auth/login
+                     │ GET /auth/verify
+                     ▼
+┌─────────────────────────────────────────────────────────┐
+│                  KONG API GATEWAY                       │
+│  Route: /auth/* → auth-service:3001                    │
+└────────────────────┬────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────┐
+│              AUTH SERVICE (Node.js)                     │
+│                                                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐ │
+│  │  Controllers │→ │   Services   │→ │ Repositories│ │
+│  │              │  │              │  │             │ │
+│  │  - register  │  │  - hashPass  │  │  - create   │ │
+│  │  - login     │  │  - genToken  │  │  - findUser │ │
+│  │  - verify    │  │  - validate  │  │  - update   │ │
+│  └──────────────┘  └──────────────┘  └──────┬──────┘ │
+│                                              │         │
+└──────────────────────────────────────────────┼─────────┘
+                                               │
+                                               ▼
+                                    ┌──────────────────┐
+                                    │   PostgreSQL     │
+                                    │  Table: users    │
+                                    └──────────────────┘
+```
+
+## Tecnologías
+
+<Table>
+  <thead>
+    <tr>
+      <th>Tecnología</th>
+      <th>Versión</th>
+      <th>Propósito</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**Node.js**</td>
+      <td>20 LTS</td>
+      <td>Runtime de JavaScript</td>
+    </tr>
+    <tr>
+      <td>**Express**</td>
+      <td>^4.18</td>
+      <td>Framework web</td>
+    </tr>
+    <tr>
+      <td>**jsonwebtoken**</td>
+      <td>^9.0</td>
+      <td>Generación y validación de JWT</td>
+    </tr>
+    <tr>
+      <td>**bcrypt**</td>
+      <td>^5.1</td>
+      <td>Hash de contraseñas (salt rounds: 10)</td>
+    </tr>
+    <tr>
+      <td>**pg**</td>
+      <td>^8.11</td>
+      <td>Cliente PostgreSQL</td>
+    </tr>
+    <tr>
+      <td>**Jest**</td>
+      <td>^29.7</td>
+      <td>Testing framework</td>
+    </tr>
+  </tbody>
+</Table>
+
+## Endpoints
+
+### POST /auth/register
+
+Crea una nueva cuenta de usuario.
+
+<CodeGroup>
+```bash Request
+curl -X POST http://api.retrogamecloud.com/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "player1",
+    "password": "SecurePass123!",
+    "email": "player1@example.com",
+    "display_name": "Player One"
+  }'
+```
+
+```json Response 201
+{
+  "message": "Usuario registrado exitosamente",
+  "user": {
+    "id": 123,
+    "username": "player1",
+    "email": "player1@example.com",
+    "display_name": "Player One",
+    "avatar_url": null,
+    "created_at": "2025-11-19T10:30:00.000Z"
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+```json Error 409
+{
+  "error": "El usuario ya existe"
+}
+```
+</CodeGroup>
+
+**Validaciones:**
+- Username: 3-30 caracteres, alfanumérico + guiones bajos
+- Password: Mínimo 8 caracteres
+- Email: Formato válido (opcional)
+- Display name: Máximo 50 caracteres
+
+**Proceso interno:**
+1. Validar formato de datos
+2. Verificar que username no exista
+3. Hash de contraseña con bcrypt (10 rounds)
+4. Insertar usuario en PostgreSQL
+5. Generar JWT token (válido 24h)
+6. Retornar usuario y token
+
+### POST /auth/login
+
+Autentica un usuario existente.
+
+<CodeGroup>
+```bash Request
+curl -X POST http://api.retrogamecloud.com/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "player1",
+    "password": "SecurePass123!"
+  }'
+```
+
+```json Response 200
+{
+  "message": "Login exitoso",
+  "user": {
+    "id": 123,
+    "username": "player1",
+    "email": "player1@example.com",
+    "display_name": "Player One",
+    "avatar_url": null
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+```json Error 401
+{
+  "error": "Credenciales inválidas"
+}
+```
+</CodeGroup>
+
+**Proceso interno:**
+1. Buscar usuario por username
+2. Verificar que el usuario esté activo (`is_active = true`)
+3. Comparar contraseña con bcrypt.compare()
+4. Generar nuevo JWT token
+5. Retornar usuario y token
+
+**Seguridad:**
+- ✅ Contraseñas hasheadas con bcrypt
+- ✅ No se retorna password_hash en respuesta
+- ✅ Mensaje genérico si usuario no existe (evita enumeration)
+
+### GET /auth/verify
+
+Valida un token JWT y retorna información del usuario.
+
+<CodeGroup>
+```bash Request
+curl -X GET http://api.retrogamecloud.com/auth/verify \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+```json Response 200
+{
+  "valid": true,
+  "user": {
+    "id": 123,
+    "username": "player1",
+    "email": "player1@example.com",
+    "display_name": "Player One",
+    "avatar_url": null
+  }
+}
+```
+
+```json Error 401
+{
+  "error": "Token inválido o expirado"
+}
+```
+</CodeGroup>
+
+**Uso típico:**
+- Frontend verifica si el usuario sigue autenticado al cargar la app
+- Otros servicios validan tokens antes de operaciones sensibles
+
+## Middleware: authMiddleware
+
+Middleware reutilizable para proteger rutas que requieren autenticación.
+
+```javascript
+// Uso en otros servicios
+import { authMiddleware } from './middleware/authMiddleware.js';
+
+// Proteger una ruta
+app.post('/scores', authMiddleware, async (req, res) => {
+  // req.user contiene: { userId, username }
+  const { userId } = req.user;
+  // ... lógica del endpoint
+});
+```
+
+**Comportamiento:**
+1. Lee el header `Authorization: Bearer <token>`
+2. Verifica el token con `jwt.verify(token, SECRET_KEY)`
+3. Si válido: adjunta `req.user` y llama a `next()`
+4. Si inválido: retorna 401 Unauthorized
+
+## Esquema de Base de Datos
+
+### Tabla: users
+
+```sql
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(30) UNIQUE NOT NULL,
+  email VARCHAR(100) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  display_name VARCHAR(50),
+  avatar_url TEXT,
+  bio TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_active ON users(is_active);
+```
+
+**Campos:**
+- `id`: Identificador único autoincrementable
+- `username`: Nombre de usuario único (3-30 caracteres)
+- `email`: Email único (formato válido)
+- `password_hash`: Contraseña hasheada con bcrypt
+- `display_name`: Nombre visible en la UI
+- `avatar_url`: URL de imagen de perfil (opcional)
+- `bio`: Biografía corta (opcional)
+- `is_active`: Soft delete (false = cuenta desactivada)
+- `created_at`: Timestamp de registro
+- `updated_at`: Timestamp de última actualización
+
+## Variables de Entorno
+
+<CodeGroup>
+```bash .env.example
+# Puerto del servicio
+PORT=3001
+
+# Secret para firmar JWT (CAMBIAR EN PRODUCCIÓN)
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+
+# URL de PostgreSQL
+DATABASE_URL=postgresql://postgres:password@postgres:5432/retrogamedb
+
+# Entorno
+NODE_ENV=production
+
+# Configuración JWT
+JWT_EXPIRATION=24h
+
+# Logs
+LOG_LEVEL=info
+```
+
+```yaml Kubernetes ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-service-config
+data:
+  PORT: "3001"
+  NODE_ENV: "production"
+  JWT_EXPIRATION: "24h"
+  LOG_LEVEL: "info"
+```
+
+```yaml Kubernetes Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: auth-service-secrets
+type: Opaque
+data:
+  JWT_SECRET: <base64-encoded-secret>
+  DATABASE_URL: <base64-encoded-url>
+```
+</CodeGroup>
+
+<Warning>
+  **JWT_SECRET** debe ser una cadena aleatoria de al menos 32 caracteres en producción. Genera uno con:
+  ```bash
+  openssl rand -base64 32
+  ```
+</Warning>
+
+## Despliegue
+
+### Docker
+
+```dockerfile
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY . .
+
+EXPOSE 3001
+
+CMD ["node", "index.js"]
+```
+
+### Kubernetes
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: retrogame
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+      - name: auth-service
+        image: retrogamehub/auth-service:latest
+        ports:
+        - containerPort: 3001
+        envFrom:
+        - configMapRef:
+            name: auth-service-config
+        env:
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: auth-service-secrets
+              key: JWT_SECRET
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-service-secrets
+              key: DATABASE_URL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 5
+```
+
+## Tests
+
+### Tests Unitarios
+
+```javascript
+// tests/auth.test.js
+describe('Auth Service', () => {
+  describe('POST /auth/register', () => {
+    it('debe registrar un nuevo usuario', async () => {
+      const res = await request(app)
+        .post('/auth/register')
+        .send({
+          username: 'testuser',
+          password: 'TestPass123!',
+          email: 'test@example.com'
+        });
+      
+      expect(res.status).toBe(201);
+      expect(res.body).toHaveProperty('token');
+      expect(res.body.user.username).toBe('testuser');
+    });
+    
+    it('debe rechazar username duplicado', async () => {
+      // Registrar usuario
+      await createTestUser('duplicate');
+      
+      // Intentar registrar el mismo username
+      const res = await request(app)
+        .post('/auth/register')
+        .send({
+          username: 'duplicate',
+          password: 'Pass123!'
+        });
+      
+      expect(res.status).toBe(409);
+      expect(res.body.error).toContain('ya existe');
+    });
+  });
+  
+  describe('POST /auth/login', () => {
+    it('debe autenticar usuario válido', async () => {
+      // Crear usuario de prueba
+      await createTestUser('logintest', 'Pass123!');
+      
+      const res = await request(app)
+        .post('/auth/login')
+        .send({
+          username: 'logintest',
+          password: 'Pass123!'
+        });
+      
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('token');
+    });
+    
+    it('debe rechazar contraseña incorrecta', async () => {
+      await createTestUser('wrongpass', 'Correct123!');
+      
+      const res = await request(app)
+        .post('/auth/login')
+        .send({
+          username: 'wrongpass',
+          password: 'Wrong123!'
+        });
+      
+      expect(res.status).toBe(401);
+    });
+  });
+});
+```
+
+**Ejecutar tests:**
+```bash
+npm test
+npm run test:coverage
+```
+
+**Cobertura esperada:** > 80%
+
+## Métricas y Monitoreo
+
+### Prometheus Metrics
+
+```javascript
+import promClient from 'prom-client';
+
+// Contador de registros
+const registerCounter = new promClient.Counter({
+  name: 'auth_registrations_total',
+  help: 'Total de registros de usuarios'
+});
+
+// Contador de logins
+const loginCounter = new promClient.Counter({
+  name: 'auth_logins_total',
+  help: 'Total de logins',
+  labelNames: ['status']
+});
+
+// Histograma de latencia
+const authLatency = new promClient.Histogram({
+  name: 'auth_request_duration_seconds',
+  help: 'Latencia de requests de autenticación',
+  labelNames: ['endpoint']
+});
+```
+
+### Logs Estructurados
+
+```javascript
+// Usar Winston o Pino para logs
+logger.info('User registered', {
+  userId: user.id,
+  username: user.username,
+  timestamp: new Date().toISOString()
+});
+
+logger.warn('Failed login attempt', {
+  username: req.body.username,
+  ip: req.ip,
+  timestamp: new Date().toISOString()
+});
+```
+
+## Seguridad
+
+### Best Practices Implementadas
+
+<AccordionGroup>
+  <Accordion title="✅ Password Hashing con bcrypt">
+    - Salt rounds: 10
+    - Hash asíncrono para no bloquear event loop
+    - Nunca retornar password_hash en respuestas
+  </Accordion>
+  
+  <Accordion title="✅ JWT con expiración">
+    - Tokens válidos por 24 horas
+    - Firmados con HS256
+    - Payload mínimo: { userId, username }
+  </Accordion>
+  
+  <Accordion title="✅ Validación de entrada">
+    - Sanitización de strings
+    - Validación de formatos (email, username)
+    - Protección contra SQL injection (prepared statements)
+  </Accordion>
+  
+  <Accordion title="✅ Rate Limiting">
+    - Limitar intentos de login (5 por minuto)
+    - Protección contra brute force
+    - Implementado en Kong API Gateway
+  </Accordion>
+  
+  <Accordion title="✅ CORS configurado">
+    - Solo orígenes permitidos
+    - Credenciales habilitadas cuando necesario
+  </Accordion>
+</AccordionGroup>
+
+### Vulnerabilidades Conocidas y Mitigaciones
+
+- ❌ **User enumeration**: Login retorna mismo error para user inexistente o password incorrecta ✅
+- ❌ **JWT sin refresh tokens**: Implementar refresh tokens en v2 📋
+- ❌ **No hay 2FA**: Agregar autenticación de dos factores 📋
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Error: JWT_SECRET not configured">
+    **Causa**: Variable de entorno JWT_SECRET no está definida
+    
+    **Solución**:
+    ```bash
+    # Generar secret
+    export JWT_SECRET=$(openssl rand -base64 32)
+    
+    # O configurar en Kubernetes Secret
+    kubectl create secret generic auth-service-secrets \
+      --from-literal=JWT_SECRET=$(openssl rand -base64 32)
+    ```
+  </Accordion>
+  
+  <Accordion title="Error: Cannot connect to database">
+    **Causa**: PostgreSQL no accesible o DATABASE_URL incorrecta
+    
+    **Solución**:
+    ```bash
+    # Verificar que PostgreSQL esté corriendo
+    kubectl get pods -n retrogame | grep postgres
+    
+    # Test de conectividad
+    kubectl run pg-test --image=postgres:15 --rm -it -- \
+      psql postgresql://postgres:password@postgres:5432/retrogamedb
+    ```
+  </Accordion>
+  
+  <Accordion title="Token inválido en otros servicios">
+    **Causa**: JWT_SECRET diferente entre servicios
+    
+    **Solución**: Todos los servicios deben usar el **mismo** JWT_SECRET
+    ```bash
+    # Verificar que todos usen el mismo secret
+    kubectl get secret auth-service-secrets -o yaml
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Roadmap
+
+<CardGroup cols={2}>
+  <Card title="v2.0 - Refresh Tokens" icon="rotate">
+    Implementar refresh tokens para mejor UX
+  </Card>
+  
+  <Card title="v2.1 - OAuth2" icon="github">
+    Login con GitHub, Google, Discord
+  </Card>
+  
+  <Card title="v2.2 - 2FA" icon="mobile">
+    Autenticación de dos factores (TOTP)
+  </Card>
+  
+  <Card title="v2.3 - Password Reset" icon="key">
+    Recuperación de contraseña por email
+  </Card>
+</CardGroup>
+
+## Próximos Pasos
+
+<CardGroup cols={2}>
+  <Card title="Game Catalog Service" icon="gamepad" href="/services/game-catalog">
+    Servicio de catálogo de juegos
+  </Card>
+  
+  <Card title="Score Service" icon="trophy" href="/services/score-service">
+    Gestión de puntuaciones
+  </Card>
+  
+  <Card title="CI/CD" icon="rocket" href="/cicd/overview">
+    Pipeline de despliegue
+  </Card>
+  
+  <Card title="API Reference" icon="book" href="/api-reference/auth/login">
+    Referencia completa de la API
+  </Card>
+</CardGroup>
