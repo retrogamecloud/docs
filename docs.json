@@ -32,6 +32,14 @@
             ]
           },
           {
+            "group": "CI/CD y GitOps",
+            "pages": [
+              "cicd/overview",
+              "cicd/github-actions",
+              "cicd/gitops-workflow"
+            ]
+          },
+          {
             "group": "Servicios",
             "pages": [
               "services/auth-service",

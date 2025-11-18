@@ -1,0 +1,718 @@
+---
+title: "GitOps Workflow"
+description: "Flujo de trabajo GitOps completo con ArgoCD"
+icon: "code-branch"
+---
+
+## ¿Qué es GitOps?
+
+GitOps es una metodología de despliegue donde **Git es la única fuente de verdad** para la infraestructura y aplicaciones.
+
+<CardGroup cols={3}>
+  <Card title="Declarativo" icon="file-code">
+    Todo el estado deseado en Git
+    
+    YAMLs de Kubernetes
+  </Card>
+  
+  <Card title="Versionado" icon="clock-rotate-left">
+    Historial completo
+    
+    Rollback con `git revert`
+  </Card>
+  
+  <Card title="Automático" icon="wand-magic-sparkles">
+    Deploy automático
+    
+    Sin kubectl manual
+  </Card>
+</CardGroup>
+
+## Repositorio GitOps: `kubernetes/`
+
+Este repositorio centraliza todos los manifiestos de Kubernetes.
+
+### Estructura del Repositorio
+
+```
+kubernetes/
+├── .github/
+│   └── workflows/
+│       └── ci.yml                    # Validación de manifiestos
+├── tests/
+│   └── validate-manifests.test.js    # Tests unitarios
+├── 00-namespace.yaml                 # Namespace retrogame
+├── 01-postgres.yaml                  # Base de datos PostgreSQL
+├── 02-backend.yaml                   # Servicios backend (monolito)
+├── 03-cdn.yaml                       # CDN de juegos (Nginx)
+├── 04-frontend.yaml                  # Frontend web
+├── 05-kong.yaml                      # API Gateway Kong
+├── 06-auth-service.yaml             # Servicio de autenticación
+├── 07-game-catalog.yaml             # Catálogo de juegos
+├── 08-score-service.yaml            # Servicio de puntuaciones
+├── 09-ranking-service.yaml          # Servicio de rankings
+├── 10-user-service.yaml             # Servicio de usuarios
+├── README.md
+└── package.json
+```
+
+### Nomenclatura de Archivos
+
+Los archivos están numerados para indicar el orden de aplicación:
+
+<Steps>
+  <Step title="00-namespace.yaml">
+    **Primero**: Crear el namespace `retrogame`
+    
+    Todos los demás recursos dependen de esto.
+  </Step>
+  
+  <Step title="01-postgres.yaml">
+    **Segundo**: Base de datos
+    
+    Los servicios backend necesitan la BD activa.
+  </Step>
+  
+  <Step title="02-05">
+    **Infraestructura**: Backend monolito, CDN, frontend, Kong
+    
+    Componentes core del sistema.
+  </Step>
+  
+  <Step title="06-10">
+    **Microservicios**: Auth, games, scores, rankings, users
+    
+    Servicios específicos de dominio.
+  </Step>
+</Steps>
+
+## Flujo GitOps Completo
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    DEVELOPER WORKFLOW                        │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        ▼
+           ┌────────────────────────┐
+           │ 1. Push código         │
+           │    (servicio X)        │
+           └────────┬───────────────┘
+                    │
+                    ▼
+           ┌────────────────────────┐
+           │ 2. GitHub Actions      │
+           │    - Tests             │
+           │    - Build Docker      │
+           │    - Push image        │
+           └────────┬───────────────┘
+                    │
+                    ▼
+           ┌────────────────────────┐
+           │ 3. Update manifest     │
+           │    repo kubernetes/    │
+           │    (crear PR)          │
+           └────────┬───────────────┘
+                    │
+         ┌──────────┴──────────┐
+         ▼                     ▼
+    [Auto-merge]         [Manual Review]
+         │                     │
+         └──────────┬──────────┘
+                    │
+                    ▼
+           ┌────────────────────────┐
+           │ 4. PR Merged to main   │
+           │    (repo kubernetes/)  │
+           └────────┬───────────────┘
+                    │
+                    ▼
+           ┌────────────────────────┐
+           │ 5. ArgoCD detecta      │
+           │    cambio en Git       │
+           │    (poll cada 3 min)   │
+           └────────┬───────────────┘
+                    │
+                    ▼
+           ┌────────────────────────┐
+           │ 6. ArgoCD sincroniza   │
+           │    - kubectl apply     │
+           │    - Rolling update    │
+           │    - Health checks     │
+           └────────┬───────────────┘
+                    │
+                    ▼
+┌──────────────────────────────────────────────────────────────┐
+│              DEPLOYED TO PRODUCTION (EKS)                    │
+└──────────────────────────────────────────────────────────────┘
+```
+
+## Ejemplo Práctico: Actualizar Frontend
+
+<Steps>
+  <Step title="Developer: Hacer cambio en código">
+    ```bash
+    cd frontend/
+    # Hacer cambios en el código
+    vim src/index.html
+    
+    git add .
+    git commit -m "feat: mejorar UI de selección de juegos"
+    git push origin main
+    ```
+  </Step>
+  
+  <Step title="GitHub Actions: Build automático">
+    El workflow se ejecuta automáticamente:
+    
+    ```
+    Running Tests...              ✅ Passed (1m 23s)
+    Building Docker Image...      ✅ Built (2m 15s)
+    Pushing to Docker Hub...      ✅ Pushed (45s)
+    Image: retrogamehub/frontend:sha-a1b2c3d
+    ```
+  </Step>
+  
+  <Step title="GitHub Actions: Update manifest">
+    El workflow clona el repo `kubernetes/` y actualiza:
+    
+    ```diff
+    # 04-frontend.yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: frontend
+    spec:
+      template:
+        spec:
+          containers:
+          - name: frontend
+    -       image: retrogamehub/frontend:sha-xyz123
+    +       image: retrogamehub/frontend:sha-a1b2c3d
+    ```
+    
+    Crea PR automático: `chore(frontend): Actualizar a sha-a1b2c3d`
+  </Step>
+  
+  <Step title="Review (Opcional) & Merge">
+    **Opción A - Auto-merge:**
+    ```yaml
+    # PR tiene label 'auto-merge'
+    # Se mergea automáticamente si pasa CI
+    ```
+    
+    **Opción B - Manual:**
+    ```bash
+    # Revisor verifica el PR en GitHub
+    # Click "Merge pull request"
+    ```
+  </Step>
+  
+  <Step title="ArgoCD: Detectar cambio">
+    ArgoCD hace polling cada 3 minutos:
+    
+    ```
+    [15:03] Checking kubernetes/ repository...
+    [15:03] New commit detected: abc123
+    [15:03] Application 'frontend' out of sync
+    [15:03] Triggering sync...
+    ```
+  </Step>
+  
+  <Step title="ArgoCD: Aplicar cambios">
+    ```bash
+    # ArgoCD ejecuta internamente:
+    kubectl apply -f 04-frontend.yaml
+    
+    # Rolling update automático:
+    deployment.apps/frontend configured
+    
+    # Health checks:
+    ✅ Deployment is healthy
+    ✅ Pods are ready (3/3)
+    ✅ Service endpoints updated
+    ```
+    
+    **Zero downtime**: Los pods viejos siguen sirviendo tráfico hasta que los nuevos estén ready.
+  </Step>
+</Steps>
+
+## Manifiestos de Kubernetes
+
+### Ejemplo: Frontend Deployment
+
+<CodeGroup>
+```yaml 04-frontend.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: retrogame
+  labels:
+    app: frontend
+spec:
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: retrogame
+  labels:
+    app: frontend
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        # Imagen actualizada automáticamente por CI/CD
+        image: retrogamehub/frontend:sha-a1b2c3d
+        ports:
+        - containerPort: 8000
+          name: http
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+```
+</CodeGroup>
+
+**Puntos clave:**
+
+- ✅ **RollingUpdate**: Deploy sin downtime
+- ✅ **maxUnavailable: 0**: Siempre mantiene pods disponibles
+- ✅ **Health checks**: Garantiza que pods estén listos
+- ✅ **Resources**: Previene resource starvation
+
+### Ejemplo: Backend con ConfigMap
+
+<CodeGroup>
+```yaml 02-backend.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: retrogame
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  LOG_LEVEL: "info"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secrets
+  namespace: retrogame
+type: Opaque
+data:
+  DB_PASSWORD: cGFzc3dvcmQxMjM=  # base64 encoded
+  JWT_SECRET: c3VwZXJzZWNyZXQxMjM=
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: retrogame
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: retrogamehub/backend:sha-xyz789
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - configMapRef:
+            name: backend-config
+        env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: backend-secrets
+              key: DB_PASSWORD
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: backend-secrets
+              key: JWT_SECRET
+```
+</CodeGroup>
+
+## ArgoCD Setup (Planeado)
+
+<Info>
+  ArgoCD aún no está desplegado. Actualmente los despliegues se hacen manualmente con `kubectl apply`.
+</Info>
+
+### Instalar ArgoCD en EKS
+
+<Steps>
+  <Step title="Crear namespace">
+    ```bash
+    kubectl create namespace argocd
+    ```
+  </Step>
+  
+  <Step title="Instalar ArgoCD">
+    ```bash
+    kubectl apply -n argocd -f \
+      https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    ```
+  </Step>
+  
+  <Step title="Exponer UI con ALB">
+    ```yaml
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: argocd-server
+      namespace: argocd
+      annotations:
+        alb.ingress.kubernetes.io/scheme: internet-facing
+        alb.ingress.kubernetes.io/backend-protocol: HTTPS
+    spec:
+      ingressClassName: alb
+      rules:
+      - host: argocd.retrogamecloud.com
+        http:
+          paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 443
+    ```
+  </Step>
+  
+  <Step title="Obtener password inicial">
+    ```bash
+    kubectl -n argocd get secret argocd-initial-admin-secret \
+      -o jsonpath="{.data.password}" | base64 -d
+    ```
+  </Step>
+  
+  <Step title="Configurar aplicación">
+    ```yaml
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    metadata:
+      name: retrogame-stack
+      namespace: argocd
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/retrogamecloud/kubernetes.git
+        targetRevision: main
+        path: .
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: retrogame
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+        - CreateNamespace=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+    ```
+  </Step>
+</Steps>
+
+### Configurar Auto-Sync
+
+```yaml
+syncPolicy:
+  automated:
+    prune: true        # Elimina recursos que ya no están en Git
+    selfHeal: true     # Revierte cambios manuales
+```
+
+**Comportamiento:**
+- ArgoCD sincroniza automáticamente cada 3 minutos
+- Si alguien hace `kubectl edit` manual, ArgoCD lo revierte
+- Si se elimina un recurso del Git, ArgoCD lo elimina del cluster
+
+## Rollback
+
+### Método 1: Git Revert (Recomendado)
+
+```bash
+# Ver historial de commits
+cd kubernetes/
+git log --oneline
+
+# Revertir el último despliegue
+git revert HEAD
+
+# Push
+git push origin main
+
+# ArgoCD detectará el revert y aplicará la versión anterior
+```
+
+**Ventajas:**
+- ✅ Mantiene historial completo
+- ✅ Auditable
+- ✅ Reproducible
+
+### Método 2: Rollback de Kubernetes
+
+```bash
+# Ver historial de revisiones
+kubectl rollout history deployment/frontend -n retrogame
+
+# Rollback a la revisión anterior
+kubectl rollout undo deployment/frontend -n retrogame
+
+# Rollback a una revisión específica
+kubectl rollout undo deployment/frontend -n retrogame --to-revision=3
+```
+
+<Warning>
+  Este método funciona pero **rompe GitOps**. El estado en Git no coincide con producción. Usa solo en emergencias.
+</Warning>
+
+### Método 3: Cambiar imagen manualmente
+
+```bash
+cd kubernetes/
+vim 04-frontend.yaml
+
+# Cambiar la línea:
+# image: retrogamehub/frontend:sha-a1b2c3d
+# a la versión anterior:
+# image: retrogamehub/frontend:sha-xyz123
+
+git add 04-frontend.yaml
+git commit -m "revert(frontend): rollback to sha-xyz123"
+git push origin main
+```
+
+## Ambiente de Staging
+
+Para implementar un ambiente de staging:
+
+<Steps>
+  <Step title="Crear namespace staging">
+    ```yaml
+    # 00-namespace-staging.yaml
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: retrogame-staging
+    ```
+  </Step>
+  
+  <Step title="Duplicar manifiestos con suffix">
+    ```bash
+    cp 04-frontend.yaml 04-frontend-staging.yaml
+    
+    # Modificar namespace y nombres
+    sed -i 's/namespace: retrogame/namespace: retrogame-staging/g' 04-frontend-staging.yaml
+    sed -i 's/name: frontend/name: frontend-staging/g' 04-frontend-staging.yaml
+    ```
+  </Step>
+  
+  <Step title="Workflow para staging">
+    Modificar GitHub Actions para desplegar a staging en PRs:
+    
+    ```yaml
+    on:
+      pull_request:
+        branches: [ main ]
+    
+    jobs:
+      deploy-staging:
+        steps:
+          - name: Update staging manifest
+            run: |
+              sed -i "s|image:.*|image: retrogamehub/frontend:pr-${{ github.event.pull_request.number }}|" \
+                04-frontend-staging.yaml
+    ```
+  </Step>
+  
+  <Step title="ArgoCD app separada">
+    ```yaml
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    metadata:
+      name: retrogame-staging
+    spec:
+      source:
+        repoURL: https://github.com/retrogamecloud/kubernetes.git
+        path: staging/
+      destination:
+        namespace: retrogame-staging
+    ```
+  </Step>
+</Steps>
+
+## Monitoreo del Estado
+
+### Con kubectl
+
+```bash
+# Ver estado de todos los deployments
+kubectl get deployments -n retrogame
+
+# Ver pods
+kubectl get pods -n retrogame -o wide
+
+# Ver eventos recientes
+kubectl get events -n retrogame --sort-by='.lastTimestamp'
+
+# Describir un deployment
+kubectl describe deployment frontend -n retrogame
+```
+
+### Con ArgoCD UI
+
+Acceder a `https://argocd.retrogamecloud.com`:
+
+- 🟢 **Synced**: Git y cluster coinciden
+- 🟡 **OutOfSync**: Hay diferencias
+- 🔴 **Degraded**: Aplicación unhealthy
+- 🔵 **Progressing**: Sincronización en curso
+
+### Con Prometheus Queries
+
+```promql
+# Ver versión desplegada por pod
+kube_pod_labels{namespace="retrogame", pod=~"frontend-.*"}
+
+# Ver timestamp del último despliegue
+kube_deployment_status_observed_generation{namespace="retrogame"}
+```
+
+## Best Practices GitOps
+
+<AccordionGroup>
+  <Accordion title="✅ 1. Git como única fuente de verdad">
+    - Nunca hacer `kubectl apply` manual en producción
+    - Todos los cambios vía Git
+    - Documentar excepciones si las hay
+  </Accordion>
+  
+  <Accordion title="✅ 2. Pull Requests obligatorios">
+    - Requerir review para cambios críticos
+    - Auto-merge solo para updates de imagen
+    - Branch protection en repo kubernetes/
+  </Accordion>
+  
+  <Accordion title="✅ 3. Manifiestos versionados">
+    - Commits descriptivos
+    - Tags semánticos para releases
+    - Changelog actualizado
+  </Accordion>
+  
+  <Accordion title="✅ 4. Secrets externalizados">
+    - Nunca commitear secrets en Git
+    - Usar Sealed Secrets o External Secrets
+    - Secrets solo en valores cifrados
+  </Accordion>
+  
+  <Accordion title="✅ 5. Validación automática">
+    - CI valida manifiestos antes del merge
+    - kubectl dry-run
+    - Tests unitarios de estructura
+  </Accordion>
+</AccordionGroup>
+
+## Métricas GitOps
+
+<CardGroup cols={2}>
+  <Card title="Tiempo a Producción" icon="rocket">
+    **8-12 minutos**
+    
+    Desde commit hasta producción
+  </Card>
+  
+  <Card title="Frecuencia de Deploy" icon="calendar">
+    **10-15 deploys/día**
+    
+    Promedio entre todos los servicios
+  </Card>
+  
+  <Card title="Tasa de Rollback" icon="rotate-left">
+    **< 5%**
+    
+    Pocos deploys necesitan revertirse
+  </Card>
+  
+  <Card title="MTTR" icon="clock">
+    **< 5 minutos**
+    
+    Mean Time To Recovery
+  </Card>
+</CardGroup>
+
+## Próximos Pasos
+
+<CardGroup cols={2}>
+  <Card title="GitHub Actions" icon="github" href="/cicd/github-actions">
+    Configuración de workflows
+  </Card>
+  
+  <Card title="CI/CD Overview" icon="rocket" href="/cicd/overview">
+    Visión general del pipeline
+  </Card>
+  
+  <Card title="Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
+    Observabilidad del sistema
+  </Card>
+  
+  <Card title="Servicios" icon="cubes" href="/services/auth-service">
+    Documentación de microservicios
+  </Card>
+</CardGroup>
