@@ -1,0 +1,351 @@
+---
+title: "Auth Service API"
+description: "Endpoints de autenticación, registro y gestión de tokens JWT"
+icon: "shield"
+---
+
+<Info>
+  Documentación generada automáticamente desde el código fuente.
+  Última actualización: 2025-11-19
+</Info>
+
+<Warning>
+  Esta es una página de ejemplo. Se sobrescribirá cuando se ejecute la sincronización automática.
+</Warning>
+
+## Descripción General
+
+El servicio de autenticación maneja:
+- 🔐 Registro de nuevos usuarios
+- 🎫 Inicio de sesión y generación de tokens JWT
+- ✅ Verificación de tokens
+- 🔄 Renovación de tokens (refresh)
+- 🔒 Gestión de sesiones
+
+## Base URL
+
+```
+Production:  https://api.retrogamehub.games/auth
+Staging:     https://staging-api.retrogamehub.games/auth
+Development: http://localhost:3001
+```
+
+## Autenticación
+
+Todos los endpoints (excepto `/register` y `/login`) requieren un token JWT válido:
+
+```bash
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+<Warning>
+  Los tokens expiran después de 24 horas. Usa el endpoint de refresh para renovarlos.
+</Warning>
+
+---
+
+## Endpoints
+
+### POST /register
+
+Registra un nuevo usuario en la plataforma.
+
+**Request Body:**
+```json
+{
+  "email": "player@example.com",
+  "username": "retroPlayer",
+  "password": "SecurePass123!"
+}
+```
+
+**Response 201:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 123,
+    "email": "player@example.com",
+    "username": "retroPlayer",
+    "createdAt": "2025-11-19T10:30:00Z"
+  },
+  "message": "Usuario registrado exitosamente"
+}
+```
+
+**Errores:**
+
+| Código | Descripción |
+|--------|-------------|
+| 400    | Email o username ya existe |
+| 400    | Contraseña no cumple requisitos |
+| 500    | Error del servidor |
+
+---
+
+### POST /login
+
+Autentica un usuario y genera tokens de acceso.
+
+**Request Body:**
+```json
+{
+  "email": "player@example.com",
+  "password": "SecurePass123!"
+}
+```
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresIn": 86400,
+    "user": {
+      "id": 123,
+      "email": "player@example.com",
+      "username": "retroPlayer"
+    }
+  }
+}
+```
+
+**Errores:**
+
+| Código | Descripción |
+|--------|-------------|
+| 401    | Credenciales inválidas |
+| 404    | Usuario no encontrado |
+| 500    | Error del servidor |
+
+---
+
+### POST /verify
+
+Verifica si un token JWT es válido.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "data": {
+    "valid": true,
+    "userId": 123,
+    "email": "player@example.com",
+    "expiresAt": "2025-11-20T10:30:00Z"
+  }
+}
+```
+
+**Errores:**
+
+| Código | Descripción |
+|--------|-------------|
+| 401    | Token inválido o expirado |
+| 500    | Error del servidor |
+
+---
+
+### POST /refresh
+
+Renueva un token de acceso usando un refresh token.
+
+**Request Body:**
+```json
+{
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresIn": 86400
+  }
+}
+```
+
+---
+
+### POST /logout
+
+Invalida el token actual y cierra la sesión.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "message": "Sesión cerrada exitosamente"
+}
+```
+
+---
+
+## Modelos de Datos
+
+### User
+
+```typescript
+{
+  id: number;
+  email: string;
+  username: string;
+  password: string; // Hasheado con bcrypt
+  createdAt: Date;
+  updatedAt: Date;
+  lastLogin?: Date;
+}
+```
+
+### JWT Payload
+
+```typescript
+{
+  userId: number;
+  email: string;
+  iat: number;  // Issued at
+  exp: number;  // Expiration
+}
+```
+
+---
+
+## Códigos de Error
+
+| Código | Nombre | Descripción |
+|--------|--------|-------------|
+| 400 | Bad Request | Datos de entrada inválidos |
+| 401 | Unauthorized | Token inválido o credenciales incorrectas |
+| 403 | Forbidden | No tienes permisos |
+| 404 | Not Found | Recurso no encontrado |
+| 409 | Conflict | Email/username ya existe |
+| 500 | Internal Server Error | Error del servidor |
+
+---
+
+## Rate Limiting
+
+<Warning>
+  El servicio de autenticación tiene límites de tasa para prevenir ataques de fuerza bruta.
+</Warning>
+
+| Endpoint | Límite |
+|----------|--------|
+| /register | 5 requests / 15 minutos |
+| /login | 10 requests / 15 minutos |
+| /verify | 100 requests / minuto |
+| /refresh | 20 requests / hora |
+
+---
+
+## Ejemplos con cURL
+
+### Registro
+
+```bash
+curl -X POST https://api.retrogamehub.games/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "player@example.com",
+    "username": "retroPlayer",
+    "password": "SecurePass123!"
+  }'
+```
+
+### Login
+
+```bash
+curl -X POST https://api.retrogamehub.games/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "player@example.com",
+    "password": "SecurePass123!"
+  }'
+```
+
+### Verificar Token
+
+```bash
+curl -X POST https://api.retrogamehub.games/auth/verify \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+---
+
+## Seguridad
+
+<Warning>
+  **Mejores Prácticas:**
+  
+  - ✅ Usa HTTPS en producción
+  - ✅ Almacena tokens de forma segura (httpOnly cookies recomendado)
+  - ✅ Implementa CORS correctamente
+  - ✅ Valida y sanitiza todas las entradas
+  - ✅ Usa contraseñas fuertes (mínimo 8 caracteres, mayúsculas, números)
+  - ❌ Nunca expongas tokens en URLs o logs
+</Warning>
+
+### Requisitos de Contraseña
+
+- Mínimo 8 caracteres
+- Al menos una mayúscula
+- Al menos un número
+- Al menos un carácter especial (opcional pero recomendado)
+
+---
+
+## Variables de Entorno
+
+```bash
+# Auth Service Configuration
+JWT_SECRET=your-secret-key-here
+JWT_EXPIRATION=24h
+REFRESH_TOKEN_EXPIRATION=7d
+BCRYPT_ROUNDS=10
+
+# Database
+DB_HOST=postgres
+DB_PORT=5432
+DB_NAME=retrogame_auth
+DB_USER=postgres
+DB_PASSWORD=secure_password
+```
+
+<Info>
+  Ver [Configuración](/configuration) para detalles completos de todas las variables.
+</Info>
+
+---
+
+## Próximos Pasos
+
+<CardGroup cols={2}>
+  <Card title="Game Catalog" icon="gamepad" href="/api-reference/game-catalog-service">
+    Explora el catálogo de juegos retro
+  </Card>
+  <Card title="Score Service" icon="trophy" href="/api-reference/score-service">
+    Envía y consulta puntuaciones
+  </Card>
+  <Card title="Rankings" icon="chart-bar" href="/api-reference/ranking-service">
+    Consulta rankings globales
+  </Card>
+  <Card title="User Service" icon="user" href="/api-reference/user-service">
+    Gestiona perfiles de usuario
+  </Card>
+</CardGroup>

@@ -1,0 +1,77 @@
+name: Sync Documentation from Backend
+
+on:
+  # Trigger manual
+  workflow_dispatch:
+  
+  # Trigger desde el repo backend usando repository_dispatch
+  repository_dispatch:
+    types: [docs-update]
+  
+  # O programado cada 6 horas
+  schedule:
+    - cron: '0 */6 * * *'
+
+jobs:
+  sync-docs:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout docs repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Checkout backend repo
+        uses: actions/checkout@v4
+        with:
+          repository: retrogamecloud/backend  # Ajusta esto al nombre correcto
+          path: backend
+          token: ${{ secrets.PAT_TOKEN }}  # Necesitas crear este secret
+          
+      - name: Install documentation tools
+        run: |
+          npm install -g jsdoc jsdoc-to-markdown
+          
+      - name: Generate API documentation
+        run: |
+          mkdir -p temp-docs
+          
+          # Generar docs para cada servicio
+          for service in auth-service game-catalog-service score-service ranking-service user-service; do
+            if [ -d "backend/src/${service}" ]; then
+              echo "Generating docs for ${service}..."
+              jsdoc2md "backend/src/${service}/**/*.js" > "temp-docs/${service}-api.md"
+            fi
+          done
+          
+      - name: Transform to MDX format
+        run: |
+          node .github/scripts/transform-to-mdx.js
+          
+      - name: Check for changes
+        id: check_changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          git commit -m "docs: auto-sync API documentation from backend
+
+          - Generated from backend repository
+          - Updated service endpoints and schemas
+          - Automated by GitHub Actions"
+          git push
