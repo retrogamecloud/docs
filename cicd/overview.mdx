@@ -30,46 +30,54 @@ Retro Game Hub implementa un pipeline completo de CI/CD que automatiza desde el 
 
 ## Arquitectura del Pipeline
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    DESARROLLO                               │
-└─────────────────┬───────────────────────────────────────────┘
-                  │
-                  ▼
-         ┌────────────────┐
-         │  Git Push      │
-         │  (main branch) │
-         └────────┬───────┘
-                  │
-                  ▼
-┌─────────────────────────────────────────────────────────────┐
-│              GITHUB ACTIONS WORKFLOW                        │
-│                                                             │
-│  ┌──────────┐    ┌──────────┐    ┌──────────────┐        │
-│  │  Tests   │ -> │  Build   │ -> │   Push to    │        │
-│  │  (Jest)  │    │  Docker  │    │  Docker Hub  │        │
-│  └──────────┘    └──────────┘    └──────┬───────┘        │
-│                                          │                  │
-└──────────────────────────────────────────┼──────────────────┘
-                                           │
-                                           ▼
-                  ┌────────────────────────────────┐
-                  │  Actualizar Manifiesto K8s     │
-                  │  (repositorio kubernetes/)     │
-                  └────────────┬───────────────────┘
-                               │
-                               ▼
-                  ┌────────────────────────┐
-                  │   Crear Pull Request   │
-                  │   Auto-merge si pasa   │
-                  └────────────┬───────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    PRODUCCIÓN (EKS)                         │
-│                                                             │
-│  ArgoCD detecta cambios -> Sincroniza -> Despliegue        │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph DEV["💻 DESARROLLO"]
+        A[Developer] -->|git push main| B[GitHub Repository]
+    end
+    
+    subgraph CI["⚙️ CONTINUOUS INTEGRATION - GitHub Actions"]
+        B --> C{Tests Pass?}
+        C -->|✅ Success| D[Build Docker Image]
+        C -->|❌ Fail| STOP[Stop Pipeline]
+        D --> E[Push to Docker Hub]
+        E --> F[Tag: latest, v1.0.X, sha-xxx]
+    end
+    
+    subgraph GITOPS["📦 GITOPS WORKFLOW"]
+        F --> G[Update K8s Manifest]
+        G --> H[Create Pull Request]
+        H --> I{Auto-merge?}
+        I -->|Yes| J[Merge to main]
+        I -->|No| K[Manual Review]
+        K --> J
+    end
+    
+    subgraph CD["🚀 CONTINUOUS DEPLOYMENT - ArgoCD"]
+        J --> L[ArgoCD Detects Change]
+        L --> M[Sync Application]
+        M --> N[Rolling Update]
+        N --> O[Health Check]
+        O -->|✅| P[Deployment Complete]
+        O -->|❌| Q[Rollback]
+    end
+    
+    subgraph PROD["☁️ PRODUCCIÓN - AWS EKS"]
+        P --> R[Service Running]
+        R --> S[Kong Gateway]
+        S --> T[Users]
+    end
+    
+    style A fill:#00ff88,stroke:#00aa55,color:#000
+    style B fill:#2ea043,stroke:#00aa55,color:#fff
+    style D fill:#0969da,stroke:#0550ae,color:#fff
+    style E fill:#0969da,stroke:#0550ae,color:#fff
+    style G fill:#8250df,stroke:#6639ba,color:#fff
+    style L fill:#bf3989,stroke:#99247a,color:#fff
+    style P fill:#1a7f37,stroke:#00aa55,color:#fff
+    style R fill:#1a7f37,stroke:#00aa55,color:#fff
+    style STOP fill:#cf222e,stroke:#a40e26,color:#fff
+    style Q fill:#cf222e,stroke:#a40e26,color:#fff
 ```
 
 ## Repositorios

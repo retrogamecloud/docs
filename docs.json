@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "name": "Retro Game Hub",
+  "name": "RetroGame Cloud",
   "theme": "mint",
   "colors": {
     "primary": "#00ff88",
@@ -66,30 +66,40 @@
         "tab": "Referencia API",
         "groups": [
           {
-            "group": "Autenticación",
+            "group": "Backend Services",
+            "pages": [
+              "api-reference/auth-service",
+              "api-reference/game-catalog-service",
+              "api-reference/score-service",
+              "api-reference/ranking-service",
+              "api-reference/user-service",
+              "api-reference/backend-main"
+            ]
+          },
+          {
+            "group": "Frontend",
+            "pages": [
+              "api-reference/frontend"
+            ]
+          },
+          {
+            "group": "Infrastructure",
+            "pages": [
+              "api-reference/infrastructure-docs",
+              "api-reference/kong-config",
+              "api-reference/kubernetes-manifests"
+            ]
+          },
+          {
+            "group": "Endpoints Manuales",
             "pages": [
               "api-reference/auth/login",
               "api-reference/auth/register",
-              "api-reference/auth/verify"
-            ]
-          },
-          {
-            "group": "Juegos",
-            "pages": [
+              "api-reference/auth/verify",
               "api-reference/games/list",
-              "api-reference/games/get"
-            ]
-          },
-          {
-            "group": "Puntuaciones",
-            "pages": [
+              "api-reference/games/get",
               "api-reference/scores/submit",
-              "api-reference/scores/get"
-            ]
-          },
-          {
-            "group": "Rankings",
-            "pages": [
+              "api-reference/scores/get",
               "api-reference/rankings/global",
               "api-reference/rankings/by-game"
             ]
