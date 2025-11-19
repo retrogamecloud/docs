@@ -3,102 +3,102 @@ title: "2.1. Visión General de Infraestructura"
 description: "Infraestructura cloud AWS gestionada con Terraform"
 ---
 
-## Infrastructure as Code
+## Infraestructura como Código
 
-RetroGame Cloud infrastructure is fully managed using **Terraform**, ensuring reproducible and version-controlled deployments.
+La infraestructura de RetroGame Cloud está completamente gestionada con **Terraform**, asegurando despliegues reproducibles y versionados.
 
-## AWS Services Used
+## Servicios AWS Utilizados
 
 <CardGroup cols={2}>
   <Card title="EKS" icon="dharmachakra">
-    Managed Kubernetes cluster for container orchestration
+    Cluster Kubernetes gestionado para orquestación de contenedores
   </Card>
   <Card title="VPC" icon="network-wired">
-    Isolated network with public and private subnets
+    Red aislada con subnets públicas y privadas
   </Card>
   <Card title="RDS" icon="database">
-    Managed PostgreSQL database
+    Base de datos PostgreSQL gestionada
   </Card>
   <Card title="ElastiCache" icon="bolt">
-    Managed Redis for caching
+    Redis gestionado para caché
   </Card>
   <Card title="ALB" icon="scale-balanced">
-    Application Load Balancer with SSL termination
+    Application Load Balancer con terminación SSL
   </Card>
   <Card title="Route53" icon="globe">
-    DNS management for retrogamehub.games
+    Gestión DNS para retrogamehub.games
   </Card>
   <Card title="CloudFront" icon="cloud">
-    CDN for game assets and static content
+    CDN para assets de juegos y contenido estático
   </Card>
   <Card title="S3" icon="bucket">
-    Object storage for game files and logs
+    Almacenamiento de objetos para archivos y logs
   </Card>
   <Card title="ACM" icon="certificate">
-    SSL/TLS certificates
+    Certificados SSL/TLS
   </Card>
   <Card title="IAM" icon="shield">
-    Identity and access management
+    Gestión de identidad y acceso
   </Card>
 </CardGroup>
 
-## Terraform Structure
+## Estructura de Terraform
 
 ```
 terraform/eks_test/
-├── main.tf                  # Provider configuration
-├── variables.tf             # Input variables
-├── outputs.tf               # Output values
-├── vpc.tf                   # VPC and networking
-├── eks.tf                   # EKS cluster configuration
-├── rds.tf                   # PostgreSQL database
-├── s3.tf                    # S3 buckets and CloudFront
-├── route53.tf               # DNS and SSL certificates
+├── main.tf                  # Configuración del provider
+├── variables.tf             # Variables de entrada
+├── outputs.tf               # Valores de salida
+├── vpc.tf                   # VPC y redes
+├── eks.tf                   # Configuración del cluster EKS
+├── rds.tf                   # Base de datos PostgreSQL
+├── s3.tf                    # Buckets S3 y CloudFront
+├── route53.tf               # DNS y certificados SSL
 ├── alb.tf                   # Application Load Balancer
 ├── monitoring.tf            # Prometheus, Grafana, AlertManager
-├── oauth2_proxy.tf          # GitHub OAuth for monitoring
-├── kubernetes.tf            # K8s deployments
+├── oauth2_proxy.tf          # OAuth de GitHub para monitoreo
+├── kubernetes.tf            # Deployments de K8s
 ├── kong.tf                  # Kong API Gateway
-└── terraform.tfvars         # Variable values (gitignored)
+└── terraform.tfvars         # Valores de variables (gitignored)
 ```
 
-## Network Architecture
+## Arquitectura de Red
 
-### VPC Configuration
+### Configuración de VPC
 - **CIDR**: `10.0.0.0/16`
-- **Availability Zones**: 3 (eu-west-1a, eu-west-1b, eu-west-1c)
+- **Zonas de Disponibilidad**: 3 (eu-west-1a, eu-west-1b, eu-west-1c)
 
 ### Subnets
 
 <Tabs>
-  <Tab title="Public Subnets">
+  <Tab title="Subnets Públicas">
     - `10.0.1.0/24` (eu-west-1a)
     - `10.0.2.0/24` (eu-west-1b)
     - `10.0.3.0/24` (eu-west-1c)
     
-    **Contains**:
+    **Contiene**:
     - Application Load Balancer
     - NAT Gateway
     - Internet Gateway
   </Tab>
   
-  <Tab title="Private Subnets">
+  <Tab title="Subnets Privadas">
     - `10.0.11.0/24` (eu-west-1a)
     - `10.0.12.0/24` (eu-west-1b)
     - `10.0.13.0/24` (eu-west-1c)
     
-    **Contains**:
-    - EKS worker nodes
-    - RDS database
-    - Redis cluster
-    - Application pods
+    **Contiene**:
+    - Nodos worker de EKS
+    - Base de datos RDS
+    - Cluster Redis
+    - Pods de aplicación
   </Tab>
 </Tabs>
 
-## State Management
+## Gestión de Estado
 
 <Info>
-Terraform state is stored remotely in S3 with DynamoDB locking to enable team collaboration.
+El estado de Terraform se almacena remotamente en S3 con bloqueo DynamoDB para permitir colaboración en equipo.
 </Info>
 
 ```hcl
@@ -113,56 +113,56 @@ terraform {
 }
 ```
 
-## Cost Optimization
+## Optimización de Costos
 
-### Current Costs (Estimated)
-- **EKS Cluster**: $72/month (control plane)
-- **EC2 Instances**: ~$15-30/month (t3.small nodes)
-- **RDS**: $15-25/month (db.t3.micro)
-- **NAT Gateway**: $32/month
-- **Data Transfer**: Variable
-- **Total**: ~$135-160/month
+### Costos Actuales (Estimados)
+- **Cluster EKS**: $72/mes (plano de control)
+- **Instancias EC2**: ~$15-30/mes (nodos t3.small)
+- **RDS**: $15-25/mes (db.t3.micro)
+- **NAT Gateway**: $32/mes
+- **Transferencia de Datos**: Variable
+- **Total**: ~$135-160/mes
 
 <Warning>
-t3.micro instances are insufficient for EKS workloads. Minimum recommended: **t3.small** (2GB RAM, 11 pods/node).
+Las instancias t3.micro son insuficientes para cargas de trabajo de EKS. Mínimo recomendado: **t3.small** (2GB RAM, 11 pods/nodo).
 </Warning>
 
-### Free Tier Considerations
-- EKS control plane: **NOT** covered by Free Tier ($72/month unavoidable)
-- t3.micro instances: Only 750 hours/month = 1 instance free
-- RDS: 750 hours/month db.t3.micro included
-- S3: 5GB standard storage free
-- Data Transfer: 100GB out per month free
+### Consideraciones de Free Tier
+- Plano de control EKS: **NO** cubierto por Free Tier ($72/mes inevitable)
+- Instancias t3.micro: Solo 750 horas/mes = 1 instancia gratis
+- RDS: 750 horas/mes db.t3.micro incluidas
+- S3: 5GB de almacenamiento estándar gratis
+- Transferencia de Datos: 100GB salida por mes gratis
 
-## Deployment Workflow
+## Flujo de Despliegue
 
 <Steps>
-  <Step title="Initialize Terraform">
+  <Step title="Inicializar Terraform">
     ```bash
     cd terraform/eks_test
     terraform init
     ```
   </Step>
   
-  <Step title="Plan Changes">
+  <Step title="Planificar Cambios">
     ```bash
     terraform plan
     ```
   </Step>
   
-  <Step title="Apply Infrastructure">
+  <Step title="Aplicar Infraestructura">
     ```bash
     terraform apply
     ```
   </Step>
   
-  <Step title="Configure kubectl">
+  <Step title="Configurar kubectl">
     ```bash
     aws eks update-kubeconfig --region eu-west-1 --name retrogame
     ```
   </Step>
   
-  <Step title="Verify Deployment">
+  <Step title="Verificar Despliegue">
     ```bash
     kubectl get nodes
     kubectl get pods --all-namespaces
@@ -170,24 +170,24 @@ t3.micro instances are insufficient for EKS workloads. Minimum recommended: **t3
   </Step>
 </Steps>
 
-## Key Resources
+## Recursos Clave
 
 <CardGroup cols={2}>
-  <Card title="EKS Cluster Details" icon="dharmachakra" href="/infrastructure/eks-cluster">
-    Learn about Kubernetes configuration
+  <Card title="Detalles del Cluster EKS" icon="dharmachakra" href="/infrastructure/eks-cluster">
+    Conoce la configuración de Kubernetes
   </Card>
-  <Card title="Networking Setup" icon="network-wired" href="/infrastructure/networking">
-    Understand VPC and security groups
+  <Card title="Configuración de Red" icon="network-wired" href="/infrastructure/networking">
+    Entiende la VPC y security groups
   </Card>
-  <Card title="Monitoring Stack" icon="chart-line" href="/infrastructure/monitoring">
-    Prometheus, Grafana, and OAuth setup
+  <Card title="Stack de Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
+    Prometheus, Grafana, y configuración OAuth
   </Card>
 </CardGroup>
 
-## Next Steps
+## Próximos Pasos
 
-Ready to dive deeper? Explore the specific infrastructure components:
+¿Listo para profundizar? Explora los componentes específicos de infraestructura:
 
-- [EKS Cluster Configuration](/infrastructure/eks-cluster)
-- [Networking and Security](/infrastructure/networking)
-- [Monitoring and Observability](/infrastructure/monitoring)
+- [Configuración del Cluster EKS](/infrastructure/eks-cluster)
+- [Networking y Seguridad](/infrastructure/networking)
+- [Monitoreo y Observabilidad](/infrastructure/monitoring)
