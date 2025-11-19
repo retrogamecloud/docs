@@ -1,0 +1,846 @@
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+/* === TERMINAL RETRO ESTILO AÑOS 80 PARA MINTLIFY === */
+
+:root {
+  --retro-green: #00ff88;
+  --retro-dark: #001100;
+  --retro-black: #000000;
+  --retro-green-dim: #00aa55;
+}
+
+/* Override Mintlify defaults */
+body {
+  background: radial-gradient(circle at center, var(--retro-dark) 0%, var(--retro-black) 100%) !important;
+  font-family: 'VT323', monospace !important;
+  color: var(--retro-green) !important;
+  animation: crtFlicker 2s infinite alternate;
+  font-size: 22px !important;
+  line-height: 1.6 !important;
+}
+
+/* CRT Flicker Effect */
+@keyframes crtFlicker {
+  0% { opacity: 0.99; }
+  50% { opacity: 1; }
+  100% { opacity: 0.98; }
+}
+
+/* CRT Scanlines Effect */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 255, 136, 0.05),
+    rgba(0, 255, 136, 0.05) 1px,
+    transparent 2px,
+    transparent 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: overlay;
+}
+
+/* Animated Grid Background */
+.mint-background,
+main {
+  background-image: 
+    linear-gradient(#004400 1px, transparent 1px),
+    linear-gradient(90deg, #004400 1px, transparent 1px) !important;
+  background-size: 40px 40px !important;
+  animation: moveGrid 25s linear infinite !important;
+}
+
+@keyframes moveGrid {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 40px 40px, 40px 40px; }
+}
+
+/* Headers with Glow */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'VT323', monospace !important;
+  color: var(--retro-green) !important;
+  text-shadow: 0 0 15px var(--retro-green) !important;
+}
+
+h1 { font-size: 42px !important; }
+h2 { font-size: 36px !important; }
+h3 { font-size: 30px !important; }
+h4 { font-size: 26px !important; }
+h5 { font-size: 23px !important; }
+h6 { font-size: 21px !important; }
+
+/* Page title específico (h1 en header) */
+#page-title,
+header h1 {
+  font-size: 36px !important;
+}
+
+/* Main content area */
+article,
+.markdown {
+  background: rgba(0, 20, 0, 0.85) !important;
+  border: 2px solid var(--retro-green) !important;
+  border-radius: 10px !important;
+  padding: 30px !important;
+  box-shadow: 0 0 25px var(--retro-green) !important;
+  font-size: 22px !important;
+}
+
+/* Sidebar */
+nav,
+aside {
+  background: rgba(0, 20, 0, 0.9) !important;
+  border-right: 2px solid var(--retro-green) !important;
+  box-shadow: 0 0 15px var(--retro-green) !important;
+}
+
+/* Navigation links */
+nav a,
+aside a {
+  color: var(--retro-green) !important;
+  text-shadow: 0 0 4px var(--retro-green) !important;
+  transition: all 0.3s !important;
+}
+
+nav a:hover,
+aside a:hover {
+  color: #55ffaa !important;
+  text-shadow: 0 0 10px var(--retro-green) !important;
+  background: rgba(0, 255, 136, 0.1) !important;
+}
+
+/* Buttons */
+button,
+.button,
+a.button {
+  background: transparent !important;
+  border: 2px solid var(--retro-green) !important;
+  border-radius: 8px !important;
+  color: var(--retro-green) !important;
+  font-size: 22px !important;
+  font-family: 'VT323', monospace !important;
+  padding: 10px 25px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: 0.3s !important;
+  text-shadow: 0 0 4px var(--retro-green) !important;
+}
+
+button:hover,
+.button:hover,
+a.button:hover {
+  background: var(--retro-green) !important;
+  color: black !important;
+  box-shadow: 0 0 25px var(--retro-green) !important;
+  text-shadow: none !important;
+}
+
+/* Code blocks */
+pre,
+code {
+  background: rgba(0, 0, 0, 0.8) !important;
+  border: 1px solid var(--retro-green) !important;
+  border-radius: 8px !important;
+  color: var(--retro-green) !important;
+  font-family: 'VT323', monospace !important;
+  font-size: 18px !important;
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.3) !important;
+  white-space: pre !important;
+  letter-spacing: 0 !important;
+  word-spacing: 0 !important;
+}
+
+/* ASCII diagrams - preserve formatting */
+pre code,
+.code-block code,
+code[class*="language-"] {
+  font-family: 'Courier New', 'Consolas', monospace !important;
+  white-space: pre !important;
+  overflow-x: auto !important;
+  display: block !important;
+  letter-spacing: 0 !important;
+  word-spacing: 0 !important;
+  line-height: 1.2 !important;
+}
+
+/* Code block container - SINGLE border only */
+.code-block {
+  background: rgba(0, 0, 0, 0.9) !important;
+  border: 2px solid var(--retro-green) !important;
+  border-radius: 12px !important;
+  position: relative !important;
+  padding: 0 !important;
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.5) !important;
+  overflow: hidden !important;
+}
+
+/* Remove ALL styling from inner elements */
+.code-block *:not(button):not(svg):not(path) {
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Inner wrapper - FORCE dark with inline style override */
+[data-component-part="code-block-root"],
+[data-component-part="code-block-root"][style],
+.code-block [style*="background-color"],
+.code-block .bg-white,
+.code-block .rounded-2xl,
+.code-block > div {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding-right: 50px !important;
+}
+
+/* Shiki pre with inline styles */
+pre.shiki,
+pre.shiki[style],
+.shiki-themes[style] {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* All div children */
+.code-block div {
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Pre and code inside */
+.code-block pre,
+.code-block code {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 16px !important;
+}
+
+/* ALL text to green - override inline styles */
+.code-block *:not(button) {
+  color: var(--retro-green) !important;
+  font-family: 'VT323', monospace !important;
+}
+
+/* Comments - darker green */
+span[style*="color: rgb(110, 119, 129)"],
+span[style*="#6A9955"] {
+  color: #00aa55 !important;
+  opacity: 0.8 !important;
+}
+
+/* Copy button */
+.code-block button,
+[data-testid="copy-code-button"] {
+  position: absolute !important;
+  top: 10px !important;
+  right: 10px !important;
+  background: rgba(0, 20, 0, 0.95) !important;
+  border: 2px solid var(--retro-green) !important;
+  border-radius: 6px !important;
+  padding: 6px !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 100 !important;
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.4) !important;
+}
+
+.code-block button:hover {
+  background: var(--retro-green) !important;
+  box-shadow: 0 0 20px var(--retro-green) !important;
+}
+
+.code-block button svg {
+  width: 16px !important;
+  height: 16px !important;
+  stroke: var(--retro-green) !important;
+  filter: drop-shadow(0 0 3px var(--retro-green)) !important;
+}
+
+.code-block button:hover svg {
+  stroke: black !important;
+  filter: none !important;
+}
+
+/* Tooltip */
+.code-block [aria-hidden="true"] {
+  background: rgba(0, 20, 0, 0.95) !important;
+  border: 1px solid var(--retro-green) !important;
+  color: var(--retro-green) !important;
+  font-family: 'VT323', monospace !important;
+  font-size: 16px !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.5) !important;
+}
+
+/* Inline code */
+p code,
+li code {
+  background: rgba(0, 20, 0, 0.9) !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+}
+
+/* Tables */
+table {
+  border: 2px solid var(--retro-green) !important;
+  border-collapse: collapse !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  background: rgba(0, 10, 0, 0.6) !important;
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.3) !important;
+}
+
+th {
+  background: rgba(0, 20, 0, 0.9) !important;
+  border: 1px solid var(--retro-green) !important;
+  color: var(--retro-green) !important;
+  font-size: 22px !important;
+  text-shadow: 0 0 10px var(--retro-green) !important;
+  padding: 12px !important;
+}
+
+td {
+  border: 1px solid var(--retro-green) !important;
+  background: rgba(0, 10, 0, 0.6) !important;
+  color: var(--retro-green) !important;
+  font-size: 22px !important;
+  padding: 10px !important;
+}
+
+/* Cards */
+.card,
+[class*="Card"] {
+  background: rgba(0, 20, 0, 0.85) !important;
+  border: 2px solid var(--retro-green) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.4) !important;
+  transition: 0.3s !important;
+}
+
+.card:hover,
+[class*="Card"]:hover {
+  box-shadow: 0 0 35px var(--retro-green) !important;
+  transform: scale(1.02) !important;
+}
+
+/* Alerts/Callouts */
+.warning,
+.note,
+.info,
+[class*="Callout"],
+[class*="Alert"] {
+  background: rgba(0, 20, 0, 0.9) !important;
+  border-left: 4px solid var(--retro-green) !important;
+  border-radius: 8px !important;
+  padding: 15px !important;
+  font-size: 22px !important;
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.2) !important;
+}
+
+/* Links */
+a {
+  color: var(--retro-green) !important;
+  font-size: 22px !important;
+  text-decoration: underline !important;
+  transition: 0.3s !important;
+}
+
+a:hover {
+  color: #55ffaa !important;
+  text-shadow: 0 0 8px var(--retro-green) !important;
+}
+
+/* Search bar */
+input[type="search"],
+input[type="text"] {
+  background: black !important;
+  border: 2px solid var(--retro-green) !important;
+  color: var(--retro-green) !important;
+  font-family: 'VT323', monospace !important;
+  padding: 10px !important;
+  border-radius: 6px !important;
+}
+
+input[type="search"]:focus,
+input[type="text"]:focus {
+  outline: none !important;
+  box-shadow: 0 0 15px var(--retro-green) !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 20, 0, 0.5);
+  border: 1px solid var(--retro-green);
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--retro-green);
+  border-radius: 8px;
+  box-shadow: 0 0 10px var(--retro-green);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #55ffaa;
+}
+
+/* Tabs */
+[role="tab"],
+.tab {
+  background: transparent !important;
+  border: 2px solid var(--retro-green) !important;
+  border-radius: 8px !important;
+  color: var(--retro-green) !important;
+  font-family: 'VT323', monospace !important;
+  font-size: 22px !important;
+  padding: 8px 20px !important;
+  transition: 0.3s !important;
+}
+
+[role="tab"]:hover,
+.tab:hover {
+  background: rgba(0, 255, 136, 0.2) !important;
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.5) !important;
+}
+
+[role="tab"][aria-selected="true"],
+.tab.active {
+  background: var(--retro-green) !important;
+  color: black !important;
+  box-shadow: 0 0 20px var(--retro-green) !important;
+  text-shadow: none !important;
+}
+
+/* Accordion */
+details,
+.accordion {
+  background: rgba(0, 20, 0, 0.8) !important;
+  border: 2px solid var(--retro-green) !important;
+  border-radius: 8px !important;
+  margin: 10px 0 !important;
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.2) !important;
+}
+
+summary {
+  color: var(--retro-green) !important;
+  font-weight: bold !important;
+  font-size: 22px !important;
+  padding: 15px !important;
+  cursor: pointer !important;
+  text-shadow: 0 0 6px var(--retro-green) !important;
+}
+
+summary:hover {
+  background: rgba(0, 255, 136, 0.1) !important;
+}
+
+/* Steps */
+.steps li,
+[class*="Step"] {
+  border-left: 3px solid var(--retro-green) !important;
+  padding-left: 20px !important;
+  margin: 15px 0 !important;
+  font-size: 22px !important;
+}
+
+/* Icons */
+svg,
+.icon {
+  filter: drop-shadow(0 0 4px var(--retro-green));
+}
+
+/* Header/TopBar */
+header {
+  background: rgba(0, 20, 0, 0.95) !important;
+  border: 2px solid var(--retro-green) !important;
+  border-radius: 12px !important;
+  margin: 10px !important;
+  padding: 20px !important;
+  box-shadow: 0 0 25px var(--retro-green) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+/* Remove ALL container styling in navigation area */
+header .flex-1,
+header > div.flex-1,
+header .flex-1 > *,
+header div[class*="flex"],
+header div[class*="space-x"] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+
+/* Hide logos completely */
+.nav-logo,
+img.nav-logo,
+header img[src*="logo"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Navigation container - top right flex wrapper */
+header .flex-1,
+header > div.flex-1 {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Navigation container */
+header nav {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+header nav ul {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* Navigation items (GitHub link) */
+.navbar-link,
+header nav li:not(#topbar-cta-button) {
+  background: rgba(0, 20, 0, 0.9) !important;
+  border: 2px solid var(--retro-green) !important;
+  border-radius: 8px !important;
+  height: 42px !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 16px !important;
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.3) !important;
+}
+
+.navbar-link::after,
+.navbar-link::before,
+header nav li::after,
+header nav li::before {
+  display: none !important;
+  content: none !important;
+  border: none !important;
+}
+
+.navbar-link:hover,
+header nav li:not(#topbar-cta-button):hover {
+  background: var(--retro-green) !important;
+  box-shadow: 0 0 20px var(--retro-green) !important;
+}
+
+/* Navigation links */
+.navbar-link a,
+header nav li:not(#topbar-cta-button) a {
+  color: var(--retro-green) !important;
+  font-family: 'VT323', monospace !important;
+  font-size: 20px !important;
+  text-shadow: 0 0 5px var(--retro-green) !important;
+  transition: all 0.3s !important;
+  padding: 0 !important;
+}
+
+.navbar-link:hover a,
+header nav li:not(#topbar-cta-button):hover a {
+  color: black !important;
+  text-shadow: none !important;
+}
+
+/* CTA Button "Jugar Ahora" - larger */
+#topbar-cta-button {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  height: auto !important;
+}
+
+#topbar-cta-button a {
+  background: rgba(0, 20, 0, 0.9) !important;
+  border: 2px solid var(--retro-green) !important;
+  border-radius: 8px !important;
+  color: var(--retro-green) !important;
+  font-family: 'VT323', monospace !important;
+  font-size: 22px !important;
+  padding: 12px 20px !important;
+  height: 48px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  text-shadow: 0 0 5px var(--retro-green) !important;
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.4) !important;
+  transition: all 0.3s !important;
+}
+
+#topbar-cta-button a span:first-child {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+#topbar-cta-button a:hover {
+  background: var(--retro-green) !important;
+  box-shadow: 0 0 25px var(--retro-green) !important;
+}
+
+#topbar-cta-button a:hover * {
+  color: black !important;
+  text-shadow: none !important;
+}
+
+#topbar-cta-button svg {
+  stroke: var(--retro-green) !important;
+  filter: drop-shadow(0 0 5px var(--retro-green)) !important;
+}
+
+#topbar-cta-button a:hover svg {
+  stroke: black !important;
+  filter: none !important;
+}
+
+/* Dark mode toggle button */
+header button[aria-label*="dark"],
+header button[aria-label*="Dark"] {
+  background: rgba(0, 20, 0, 0.9) !important;
+  border: 2px solid var(--retro-green) !important;
+  border-radius: 8px !important;
+  padding: 0 !important;
+  width: 42px !important;
+  height: 42px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.3) !important;
+}
+
+header button[aria-label*="dark"]:hover {
+  background: var(--retro-green) !important;
+  box-shadow: 0 0 20px var(--retro-green) !important;
+}
+
+header button svg {
+  stroke: var(--retro-green) !important;
+  filter: drop-shadow(0 0 5px var(--retro-green)) !important;
+}
+
+header button:hover svg {
+  stroke: black !important;
+  filter: none !important;
+}
+
+/* Header buttons (Copy page, More actions) */
+#page-context-menu {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+/* Header buttons (Copy page, More actions) */
+header button,
+#page-context-menu button,
+#page-context-menu-button {
+  background: rgba(0, 20, 0, 0.9) !important;
+  border: 2px solid var(--retro-green) !important;
+  color: var(--retro-green) !important;
+  font-family: 'VT323', monospace !important;
+  font-size: 18px !important;
+  padding: 10px 16px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.3) !important;
+}
+
+/* First button (Copy page) - left rounded */
+#page-context-menu button:first-child,
+button#page-context-menu-button {
+  border-radius: 8px 0 0 8px !important;
+  border-right: 1px solid var(--retro-green) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Button content (text + icon) */
+#page-context-menu button div,
+#page-context-menu-button div {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+}
+
+/* Second button (dropdown) - right rounded */
+#page-context-menu button:last-child {
+  border-radius: 0 8px 8px 0 !important;
+  border-left: 1px solid var(--retro-green) !important;
+  padding: 10px 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+header button:hover {
+  background: var(--retro-green) !important;
+  color: black !important;
+  box-shadow: 0 0 20px var(--retro-green) !important;
+}
+
+/* SVG icons in header */
+header svg,
+#page-context-menu svg {
+  filter: drop-shadow(0 0 5px var(--retro-green)) !important;
+  stroke: var(--retro-green) !important;
+  width: 18px !important;
+  height: 18px !important;
+}
+
+header button:hover svg {
+  filter: none !important;
+  stroke: black !important;
+}
+
+/* Dropdown arrow - Make it more visible and centered */
+header button svg path,
+#page-context-menu button svg path {
+  stroke: var(--retro-green) !important;
+  stroke-width: 2.5 !important;
+}
+
+/* Page title eyebrow */
+.eyebrow {
+  color: var(--retro-green) !important;
+  text-shadow: 0 0 8px var(--retro-green) !important;
+  font-size: 18px !important;
+}
+
+/* Logo */
+.logo,
+[class*="Logo"] {
+  filter: drop-shadow(0 0 10px var(--retro-green)) !important;
+}
+
+/* Footer */
+footer {
+  background: rgba(0, 20, 0, 0.9) !important;
+  border: 2px solid var(--retro-green) !important;
+  border-radius: 12px !important;
+  margin: 20px !important;
+  padding: 15px 20px !important;
+  box-shadow: 0 0 15px var(--retro-green) !important;
+  color: var(--retro-green) !important;
+}
+
+/* Footer links */
+footer a {
+  color: var(--retro-green) !important;
+  font-size: 18px !important;
+  text-shadow: 0 0 5px var(--retro-green) !important;
+  transition: all 0.3s !important;
+}
+
+footer a:hover {
+  color: #55ffaa !important;
+  text-shadow: 0 0 10px var(--retro-green) !important;
+}
+
+/* Footer icons */
+footer svg {
+  background: var(--retro-green) !important;
+  filter: drop-shadow(0 0 8px var(--retro-green)) !important;
+  transition: all 0.3s !important;
+}
+
+footer a:hover svg {
+  background: #55ffaa !important;
+  filter: drop-shadow(0 0 15px var(--retro-green)) !important;
+  transform: scale(1.1) !important;
+}
+
+/* Blockquotes */
+blockquote {
+  border-left: 4px solid var(--retro-green) !important;
+  background: rgba(0, 20, 0, 0.7) !important;
+  padding: 15px 20px !important;
+  border-radius: 8px !important;
+  font-size: 22px !important;
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.2) !important;
+}
+
+/* Badges */
+.badge,
+[class*="Badge"] {
+  background: var(--retro-green) !important;
+  color: black !important;
+  padding: 4px 10px !important;
+  border-radius: 6px !important;
+  font-family: 'VT323', monospace !important;
+  font-size: 18px !important;
+  font-weight: bold !important;
+  box-shadow: 0 0 10px var(--retro-green) !important;
+}
+
+/* Loading animations */
+@keyframes blink {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.loading {
+  animation: blink 1.5s infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  body {
+    font-size: 18px !important;
+  }
+  
+  h1 { font-size: 36px !important; }
+  h2 { font-size: 32px !important; }
+  h3 { font-size: 28px !important; }
+  
+  article,
+  .markdown {
+    padding: 20px !important;
+  }
+}
+
+/* Global text elements */
+p, li, span, div {
+  font-size: 22px !important;
+  line-height: 1.6 !important;
+}
+
+ul, ol {
+  font-size: 22px !important;
+}
