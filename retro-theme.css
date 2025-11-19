@@ -167,72 +167,284 @@ code[class*="language-"] {
   letter-spacing: 0 !important;
   word-spacing: 0 !important;
   line-height: 1.2 !important;
+  font-size: 32px !important;
 }
 
-/* Code block container - SINGLE border only */
+/* ============================================
+   CODE GROUP - Simplificación extrema
+   ============================================ */
+
+/* Container principal - solo un borde */
+.code-group,
 .code-block {
-  background: rgba(0, 0, 0, 0.9) !important;
+  background: black !important;
   border: 2px solid var(--retro-green) !important;
-  border-radius: 12px !important;
-  position: relative !important;
+  border-radius: 8px !important;
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.3) !important;
   padding: 0 !important;
-  box-shadow: 0 0 20px rgba(0, 255, 136, 0.5) !important;
+  margin: 20px 0 !important;
+  max-height: 400px !important;
   overflow: hidden !important;
+  position: relative !important;
 }
 
-/* Remove ALL styling from inner elements */
-.code-block *:not(button):not(svg):not(path) {
-  border: none !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
+/* Container principal - solo un borde */
+.code-group,
+.code-block {
+  background: black !important;
+  border: 2px solid var(--retro-green) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.3), 0 0 30px rgba(0, 255, 136, 0.2) !important;
+  padding: 0 !important;
+  margin: 20px 0 !important;
+  max-height: 400px !important;
+  overflow: hidden !important;
+  position: relative !important;
 }
 
-/* Inner wrapper - FORCE dark with inline style override */
-[data-component-part="code-block-root"],
-[data-component-part="code-block-root"][style],
-.code-block [style*="background-color"],
-.code-block .bg-white,
-.code-block .rounded-2xl,
-.code-block > div {
-  background: transparent !important;
-  background-color: transparent !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  padding-right: 50px !important;
-}
-
-/* Shiki pre with inline styles */
-pre.shiki,
-pre.shiki[style],
-.shiki-themes[style] {
-  background: transparent !important;
-  background-color: transparent !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
-/* All div children */
-.code-block div {
-  background: transparent !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
-/* Pre and code inside */
-.code-block pre,
-.code-block code {
+/* Mantener tabs bar pero simplificado */
+.code-group > div[data-component-part="code-group-tab-bar"],
+.code-group [role="tablist"] {
   background: transparent !important;
   border: none !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
+  padding: 6px 8px !important;
   margin: 0 !important;
-  padding: 16px !important;
 }
 
-/* ALL text to green - override inline styles */
-.code-block *:not(button) {
+/* Tabs individuales - tamaño balanceado */
+.code-group button[role="tab"] {
   color: var(--retro-green) !important;
-  font-family: 'VT323', monospace !important;
+  background: transparent !important;
+  border: 1px solid rgba(0, 255, 136, 0.3) !important;
+  border-radius: 3px !important;
+  padding: 5px 14px !important;
+  margin-right: 5px !important;
+  font-family: 'Courier New', monospace !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.code-group button[role="tab"]:hover {
+  background: rgba(0, 255, 136, 0.1) !important;
+  border-color: var(--retro-green) !important;
+}
+
+.code-group button[role="tab"][data-state="active"] {
+  background: var(--retro-green) !important;
+  color: black !important;
+  font-weight: bold !important;
+  border-color: var(--retro-green) !important;
+}
+
+/* Forzar visibilidad del texto dentro de los tabs */
+.code-group button[role="tab"] > div:first-child,
+.code-group button[role="tab"] div[class*="flex"],
+.code-group button[role="tab"] * {
+  color: inherit !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: inline !important;
+  font-size: 12px !important;
+}
+
+/* Tabs inactivos visibles */
+.code-group button[role="tab"][data-state="inactive"] {
+  color: rgba(0, 255, 136, 0.6) !important;
+}
+
+.code-group button[role="tab"][data-state="inactive"] * {
+  color: rgba(0, 255, 136, 0.6) !important;
+}
+
+/* Ocultar línea indicadora debajo del tab activo */
+.code-group button[role="tab"] > div:last-child[class*="absolute"] {
+  display: none !important;
+}
+
+/* Eliminar TODOS los backgrounds, borders y shadows internos */
+.code-group *:not(button):not(svg):not(path),
+.code-block *:not(button):not(svg):not(path),
+[data-component-part="code-block-root"],
+[data-component-part="code-block-root"] *,
+[data-component-part="code-group-tab-content"],
+[data-component-part="code-group-tab-content"] *,
+[role="tabpanel"],
+[role="tabpanel"] * {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Forzar override de inline styles */
+[style*="background"],
+[style*="border"],
+[style*="box-shadow"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Pre y code - todos los selectores posibles */
+.code-group pre,
+.code-block pre,
+[data-component-part="code-block-root"] pre,
+.shiki,
+.shiki pre,
+pre.shiki,
+[language] pre,
+pre[class*="shiki"] {
+  background: transparent !important;
+  color: var(--retro-green) !important;
+  font-family: 'Courier New', monospace !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  padding: 15px 45px 15px 25px !important;
+  margin: 0 !important;
+  white-space: pre !important;
+  letter-spacing: 0 !important;
+  max-height: 330px !important;
+  overflow-y: auto !important;
+}
+
+.code-group code,
+.code-block code,
+[data-component-part="code-block-root"] code,
+.shiki code,
+code[language],
+code[class*="language-"] {
+  color: var(--retro-green) !important;
+  font-family: 'Courier New', monospace !important;
+  background: transparent !important;
+  font-size: 12px !important;
+  padding: 0 0 0 10px !important;
+}
+
+/* Forzar tamaño en todos los spans */
+.code-group span,
+.code-block span,
+.shiki span,
+code span,
+pre span {
+  font-size: 12px !important;
+}
+
+/* Todo el texto en verde */
+.code-group span,
+.code-block span,
+.shiki span,
+.code-group .line,
+.code-block .line {
+  color: var(--retro-green) !important;
+}
+
+/* Botón copiar - único elemento visible además del código */
+button[data-testid="copy-code-button"],
+button[aria-label*="Copy"],
+.group\/copy-button {
+  position: absolute !important;
+  top: 10px !important;
+  right: 45px !important;
+  z-index: 100 !important;
+  background: rgba(0, 0, 0, 0.9) !important;
+  border: 1px solid var(--retro-green) !important;
+  color: var(--retro-green) !important;
+  padding: 6px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  width: 26px !important;
+  height: 26px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+button[data-testid="copy-code-button"]:hover,
+button[aria-label*="Copy"]:hover {
+  background: var(--retro-green) !important;
+  color: black !important;
+}
+
+button[data-testid="copy-code-button"] svg,
+button[aria-label*="Copy"] svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* Ocultar texto "Copy" del botón, solo mostrar icono */
+button[data-testid="copy-code-button"] *:not(svg):not(path),
+button[aria-label*="Copy"] *:not(svg):not(path) {
+  display: none !important;
+}
+
+/* Botón "More actions" - a la derecha del copy button */
+button[aria-label="More actions"],
+.code-group button[aria-haspopup="menu"],
+.code-block button[aria-haspopup="menu"] {
+  position: absolute !important;
+  top: 10px !important;
+  right: 10px !important;
+  z-index: 100 !important;
+  background: rgba(0, 0, 0, 0.9) !important;
+  border: 1px solid var(--retro-green) !important;
+  color: var(--retro-green) !important;
+  padding: 6px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  width: 26px !important;
+  height: 26px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+button[aria-label="More actions"]:hover {
+  background: var(--retro-green) !important;
+  color: black !important;
+}
+
+button[aria-label="More actions"] svg {
+  width: 14px !important;
+  height: 14px !important;
+  color: inherit !important;
+}
+
+/* Evitar duplicación del botón */
+.code-group button[data-testid="copy-code-button"] ~ button[data-testid="copy-code-button"],
+.code-block button[data-testid="copy-code-button"] ~ button[data-testid="copy-code-button"] {
+  display: none !important;
+}
+
+/* Ocultar tooltips y elementos extra */
+button + div[aria-hidden="true"],
+.peer-hover\:opacity-100,
+[class*="tooltip"] {
+  display: none !important;
+}
+
+/* Simplificar estructura de capas */
+[role="tabpanel"] {
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  height: auto !important;
+}
+
+/* Altura contenida */
+.code-group [data-component-part="code-block-root"],
+.code-block [data-component-part="code-block-root"] {
+  height: auto !important;
+  max-height: 500px !important;
+  overflow: visible !important;
 }
 
 /* Comments - darker green */

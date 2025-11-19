@@ -1,0 +1,992 @@
+---
+title: '5. Configuración'
+description: 'Referencia completa de configuración para todos los servicios de RetroGame Cloud'
+---
+
+# ⚙️ Configuración del Sistema
+
+Esta página documenta todas las variables de configuración, parámetros y ajustes disponibles en RetroGame Cloud.
+
+---
+
+## 🔐 Variables de Entorno
+
+### Auth Service
+
+Variables de entorno para el servicio de autenticación:
+
+```bash
+# Puerto del servicio
+PORT=3001
+
+# Entorno de ejecución
+NODE_ENV=production
+
+# Base de datos PostgreSQL
+DB_HOST=retrogame-db.xxxxx.eu-west-1.rds.amazonaws.com
+DB_PORT=5432
+DB_NAME=retrogamedb
+DB_USER=postgres
+DB_PASSWORD=<secret>
+
+# JWT Configuration
+JWT_SECRET=<generated-secret-key>
+JWT_EXPIRATION=24h
+
+# Redis para sesiones (opcional)
+REDIS_HOST=redis-service
+REDIS_PORT=6379
+REDIS_PASSWORD=<secret>
+
+# Rate Limiting
+RATE_LIMIT_WINDOW=60000    # 1 minuto en ms
+RATE_LIMIT_MAX_REQUESTS=10  # Máximo 10 requests/minuto
+
+# CORS
+CORS_ORIGIN=https://retrogamehub.games
+```
+
+#### Valores Recomendados por Entorno
+
+| Variable | Development | Production |
+|----------|-------------|------------|
+| `NODE_ENV` | `development` | `production` |
+| `JWT_EXPIRATION` | `7d` | `24h` |
+| `RATE_LIMIT_MAX_REQUESTS` | `100` | `10` |
+| `DB_HOST` | `localhost` | RDS endpoint |
+
+---
+
+### User Service
+
+```bash
+# Puerto del servicio
+PORT=3002
+
+# Entorno
+NODE_ENV=production
+
+# Base de datos
+DB_HOST=retrogame-db.xxxxx.eu-west-1.rds.amazonaws.com
+DB_PORT=5432
+DB_NAME=retrogamedb
+DB_USER=postgres
+DB_PASSWORD=<secret>
+
+# Validación de datos
+USERNAME_MIN_LENGTH=3
+USERNAME_MAX_LENGTH=20
+EMAIL_VALIDATION_REGEX=^[^\s@]+@[^\s@]+\.[^\s@]+$
+
+# Avatar por defecto
+DEFAULT_AVATAR_URL=https://cdn.retrogamehub.games/avatars/default.png
+
+# Cache de perfiles (segundos)
+PROFILE_CACHE_TTL=300  # 5 minutos
+```
+
+---
+
+### Game Catalog Service
+
+```bash
+# Puerto del servicio
+PORT=3003
+
+# Entorno
+NODE_ENV=production
+
+# Base de datos
+DB_HOST=retrogame-db.xxxxx.eu-west-1.rds.amazonaws.com
+DB_PORT=5432
+DB_NAME=retrogamedb
+DB_USER=postgres
+DB_PASSWORD=<secret>
+
+# CDN Configuration
+CDN_BASE_URL=https://cdn.retrogamehub.games
+CDN_GAMES_PATH=/juegos
+
+# CloudFront
+CLOUDFRONT_DISTRIBUTION_ID=E1XXXXXXXXXXXXX
+CLOUDFRONT_CACHE_TTL=3600  # 1 hora
+
+# Géneros disponibles
+AVAILABLE_GENRES=FPS,Platformer,RPG,Puzzle,Strategy,Fighting
+
+# Paginación
+DEFAULT_PAGE_SIZE=20
+MAX_PAGE_SIZE=100
+
+# Cache
+GAMES_CACHE_TTL=3600  # 1 hora
+GAME_DETAIL_CACHE_TTL=86400  # 24 horas
+```
+
+---
+
+### Score Service
+
+```bash
+# Puerto del servicio
+PORT=3004
+
+# Entorno
+NODE_ENV=production
+
+# Base de datos
+DB_HOST=retrogame-db.xxxxx.eu-west-1.rds.amazonaws.com
+DB_PORT=5432
+DB_NAME=retrogamedb
+DB_USER=postgres
+DB_PASSWORD=<secret>
+
+# Redis para cache de scores
+REDIS_HOST=redis-service
+REDIS_PORT=6379
+REDIS_PASSWORD=<secret>
+
+# Anti-Cheat Configuration
+SCORE_VALIDATION_ENABLED=true
+SESSION_VALIDATION_ENABLED=true
+MEMORY_SCAN_INTERVAL=5000  # 5 segundos
+
+# Rate Limiting para submit
+SUBMIT_RATE_LIMIT_WINDOW=30000  # 30 segundos
+SUBMIT_RATE_LIMIT_MAX=1  # 1 submit cada 30 seg
+
+# Rangos válidos por juego (min,max)
+DOOM_SCORE_RANGE=0,1000000
+TETRIS_SCORE_RANGE=0,999999
+DUKE3D_SCORE_RANGE=0,500000
+WOLF_SCORE_RANGE=0,300000
+
+# Redis Pub/Sub
+REDIS_CHANNEL_SCORE_SUBMITTED=score:submitted
+```
+
+---
+
+### Ranking Service
+
+```bash
+# Puerto del servicio
+PORT=3005
+
+# Entorno
+NODE_ENV=production
+
+# Base de datos
+DB_HOST=retrogame-db.xxxxx.eu-west-1.rds.amazonaws.com
+DB_PORT=5432
+DB_NAME=retrogamedb
+DB_USER=postgres
+DB_PASSWORD=<secret>
+
+# Redis para rankings
+REDIS_HOST=redis-service
+REDIS_PORT=6379
+REDIS_PASSWORD=<secret>
+
+# Cache TTL por tipo de ranking
+GLOBAL_RANKING_TTL=300  # 5 minutos
+DAILY_RANKING_TTL=300   # 5 minutos
+WEEKLY_RANKING_TTL=600  # 10 minutos
+MONTHLY_RANKING_TTL=1800  # 30 minutos
+ALLTIME_RANKING_TTL=1800  # 30 minutos
+
+# Algoritmo de ranking global
+GLOBAL_RANK_WEIGHT_AVG_RANK=0.5
+GLOBAL_RANK_WEIGHT_TOTAL_SCORE=0.3
+GLOBAL_RANK_WEIGHT_GAMES_PLAYED=0.2
+
+# Tamaños de rankings
+TOP_PLAYERS_LIMIT=100
+LEADERBOARD_DEFAULT_SIZE=10
+
+# Redis Pub/Sub
+REDIS_CHANNEL_CACHE_INVALIDATE=ranking:invalidate
+```
+
+---
+
+## 🗄️ Configuración de Base de Datos
+
+### PostgreSQL (RDS)
+
+#### Parámetros de Conexión
+
+```sql
+-- Configuración de conexión pool
+max_connections = 100
+shared_buffers = 256MB
+effective_cache_size = 1GB
+maintenance_work_mem = 64MB
+work_mem = 4MB
+
+-- Logs
+log_statement = 'all'  -- En development
+log_statement = 'ddl'  -- En production
+log_min_duration_statement = 1000  -- Log queries > 1 segundo
+```
+
+#### Índices Recomendados
+
+```sql
+-- Usuarios
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_users_email ON users(email);
+
+-- Juegos
+CREATE INDEX idx_games_slug ON games(slug);
+CREATE INDEX idx_games_genre ON games(genre);
+CREATE INDEX idx_games_year ON games(year);
+
+-- Scores
+CREATE INDEX idx_scores_user_id ON scores(user_id);
+CREATE INDEX idx_scores_game_slug ON scores(game_slug);
+CREATE INDEX idx_scores_score_desc ON scores(score DESC);
+CREATE INDEX idx_scores_created_at ON scores(created_at);
+CREATE INDEX idx_scores_composite ON scores(game_slug, score DESC, created_at);
+```
+
+#### Backups
+
+```bash
+# Automated backups (configurado en Terraform)
+backup_retention_period = 7  # días
+backup_window = "03:00-04:00"  # UTC
+maintenance_window = "mon:04:00-mon:05:00"
+
+# Manual snapshot
+aws rds create-db-snapshot \
+  --db-instance-identifier retrogame-db \
+  --db-snapshot-identifier manual-backup-$(date +%Y%m%d)
+```
+
+---
+
+## 🔴 Configuración de Redis
+
+### ElastiCache Redis
+
+```bash
+# Configuración básica
+redis_version = "7.0"
+node_type = "cache.t3.micro"
+num_cache_nodes = 1
+port = 6379
+
+# Seguridad
+at_rest_encryption_enabled = true
+transit_encryption_enabled = true
+
+# Parámetros de Redis
+maxmemory-policy = "allkeys-lru"
+timeout = 300
+tcp-keepalive = 60
+```
+
+### Estructura de Claves en Redis
+
+```bash
+# Rankings globales
+ranking:global -> Sorted Set con {userId: globalScore}
+
+# Rankings por juego
+ranking:game:{gameSlug}:alltime -> Sorted Set
+ranking:game:{gameSlug}:monthly -> Sorted Set
+ranking:game:{gameSlug}:weekly -> Sorted Set
+ranking:game:{gameSlug}:daily -> Sorted Set
+
+# Cache de scores de usuario
+scores:user:{userId} -> Hash {gameSlug: score}
+
+# Cache de perfiles
+profile:{userId} -> JSON string
+
+# TTL por tipo
+SETEX ranking:global 300 <data>
+SETEX profile:123 300 <data>
+```
+
+---
+
+## 🌐 Configuración de Kong API Gateway
+
+### Configuración Global
+
+El archivo `kong/kong.yml` define toda la configuración de Kong:
+
+```yaml
+_format_version: "3.0"
+
+# Servicios upstream
+services:
+  - name: auth-service
+    url: http://auth-service:3001
+    
+  - name: user-service
+    url: http://user-service:3002
+    
+  - name: game-catalog-service
+    url: http://game-catalog-service:3003
+    
+  - name: score-service
+    url: http://score-service:3004
+    
+  - name: ranking-service
+    url: http://ranking-service:3005
+
+# Rutas
+routes:
+  - name: auth-route
+    service: auth-service
+    paths:
+      - /auth
+    strip_path: false
+    
+  - name: users-route
+    service: user-service
+    paths:
+      - /users
+    strip_path: false
+```
+
+### Plugins Habilitados
+
+#### Rate Limiting
+
+```yaml
+plugins:
+  - name: rate-limiting
+    config:
+      minute: 100
+      hour: 1000
+      policy: local
+      fault_tolerant: true
+      hide_client_headers: false
+```
+
+**Configuración por Endpoint:**
+
+| Endpoint | Rate Limit | Window |
+|----------|------------|--------|
+| `/auth/login` | 10 req | 1 min |
+| `/auth/register` | 5 req | 1 hour |
+| `/scores` (POST) | 1 req | 30 seg |
+| `/games` | 100 req | 1 min |
+| `/rankings/*` | 50 req | 1 min |
+
+#### CORS
+
+```yaml
+plugins:
+  - name: cors
+    config:
+      origins:
+        - https://retrogamehub.games
+        - https://www.retrogamehub.games
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Authorization
+        - Content-Type
+      credentials: true
+      max_age: 3600
+```
+
+#### Request Transformer
+
+```yaml
+plugins:
+  - name: request-transformer
+    config:
+      add:
+        headers:
+          - X-Forwarded-Proto:https
+          - X-Kong-Request-ID:$(uuid())
+```
+
+#### Response Transformer
+
+```yaml
+plugins:
+  - name: response-transformer
+    config:
+      add:
+        headers:
+          - X-Kong-Response-Time:$(latency)
+          - X-RateLimit-Limit-Minute:100
+```
+
+---
+
+## ☁️ Configuración de CloudFront
+
+### Distribución de CloudFront
+
+```hcl
+# Terraform configuration
+resource "aws_cloudfront_distribution" "cdn" {
+  enabled             = true
+  is_ipv6_enabled     = true
+  default_root_object = "index.html"
+  price_class         = "PriceClass_100"  # USA, Canada, Europe
+
+  origin {
+    domain_name = aws_s3_bucket.cdn.bucket_regional_domain_name
+    origin_id   = "S3-retrogame-cdn"
+  }
+
+  # Cache behaviors
+  default_cache_behavior {
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "S3-retrogame-cdn"
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+
+    viewer_protocol_policy = "redirect-to-https"
+    min_ttl                = 0
+    default_ttl            = 3600    # 1 hora
+    max_ttl                = 86400   # 24 horas
+    compress               = true
+  }
+
+  # Cache por tipo de archivo
+  ordered_cache_behavior {
+    path_pattern     = "*.jsdos"
+    allowed_methods  = ["GET", "HEAD"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "S3-retrogame-cdn"
+    
+    min_ttl     = 0
+    default_ttl = 86400   # 24 horas para juegos
+    max_ttl     = 604800  # 7 días
+    compress    = true
+  }
+
+  ordered_cache_behavior {
+    path_pattern     = "*.css"
+    allowed_methods  = ["GET", "HEAD"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "S3-retorgame-cdn"
+    
+    default_ttl = 3600  # 1 hora para CSS
+    compress    = true
+  }
+
+  ordered_cache_behavior {
+    path_pattern     = "*.js"
+    allowed_methods  = ["GET", "HEAD"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "S3-retrogame-cdn"
+    
+    default_ttl = 3600  # 1 hora para JS
+    compress    = true
+  }
+}
+```
+
+### Invalidación de Caché
+
+```bash
+# Invalidar todo el caché
+aws cloudfront create-invalidation \
+  --distribution-id E1XXXXXXXXXXXXX \
+  --paths "/*"
+
+# Invalidar archivos específicos
+aws cloudfront create-invalidation \
+  --distribution-id E1XXXXXXXXXXXXX \
+  --paths "/index.html" "/retro.css" "/score-tracker.js"
+
+# Invalidar juegos únicamente
+aws cloudfront create-invalidation \
+  --distribution-id E1XXXXXXXXXXXXX \
+  --paths "/juegos/*"
+```
+
+---
+
+## 🎮 Configuración de js-dos
+
+### Configuración por Juego
+
+Cada juego tiene su configuración específica en la base de datos:
+
+#### DOOM (1993)
+
+```json
+{
+  "dosbox_config": {
+    "cycles": "max",
+    "memsize": 16,
+    "sound": {
+      "enabled": true,
+      "sb_type": "sb16",
+      "sb_port": 220,
+      "sb_irq": 7,
+      "sb_dma": 1
+    }
+  },
+  "controls": {
+    "up": "ArrowUp",
+    "down": "ArrowDown",
+    "left": "ArrowLeft",
+    "right": "ArrowRight",
+    "action": "ControlLeft",
+    "fire": "Space",
+    "strafe": "AltLeft"
+  },
+  "memory_addresses": {
+    "score": "0x1234",
+    "health": "0x5678",
+    "ammo": "0x9ABC"
+  }
+}
+```
+
+#### Tetris
+
+```json
+{
+  "dosbox_config": {
+    "cycles": "3000",
+    "memsize": 4,
+    "sound": {
+      "enabled": true,
+      "sb_type": "sbpro2"
+    }
+  },
+  "controls": {
+    "left": "ArrowLeft",
+    "right": "ArrowRight",
+    "down": "ArrowDown",
+    "rotate": "ArrowUp",
+    "drop": "Space"
+  },
+  "memory_addresses": {
+    "score": "0x0600",
+    "level": "0x0604",
+    "lines": "0x0608"
+  }
+}
+```
+
+#### Duke Nukem 3D
+
+```json
+{
+  "dosbox_config": {
+    "cycles": "max",
+    "memsize": 32,
+    "sound": {
+      "enabled": true,
+      "sb_type": "sb16",
+      "sb_port": 220
+    }
+  },
+  "controls": {
+    "forward": "ArrowUp",
+    "back": "ArrowDown",
+    "left": "ArrowLeft",
+    "right": "ArrowRight",
+    "fire": "ControlLeft",
+    "jump": "KeyA",
+    "crouch": "KeyZ",
+    "use": "Space"
+  },
+  "memory_addresses": {
+    "score": "0x2000",
+    "health": "0x2004",
+    "armor": "0x2008"
+  }
+}
+```
+
+### Memory Scanner Configuration
+
+```javascript
+// score-tracker.js configuration
+const SCAN_INTERVAL = 5000; // 5 segundos
+const SCAN_ATTEMPTS = 3;
+const SCAN_TIMEOUT = 2000;
+
+const MEMORY_MAPS = {
+  'doom': {
+    score: { offset: 0x1234, type: 'uint32' },
+    health: { offset: 0x5678, type: 'uint8' },
+    ammo: { offset: 0x9ABC, type: 'uint16' }
+  },
+  'tetris': {
+    score: { offset: 0x0600, type: 'uint32' },
+    level: { offset: 0x0604, type: 'uint8' },
+    lines: { offset: 0x0608, type: 'uint16' }
+  },
+  'duke3d': {
+    score: { offset: 0x2000, type: 'uint32' },
+    health: { offset: 0x2004, type: 'uint8' },
+    armor: { offset: 0x2008, type: 'uint8' }
+  }
+};
+```
+
+---
+
+## 🔒 Configuración de Seguridad
+
+### JWT Tokens
+
+```javascript
+// Configuración de JWT
+const jwtConfig = {
+  secret: process.env.JWT_SECRET,
+  expiresIn: '24h',
+  algorithm: 'HS256',
+  issuer: 'retrogamehub.games',
+  audience: 'retrogamehub-users'
+};
+
+// Payload del token
+{
+  "userId": "uuid-v4",
+  "username": "player1",
+  "email": "player1@example.com",
+  "iat": 1700000000,
+  "exp": 1700086400,
+  "iss": "retrogamehub.games",
+  "aud": "retrogamehub-users"
+}
+```
+
+### Password Hashing
+
+```javascript
+// bcrypt configuration
+const bcryptConfig = {
+  saltRounds: 10,  // Production
+  saltRounds: 12   // Si se requiere mayor seguridad
+};
+
+// Ejemplo de hash
+const hash = await bcrypt.hash(password, 10);
+// $2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+```
+
+### CORS Policy
+
+```javascript
+// Backend CORS configuration
+const corsOptions = {
+  origin: [
+    'https://retrogamehub.games',
+    'https://www.retrogamehub.games'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  maxAge: 3600
+};
+```
+
+---
+
+## 📊 Configuración de Logs
+
+### Formato de Logs
+
+```javascript
+// Winston logger configuration
+const loggerConfig = {
+  level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ 
+      filename: 'error.log', 
+      level: 'error' 
+    }),
+    new winston.transports.File({ 
+      filename: 'combined.log' 
+    })
+  ]
+};
+```
+
+### Niveles de Log
+
+```javascript
+// Log levels
+logger.error('Error message');   // Errores críticos
+logger.warn('Warning message');  // Advertencias
+logger.info('Info message');     // Información general
+logger.debug('Debug message');   // Debugging
+```
+
+### CloudWatch Logs
+
+```bash
+# Log groups por servicio
+/ecs/auth-service
+/ecs/user-service
+/ecs/game-catalog-service
+/ecs/score-service
+/ecs/ranking-service
+
+# Retention period
+retention_in_days = 7  # Development
+retention_in_days = 30 # Production
+```
+
+---
+
+## 🚀 Configuración de Kubernetes
+
+### Resource Limits
+
+```yaml
+# auth-service deployment
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "256Mi"
+    cpu: "200m"
+
+# score-service deployment (más recursos por procesamiento)
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "200m"
+  limits:
+    memory: "512Mi"
+    cpu: "400m"
+```
+
+### Health Checks
+
+```yaml
+# Liveness probe
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Readiness probe
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 3000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+```
+
+### Horizontal Pod Autoscaler (HPA)
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: auth-service
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+```
+
+---
+
+## 🌍 Variables por Entorno
+
+### Development
+
+```bash
+# .env.development
+NODE_ENV=development
+PORT=3000
+
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=retrogame_dev
+DB_USER=postgres
+DB_PASSWORD=postgres
+
+JWT_SECRET=dev-secret-key
+JWT_EXPIRATION=7d
+
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+RATE_LIMIT_ENABLED=false
+
+LOG_LEVEL=debug
+```
+
+### Staging
+
+```bash
+# .env.staging
+NODE_ENV=staging
+PORT=3000
+
+DB_HOST=retrogame-staging.rds.amazonaws.com
+DB_PORT=5432
+DB_NAME=retrogame_staging
+DB_USER=postgres
+DB_PASSWORD=<staging-password>
+
+JWT_SECRET=<staging-jwt-secret>
+JWT_EXPIRATION=24h
+
+REDIS_HOST=redis-staging.cache.amazonaws.com
+REDIS_PORT=6379
+
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_MAX_REQUESTS=50
+
+LOG_LEVEL=info
+```
+
+### Production
+
+```bash
+# .env.production
+NODE_ENV=production
+PORT=3000
+
+DB_HOST=retrogame-prod.rds.amazonaws.com
+DB_PORT=5432
+DB_NAME=retrogame_production
+DB_USER=postgres
+DB_PASSWORD=<strong-production-password>
+
+JWT_SECRET=<strong-jwt-secret>
+JWT_EXPIRATION=24h
+
+REDIS_HOST=redis-prod.cache.amazonaws.com
+REDIS_PORT=6379
+REDIS_PASSWORD=<redis-password>
+
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_MAX_REQUESTS=10
+
+LOG_LEVEL=warn
+```
+
+---
+
+## 📝 Checklist de Configuración
+
+### Pre-Despliegue
+
+- [ ] Todas las variables de entorno configuradas
+- [ ] Secrets creados en Kubernetes
+- [ ] Base de datos migrada y con seeds
+- [ ] Redis conectado y funcionando
+- [ ] Kong configurado con rate limiting
+- [ ] CloudFront con certificado SSL
+- [ ] Dominio apuntando correctamente
+- [ ] Health checks respondiendo
+
+### Post-Despliegue
+
+- [ ] Verificar logs sin errores
+- [ ] Probar endpoints críticos
+- [ ] Verificar cache de Redis
+- [ ] Revisar métricas de performance
+- [ ] Verificar backups automáticos
+- [ ] Configurar alertas de monitoreo
+
+---
+
+## 🔧 Modificar Configuración en Producción
+
+### Actualizar Variables de Entorno
+
+```bash
+# Editar ConfigMap
+kubectl edit configmap backend-config -n backend
+
+# Reiniciar deployments para aplicar cambios
+kubectl rollout restart deployment/auth-service -n backend
+kubectl rollout restart deployment/score-service -n backend
+```
+
+### Actualizar Secrets
+
+```bash
+# Actualizar secret de base de datos
+kubectl create secret generic db-credentials \
+  --namespace=backend \
+  --from-literal=password=NEW_PASSWORD \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Reiniciar pods
+kubectl rollout restart deployment -n backend
+```
+
+### Aplicar Cambios de Kong
+
+```bash
+# Editar configuración de Kong
+kubectl edit configmap kong-config -n backend
+
+# Reiniciar Kong
+kubectl rollout restart deployment/kong -n backend
+
+# Verificar configuración
+kubectl exec -it deployment/kong -n backend -- kong config db_export
+```
+
+---
+
+## 📞 Soporte
+
+Para preguntas sobre configuración específica:
+
+1. Revisa esta documentación
+2. Consulta los [ejemplos en GitHub](https://github.com/retrogamecloud)
+3. Revisa [troubleshooting](/troubleshooting)
+4. Abre un issue con la etiqueta `configuration`
+
+<Card title="Configuración Avanzada" icon="gear">
+  ¿Necesitas configuración personalizada? Consulta nuestra documentación de servicios individuales o contacta al equipo de soporte.
+</Card>

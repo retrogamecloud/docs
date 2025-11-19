@@ -1,5 +1,5 @@
 ---
-title: "Servicio de Autenticación"
+title: "8.8. Servicio de Autenticación"
 description: "Servicio de autenticación con JWT y gestión de usuarios"
 icon: "lock"
 ---
@@ -10,21 +10,15 @@ El servicio de autenticación maneja el registro, login y validación de usuario
 
 <CardGroup cols={3}>
   <Card title="Registro" icon="user-plus">
-    Crear nuevas cuentas
-    
-    Username único requerido
+    Crear nuevas cuentas con username único requerido
   </Card>
   
   <Card title="Login" icon="right-to-bracket">
-    Autenticación JWT
-    
-    Token válido por 24h
+    Autenticación JWT con token válido por 24h
   </Card>
   
   <Card title="Validación" icon="shield-check">
-    Middleware protector
-    
-    Verifica tokens en cada request
+    Middleware protector que verifica tokens en cada request
   </Card>
 </CardGroup>
 
@@ -42,47 +36,14 @@ graph TD
 
 ## Tecnologías
 
-<Table>
-  <thead>
-    <tr>
-      <th>Tecnología</th>
-      <th>Versión</th>
-      <th>Propósito</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>**Node.js**</td>
-      <td>20 LTS</td>
-      <td>Runtime de JavaScript</td>
-    </tr>
-    <tr>
-      <td>**Express**</td>
-      <td>^4.18</td>
-      <td>Framework web</td>
-    </tr>
-    <tr>
-      <td>**jsonwebtoken**</td>
-      <td>^9.0</td>
-      <td>Generación y validación de JWT</td>
-    </tr>
-    <tr>
-      <td>**bcrypt**</td>
-      <td>^5.1</td>
-      <td>Hash de contraseñas (salt rounds: 10)</td>
-    </tr>
-    <tr>
-      <td>**pg**</td>
-      <td>^8.11</td>
-      <td>Cliente PostgreSQL</td>
-    </tr>
-    <tr>
-      <td>**Jest**</td>
-      <td>^29.7</td>
-      <td>Testing framework</td>
-    </tr>
-  </tbody>
-</Table>
+| Tecnología | Versión | Propósito |
+|------------|---------|-----------|
+| **Node.js** | 20 LTS | Runtime de JavaScript |
+| **Express** | ^4.18 | Framework web |
+| **jsonwebtoken** | ^9.0 | Generación y validación de JWT |
+| **bcrypt** | ^5.1 | Hash de contraseñas (salt rounds: 10) |
+| **pg** | ^8.11 | Cliente PostgreSQL |
+| **Jest** | ^29.7 | Testing framework |
 
 ## Endpoints
 
@@ -91,7 +52,7 @@ graph TD
 Crea una nueva cuenta de usuario.
 
 <CodeGroup>
-```bash Request
+```bash cURL
 curl -X POST http://api.retrogamecloud.com/auth/register \
   -H "Content-Type: application/json" \
   -d '{
@@ -102,7 +63,39 @@ curl -X POST http://api.retrogamecloud.com/auth/register \
   }'
 ```
 
-```json Response 201
+```javascript JavaScript
+const response = await fetch('http://api.retrogamecloud.com/auth/register', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    username: 'player1',
+    password: 'SecurePass123!',
+    email: 'player1@example.com',
+    display_name: 'Player One'
+  })
+});
+const data = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'http://api.retrogamecloud.com/auth/register',
+    json={
+        'username': 'player1',
+        'password': 'SecurePass123!',
+        'email': 'player1@example.com',
+        'display_name': 'Player One'
+    }
+)
+data = response.json()
+```
+</CodeGroup>
+
+**Response 201 Created:**
+
+```json
 {
   "message": "Usuario registrado exitosamente",
   "user": {
@@ -117,12 +110,13 @@ curl -X POST http://api.retrogamecloud.com/auth/register \
 }
 ```
 
-```json Error 409
+**Error 409 Conflict:**
+
+```json
 {
   "error": "El usuario ya existe"
 }
 ```
-</CodeGroup>
 
 **Validaciones:**
 - Username: 3-30 caracteres, alfanumérico + guiones bajos
@@ -143,7 +137,7 @@ curl -X POST http://api.retrogamecloud.com/auth/register \
 Autentica un usuario existente.
 
 <CodeGroup>
-```bash Request
+```bash cURL
 curl -X POST http://api.retrogamecloud.com/auth/login \
   -H "Content-Type: application/json" \
   -d '{
@@ -152,7 +146,35 @@ curl -X POST http://api.retrogamecloud.com/auth/login \
   }'
 ```
 
-```json Response 200
+```javascript JavaScript
+const response = await fetch('http://api.retrogamecloud.com/auth/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    username: 'player1',
+    password: 'SecurePass123!'
+  })
+});
+const data = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'http://api.retrogamecloud.com/auth/login',
+    json={
+        'username': 'player1',
+        'password': 'SecurePass123!'
+    }
+)
+data = response.json()
+```
+</CodeGroup>
+
+**Response 200 OK:**
+
+```json
 {
   "message": "Login exitoso",
   "user": {
@@ -166,12 +188,13 @@ curl -X POST http://api.retrogamecloud.com/auth/login \
 }
 ```
 
-```json Error 401
+**Error 401 Unauthorized:**
+
+```json
 {
   "error": "Credenciales inválidas"
 }
 ```
-</CodeGroup>
 
 **Proceso interno:**
 1. Buscar usuario por username
@@ -190,12 +213,35 @@ curl -X POST http://api.retrogamecloud.com/auth/login \
 Valida un token JWT y retorna información del usuario.
 
 <CodeGroup>
-```bash Request
+```bash cURL
 curl -X GET http://api.retrogamecloud.com/auth/verify \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
-```json Response 200
+```javascript JavaScript
+const response = await fetch('http://api.retrogamecloud.com/auth/verify', {
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+});
+const data = await response.json();
+```
+
+```python Python
+import requests
+
+headers = {'Authorization': f'Bearer {token}'}
+response = requests.get(
+    'http://api.retrogamecloud.com/auth/verify',
+    headers=headers
+)
+data = response.json()
+```
+</CodeGroup>
+
+**Response 200 OK:**
+
+```json
 {
   "valid": true,
   "user": {
@@ -208,12 +254,13 @@ curl -X GET http://api.retrogamecloud.com/auth/verify \
 }
 ```
 
-```json Error 401
+**Error 401 Unauthorized:**
+
+```json
 {
   "error": "Token inválido o expirado"
 }
 ```
-</CodeGroup>
 
 **Uso típico:**
 - Frontend verifica si el usuario sigue autenticado al cargar la app
@@ -278,8 +325,7 @@ CREATE INDEX idx_users_active ON users(is_active);
 
 ## Variables de Entorno
 
-<CodeGroup>
-```bash .env.example
+```bash
 # Puerto del servicio
 PORT=3001
 
@@ -299,57 +345,14 @@ JWT_EXPIRATION=24h
 LOG_LEVEL=info
 ```
 
-```yaml Kubernetes ConfigMap
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: auth-service-config
-data:
-  PORT: "3001"
-  NODE_ENV: "production"
-  JWT_EXPIRATION: "24h"
-  LOG_LEVEL: "info"
-```
-
-```yaml Kubernetes Secret
-apiVersion: v1
-kind: Secret
-metadata:
-  name: auth-service-secrets
-type: Opaque
-data:
-  JWT_SECRET: <base64-encoded-secret>
-  DATABASE_URL: <base64-encoded-url>
-```
-</CodeGroup>
-
 <Warning>
-  **JWT_SECRET** debe ser una cadena aleatoria de al menos 32 caracteres en producción. Genera uno con:
-  ```bash
-  openssl rand -base64 32
-  ```
+**JWT_SECRET** debe ser una cadena aleatoria de al menos 32 caracteres en producción. Genera uno con:
+```bash
+openssl rand -base64 32
+```
 </Warning>
 
-## Despliegue
-
-### Docker
-
-```dockerfile
-FROM node:20-alpine
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm ci --only=production
-
-COPY . .
-
-EXPOSE 3001
-
-CMD ["node", "index.js"]
-```
-
-### Kubernetes
+## Despliegue en Kubernetes
 
 ```yaml
 apiVersion: apps/v1
@@ -372,10 +375,9 @@ spec:
         image: retrogamehub/auth-service:latest
         ports:
         - containerPort: 3001
-        envFrom:
-        - configMapRef:
-            name: auth-service-config
         env:
+        - name: PORT
+          value: "3001"
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
@@ -407,10 +409,22 @@ spec:
 
 ## Tests
 
-### Tests Unitarios
+### Ejecutar Tests
+
+```bash
+# Instalar dependencias
+npm install
+
+# Ejecutar tests
+npm test
+
+# Coverage
+npm run test:coverage
+```
+
+### Ejemplo de Test
 
 ```javascript
-// tests/auth.test.js
 describe('Auth Service', () => {
   describe('POST /auth/register', () => {
     it('debe registrar un nuevo usuario', async () => {
@@ -428,10 +442,8 @@ describe('Auth Service', () => {
     });
     
     it('debe rechazar username duplicado', async () => {
-      // Registrar usuario
       await createTestUser('duplicate');
       
-      // Intentar registrar el mismo username
       const res = await request(app)
         .post('/auth/register')
         .send({
@@ -443,91 +455,10 @@ describe('Auth Service', () => {
       expect(res.body.error).toContain('ya existe');
     });
   });
-  
-  describe('POST /auth/login', () => {
-    it('debe autenticar usuario válido', async () => {
-      // Crear usuario de prueba
-      await createTestUser('logintest', 'Pass123!');
-      
-      const res = await request(app)
-        .post('/auth/login')
-        .send({
-          username: 'logintest',
-          password: 'Pass123!'
-        });
-      
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('token');
-    });
-    
-    it('debe rechazar contraseña incorrecta', async () => {
-      await createTestUser('wrongpass', 'Correct123!');
-      
-      const res = await request(app)
-        .post('/auth/login')
-        .send({
-          username: 'wrongpass',
-          password: 'Wrong123!'
-        });
-      
-      expect(res.status).toBe(401);
-    });
-  });
 });
-```
-
-**Ejecutar tests:**
-```bash
-npm test
-npm run test:coverage
 ```
 
 **Cobertura esperada:** > 80%
-
-## Métricas y Monitoreo
-
-### Prometheus Metrics
-
-```javascript
-import promClient from 'prom-client';
-
-// Contador de registros
-const registerCounter = new promClient.Counter({
-  name: 'auth_registrations_total',
-  help: 'Total de registros de usuarios'
-});
-
-// Contador de logins
-const loginCounter = new promClient.Counter({
-  name: 'auth_logins_total',
-  help: 'Total de logins',
-  labelNames: ['status']
-});
-
-// Histograma de latencia
-const authLatency = new promClient.Histogram({
-  name: 'auth_request_duration_seconds',
-  help: 'Latencia de requests de autenticación',
-  labelNames: ['endpoint']
-});
-```
-
-### Logs Estructurados
-
-```javascript
-// Usar Winston o Pino para logs
-logger.info('User registered', {
-  userId: user.id,
-  username: user.username,
-  timestamp: new Date().toISOString()
-});
-
-logger.warn('Failed login attempt', {
-  username: req.body.username,
-  ip: req.ip,
-  timestamp: new Date().toISOString()
-});
-```
 
 ## Seguridad
 
@@ -543,7 +474,7 @@ logger.warn('Failed login attempt', {
   <Accordion title="✅ JWT con expiración">
     - Tokens válidos por 24 horas
     - Firmados con HS256
-    - Payload mínimo: { userId, username }
+    - Payload mínimo: `{ userId, username }`
   </Accordion>
   
   <Accordion title="✅ Validación de entrada">
@@ -557,80 +488,45 @@ logger.warn('Failed login attempt', {
     - Protección contra brute force
     - Implementado en Kong API Gateway
   </Accordion>
-  
-  <Accordion title="✅ CORS configurado">
-    - Solo orígenes permitidos
-    - Credenciales habilitadas cuando necesario
-  </Accordion>
 </AccordionGroup>
-
-### Vulnerabilidades Conocidas y Mitigaciones
-
-- ❌ **User enumeration**: Login retorna mismo error para user inexistente o password incorrecta ✅
-- ❌ **JWT sin refresh tokens**: Implementar refresh tokens en v2 📋
-- ❌ **No hay 2FA**: Agregar autenticación de dos factores 📋
 
 ## Troubleshooting
 
 <AccordionGroup>
   <Accordion title="Error: JWT_SECRET not configured">
-    **Causa**: Variable de entorno JWT_SECRET no está definida
+    **Causa:** Variable de entorno JWT_SECRET no está definida
     
-    **Solución**:
+    **Solución:**
     ```bash
-    # Generar secret
     export JWT_SECRET=$(openssl rand -base64 32)
     
-    # O configurar en Kubernetes Secret
+    # O en Kubernetes
     kubectl create secret generic auth-service-secrets \
       --from-literal=JWT_SECRET=$(openssl rand -base64 32)
     ```
   </Accordion>
   
   <Accordion title="Error: Cannot connect to database">
-    **Causa**: PostgreSQL no accesible o DATABASE_URL incorrecta
+    **Causa:** PostgreSQL no accesible o DATABASE_URL incorrecta
     
-    **Solución**:
+    **Solución:**
     ```bash
-    # Verificar que PostgreSQL esté corriendo
     kubectl get pods -n retrogame | grep postgres
     
-    # Test de conectividad
     kubectl run pg-test --image=postgres:15 --rm -it -- \
       psql postgresql://postgres:password@postgres:5432/retrogamedb
     ```
   </Accordion>
   
   <Accordion title="Token inválido en otros servicios">
-    **Causa**: JWT_SECRET diferente entre servicios
+    **Causa:** JWT_SECRET diferente entre servicios
     
-    **Solución**: Todos los servicios deben usar el **mismo** JWT_SECRET
+    **Solución:** Todos los servicios deben usar el mismo JWT_SECRET
     ```bash
-    # Verificar que todos usen el mismo secret
     kubectl get secret auth-service-secrets -o yaml
     ```
   </Accordion>
 </AccordionGroup>
-
-## Roadmap
-
-<CardGroup cols={2}>
-  <Card title="v2.0 - Refresh Tokens" icon="rotate">
-    Implementar refresh tokens para mejor UX
-  </Card>
-  
-  <Card title="v2.1 - OAuth2" icon="github">
-    Login con GitHub, Google, Discord
-  </Card>
-  
-  <Card title="v2.2 - 2FA" icon="mobile">
-    Autenticación de dos factores (TOTP)
-  </Card>
-  
-  <Card title="v2.3 - Password Reset" icon="key">
-    Recuperación de contraseña por email
-  </Card>
-</CardGroup>
 
 ## Próximos Pasos
 
@@ -643,11 +539,11 @@ logger.warn('Failed login attempt', {
     Gestión de puntuaciones
   </Card>
   
-  <Card title="CI/CD" icon="rocket" href="/cicd/overview">
-    Pipeline de despliegue
-  </Card>
-  
   <Card title="API Reference" icon="book" href="/api-reference/auth/login">
     Referencia completa de la API
+  </Card>
+  
+  <Card title="Deployment Guide" icon="rocket" href="/deployment">
+    Guía de despliegue
   </Card>
 </CardGroup>

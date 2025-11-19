@@ -1,0 +1,610 @@
+---
+title: '7. Diagramas de Secuencia'
+description: 'Diagramas de flujo detallados de los procesos clave del sistema'
+---
+
+# 🔄 Diagramas de Secuencia
+
+Diagramas detallados que muestran el flujo de datos entre componentes para los procesos más importantes de RetroGame Cloud.
+
+---
+
+## 🔐 Flujo de Autenticación
+
+### Registro de Usuario
+
+```mermaid
+sequenceDiagram
+    actor Usuario
+    participant Frontend
+    participant Kong
+    participant AuthService
+    participant DB
+    participant Redis
+
+    Usuario->>Frontend: Completa formulario registro
+    Frontend->>Frontend: Validación cliente<br/>(username 3-20 chars,<br/>email válido, password 6+)
+    
+    Frontend->>Kong: POST /auth/register<br/>{username, email, password}
+    
+    Kong->>Kong: Rate Limiting<br/>(5 req/hora)
+    
+    Kong->>AuthService: Forward request
+    
+    AuthService->>AuthService: Validación servidor
+    
+    AuthService->>DB: SELECT username, email<br/>FROM users<br/>WHERE username=? OR email=?
+    
+    alt Usuario ya existe
+        DB-->>AuthService: Usuario encontrado
+        AuthService-->>Kong: 409 Conflict
+        Kong-->>Frontend: Error: Usuario existe
+        Frontend-->>Usuario: Mostrar mensaje error
+    else Usuario nuevo
+        DB-->>AuthService: No encontrado
+        
+        AuthService->>AuthService: Hash password<br/>(bcrypt, 10 rounds)
+        
+        AuthService->>DB: INSERT INTO users<br/>(username, email, password)
+        DB-->>AuthService: userId generado
+        
+        AuthService->>AuthService: Generar JWT Token<br/>(userId, username, email)<br/>Expira: 24h
+        
+        AuthService->>Redis: SET session:userId<br/>TTL: 24h
+        Redis-->>AuthService: OK
+        
+        AuthService-->>Kong: 201 Created<br/>{token, user}
+        Kong-->>Frontend: Success response
+        
+        Frontend->>Frontend: Guardar token en localStorage
+        Frontend-->>Usuario: Redirigir a /games.html
+    end
+```
+
+### Login de Usuario
+
+```mermaid
+sequenceDiagram
+    actor Usuario
+    participant Frontend
+    participant Kong
+    participant AuthService
+    participant DB
+    participant Redis
+
+    Usuario->>Frontend: Ingresa credenciales
+    Frontend->>Kong: POST /auth/login<br/>{username, password}
+    
+    Kong->>Kong: Rate Limiting<br/>(10 req/minuto)
+    
+    Kong->>AuthService: Forward request
+    
+    AuthService->>DB: SELECT id, username, email, password<br/>FROM users<br/>WHERE username=?
+    
+    alt Usuario no existe
+        DB-->>AuthService: No encontrado
+        AuthService-->>Kong: 401 Unauthorized
+        Kong-->>Frontend: Error: Credenciales inválidas
+        Frontend-->>Usuario: Mostrar error
+    else Usuario existe
+        DB-->>AuthService: Datos de usuario
+        
+        AuthService->>AuthService: Verificar password<br/>bcrypt.compare(password, hash)
+        
+        alt Password incorrecta
+            AuthService-->>Kong: 401 Unauthorized
+            Kong-->>Frontend: Error: Credenciales inválidas
+            Frontend-->>Usuario: Mostrar error
+        else Password correcta
+            AuthService->>AuthService: Generar JWT Token<br/>Expira: 24h
+            
+            AuthService->>Redis: SET session:userId<br/>Guardar sesión<br/>TTL: 24h
+            Redis-->>AuthService: OK
+            
+            AuthService->>DB: UPDATE users<br/>SET last_login=NOW()<br/>WHERE id=userId
+            DB-->>AuthService: OK
+            
+            AuthService-->>Kong: 200 OK<br/>{token, user}
+            Kong-->>Frontend: Success response
+            
+            Frontend->>Frontend: Guardar token en localStorage
+            Frontend-->>Usuario: Redirigir a /games.html
+        end
+    end
+```
+
+### Verificación de Token
+
+```mermaid
+sequenceDiagram
+    participant Frontend
+    participant Kong
+    participant AuthService
+    participant Redis
+
+    Frontend->>Kong: GET /auth/verify<br/>Header: Authorization Bearer <token>
+    
+    Kong->>AuthService: Forward request
+    
+    AuthService->>AuthService: Extraer token<br/>del header
+    
+    alt Token no presente
+        AuthService-->>Kong: 401 Unauthorized
+        Kong-->>Frontend: Error: Token requerido
+    else Token presente
+        AuthService->>AuthService: Verificar JWT<br/>jwt.verify(token, SECRET)
+        
+        alt Token inválido o expirado
+            AuthService-->>Kong: 401 Unauthorized
+            Kong-->>Frontend: Error: Token inválido
+            Frontend->>Frontend: Eliminar token<br/>de localStorage
+            Frontend->>Frontend: Redirigir a /index.html
+        else Token válido
+            AuthService->>AuthService: Decodificar payload<br/>{userId, username, email}
+            
+            AuthService->>Redis: GET session:userId
+            
+            alt Sesión no existe
+                Redis-->>AuthService: null
+                AuthService-->>Kong: 401 Unauthorized
+                Kong-->>Frontend: Error: Sesión expirada
+            else Sesión válida
+                Redis-->>AuthService: Datos de sesión
+                
+                AuthService->>Redis: EXPIRE session:userId 86400<br/>Renovar TTL
+                Redis-->>AuthService: OK
+                
+                AuthService-->>Kong: 200 OK<br/>{valid: true, user}
+                Kong-->>Frontend: Token válido
+                Frontend->>Frontend: Mantener sesión activa
+            end
+        end
+    end
+```
+
+---
+
+## 🎮 Flujo de Carga de Juego
+
+```mermaid
+sequenceDiagram
+    actor Usuario
+    participant Frontend
+    participant Kong
+    participant GameCatalog
+    participant CloudFront
+    participant S3
+    participant jsDOS
+
+    Usuario->>Frontend: Click en juego "DOOM"
+    
+    Frontend->>Kong: GET /games/doom
+    Kong->>GameCatalog: Forward request
+    
+    GameCatalog->>GameCatalog: SELECT * FROM games<br/>WHERE slug='doom'
+    
+    GameCatalog-->>Kong: 200 OK<br/>{game details, bundle_url,<br/>dosbox_config, controls}
+    Kong-->>Frontend: Game metadata
+    
+    Frontend->>Frontend: Mostrar pantalla de carga<br/>"Loading DOOM..."
+    
+    Frontend->>CloudFront: GET /juegos/doom.jsdos
+    
+    CloudFront->>CloudFront: Verificar cache
+    
+    alt Cache Hit
+        CloudFront-->>Frontend: Bundle (cached)<br/>X-Cache: Hit from cloudfront
+    else Cache Miss
+        CloudFront->>S3: GET doom.jsdos
+        S3-->>CloudFront: Bundle file
+        CloudFront->>CloudFront: Cachear bundle<br/>TTL: 24 horas
+        CloudFront-->>Frontend: Bundle<br/>X-Cache: Miss from cloudfront
+    end
+    
+    Frontend->>Frontend: Descargar bundle<br/>Progress: 0-100%
+    
+    loop Cada 100ms
+        Frontend->>Frontend: Actualizar barra<br/>de progreso
+        Frontend-->>Usuario: Mostrar % descargado
+    end
+    
+    Frontend->>Frontend: Bundle descargado<br/>Size: ~50MB
+    
+    Frontend->>jsDOS: Dos(canvas, {<br/>  url: blobUrl<br/>})
+    
+    jsDOS->>jsDOS: Extraer bundle
+    jsDOS->>jsDOS: Configurar DOSBox<br/>(cycles, memsize, sound)
+    jsDOS->>jsDOS: Montar filesystem virtual
+    jsDOS->>jsDOS: Ejecutar comando inicial<br/>("DOOM.EXE")
+    
+    jsDOS-->>Frontend: Emulador iniciado
+    
+    Frontend->>Frontend: Ocultar pantalla de carga
+    Frontend-->>Usuario: Juego listo para jugar
+    
+    Usuario->>jsDOS: Interactuar con juego<br/>(teclado, mouse)
+    jsDOS->>jsDOS: Procesar input
+    jsDOS-->>Usuario: Renderizar frame<br/>(60 FPS)
+```
+
+---
+
+## 🏆 Flujo de Submit Score (con Anti-Cheat)
+
+```mermaid
+sequenceDiagram
+    actor Usuario
+    participant Frontend
+    participant ScoreTracker
+    participant jsDOS
+    participant Kong
+    participant ScoreService
+    participant DB
+    participant Redis
+    participant RankingService
+
+    Usuario->>jsDOS: Jugando DOOM...
+    
+    ScoreTracker->>ScoreTracker: Iniciar monitoring<br/>setInterval(5000ms)
+    
+    loop Cada 5 segundos
+        ScoreTracker->>jsDOS: Leer memoria<br/>offset 0x1234
+        jsDOS-->>ScoreTracker: Valor actual del score
+        
+        ScoreTracker->>ScoreTracker: Validar score<br/>(rango 0-1,000,000)
+        
+        alt Score inválido
+            ScoreTracker->>ScoreTracker: Log warning<br/>Posible cheat detectado
+        else Score válido y mayor
+            ScoreTracker->>ScoreTracker: Actualizar local score<br/>Mostrar en UI
+            ScoreTracker-->>Usuario: Mostrar score actual
+        end
+    end
+    
+    Usuario->>jsDOS: Terminar juego<br/>(Game Over o salir)
+    
+    jsDOS-->>ScoreTracker: Evento: game ended
+    
+    ScoreTracker->>ScoreTracker: Obtener score final
+    ScoreTracker->>ScoreTracker: Generar session_id<br/>${userId}-${gameSlug}-${timestamp}
+    
+    ScoreTracker->>Kong: POST /scores<br/>Authorization: Bearer <token><br/>{game_slug, score, session_id}
+    
+    Kong->>Kong: Rate Limiting<br/>(1 req cada 30 seg<br/>por user/game)
+    
+    alt Rate limit excedido
+        Kong-->>ScoreTracker: 429 Too Many Requests
+        ScoreTracker-->>Usuario: Espera 30 segundos
+    else Dentro del límite
+        Kong->>ScoreService: Forward request
+        
+        ScoreService->>ScoreService: Verificar JWT token<br/>Extraer userId
+        
+        ScoreService->>ScoreService: Validar session_id<br/>(formato correcto)
+        
+        ScoreService->>ScoreService: Validar score range<br/>(DOOM: 0-1,000,000)
+        
+        alt Validación falla
+            ScoreService-->>Kong: 400 Bad Request<br/>{error: "Invalid score"}
+            Kong-->>ScoreTracker: Error
+            ScoreTracker-->>Usuario: Score inválido
+        else Validación pasa
+            ScoreService->>DB: SELECT score FROM scores<br/>WHERE user_id=? AND game_slug=?
+            
+            DB-->>ScoreService: Score anterior (si existe)
+            
+            alt Nuevo score <= Score anterior
+                ScoreService-->>Kong: 200 OK<br/>{saved: false,<br/> message: "No es highscore"}
+                Kong-->>ScoreTracker: No guardado
+                ScoreTracker-->>Usuario: No superaste tu récord
+            else Nuevo score > Score anterior
+                ScoreService->>DB: INSERT INTO scores<br/>(user_id, game_slug, score,<br/> session_id, created_at)<br/>ON CONFLICT UPDATE
+                
+                DB-->>ScoreService: Score guardado
+                
+                ScoreService->>Redis: PUBLISH score:submitted<br/>{userId, gameSlug, score}
+                
+                Redis-->>RankingService: Evento recibido<br/>(Pub/Sub)
+                
+                RankingService->>Redis: DEL ranking:game:doom:*<br/>DEL ranking:global<br/>Invalidar cache
+                
+                Redis-->>RankingService: Cache limpiado
+                
+                ScoreService-->>Kong: 201 Created<br/>{saved: true,<br/> newHighScore: score}
+                
+                Kong-->>ScoreTracker: Success
+                
+                ScoreTracker-->>Usuario: ¡Nuevo récord!<br/>Score: 50,000
+            end
+        end
+    end
+```
+
+---
+
+## 📊 Flujo de Ranking Global
+
+```mermaid
+sequenceDiagram
+    actor Usuario
+    participant Frontend
+    participant Kong
+    participant RankingService
+    participant Redis
+    participant DB
+
+    Usuario->>Frontend: Navegar a /rankings
+    
+    Frontend->>Kong: GET /rankings/global
+    
+    Kong->>RankingService: Forward request
+    
+    RankingService->>Redis: GET ranking:global
+    
+    alt Cache Hit
+        Redis-->>RankingService: Ranking cacheado<br/>(JSON serializado)
+        
+        RankingService->>RankingService: Deserializar JSON
+        
+        RankingService-->>Kong: 200 OK<br/>{rankings, cached: true}
+        Kong-->>Frontend: Ranking data
+        
+        Frontend->>Frontend: Renderizar tabla<br/>con top 100 jugadores
+        Frontend-->>Usuario: Mostrar rankings
+    else Cache Miss
+        Redis-->>RankingService: null
+        
+        RankingService->>DB: SELECT<br/>  u.id, u.username,<br/>  AVG(rank) as avg_rank,<br/>  SUM(score) as total_score,<br/>  COUNT(*) as games_played<br/>FROM users u<br/>JOIN scores s ON u.id=s.user_id<br/>GROUP BY u.id<br/>ORDER BY total_score DESC<br/>LIMIT 100
+        
+        DB-->>RankingService: Raw ranking data
+        
+        RankingService->>RankingService: Calcular globalScore<br/>= (1 - avgRank/maxRank) * 0.5<br/>+ (totalScore/maxScore) * 0.3<br/>+ (gamesPlayed/maxGames) * 0.2
+        
+        RankingService->>RankingService: Ordenar por globalScore<br/>Asignar posiciones 1-100
+        
+        RankingService->>RankingService: Serializar a JSON
+        
+        RankingService->>Redis: SETEX ranking:global 300<br/>JSON data<br/>(TTL: 5 minutos)
+        
+        Redis-->>RankingService: OK
+        
+        RankingService-->>Kong: 200 OK<br/>{rankings, cached: false}
+        Kong-->>Frontend: Ranking data
+        
+        Frontend->>Frontend: Renderizar tabla
+        Frontend->>Frontend: Resaltar top 3<br/>(🥇🥈🥉)
+        Frontend->>Frontend: Resaltar usuario actual<br/>(si está en top 100)
+        Frontend-->>Usuario: Mostrar rankings
+    end
+    
+    Note over Frontend,Usuario: Auto-refresh cada 5 min
+    
+    loop Cada 5 minutos
+        Frontend->>Kong: GET /rankings/global
+        Note over Kong,RankingService: Repetir flujo anterior
+    end
+```
+
+---
+
+## 🎯 Flujo de Ranking por Juego
+
+```mermaid
+sequenceDiagram
+    actor Usuario
+    participant Frontend
+    participant Kong
+    participant RankingService
+    participant Redis
+    participant DB
+
+    Usuario->>Frontend: Click en juego "DOOM"
+    Usuario->>Frontend: Seleccionar período "monthly"
+    
+    Frontend->>Kong: GET /rankings/game/doom?period=monthly
+    
+    Kong->>RankingService: Forward request
+    
+    RankingService->>RankingService: Validar período<br/>(alltime|monthly|weekly|daily)
+    
+    RankingService->>Redis: GET ranking:game:doom:monthly
+    
+    alt Cache Hit
+        Redis-->>RankingService: Ranking cacheado
+        
+        RankingService-->>Kong: 200 OK<br/>{rankings, cached: true}
+        Kong-->>Frontend: Ranking data
+    else Cache Miss
+        Redis-->>RankingService: null
+        
+        RankingService->>RankingService: Calcular fecha inicio<br/>monthly: 1er día del mes<br/>weekly: hace 7 días<br/>daily: hoy 00:00
+        
+        RankingService->>DB: SELECT<br/>  u.id, u.username, u.avatar,<br/>  s.score, s.created_at<br/>FROM scores s<br/>JOIN users u ON s.user_id=u.id<br/>WHERE s.game_slug='doom'<br/>  AND s.created_at >= ?<br/>ORDER BY s.score DESC<br/>LIMIT 100
+        
+        DB-->>RankingService: Scores del período
+        
+        RankingService->>RankingService: Agregar posiciones (rank)
+        
+        RankingService->>RankingService: Identificar top 3<br/>para podio
+        
+        RankingService->>RankingService: Serializar JSON
+        
+        RankingService->>RankingService: Determinar TTL<br/>daily: 5 min<br/>weekly: 10 min<br/>monthly: 30 min<br/>alltime: 30 min
+        
+        RankingService->>Redis: SETEX ranking:game:doom:monthly<br/>TTL data
+        
+        Redis-->>RankingService: OK
+        
+        RankingService-->>Kong: 200 OK<br/>{rankings, period, cached: false}
+        Kong-->>Frontend: Ranking data
+    end
+    
+    Frontend->>Frontend: Renderizar podio<br/>Top 3 destacados
+    
+    Frontend->>Frontend: Renderizar tabla<br/>Posiciones 4-100
+    
+    Frontend->>Frontend: Buscar posición usuario actual
+    
+    alt Usuario en top 100
+        Frontend->>Frontend: Resaltar fila<br/>del usuario
+        Frontend-->>Usuario: "Estás en posición #15"
+    else Usuario no en top 100
+        Frontend->>Kong: GET /rankings/game/doom/my-position
+        Kong->>RankingService: Forward
+        RankingService->>DB: SELECT COUNT(*) + 1<br/>FROM scores<br/>WHERE game_slug='doom'<br/>  AND score > user_score
+        DB-->>RankingService: Posición calculada
+        RankingService-->>Frontend: {position: 245}
+        Frontend-->>Usuario: "Estás en posición #245"
+    end
+    
+    Frontend-->>Usuario: Mostrar ranking completo
+```
+
+---
+
+## 🔄 Flujo de Invalidación de Cache
+
+```mermaid
+sequenceDiagram
+    participant ScoreService
+    participant Redis
+    participant RankingService
+
+    Note over ScoreService: Nuevo score guardado en DB
+
+    ScoreService->>Redis: PUBLISH score:submitted<br/>{<br/>  userId: "123",<br/>  gameSlug: "doom",<br/>  score: 50000,<br/>  timestamp: "2024-11-19T10:00:00Z"<br/>}
+    
+    Redis->>RankingService: Mensaje Pub/Sub<br/>(subscriber activo)
+    
+    RankingService->>RankingService: Parsear mensaje
+    
+    RankingService->>RankingService: Log evento<br/>"Cache invalidation for doom"
+    
+    par Invalidar rankings del juego
+        RankingService->>Redis: DEL ranking:game:doom:alltime
+        Redis-->>RankingService: 1 (deleted)
+        
+        RankingService->>Redis: DEL ranking:game:doom:monthly
+        Redis-->>RankingService: 1 (deleted)
+        
+        RankingService->>Redis: DEL ranking:game:doom:weekly
+        Redis-->>RankingService: 1 (deleted)
+        
+        RankingService->>Redis: DEL ranking:game:doom:daily
+        Redis-->>RankingService: 1 (deleted)
+    and Invalidar ranking global
+        RankingService->>Redis: DEL ranking:global
+        Redis-->>RankingService: 1 (deleted)
+    and Invalidar cache de usuario
+        RankingService->>Redis: DEL scores:user:123
+        Redis-->>RankingService: 1 (deleted)
+        
+        RankingService->>Redis: DEL profile:123
+        Redis-->>RankingService: 1 (deleted)
+    end
+    
+    RankingService->>RankingService: Log<br/>"Cache invalidation complete"
+    
+    Note over Redis: Próximo request regenerará cache
+```
+
+---
+
+## 📈 Diagrama de Estados del Sistema
+
+```mermaid
+stateDiagram-v2
+    [*] --> Uninitialized: Sistema apagado
+    
+    Uninitialized --> Starting: terraform apply
+    
+    Starting --> Healthy: Todos los pods Running
+    Starting --> Degraded: Algunos pods fallan
+    
+    Healthy --> Degraded: Pod crash / OOMKill
+    Healthy --> Overloaded: CPU/Memoria > 80%
+    Healthy --> Maintenance: Deployment en progreso
+    
+    Degraded --> Healthy: Pod reinicia exitosamente
+    Degraded --> Critical: Múltiples pods fallan
+    
+    Overloaded --> Scaling: HPA triggered
+    Scaling --> Healthy: Nuevos pods ready
+    
+    Maintenance --> Healthy: Deployment exitoso
+    Maintenance --> Degraded: Rollout falla
+    
+    Critical --> Recovering: Intervención manual
+    Recovering --> Healthy: Todos los servicios OK
+    Recovering --> [*]: terraform destroy
+    
+    Healthy --> [*]: terraform destroy
+```
+
+---
+
+## 🎯 Flujo de Despliegue CI/CD
+
+```mermaid
+sequenceDiagram
+    actor Developer
+    participant GitHub
+    participant GitHubActions
+    participant DockerHub
+    participant ArgoCD
+    participant Kubernetes
+
+    Developer->>GitHub: git push origin main
+    
+    GitHub->>GitHubActions: Trigger workflow<br/>(push event)
+    
+    GitHubActions->>GitHubActions: Checkout code
+    
+    GitHubActions->>GitHubActions: Run tests<br/>(npm test)
+    
+    alt Tests fail
+        GitHubActions-->>Developer: ❌ Build failed<br/>(notification)
+    else Tests pass
+        GitHubActions->>GitHubActions: Build Docker image<br/>docker build -t app:$VERSION
+        
+        GitHubActions->>DockerHub: Push image<br/>docker push app:$VERSION<br/>docker push app:latest
+        
+        DockerHub-->>GitHubActions: Image pushed
+        
+        GitHubActions->>GitHub: Update manifest<br/>kubernetes/deployment.yml<br/>(image: app:$VERSION)
+        
+        GitHub-->>GitHubActions: Commit created
+        
+        GitHubActions-->>Developer: ✅ Build successful
+        
+        Note over ArgoCD: Polling cada 3 min
+        
+        ArgoCD->>GitHub: Check for changes
+        
+        GitHub-->>ArgoCD: New commit detected
+        
+        ArgoCD->>ArgoCD: Compare live state<br/>vs Git state<br/>(Diff detected)
+        
+        ArgoCD->>Kubernetes: Apply manifest<br/>kubectl apply -f deployment.yml
+        
+        Kubernetes->>Kubernetes: Rolling update<br/>(old pod → new pod)
+        
+        Kubernetes->>Kubernetes: Health check new pods<br/>(liveness/readiness probes)
+        
+        alt Health checks pass
+            Kubernetes->>Kubernetes: Terminate old pods
+            Kubernetes-->>ArgoCD: Sync successful
+            ArgoCD-->>Developer: 🚀 Deployed to production
+        else Health checks fail
+            Kubernetes->>Kubernetes: Rollback automático
+            Kubernetes-->>ArgoCD: Sync failed
+            ArgoCD-->>Developer: ⚠️ Deployment failed<br/>Rolled back
+        end
+    end
+```
+
+---
+
+<Card title="Documentación Relacionada" icon="book">
+  Para más detalles sobre cada componente, consulta las páginas de [Servicios](/services/auth-service) y [Troubleshooting](/troubleshooting).
+</Card>
