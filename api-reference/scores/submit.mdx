@@ -1,0 +1,416 @@
+---
+title: "POST /scores"
+description: "Enviar puntuación de un juego"
+api: "POST https://api.retrogamehub.games/scores"
+---
+
+## Descripción
+
+Registra una nueva puntuación para un jugador en un juego específico. Solo se guarda si es mayor que la puntuación anterior del jugador para ese juego.
+
+<Warning>
+  Requiere autenticación. Incluye el token JWT en el header `Authorization`.
+</Warning>
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  Token JWT en formato: `Bearer <token>`
+</ParamField>
+
+<ParamField header="Content-Type" type="string" required>
+  Debe ser `application/json`
+</ParamField>
+
+## Request Body
+
+<ParamField body="game_slug" type="string" required>
+  Slug del juego (ej: "doom", "tetris")
+</ParamField>
+
+<ParamField body="score" type="number" required>
+  Puntuación obtenida (debe ser > 0)
+</ParamField>
+
+<ParamField body="session_id" type="string">
+  ID de sesión de juego (para anti-cheat)
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Metadata adicional (nivel alcanzado, tiempo jugado, etc)
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Mensaje de confirmación
+</ResponseField>
+
+<ResponseField name="score" type="number">
+  Puntuación guardada (puede ser la anterior si era mayor)
+</ResponseField>
+
+<ResponseField name="is_highscore" type="boolean">
+  Indica si es un nuevo récord personal
+</ResponseField>
+
+<ResponseField name="rank" type="number">
+  Posición en el ranking global del juego
+</ResponseField>
+
+<ResponseField name="total_players" type="number">
+  Total de jugadores en el ranking
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL
+curl -X POST https://api.retrogamehub.games/scores \
+  -H "Authorization: Bearer eyJhbGc..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "game_slug": "doom",
+    "score": 125000,
+    "session_id": "abc-123-xyz",
+    "metadata": {
+      "level": 8,
+      "time_played": 3600
+    }
+  }'
+```
+
+```javascript JavaScript
+const token = localStorage.getItem('token');
+
+async function submitScore(gameSlug, score) {
+  const response = await fetch('https://api.retrogamehub.games/scores', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      game_slug: gameSlug,
+      score: score,
+      session_id: generateSessionId(),
+      metadata: {
+        timestamp: Date.now()
+      }
+    })
+  });
+  
+  const data = await response.json();
+  
+  if (data.is_highscore) {
+    showCelebration(`¡Nuevo récord personal! Posición #${data.rank}`);
+  }
+  
+  return data;
+}
+```
+
+```python Python
+import requests
+
+token = "eyJhbGc..."
+
+response = requests.post(
+    'https://api.retrogamehub.games/scores',
+    headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    },
+    json={
+        'game_slug': 'tetris',
+        'score': 50000,
+        'session_id': 'session-456',
+        'metadata': {
+            'level': 15,
+            'lines': 120
+        }
+    }
+)
+
+data = response.json()
+print(f"Score guardado: {data['score']}")
+print(f"Ranking: #{data['rank']} de {data['total_players']}")
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 - New Highscore
+{
+  "message": "¡Nuevo récord personal!",
+  "score": 125000,
+  "is_highscore": true,
+  "rank": 42,
+  "total_players": 1547,
+  "previous_score": 98000
+}
+```
+
+```json 200 - Score Lower
+{
+  "message": "Puntuación guardada (tu récord es mayor)",
+  "score": 150000,
+  "is_highscore": false,
+  "rank": 42,
+  "total_players": 1547,
+  "submitted_score": 120000
+}
+```
+
+```json 201 - First Score
+{
+  "message": "Primera puntuación registrada",
+  "score": 75000,
+  "is_highscore": true,
+  "rank": 523,
+  "total_players": 1548
+}
+```
+
+```json 401 - Unauthorized
+{
+  "error": "Token no proporcionado"
+}
+```
+
+```json 404 - Game Not Found
+{
+  "error": "Juego no encontrado: invalid-game"
+}
+```
+
+```json 400 - Invalid Score
+{
+  "error": "Score debe ser un número positivo"
+}
+```
+
+</ResponseExample>
+
+## Lógica de Guardado
+
+<Steps>
+  <Step title="Validar Token">
+    Verifica que el usuario está autenticado y el token es válido
+  </Step>
+  
+  <Step title="Validar Juego">
+    Comprueba que el juego existe en el catálogo
+  </Step>
+  
+  <Step title="Comparar Scores">
+    Consulta la puntuación anterior del usuario para ese juego
+  </Step>
+  
+  <Step title="Actualizar si es Mayor">
+    Solo guarda la nueva puntuación si supera la anterior
+  </Step>
+  
+  <Step title="Calcular Ranking">
+    Determina la posición en el ranking global del juego
+  </Step>
+  
+  <Step title="Invalidar Caché">
+    Publica evento para invalidar caché de rankings en Redis
+  </Step>
+  
+  <Step title="Retornar Resultado">
+    Devuelve confirmación con ranking actualizado
+  </Step>
+</Steps>
+
+## Anti-Cheat
+
+<AccordionGroup>
+  <Accordion title="Session ID">
+    El `session_id` se genera al iniciar el juego y debe ser consistente durante toda la sesión. Ayuda a detectar envíos fraudulentos.
+    
+    ```javascript
+    function generateSessionId() {
+      return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Validación de Rangos">
+    El backend valida que el score esté dentro de rangos razonables para cada juego:
+    
+    - DOOM: 0 - 999,999
+    - Tetris: 0 - 999,999
+    - Duke Nukem 3D: 0 - 9,999,999
+  </Accordion>
+  
+  <Accordion title="Rate Limiting Estricto">
+    - Máximo 1 envío cada 30 segundos por usuario/juego
+    - Previene spam de puntuaciones
+    - El score debe incrementar progresivamente
+  </Accordion>
+  
+  <Accordion title="Memoria Scanning">
+    El frontend escanea la memoria del emulador para detectar cambios reales en el score:
+    
+    ```javascript
+    class ScoreDetector {
+      async scanMemory(dosInstance, gameSlug) {
+        const memory = await dosInstance.getMemory();
+        const scoreAddress = this.getScoreAddress(gameSlug);
+        
+        const currentScore = memory.readUint32(scoreAddress);
+        
+        if (currentScore > this.lastScore) {
+          this.submitScore(currentScore);
+          this.lastScore = currentScore;
+        }
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Eventos Publicados
+
+Cuando se guarda un nuevo highscore, se publica un evento para:
+
+1. **Invalidar caché de rankings**: Ranking Service escucha y limpia Redis
+2. **Notificaciones en tiempo real**: WebSockets (futuro) para notificar a otros jugadores
+3. **Logros/Achievements**: Sistema de logros (futuro)
+
+## Ejemplo de Integración
+
+```javascript
+// score-tracker.js - Sistema completo de tracking
+
+class ScoreTracker {
+  constructor(gameSlug, userId, token) {
+    this.gameSlug = gameSlug;
+    this.userId = userId;
+    this.token = token;
+    this.currentScore = 0;
+    this.lastSubmitted = 0;
+    this.sessionId = this.generateSessionId();
+    this.polling = null;
+  }
+  
+  start(dosInstance) {
+    // Escanear memoria cada 5 segundos
+    this.polling = setInterval(async () => {
+      const score = await this.detectScore(dosInstance);
+      
+      if (score > this.currentScore) {
+        this.currentScore = score;
+        this.onScoreChange(score);
+      }
+    }, 5000);
+  }
+  
+  stop() {
+    if (this.polling) {
+      clearInterval(this.polling);
+    }
+  }
+  
+  async detectScore(dosInstance) {
+    const memory = await dosInstance.getMemory();
+    const addresses = this.getScoreAddresses(this.gameSlug);
+    
+    for (const addr of addresses) {
+      const value = memory.readUint32(addr);
+      
+      if (value > 0 && value < 10000000) {
+        return value;
+      }
+    }
+    
+    return 0;
+  }
+  
+  async onScoreChange(newScore) {
+    // Solo enviar si ha pasado 30 segundos y el incremento es significativo
+    const timeSinceLastSubmit = Date.now() - this.lastSubmitted;
+    const scoreDiff = newScore - this.currentScore;
+    
+    if (timeSinceLastSubmit > 30000 && scoreDiff > 100) {
+      await this.submitScore(newScore);
+    }
+  }
+  
+  async submitScore(score) {
+    try {
+      const response = await fetch('https://api.retrogamehub.games/scores', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          game_slug: this.gameSlug,
+          score: score,
+          session_id: this.sessionId,
+          metadata: {
+            timestamp: Date.now(),
+            user_agent: navigator.userAgent
+          }
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.is_highscore) {
+        this.showNotification(`¡Nuevo récord! Posición #${data.rank}`);
+      }
+      
+      this.lastSubmitted = Date.now();
+      
+    } catch (error) {
+      console.error('Error submitting score:', error);
+    }
+  }
+  
+  generateSessionId() {
+    return `${this.userId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+  
+  getScoreAddresses(gameSlug) {
+    const addresses = {
+      'doom': [0x10000, 0x20000],
+      'tetris': [0x5000, 0x6000],
+      'duke3d': [0x15000, 0x25000]
+    };
+    
+    return addresses[gameSlug] || [];
+  }
+  
+  showNotification(message) {
+    const notification = document.createElement('div');
+    notification.className = 'score-notification';
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => notification.remove(), 5000);
+  }
+}
+
+// Uso
+const tracker = new ScoreTracker('doom', userId, token);
+tracker.start(dosInstance);
+
+// Detener al cerrar juego
+window.addEventListener('beforeunload', () => {
+  tracker.stop();
+});
+```
+
+## Rate Limiting
+
+- **Por usuario/juego**: 1 envío cada 30 segundos
+- **Por usuario global**: 20 envíos por hora
+- **Status 429**: Too Many Requests
+
+<Warning>
+  Respetar el rate limiting es crucial. El sistema detecta y penaliza intentos de spam.
+</Warning>

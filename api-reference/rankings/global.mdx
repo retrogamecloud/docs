@@ -1,0 +1,424 @@
+---
+title: "GET /rankings/global"
+description: "Obtener ranking global de todos los juegos"
+api: "GET https://api.retrogamehub.games/rankings/global"
+---
+
+## Descripción
+
+Obtiene el ranking combinado de los mejores jugadores en todos los juegos. Se calcula basándose en el promedio de posiciones de cada jugador.
+
+## Query Parameters
+
+<ParamField query="limit" type="number" default="50">
+  Número de jugadores a retornar (1-100)
+</ParamField>
+
+<ParamField query="offset" type="number" default="0">
+  Offset para paginación
+</ParamField>
+
+## Response
+
+<ResponseField name="rankings" type="array">
+  Array de jugadores ordenados por ranking global
+  
+  <Expandable title="Ranking Object">
+    <ResponseField name="rank" type="number">
+      Posición en el ranking global
+    </ResponseField>
+    
+    <ResponseField name="user_id" type="number">
+      ID del usuario
+    </ResponseField>
+    
+    <ResponseField name="username" type="string">
+      Nombre de usuario
+    </ResponseField>
+    
+    <ResponseField name="display_name" type="string">
+      Nombre para mostrar
+    </ResponseField>
+    
+    <ResponseField name="total_score" type="number">
+      Suma total de puntuaciones en todos los juegos
+    </ResponseField>
+    
+    <ResponseField name="games_played" type="number">
+      Número de juegos jugados
+    </ResponseField>
+    
+    <ResponseField name="average_rank" type="number">
+      Ranking promedio entre todos los juegos
+    </ResponseField>
+    
+    <ResponseField name="best_game" type="object">
+      Juego donde tiene mejor ranking
+      
+      <Expandable title="properties">
+        <ResponseField name="name" type="string">
+          Nombre del juego
+        </ResponseField>
+        
+        <ResponseField name="rank" type="number">
+          Posición en ese juego
+        </ResponseField>
+        
+        <ResponseField name="score" type="number">
+          Puntuación en ese juego
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="number">
+  Total de jugadores con puntuaciones
+</ResponseField>
+
+<ResponseField name="limit" type="number">
+  Límite aplicado
+</ResponseField>
+
+<ResponseField name="offset" type="number">
+  Offset aplicado
+</ResponseField>
+
+<ResponseField name="cached_at" type="string">
+  Timestamp de cuándo se generó el caché (ISO 8601)
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL
+curl https://api.retrogamehub.games/rankings/global
+```
+
+```bash cURL - Top 10
+curl "https://api.retrogamehub.games/rankings/global?limit=10"
+```
+
+```javascript JavaScript
+async function loadGlobalLeaderboard() {
+  const response = await fetch(
+    'https://api.retrogamehub.games/rankings/global?limit=100'
+  );
+  
+  const data = await response.json();
+  
+  renderLeaderboard(data.rankings);
+  
+  console.log(`Última actualización: ${data.cached_at}`);
+}
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    'https://api.retrogamehub.games/rankings/global',
+    params={'limit': 50}
+)
+
+data = response.json()
+
+print("TOP 10 GLOBAL:")
+for player in data['rankings'][:10]:
+    print(f"#{player['rank']}: {player['display_name']} - {player['total_score']:,} pts")
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 - Success
+{
+  "rankings": [
+    {
+      "rank": 1,
+      "user_id": 42,
+      "username": "progamer",
+      "display_name": "Pro Gamer",
+      "total_score": 1547892,
+      "games_played": 10,
+      "average_rank": 12,
+      "best_game": {
+        "name": "DOOM",
+        "rank": 1,
+        "score": 250000
+      }
+    },
+    {
+      "rank": 2,
+      "user_id": 89,
+      "username": "speedrunner",
+      "display_name": "Speed Runner",
+      "total_score": 1423567,
+      "games_played": 8,
+      "average_rank": 15,
+      "best_game": {
+        "name": "Duke Nukem 3D",
+        "rank": 2,
+        "score": 198500
+      }
+    },
+    {
+      "rank": 3,
+      "user_id": 156,
+      "username": "retromaster",
+      "display_name": "Retro Master",
+      "total_score": 1389234,
+      "games_played": 10,
+      "average_rank": 18,
+      "best_game": {
+        "name": "Tetris",
+        "rank": 3,
+        "score": 167800
+      }
+    }
+  ],
+  "total": 5843,
+  "limit": 50,
+  "offset": 0,
+  "cached_at": "2025-11-19T15:30:00.000Z"
+}
+```
+
+</ResponseExample>
+
+## Cálculo del Ranking Global
+
+El ranking global se calcula usando la siguiente fórmula:
+
+```javascript
+// Algoritmo de ranking
+
+function calculateGlobalRank(player) {
+  const weights = {
+    averageRank: 0.5,      // 50% - Consistencia entre juegos
+    totalScore: 0.3,       // 30% - Puntuación total acumulada
+    gamesPlayed: 0.2       // 20% - Cantidad de juegos jugados
+  };
+  
+  // Normalizar valores (0-1)
+  const normalizedAvgRank = 1 - (player.averageRank / maxRank);
+  const normalizedScore = player.totalScore / maxTotalScore;
+  const normalizedGames = player.gamesPlayed / maxGames;
+  
+  // Calcular score ponderado
+  const globalScore = 
+    (normalizedAvgRank * weights.averageRank) +
+    (normalizedScore * weights.totalScore) +
+    (normalizedGames * weights.gamesPlayed);
+  
+  return globalScore;
+}
+```
+
+<Info>
+  El ranking global favorece la **consistencia** (buenos rankings en múltiples juegos) sobre puntuaciones altas en un solo juego.
+</Info>
+
+## Ejemplo de Implementación
+
+```javascript
+// Global Leaderboard Component
+
+class GlobalLeaderboard {
+  constructor() {
+    this.rankings = [];
+    this.currentPage = 0;
+    this.pageSize = 50;
+  }
+  
+  async load() {
+    const response = await fetch(
+      `https://api.retrogamehub.games/rankings/global?limit=${this.pageSize}&offset=${this.currentPage * this.pageSize}`
+    );
+    
+    const data = await response.json();
+    
+    this.rankings = data.rankings;
+    this.totalPlayers = data.total;
+    this.cachedAt = new Date(data.cached_at);
+    
+    this.render();
+  }
+  
+  render() {
+    const table = document.getElementById('leaderboard-table');
+    
+    table.innerHTML = `
+      <div class="leaderboard-header">
+        <h2>🏆 Ranking Global</h2>
+        <p class="cache-info">
+          Actualizado: ${this.cachedAt.toLocaleString()}
+        </p>
+      </div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Jugador</th>
+            <th>Puntuación Total</th>
+            <th>Juegos</th>
+            <th>Avg Rank</th>
+            <th>Mejor Juego</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${this.renderRows()}
+        </tbody>
+      </table>
+      
+      <div class="pagination">
+        ${this.renderPagination()}
+      </div>
+    `;
+  }
+  
+  renderRows() {
+    return this.rankings.map((player, index) => {
+      const medalClass = this.getMedalClass(player.rank);
+      
+      return `
+        <tr class="${medalClass}">
+          <td class="rank">
+            ${this.getRankDisplay(player.rank)}
+          </td>
+          <td class="player">
+            <a href="/profile/${player.user_id}">
+              ${player.display_name}
+            </a>
+            <span class="username">@${player.username}</span>
+          </td>
+          <td class="score">
+            ${player.total_score.toLocaleString()}
+          </td>
+          <td class="games">
+            ${player.games_played}
+          </td>
+          <td class="avg-rank">
+            #${player.average_rank}
+          </td>
+          <td class="best-game">
+            <strong>${player.best_game.name}</strong>
+            <br>
+            <span class="best-rank">#${player.best_game.rank}</span>
+            <span class="best-score">${player.best_game.score.toLocaleString()}</span>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+  
+  getMedalClass(rank) {
+    if (rank === 1) return 'gold-medal';
+    if (rank === 2) return 'silver-medal';
+    if (rank === 3) return 'bronze-medal';
+    if (rank <= 10) return 'top-10';
+    return '';
+  }
+  
+  getRankDisplay(rank) {
+    if (rank === 1) return '🥇';
+    if (rank === 2) return '🥈';
+    if (rank === 3) return '🥉';
+    return `#${rank}`;
+  }
+  
+  renderPagination() {
+    const totalPages = Math.ceil(this.totalPlayers / this.pageSize);
+    
+    return `
+      <button 
+        onclick="leaderboard.previousPage()" 
+        ${this.currentPage === 0 ? 'disabled' : ''}
+      >
+        ← Anterior
+      </button>
+      
+      <span class="page-info">
+        Página ${this.currentPage + 1} de ${totalPages}
+      </span>
+      
+      <button 
+        onclick="leaderboard.nextPage()"
+        ${this.currentPage >= totalPages - 1 ? 'disabled' : ''}
+      >
+        Siguiente →
+      </button>
+    `;
+  }
+  
+  async nextPage() {
+    this.currentPage++;
+    await this.load();
+  }
+  
+  async previousPage() {
+    this.currentPage = Math.max(0, this.currentPage - 1);
+    await this.load();
+  }
+  
+  // Auto-refresh cada 5 minutos
+  startAutoRefresh() {
+    setInterval(() => this.load(), 5 * 60 * 1000);
+  }
+}
+
+// Uso
+const leaderboard = new GlobalLeaderboard();
+leaderboard.load();
+leaderboard.startAutoRefresh();
+```
+
+## Caching
+
+<Warning>
+  El ranking global se cachea en **Redis por 5 minutos**. Los datos pueden no reflejar cambios en tiempo real.
+</Warning>
+
+### Headers de Caché
+
+```
+Cache-Control: public, max-age=300
+X-Cache-Status: HIT
+X-Cached-At: 2025-11-19T15:30:00Z
+```
+
+## Rate Limiting
+
+- **Límite**: 60 peticiones por minuto por IP
+- **Recomendación**: Cachea el resultado en el frontend y refresca cada 5 minutos
+
+## Comparación con Tu Ranking
+
+```javascript
+// Mostrar posición del usuario actual en el ranking global
+
+async function showMyPosition(userId) {
+  // Obtener ranking global
+  const globalResponse = await fetch(
+    'https://api.retrogamehub.games/rankings/global?limit=100'
+  );
+  const globalData = await globalResponse.json();
+  
+  // Buscar usuario en el top 100
+  const myPosition = globalData.rankings.find(p => p.user_id === userId);
+  
+  if (myPosition) {
+    console.log(`Estás en el puesto #${myPosition.rank} del ranking global!`);
+  } else {
+    // Si no está en top 100, obtener scores del usuario
+    const userResponse = await fetch(
+      `https://api.retrogamehub.games/scores/user/${userId}`
+    );
+    const userData = await userResponse.json();
+    
+    console.log(`Tu ranking promedio: #${userData.average_rank}`);
+    console.log(`Sigue jugando para entrar al top 100!`);
+  }
+}
+```

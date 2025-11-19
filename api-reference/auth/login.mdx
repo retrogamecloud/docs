@@ -1,0 +1,153 @@
+---
+title: "POST /auth/login"
+description: "Autenticar usuario y obtener token JWT"
+api: "POST https://api.retrogamehub.games/auth/login"
+---
+
+## Descripción
+
+Autentica un usuario con su nombre de usuario/email y contraseña, devolviendo un token JWT válido por 24 horas.
+
+## Request Body
+
+<ParamField body="username" type="string" required>
+  Nombre de usuario o email del usuario
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  Contraseña del usuario (será hasheada con bcrypt)
+</ParamField>
+
+## Response
+
+<ResponseField name="token" type="string">
+  Token JWT válido por 24 horas
+</ResponseField>
+
+<ResponseField name="user" type="object">
+  Información del usuario autenticado
+  
+  <Expandable title="properties">
+    <ResponseField name="id" type="number">
+      ID único del usuario
+    </ResponseField>
+    
+    <ResponseField name="username" type="string">
+      Nombre de usuario
+    </ResponseField>
+    
+    <ResponseField name="email" type="string">
+      Email del usuario
+    </ResponseField>
+    
+    <ResponseField name="display_name" type="string">
+      Nombre para mostrar en el juego
+    </ResponseField>
+    
+    <ResponseField name="created_at" type="string">
+      Fecha de creación de la cuenta (ISO 8601)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL
+curl -X POST https://api.retrogamehub.games/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "player1",
+    "password": "SecurePass123!"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.retrogamehub.games/auth/login', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    username: 'player1',
+    password: 'SecurePass123!'
+  })
+});
+
+const data = await response.json();
+localStorage.setItem('token', data.token);
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'https://api.retrogamehub.games/auth/login',
+    json={
+        'username': 'player1',
+        'password': 'SecurePass123!'
+    }
+)
+
+data = response.json()
+token = data['token']
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 - Success
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInVzZXJuYW1lIjoicGxheWVyMSIsImlhdCI6MTcwMDAwMDAwMCwiZXhwIjoxNzAwMDg2NDAwfQ.abc123",
+  "user": {
+    "id": 1,
+    "username": "player1",
+    "email": "player1@example.com",
+    "display_name": "Player One",
+    "created_at": "2025-11-01T10:00:00.000Z"
+  }
+}
+```
+
+```json 401 - Invalid Credentials
+{
+  "error": "Credenciales inválidas"
+}
+```
+
+```json 400 - Missing Fields
+{
+  "error": "Username y password son requeridos"
+}
+```
+
+```json 500 - Server Error
+{
+  "error": "Error del servidor"
+}
+```
+
+</ResponseExample>
+
+## Notas
+
+<Note>
+  El token JWT devuelto debe incluirse en el header `Authorization: Bearer <token>` para todas las peticiones autenticadas.
+</Note>
+
+<Warning>
+  El token expira después de 24 horas. Implementa un sistema de refresh o solicita al usuario que vuelva a iniciar sesión.
+</Warning>
+
+## Rate Limiting
+
+- **Límite**: 10 peticiones por minuto por IP
+- **Header**: `X-RateLimit-Remaining` indica peticiones restantes
+- **Status 429**: Demasiadas peticiones, reintentar después de 60 segundos
+
+## Seguridad
+
+- Las contraseñas se hashean con bcrypt (10 salt rounds)
+- Los tokens JWT están firmados con HS256
+- Implementa HTTPS en producción
+- No almacenes contraseñas en texto plano nunca

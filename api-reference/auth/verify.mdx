@@ -1,0 +1,241 @@
+---
+title: "GET /auth/verify"
+description: "Verificar validez de token JWT"
+api: "GET https://api.retrogamehub.games/auth/verify"
+---
+
+## Descripción
+
+Verifica si un token JWT es válido y no ha expirado. Devuelve información del usuario asociado al token.
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  Token JWT en formato: `Bearer <token>`
+</ParamField>
+
+## Response
+
+<ResponseField name="valid" type="boolean">
+  Indica si el token es válido
+</ResponseField>
+
+<ResponseField name="user" type="object">
+  Información del usuario si el token es válido
+  
+  <Expandable title="properties">
+    <ResponseField name="id" type="number">
+      ID único del usuario
+    </ResponseField>
+    
+    <ResponseField name="username" type="string">
+      Nombre de usuario
+    </ResponseField>
+    
+    <ResponseField name="email" type="string">
+      Email del usuario
+    </ResponseField>
+    
+    <ResponseField name="iat" type="number">
+      Timestamp de emisión del token (Unix epoch)
+    </ResponseField>
+    
+    <ResponseField name="exp" type="number">
+      Timestamp de expiración del token (Unix epoch)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL
+curl -X GET https://api.retrogamehub.games/auth/verify \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+```javascript JavaScript
+const token = localStorage.getItem('token');
+
+const response = await fetch('https://api.retrogamehub.games/auth/verify', {
+  method: 'GET',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+});
+
+const data = await response.json();
+
+if (data.valid) {
+  console.log('Token válido para:', data.user.username);
+} else {
+  // Redirigir a login
+  window.location.href = '/login';
+}
+```
+
+```python Python
+import requests
+
+token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+response = requests.get(
+    'https://api.retrogamehub.games/auth/verify',
+    headers={
+        'Authorization': f'Bearer {token}'
+    }
+)
+
+data = response.json()
+
+if data['valid']:
+    print(f"Token válido para: {data['user']['username']}")
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 - Valid Token
+{
+  "valid": true,
+  "user": {
+    "id": 1,
+    "username": "player1",
+    "email": "player1@example.com",
+    "iat": 1700000000,
+    "exp": 1700086400
+  }
+}
+```
+
+```json 401 - Invalid Token
+{
+  "valid": false,
+  "error": "Token inválido"
+}
+```
+
+```json 401 - Expired Token
+{
+  "valid": false,
+  "error": "Token expirado"
+}
+```
+
+```json 401 - No Token Provided
+{
+  "valid": false,
+  "error": "Token no proporcionado"
+}
+```
+
+```json 401 - Malformed Token
+{
+  "valid": false,
+  "error": "Token malformado"
+}
+```
+
+</ResponseExample>
+
+## Casos de Uso
+
+<AccordionGroup>
+  <Accordion title="Validar sesión al cargar página">
+    ```javascript
+    async function checkAuth() {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        redirectToLogin();
+        return;
+      }
+      
+      const response = await fetch('/auth/verify', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const data = await response.json();
+      
+      if (!data.valid) {
+        localStorage.removeItem('token');
+        redirectToLogin();
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Middleware de frontend">
+    ```javascript
+    // Verificar antes de cada ruta protegida
+    router.beforeEach(async (to, from, next) => {
+      if (to.meta.requiresAuth) {
+        const isValid = await verifyToken();
+        if (!isValid) {
+          next('/login');
+        } else {
+          next();
+        }
+      } else {
+        next();
+      }
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="Refrescar token automáticamente">
+    ```javascript
+    // Verificar cada 30 minutos
+    setInterval(async () => {
+      const response = await fetch('/auth/verify', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const data = await response.json();
+      
+      if (!data.valid) {
+        // Token expiró, solicitar nuevo login
+        showLoginModal();
+      } else {
+        // Verificar si expira pronto (< 1 hora)
+        const timeToExpiry = data.user.exp * 1000 - Date.now();
+        if (timeToExpiry < 3600000) {
+          showRefreshWarning();
+        }
+      }
+    }, 30 * 60 * 1000);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Tiempo de Expiración
+
+<Info>
+  Los tokens JWT tienen una validez de **24 horas** desde su emisión. Después de este tiempo, el usuario debe volver a iniciar sesión.
+</Info>
+
+## Rate Limiting
+
+- **Límite**: 100 peticiones por minuto por token
+- **Propósito**: Validar sesión es una operación frecuente
+- **Recomendación**: Cachea el resultado y revalida cada 5-10 minutos
+
+## Mejores Prácticas
+
+<CardGroup cols={2}>
+  <Card title="Almacenamiento Seguro" icon="lock">
+    Usa `localStorage` para SPAs o cookies `httpOnly` para SSR
+  </Card>
+  
+  <Card title="Verificación Regular" icon="clock">
+    Valida el token al cargar la app y periódicamente
+  </Card>
+  
+  <Card title="Manejo de Errores" icon="triangle-exclamation">
+    Implementa lógica para redirigir a login si el token es inválido
+  </Card>
+  
+  <Card title="UX Smooth" icon="user">
+    Muestra un loader mientras verificas, no pantallas en blanco
+  </Card>
+</CardGroup>

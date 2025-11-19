@@ -1,0 +1,315 @@
+---
+title: "GET /scores/user/:userId"
+description: "Obtener puntuaciones de un usuario"
+api: "GET https://api.retrogamehub.games/scores/user/:userId"
+---
+
+## Descripción
+
+Obtiene todas las puntuaciones de un usuario específico, incluyendo su mejor score en cada juego.
+
+## Path Parameters
+
+<ParamField path="userId" type="number" required>
+  ID del usuario
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="game_slug" type="string">
+  Filtrar por un juego específico
+</ParamField>
+
+## Response
+
+<ResponseField name="user" type="object">
+  Información del usuario
+  
+  <Expandable title="properties">
+    <ResponseField name="id" type="number">
+      ID del usuario
+    </ResponseField>
+    
+    <ResponseField name="username" type="string">
+      Nombre de usuario
+    </ResponseField>
+    
+    <ResponseField name="display_name" type="string">
+      Nombre para mostrar
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="scores" type="array">
+  Array de puntuaciones del usuario
+  
+  <Expandable title="Score Object">
+    <ResponseField name="game_name" type="string">
+      Nombre del juego
+    </ResponseField>
+    
+    <ResponseField name="game_slug" type="string">
+      Slug del juego
+    </ResponseField>
+    
+    <ResponseField name="score" type="number">
+      Mejor puntuación en ese juego
+    </ResponseField>
+    
+    <ResponseField name="rank" type="number">
+      Posición en el ranking del juego
+    </ResponseField>
+    
+    <ResponseField name="total_players" type="number">
+      Total de jugadores en ese juego
+    </ResponseField>
+    
+    <ResponseField name="created_at" type="string">
+      Fecha del primer score (ISO 8601)
+    </ResponseField>
+    
+    <ResponseField name="updated_at" type="string">
+      Fecha del último highscore (ISO 8601)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total_games_played" type="number">
+  Número de juegos diferentes jugados
+</ResponseField>
+
+<ResponseField name="average_rank" type="number">
+  Ranking promedio entre todos los juegos
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL
+curl https://api.retrogamehub.games/scores/user/123
+```
+
+```bash cURL - Filtrar por juego
+curl "https://api.retrogamehub.games/scores/user/123?game_slug=doom"
+```
+
+```javascript JavaScript
+const userId = 123;
+
+const response = await fetch(
+  `https://api.retrogamehub.games/scores/user/${userId}`
+);
+
+const data = await response.json();
+
+// Mostrar scores del usuario
+data.scores.forEach(score => {
+  console.log(`${score.game_name}: ${score.score} (Rank #${score.rank})`);
+});
+```
+
+```python Python
+import requests
+
+user_id = 123
+
+response = requests.get(
+    f'https://api.retrogamehub.games/scores/user/{user_id}'
+)
+
+data = response.json()
+
+print(f"Usuario: {data['user']['username']}")
+print(f"Juegos jugados: {data['total_games_played']}")
+print(f"Ranking promedio: #{data['average_rank']}")
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 - Success
+{
+  "user": {
+    "id": 123,
+    "username": "player1",
+    "display_name": "Player One"
+  },
+  "scores": [
+    {
+      "game_name": "DOOM",
+      "game_slug": "doom",
+      "score": 125000,
+      "rank": 42,
+      "total_players": 1547,
+      "created_at": "2025-11-15T14:30:00.000Z",
+      "updated_at": "2025-11-18T10:15:00.000Z"
+    },
+    {
+      "game_name": "Duke Nukem 3D",
+      "game_slug": "duke3d",
+      "score": 89500,
+      "rank": 156,
+      "total_players": 892,
+      "created_at": "2025-11-16T09:20:00.000Z",
+      "updated_at": "2025-11-17T18:45:00.000Z"
+    },
+    {
+      "game_name": "Tetris",
+      "game_slug": "tetris",
+      "score": 45000,
+      "rank": 78,
+      "total_players": 2341,
+      "created_at": "2025-11-10T12:00:00.000Z",
+      "updated_at": "2025-11-19T08:30:00.000Z"
+    }
+  ],
+  "total_games_played": 3,
+  "average_rank": 92
+}
+```
+
+```json 404 - User Not Found
+{
+  "error": "Usuario no encontrado"
+}
+```
+
+</ResponseExample>
+
+## Ejemplo de Perfil de Usuario
+
+```javascript
+// Renderizar perfil completo del usuario
+
+class UserProfile {
+  constructor(userId) {
+    this.userId = userId;
+    this.data = null;
+  }
+  
+  async load() {
+    const response = await fetch(
+      `https://api.retrogamehub.games/scores/user/${this.userId}`
+    );
+    
+    this.data = await response.json();
+    this.render();
+  }
+  
+  render() {
+    const container = document.getElementById('profile-container');
+    
+    container.innerHTML = `
+      <div class="profile-header">
+        <h1>${this.data.user.display_name}</h1>
+        <p>@${this.data.user.username}</p>
+      </div>
+      
+      <div class="profile-stats">
+        <div class="stat">
+          <span class="stat-value">${this.data.total_games_played}</span>
+          <span class="stat-label">Juegos Jugados</span>
+        </div>
+        
+        <div class="stat">
+          <span class="stat-value">#${this.data.average_rank}</span>
+          <span class="stat-label">Ranking Promedio</span>
+        </div>
+        
+        <div class="stat">
+          <span class="stat-value">${this.getBestRank()}</span>
+          <span class="stat-label">Mejor Ranking</span>
+        </div>
+      </div>
+      
+      <div class="scores-list">
+        <h2>Puntuaciones</h2>
+        ${this.renderScoresList()}
+      </div>
+    `;
+  }
+  
+  renderScoresList() {
+    return this.data.scores
+      .sort((a, b) => a.rank - b.rank) // Ordenar por mejor ranking
+      .map(score => `
+        <div class="score-card">
+          <div class="score-game">${score.game_name}</div>
+          <div class="score-value">${score.score.toLocaleString()}</div>
+          <div class="score-rank">
+            Ranking: #${score.rank} de ${score.total_players}
+          </div>
+          <div class="score-date">
+            Último: ${new Date(score.updated_at).toLocaleDateString()}
+          </div>
+        </div>
+      `)
+      .join('');
+  }
+  
+  getBestRank() {
+    if (this.data.scores.length === 0) return '-';
+    
+    const best = Math.min(...this.data.scores.map(s => s.rank));
+    return `#${best}`;
+  }
+}
+
+// Uso
+const profile = new UserProfile(123);
+profile.load();
+```
+
+## Badges y Achievements
+
+```javascript
+// Calcular badges basados en scores
+
+function calculateBadges(scores) {
+  const badges = [];
+  
+  // Top 10 en algún juego
+  if (scores.some(s => s.rank <= 10)) {
+    badges.push({
+      name: 'Elite Player',
+      icon: '👑',
+      description: 'Top 10 en un juego'
+    });
+  }
+  
+  // Top 100 en 5+ juegos
+  const top100Count = scores.filter(s => s.rank <= 100).length;
+  if (top100Count >= 5) {
+    badges.push({
+      name: 'Versatile Gamer',
+      icon: '🎮',
+      description: 'Top 100 en 5 juegos diferentes'
+    });
+  }
+  
+  // Puntuación > 100k en algún juego
+  if (scores.some(s => s.score > 100000)) {
+    badges.push({
+      name: 'High Scorer',
+      icon: '⭐',
+      description: 'Más de 100,000 puntos'
+    });
+  }
+  
+  // Jugado 10+ juegos
+  if (scores.length >= 10) {
+    badges.push({
+      name: 'Collector',
+      icon: '📚',
+      description: 'Jugado 10 juegos diferentes'
+    });
+  }
+  
+  return badges;
+}
+```
+
+## Rate Limiting
+
+- **Límite**: 100 peticiones por minuto por IP
+- **Cache**: Resultados cacheados por 5 minutos
