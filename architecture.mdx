@@ -9,53 +9,26 @@ RetroGame Cloud está construido usando una arquitectura de microservicios cloud
 
 ## Arquitectura de Alto Nivel
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                       CloudFront CDN                         │
-│                    (Game Assets & Static)                    │
-└─────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────┼─────────────────────────────────┐
-│                             │                                 │
-│                     Application Load Balancer                │
-│                    (SSL/TLS Termination)                     │
-│                                                               │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              GitHub OAuth2 Proxy                      │   │
-│  │         (Monitoring Authentication)                   │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                                                               │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│  │  Grafana    │  │ Prometheus   │  │ AlertManager │       │
-│  └─────────────┘  └──────────────┘  └──────────────┘       │
-└───────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────┼─────────────────────────────────┐
-│                      Kong API Gateway                         │
-│                   (Routing & Rate Limiting)                   │
-└─────────────────────────────┼─────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        │                     │                     │
-   ┌────▼────┐         ┌──────▼──────┐      ┌──────▼──────┐
-   │  Auth   │         │    Game     │      │   Score     │
-   │ Service │         │   Catalog   │      │  Service    │
-   └────┬────┘         │   Service   │      └──────┬──────┘
-        │              └─────────────┘             │
-   ┌────▼────┐         ┌─────────────┐      ┌──────▼──────┐
-   │  User   │         │   Ranking   │      │  Frontend   │
-   │ Service │         │   Service   │      │   (Static)  │
-   └────┬────┘         └──────┬──────┘      └─────────────┘
-        │                     │
-        │              ┌──────▼──────┐
-        │              │    Redis    │
-        │              │   (Cache)   │
-        │              └─────────────┘
-        │
-   ┌────▼─────────────────────────────┐
-   │       PostgreSQL (RDS)           │
-   │  (Users, Games, Scores, Auth)    │
-   └──────────────────────────────────┘
+```mermaid
+graph TD
+    A[CloudFront CDN<br/>Game Assets & Static] --> B[Application Load Balancer<br/>SSL/TLS Termination]
+    B --> C[GitHub OAuth2 Proxy<br/>Monitoring Authentication]
+    C --> D[Grafana]
+    C --> E[Prometheus]
+    C --> F[AlertManager]
+    B --> G[Kong API Gateway<br/>Routing & Rate Limiting]
+    G --> H[Auth Service]
+    G --> I[Game Catalog Service]
+    G --> J[Score Service]
+    G --> K[Ranking Service]
+    G --> L[User Service]
+    G --> M[Frontend Static]
+    H --> N[PostgreSQL RDS<br/>Users, Games, Scores, Auth]
+    L --> N
+    J --> N
+    I --> N
+    K --> O[Redis Cache]
+    J --> O
 ```
 
 ## Componentes Principales

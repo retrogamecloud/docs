@@ -30,38 +30,14 @@ El servicio de autenticación maneja el registro, login y validación de usuario
 
 ## Arquitectura del Servicio
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    FRONTEND                             │
-└────────────────────┬────────────────────────────────────┘
-                     │ POST /auth/register
-                     │ POST /auth/login
-                     │ GET /auth/verify
-                     ▼
-┌─────────────────────────────────────────────────────────┐
-│                  KONG API GATEWAY                       │
-│  Route: /auth/* → auth-service:3001                    │
-└────────────────────┬────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────┐
-│              AUTH SERVICE (Node.js)                     │
-│                                                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐ │
-│  │  Controllers │→ │   Services   │→ │ Repositories│ │
-│  │              │  │              │  │             │ │
-│  │  - register  │  │  - hashPass  │  │  - create   │ │
-│  │  - login     │  │  - genToken  │  │  - findUser │ │
-│  │  - verify    │  │  - validate  │  │  - update   │ │
-│  └──────────────┘  └──────────────┘  └──────┬──────┘ │
-│                                              │         │
-└──────────────────────────────────────────────┼─────────┘
-                                               │
-                                               ▼
-                                    ┌──────────────────┐
-                                    │   PostgreSQL     │
-                                    │  Table: users    │
-                                    └──────────────────┘
+```mermaid
+graph TD
+    A[Frontend] -->|POST /auth/register<br/>POST /auth/login<br/>GET /auth/verify| B[Kong API Gateway]
+    B -->|Route: /auth/*| C[Auth Service :3001]
+    C --> D[Controllers<br/>register/login/verify]
+    D --> E[Services<br/>hashPass/genToken/validate]
+    E --> F[Repositories<br/>create/findUser/update]
+    F --> G[PostgreSQL<br/>Table: users]
 ```
 
 ## Tecnologías

@@ -31,40 +31,18 @@ RetroGame Cloud utiliza el stack de Prometheus + Grafana para monitoreo y visual
 
 ## Arquitectura
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Route53 DNS                          │
-│  monitoring.retrogamecloud.com → ALB                   │
-└────────────────────┬────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────┐
-│                Application Load Balancer                 │
-│  - /grafana   → Grafana (3000)                          │
-│  - /prometheus → Prometheus (9090)                       │
-│  - /alertmanager → AlertManager (9093)                   │
-└────────────────────┬────────────────────────────────────┘
-                     │
-        ┌────────────┼────────────┐
-        ▼            ▼            ▼
-   ┌────────┐  ┌─────────┐  ┌──────────┐
-   │Grafana │  │Prometheus│  │AlertMgr  │
-   │Pod     │  │Pod      │  │Pod       │
-   └───┬────┘  └────┬────┘  └─────┬────┘
-       │            │              │
-       │            ▼              │
-       │       ┌─────────┐         │
-       │       │ Scrapers│         │
-       │       └────┬────┘         │
-       │            │              │
-       └────────────┼──────────────┘
-                    │
-         ┌──────────┼──────────┐
-         ▼          ▼          ▼
-    ┌────────┐ ┌───────┐ ┌────────┐
-    │ Nodes  │ │ Pods  │ │Servicios│
-    │Metrics │ │Metrics│ │Metrics  │
-    └────────┘ └───────┘ └────────┘
+```mermaid
+graph TD
+    A[Route53 DNS<br/>monitoring.retrogamecloud.com] --> B[Application Load Balancer<br/>SSL/TLS Termination]
+    B --> C[Grafana Pod<br/>:3000]
+    B --> D[Prometheus Pod<br/>:9090]
+    B --> E[AlertManager Pod<br/>:9093]
+    D --> F[Scrapers<br/>Service Discovery]
+    F --> G[Nodes Metrics<br/>node-exporter]
+    F --> H[Pods Metrics<br/>kube-state-metrics]
+    F --> I[Services Metrics<br/>Application /metrics]
+    C --> D
+    E --> D
 ```
 
 ## Instalación con Helm
