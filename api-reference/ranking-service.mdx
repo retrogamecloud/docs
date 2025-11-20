@@ -1,0 +1,616 @@
+---
+title: "Ranking Service"
+description: "API de rankings y leaderboards globales y por juego"
+icon: "ranking-star"
+---
+
+## Base URL
+
+```
+Production:  https://api.retrogamehub.games/rankings
+Development: http://localhost:3004
+```
+
+## Características
+
+- 📊 Rankings globales multi-juego
+- 🎮 Leaderboards por juego individual
+- ⚡ Caché Redis para alta performance
+- 🔄 Invalidación automática de caché
+- 📈 Estadísticas agregadas
+
+---
+
+## Endpoints
+
+### GET /rankings/global
+
+Ranking global combinado de todos los juegos.
+
+```bash
+curl "https://api.retrogamehub.games/rankings/global?limit=50"
+```
+
+**Query Parameters:**
+
+| Parámetro | Tipo | Default | Descripción |
+|-----------|------|---------|-------------|
+| limit | number | 50 | Máx 100 |
+| offset | number | 0 | Paginación |
+
+**Response 200:**
+
+```json
+{
+  "rankings": [
+    {
+      "rank": 1,
+      "user_id": 42,
+      "username": "progamer",
+      "display_name": "Pro Gamer",
+      "total_score": 1547892,
+      "games_played": 10,
+      "average_rank": 12,
+      "best_game": {
+        "name": "DOOM",
+        "rank": 1,
+        "score": 250000
+      }
+    }
+  ],
+  "total": 5843,
+  "limit": 50,
+  "offset": 0,
+  "cached_at": "2025-11-19T15:30:00.000Z"
+}
+```
+
+**Cálculo del Ranking Global:**
+
+```javascript
+function calculateGlobalScore(player) {
+  const weights = {
+    averageRank: 0.5,    // 50%
+    totalScore: 0.3,     // 30%
+    gamesPlayed: 0.2     // 20%
+  };
+  
+  const normalizedAvgRank = 1 - (player.averageRank / maxRank);
+  const normalizedScore = player.totalScore / maxTotalScore;
+  const normalizedGames = player.gamesPlayed / maxGames;
+  
+  return (
+    (normalizedAvgRank * weights.averageRank) +
+    (normalizedScore * weights.totalScore) +
+    (normalizedGames * weights.gamesPlayed)
+  );
+}
+```
+
+---
+
+### GET /rankings/game/:slug
+
+Leaderboard de un juego específico.
+
+```bash
+curl "https://api.retrogamehub.games/rankings/game/doom?limit=100"
+```
+
+**Response 200:**
+
+```json
+{
+  "game_slug": "doom",
+  "game_name": "DOOM",
+  "rankings": [
+    {
+      "rank": 1,
+      "user_id": 42,
+      "username": "progamer",
+      "display_name": "Pro Gamer",
+      "score": 250000,
+      "submitted_at": "2025-11-15T20:00:00Z"
+    }
+  ],
+  "total_players": 1547,
+  "average_score": 45230,
+  "highest_score": 250000,
+  "limit": 100,
+  "offset": 0,
+  "cached_at": "2025-11-19T15:30:00.000Z"
+}
+```
+
+---
+
+### GET /rankings/user/:userId
+
+Estadísticas y rankings del usuario.
+
+```bash
+curl https://api.retrogamehub.games/rankings/user/123
+```
+
+**Response 200:**
+
+```json
+{
+  "user_id": 123,
+  "username": "player1",
+  "display_name": "Player One",
+  "global_rank": 542,
+  "total_players": 5843,
+  "percentile": 90.7,
+  "stats": {
+    "total_score": 312450,
+    "games_played": 5,
+    "average_rank": 187,
+    "best_rank": 42,
+    "worst_rank": 523
+  },
+  "game_rankings": [
+    {
+      "game_slug": "doom",
+      "game_name": "DOOM",
+      "rank": 42,
+      "score": 125000,
+      "total_players": 1547,
+      "percentile": 97.3
+    },
+    {
+      "game_slug": "tetris",
+      "game_name": "Tetris",
+      "rank": 156,
+      "score": 87500,
+      "total_players": 892,
+      "percentile": 82.5
+    }
+  ]
+}
+```
+
+---
+
+### GET /rankings/compare/:userId1/:userId2
+
+Compara stats de dos jugadores.
+
+```bash
+curl https://api.retrogamehub.games/rankings/compare/123/456
+```
+
+**Response 200:**
+
+```json
+{
+  "player1": {
+    "user_id": 123,
+    "username": "player1",
+    "global_rank": 542,
+    "total_score": 312450,
+    "games_played": 5
+  },
+  "player2": {
+    "user_id": 456,
+    "username": "player2",
+    "global_rank": 789,
+    "total_score": 245800,
+    "games_played": 3
+  },
+  "comparison": {
+    "rank_difference": 247,
+    "score_difference": 66650,
+    "winner": "player1",
+    "head_to_head": [
+      {
+        "game": "DOOM",
+        "player1_rank": 42,
+        "player2_rank": 156,
+        "winner": "player1"
+      },
+      {
+        "game": "Tetris",
+        "player1_rank": 200,
+        "player2_rank": 89,
+        "winner": "player2"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Caching con Redis
+
+<Info>
+  Todos los endpoints usan Redis para cachear resultados y reducir carga en la DB.
+</Info>
+
+### Estrategia de Caché
+
+```javascript
+class RankingCache {
+  constructor(redisClient) {
+    this.redis = redisClient;
+    this.ttl = {
+      global: 300,      // 5 minutos
+      game: 180,        // 3 minutos
+      user: 60          // 1 minuto
+    };
+  }
+  
+  async getGlobalRanking(limit, offset) {
+    const key = `ranking:global:${limit}:${offset}`;
+    
+    // Intentar desde caché
+    const cached = await this.redis.get(key);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+    
+    // Calcular desde DB
+    const data = await this.calculateGlobalRanking(limit, offset);
+    
+    // Guardar en caché
+    await this.redis.setex(
+      key,
+      this.ttl.global,
+      JSON.stringify(data)
+    );
+    
+    return data;
+  }
+  
+  async invalidate(pattern) {
+    const keys = await this.redis.keys(pattern);
+    
+    if (keys.length > 0) {
+      await this.redis.del(...keys);
+      console.log(`Invalidated ${keys.length} cache keys`);
+    }
+  }
+  
+  // Invalidar cuando hay nuevo highscore
+  async onHighscoreEvent(event) {
+    const { game_slug, user_id } = event.data;
+    
+    // Invalidar caché de ese juego
+    await this.invalidate(`ranking:game:${game_slug}:*`);
+    
+    // Invalidar ranking global
+    await this.invalidate(`ranking:global:*`);
+    
+    // Invalidar stats del usuario
+    await this.invalidate(`ranking:user:${user_id}`);
+  }
+}
+```
+
+### Listener de Eventos RabbitMQ
+
+```javascript
+// cacheInvalidationListener.js
+
+class CacheInvalidationListener {
+  constructor(rabbitmq, cache) {
+    this.rabbitmq = rabbitmq;
+    this.cache = cache;
+  }
+  
+  async start() {
+    const channel = await this.rabbitmq.createChannel();
+    
+    await channel.assertExchange('retrogame_events', 'topic', {
+      durable: true
+    });
+    
+    const queue = await channel.assertQueue('ranking_cache_invalidation');
+    
+    await channel.bindQueue(
+      queue.queue,
+      'retrogame_events',
+      'score.highscore'
+    );
+    
+    channel.consume(queue.queue, async (msg) => {
+      if (msg) {
+        const event = JSON.parse(msg.content.toString());
+        
+        console.log('Received highscore event:', event);
+        
+        await this.cache.onHighscoreEvent(event);
+        
+        channel.ack(msg);
+      }
+    });
+    
+    console.log('Cache invalidation listener started');
+  }
+}
+```
+
+---
+
+## Base de Datos
+
+### Queries de Rankings
+
+```sql
+-- Ranking global (materializado diariamente)
+CREATE MATERIALIZED VIEW global_rankings AS
+SELECT 
+  u.id as user_id,
+  u.username,
+  u.display_name,
+  SUM(s.score) as total_score,
+  COUNT(DISTINCT s.game_id) as games_played,
+  AVG(game_ranks.rank) as average_rank,
+  RANK() OVER (ORDER BY 
+    (0.5 * (1 - AVG(game_ranks.rank) / (SELECT MAX(rank) FROM game_ranks))) +
+    (0.3 * SUM(s.score) / (SELECT MAX(total_score) FROM (SELECT SUM(score) as total_score FROM scores GROUP BY user_id) t)) +
+    (0.2 * COUNT(DISTINCT s.game_id) / (SELECT COUNT(*) FROM games))
+  DESC) as global_rank
+FROM users u
+LEFT JOIN scores s ON s.user_id = u.id
+LEFT JOIN LATERAL (
+  SELECT 
+    s2.game_id,
+    RANK() OVER (PARTITION BY s2.game_id ORDER BY s2.score DESC) as rank
+  FROM scores s2
+  WHERE s2.user_id = u.id
+) game_ranks ON true
+GROUP BY u.id, u.username, u.display_name;
+
+CREATE UNIQUE INDEX ON global_rankings(user_id);
+CREATE INDEX ON global_rankings(global_rank);
+
+-- Refrescar cada hora
+REFRESH MATERIALIZED VIEW CONCURRENTLY global_rankings;
+```
+
+---
+
+## Ejemplo de Integración
+
+```javascript
+class LeaderboardComponent {
+  constructor(container) {
+    this.container = container;
+    this.currentPage = 0;
+    this.pageSize = 50;
+    this.type = 'global'; // 'global' or game slug
+  }
+  
+  async load(type = 'global', page = 0) {
+    this.type = type;
+    this.currentPage = page;
+    
+    const endpoint = type === 'global'
+      ? '/rankings/global'
+      : `/rankings/game/${type}`;
+    
+    const params = new URLSearchParams({
+      limit: this.pageSize,
+      offset: page * this.pageSize
+    });
+    
+    const response = await fetch(
+      `https://api.retrogamehub.games${endpoint}?${params}`
+    );
+    
+    const data = await response.json();
+    
+    this.render(data);
+  }
+  
+  render(data) {
+    const { rankings, total, cached_at } = data;
+    
+    this.container.innerHTML = `
+      <div class="leaderboard">
+        <div class="header">
+          <h2>
+            ${this.type === 'global' 
+              ? '🏆 Ranking Global' 
+              : `🎮 ${data.game_name}`
+            }
+          </h2>
+          <p class="cache-info">
+            Actualizado: ${new Date(cached_at).toLocaleString()}
+          </p>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Jugador</th>
+              ${this.type === 'global' 
+                ? '<th>Total</th><th>Juegos</th><th>Avg Rank</th>' 
+                : '<th>Puntuación</th><th>Fecha</th>'
+              }
+            </tr>
+          </thead>
+          <tbody>
+            ${rankings.map(this.renderRow.bind(this)).join('')}
+          </tbody>
+        </table>
+        
+        <div class="pagination">
+          ${this.renderPagination(total)}
+        </div>
+      </div>
+    `;
+  }
+  
+  renderRow(player) {
+    const medalClass = this.getMedalClass(player.rank);
+    
+    if (this.type === 'global') {
+      return `
+        <tr class="${medalClass}">
+          <td>${this.getRankDisplay(player.rank)}</td>
+          <td>
+            <a href="/profile/${player.user_id}">
+              ${player.display_name}
+            </a>
+          </td>
+          <td>${player.total_score.toLocaleString()}</td>
+          <td>${player.games_played}</td>
+          <td>#${player.average_rank}</td>
+        </tr>
+      `;
+    } else {
+      return `
+        <tr class="${medalClass}">
+          <td>${this.getRankDisplay(player.rank)}</td>
+          <td>
+            <a href="/profile/${player.user_id}">
+              ${player.display_name}
+            </a>
+          </td>
+          <td>${player.score.toLocaleString()}</td>
+          <td>${new Date(player.submitted_at).toLocaleDateString()}</td>
+        </tr>
+      `;
+    }
+  }
+  
+  getMedalClass(rank) {
+    if (rank === 1) return 'gold';
+    if (rank === 2) return 'silver';
+    if (rank === 3) return 'bronze';
+    if (rank <= 10) return 'top-10';
+    return '';
+  }
+  
+  getRankDisplay(rank) {
+    if (rank === 1) return '🥇';
+    if (rank === 2) return '🥈';
+    if (rank === 3) return '🥉';
+    return `#${rank}`;
+  }
+  
+  renderPagination(total) {
+    const totalPages = Math.ceil(total / this.pageSize);
+    
+    return `
+      <button 
+        onclick="leaderboard.previousPage()" 
+        ${this.currentPage === 0 ? 'disabled' : ''}
+      >
+        ← Anterior
+      </button>
+      
+      <span>Página ${this.currentPage + 1} de ${totalPages}</span>
+      
+      <button 
+        onclick="leaderboard.nextPage()"
+        ${this.currentPage >= totalPages - 1 ? 'disabled' : ''}
+      >
+        Siguiente →
+      </button>
+    `;
+  }
+  
+  async nextPage() {
+    await this.load(this.type, this.currentPage + 1);
+  }
+  
+  async previousPage() {
+    if (this.currentPage > 0) {
+      await this.load(this.type, this.currentPage - 1);
+    }
+  }
+}
+
+// Uso
+const leaderboard = new LeaderboardComponent(
+  document.getElementById('leaderboard')
+);
+
+// Cargar ranking global
+leaderboard.load('global');
+
+// Cambiar a ranking de DOOM
+document.getElementById('game-select').addEventListener('change', (e) => {
+  leaderboard.load(e.target.value);
+});
+```
+
+---
+
+## Variables de Entorno
+
+```bash
+# Ranking Service
+PORT=3004
+DB_HOST=postgres
+DB_PORT=5432
+DB_NAME=retrogame_scores
+DB_USER=postgres
+DB_PASSWORD=secure_password
+
+# Redis Cache
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_PASSWORD=secure_redis_password
+
+# Cache TTL (seconds)
+CACHE_TTL_GLOBAL=300
+CACHE_TTL_GAME=180
+CACHE_TTL_USER=60
+
+# RabbitMQ
+RABBITMQ_URL=amqp://rabbitmq:5672
+RABBITMQ_EXCHANGE=retrogame_events
+RABBITMQ_QUEUE=ranking_cache_invalidation
+```
+
+---
+
+## Métricas y Monitoreo
+
+```javascript
+// Prometheus metrics
+
+const promClient = require('prom-client');
+
+const cacheHits = new promClient.Counter({
+  name: 'ranking_cache_hits_total',
+  help: 'Total cache hits'
+});
+
+const cacheMisses = new promClient.Counter({
+  name: 'ranking_cache_misses_total',
+  help: 'Total cache misses'
+});
+
+const cacheInvalidations = new promClient.Counter({
+  name: 'ranking_cache_invalidations_total',
+  help: 'Total cache invalidations',
+  labelNames: ['reason']
+});
+
+const rankingCalculationDuration = new promClient.Histogram({
+  name: 'ranking_calculation_duration_seconds',
+  help: 'Time to calculate rankings',
+  buckets: [0.1, 0.5, 1, 2, 5]
+});
+```
+
+---
+
+## Próximos Pasos
+
+<CardGroup cols={2}>
+  <Card title="User Profiles" icon="user" href="/api-reference/user-service">
+    Gestiona perfiles de usuario
+  </Card>
+  <Card title="Grafana Dashboards" icon="chart-line" href="/infrastructure/monitoring">
+    Visualiza métricas en tiempo real
+  </Card>
+</CardGroup>

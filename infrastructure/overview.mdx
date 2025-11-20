@@ -35,10 +35,16 @@ La infraestructura de Retro Game Hub está completamente gestionada con **Terraf
     Almacenamiento de objetos para archivos y logs
   </Card>
   <Card title="ACM" icon="certificate">
-    Certificados SSL/TLS
+    Certificados SSL/TLS automáticos
   </Card>
   <Card title="IAM" icon="shield">
     Gestión de identidad y acceso
+  </Card>
+  <Card title="Ingress NGINX" icon="route">
+    Routing con autenticación OAuth2
+  </Card>
+  <Card title="OAuth2-Proxy" icon="lock">
+    Autenticación GitHub para monitoreo
   </Card>
 </CardGroup>
 
@@ -179,6 +185,15 @@ Las instancias t3.micro son insuficientes para cargas de trabajo de EKS. Mínimo
   <Card title="Configuración de Red" icon="network-wired" href="/infrastructure/networking">
     Entiende la VPC y security groups
   </Card>
+  <Card title="CDN con CloudFront" icon="cloud" href="/infrastructure/cdn-cloudfront">
+    Distribución global de juegos y assets
+  </Card>
+  <Card title="Route53 y SSL" icon="certificate" href="/infrastructure/route53-ssl">
+    DNS personalizado y certificados HTTPS
+  </Card>
+  <Card title="OAuth2 Authentication" icon="lock" href="/infrastructure/oauth2-authentication">
+    Protección de herramientas con GitHub
+  </Card>
   <Card title="Stack de Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
     Prometheus, Grafana, y configuración OAuth
   </Card>
@@ -190,4 +205,7 @@ Las instancias t3.micro son insuficientes para cargas de trabajo de EKS. Mínimo
 
 - [Configuración del Cluster EKS](/infrastructure/eks-cluster)
 - [Networking y Seguridad](/infrastructure/networking)
+- [CDN con S3 y CloudFront](/infrastructure/cdn-cloudfront)
+- [Route53 y Certificados SSL](/infrastructure/route53-ssl)
+- [Autenticación OAuth2 con GitHub](/infrastructure/oauth2-authentication)
 - [Monitoreo y Observabilidad](/infrastructure/monitoring)

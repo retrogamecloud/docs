@@ -32,6 +32,9 @@
               "infrastructure/overview",
               "infrastructure/eks-cluster",
               "infrastructure/networking",
+              "infrastructure/cdn-cloudfront",
+              "infrastructure/route53-ssl",
+              "infrastructure/oauth2-authentication",
               "infrastructure/monitoring"
             ]
           },

@@ -1,0 +1,532 @@
+---
+title: "User Service"
+description: "API de gestión de perfiles y preferencias de usuario"
+icon: "user"
+---
+
+## Base URL
+
+```
+Production:  https://api.retrogamehub.games/users
+Development: http://localhost:3005
+```
+
+<Warning>
+  Todos los endpoints requieren autenticación JWT salvo GET /users/:id (público).
+</Warning>
+
+---
+
+## Endpoints
+
+### GET /users/:id
+
+Obtiene el perfil público de un usuario.
+
+```bash
+curl https://api.retrogamehub.games/users/123
+```
+
+**Response 200:**
+
+```json
+{
+  "id": 123,
+  "username": "player1",
+  "display_name": "Player One",
+  "avatar_url": "https://cdn.retrogamehub.games/avatars/123.jpg",
+  "bio": "Retro gaming enthusiast since 1993",
+  "created_at": "2025-11-01T10:00:00.000Z",
+  "stats": {
+    "games_played": 5,
+    "total_score": 312450,
+    "global_rank": 542,
+    "total_players": 5843,
+    "achievements": 12
+  },
+  "badges": [
+    {
+      "id": "fps_master",
+      "name": "FPS Master",
+      "description": "Top 100 en 3 juegos FPS",
+      "icon_url": "https://cdn.retrogamehub.games/badges/fps_master.png"
+    }
+  ],
+  "recent_games": [
+    {
+      "game_slug": "doom",
+      "game_name": "DOOM",
+      "score": 125000,
+      "rank": 42,
+      "played_at": "2025-11-19T15:30:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+### GET /users/me
+
+Obtiene el perfil del usuario autenticado (incluye datos privados).
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response 200:**
+
+```json
+{
+  "id": 123,
+  "username": "player1",
+  "email": "player@example.com",
+  "display_name": "Player One",
+  "avatar_url": "https://cdn.retrogamehub.games/avatars/123.jpg",
+  "bio": "Retro gaming enthusiast since 1993",
+  "preferences": {
+    "notifications_enabled": true,
+    "show_email": false,
+    "show_stats": true,
+    "theme": "dark"
+  },
+  "social_links": {
+    "twitter": "https://twitter.com/player1",
+    "twitch": "https://twitch.tv/player1"
+  },
+  "created_at": "2025-11-01T10:00:00.000Z",
+  "last_login": "2025-11-20T09:00:00.000Z",
+  "email_verified": true
+}
+```
+
+---
+
+### PATCH /users/me
+
+Actualiza el perfil del usuario autenticado.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body:**
+
+```json
+{
+  "display_name": "Pro Player One",
+  "bio": "Updated bio text",
+  "preferences": {
+    "theme": "light"
+  },
+  "social_links": {
+    "twitter": "https://twitter.com/propla yer"
+  }
+}
+```
+
+**Response 200:**
+
+```json
+{
+  "message": "Perfil actualizado exitosamente",
+  "updated_fields": ["display_name", "bio", "preferences", "social_links"]
+}
+```
+
+---
+
+### POST /users/me/avatar
+
+Sube una nueva imagen de avatar.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+**Request Body:**
+
+```
+avatar: [image file]
+```
+
+**Restricciones:**
+- Formatos: JPG, PNG, GIF
+- Tamaño máximo: 2MB
+- Dimensiones mínimas: 128x128px
+- Se redimensiona automáticamente a 256x256px
+
+**Response 200:**
+
+```json
+{
+  "message": "Avatar actualizado",
+  "avatar_url": "https://cdn.retrogamehub.games/avatars/123.jpg?v=1700000000"
+}
+```
+
+---
+
+### GET /users/:id/games
+
+Obtiene historial de juegos del usuario.
+
+```bash
+curl "https://api.retrogamehub.games/users/123/games?limit=20"
+```
+
+**Query Parameters:**
+
+| Parámetro | Tipo | Default |
+|-----------|------|---------|
+| limit | number | 20 |
+| offset | number | 0 |
+
+**Response 200:**
+
+```json
+{
+  "user_id": 123,
+  "games": [
+    {
+      "game_slug": "doom",
+      "game_name": "DOOM",
+      "score": 125000,
+      "rank": 42,
+      "total_players": 1547,
+      "percentile": 97.3,
+      "first_played": "2025-11-10T10:00:00.000Z",
+      "last_played": "2025-11-19T15:30:00.000Z",
+      "total_time_played": 14400
+    }
+  ],
+  "total": 5,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+---
+
+### GET /users/:id/achievements
+
+Obtiene logros desbloqueados del usuario.
+
+```bash
+curl https://api.retrogamehub.games/users/123/achievements
+```
+
+**Response 200:**
+
+```json
+{
+  "user_id": 123,
+  "achievements": [
+    {
+      "id": "first_score",
+      "name": "Primeros Pasos",
+      "description": "Envía tu primera puntuación",
+      "icon_url": "https://cdn.retrogamehub.games/achievements/first_score.png",
+      "rarity": "common",
+      "unlocked_at": "2025-11-10T10:30:00.000Z"
+    },
+    {
+      "id": "top_100",
+      "name": "Top 100",
+      "description": "Alcanza el top 100 en cualquier juego",
+      "icon_url": "https://cdn.retrogamehub.games/achievements/top_100.png",
+      "rarity": "rare",
+      "unlocked_at": "2025-11-15T14:00:00.000Z"
+    }
+  ],
+  "total_unlocked": 12,
+  "total_available": 45,
+  "completion_percentage": 26.7
+}
+```
+
+---
+
+### POST /users/:id/follow
+
+Sigue a otro usuario (sistema social futuro).
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response 200:**
+
+```json
+{
+  "message": "Siguiendo a player2",
+  "following": true
+}
+```
+
+---
+
+### DELETE /users/:id/follow
+
+Deja de seguir a un usuario.
+
+**Response 200:**
+
+```json
+{
+  "message": "Has dejado de seguir a player2",
+  "following": false
+}
+```
+
+---
+
+### GET /users/:id/followers
+
+Lista seguidores del usuario.
+
+**Response 200:**
+
+```json
+{
+  "user_id": 123,
+  "followers": [
+    {
+      "id": 456,
+      "username": "player2",
+      "display_name": "Player Two",
+      "avatar_url": "https://cdn.retrogamehub.games/avatars/456.jpg",
+      "followed_at": "2025-11-18T10:00:00.000Z"
+    }
+  ],
+  "total": 42
+}
+```
+
+---
+
+### GET /users/:id/following
+
+Lista usuarios seguidos.
+
+**Response 200:**
+
+```json
+{
+  "user_id": 123,
+  "following": [
+    {
+      "id": 789,
+      "username": "player3",
+      "display_name": "Player Three",
+      "avatar_url": "https://cdn.retrogamehub.games/avatars/789.jpg",
+      "followed_at": "2025-11-17T12:00:00.000Z"
+    }
+  ],
+  "total": 15
+}
+```
+
+---
+
+## Base de Datos
+
+### Esquema `users`
+
+```sql
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(50) UNIQUE NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  display_name VARCHAR(100),
+  avatar_url TEXT,
+  bio TEXT,
+  preferences JSONB DEFAULT '{}',
+  social_links JSONB DEFAULT '{}',
+  email_verified BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  last_login TIMESTAMP
+);
+
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_users_email ON users(email);
+
+### Esquema `user_followers`
+
+```sql
+CREATE TABLE user_followers (
+  follower_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  following_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  followed_at TIMESTAMP DEFAULT NOW(),
+  
+  PRIMARY KEY (follower_id, following_id)
+);
+
+CREATE INDEX idx_followers_follower ON user_followers(follower_id);
+CREATE INDEX idx_followers_following ON user_followers(following_id);
+```
+
+### Esquema `user_achievements`
+
+```sql
+CREATE TABLE user_achievements (
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  achievement_id VARCHAR(50) NOT NULL,
+  unlocked_at TIMESTAMP DEFAULT NOW(),
+  
+  PRIMARY KEY (user_id, achievement_id)
+);
+
+CREATE INDEX idx_user_achievements_user ON user_achievements(user_id);
+```
+
+---
+
+## Ejemplo de Perfil de Usuario
+
+```javascript
+class UserProfile {
+  constructor(userId) {
+    this.userId = userId;
+    this.data = null;
+  }
+  
+  async load() {
+    const response = await fetch(
+      `https://api.retrogamehub.games/users/${this.userId}`
+    );
+    
+    this.data = await response.json();
+    this.render();
+  }
+  
+  render() {
+    const { username, display_name, avatar_url, bio, stats, badges, recent_games } = this.data;
+    
+    document.getElementById('profile').innerHTML = `
+      <div class="profile-header">
+        <img src="${avatar_url}" alt="${display_name}" class="avatar">
+        
+        <div class="profile-info">
+          <h1>${display_name}</h1>
+          <p class="username">@${username}</p>
+          <p class="bio">${bio}</p>
+          
+          <div class="stats">
+            <div class="stat">
+              <span class="label">Ranking Global</span>
+              <span class="value">#${stats.global_rank}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Puntuación Total</span>
+              <span class="value">${stats.total_score.toLocaleString()}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Juegos</span>
+              <span class="value">${stats.games_played}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Logros</span>
+              <span class="value">${stats.achievements}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="badges">
+        <h2>Insignias</h2>
+        <div class="badge-list">
+          ${badges.map(badge => `
+            <div class="badge" title="${badge.description}">
+              <img src="${badge.icon_url}" alt="${badge.name}">
+              <span>${badge.name}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      
+      <div class="recent-games">
+        <h2>Juegos Recientes</h2>
+        <div class="game-list">
+          ${recent_games.map(game => `
+            <div class="game-card">
+              <h3>${game.game_name}</h3>
+              <p class="score">${game.score.toLocaleString()} pts</p>
+              <p class="rank">Ranking: #${game.rank}</p>
+              <p class="date">${new Date(game.played_at).toLocaleDateString()}</p>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+  
+  async follow() {
+    const token = localStorage.getItem('token');
+    
+    const response = await fetch(
+      `https://api.retrogamehub.games/users/${this.userId}/follow`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+    
+    const data = await response.json();
+    console.log(data.message);
+    
+    this.load(); // Reload profile
+  }
+}
+
+// Uso
+const profile = new UserProfile(123);
+profile.load();
+```
+
+---
+
+## Variables de Entorno
+
+```bash
+# User Service
+PORT=3005
+DB_HOST=postgres
+DB_PORT=5432
+DB_NAME=retrogame_users
+DB_USER=postgres
+DB_PASSWORD=secure_password
+
+# AWS S3 for avatars
+AWS_ACCESS_KEY_ID=your_key
+AWS_SECRET_ACCESS_KEY=your_secret
+AWS_S3_BUCKET=retrogame-avatars
+AWS_REGION=eu-west-1
+
+# Image Processing
+MAX_AVATAR_SIZE=2097152  # 2MB
+AVATAR_DIMENSIONS=256
+```
+
+---
+
+## Próximos Pasos
+
+<CardGroup cols={2}>
+  <Card title="Auth Service" icon="shield" href="/api-reference/auth-service">
+    Autenticación y registro
+  </Card>
+  <Card title="Rankings" icon="ranking-star" href="/api-reference/ranking-service">
+    Consulta rankings
+  </Card>
+</CardGroup>

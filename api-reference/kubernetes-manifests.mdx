@@ -1,0 +1,1315 @@
+---
+title: "Kubernetes Manifests"
+description: "Manifiestos completos de deployment de todos los servicios en Kubernetes"
+icon: "dharmachakra"
+---
+
+## Visión General
+
+Esta sección documenta todos los manifiestos de Kubernetes para desplegar la plataforma completa de Retro Game Hub. Los recursos están organizados por namespace y tipo.
+
+## Estructura de Namespaces
+
+```
+retrogame-cluster/
+├── retrogame (principal)
+│   ├── Deployments (microservicios)
+│   ├── Services
+│   ├── ConfigMaps
+│   ├── Secrets
+│   └── Ingress
+│
+├── monitoring
+│   ├── Prometheus
+│   ├── Grafana
+│   ├── Alertmanager
+│   └── ServiceMonitors
+│
+├── ingress-nginx
+│   └── NGINX Ingress Controller
+│
+└── oauth2-proxy
+    └── OAuth2 Proxy
+```
+
+## Namespace Principal
+
+```yaml
+# namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: retrogame
+  labels:
+    name: retrogame
+    environment: production
+```
+
+## ConfigMaps
+
+### Database Configuration
+
+```yaml
+# configmap-database.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: database-config
+  namespace: retrogame
+data:
+  DB_HOST: "retrogame-db.c1abc2def3gh.us-east-1.rds.amazonaws.com"
+  DB_PORT: "5432"
+  DB_NAME: "retrogamedb"
+  DB_SSL_MODE: "require"
+  DB_POOL_MIN: "2"
+  DB_POOL_MAX: "10"
+  DB_IDLE_TIMEOUT: "30000"
+  DB_CONNECTION_TIMEOUT: "5000"
+```
+
+### Redis Configuration
+
+```yaml
+# configmap-redis.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: retrogame
+data:
+  REDIS_HOST: "retrogame-redis.abc123.0001.use1.cache.amazonaws.com"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  REDIS_CONNECT_TIMEOUT: "5000"
+  REDIS_COMMAND_TIMEOUT: "2000"
+  REDIS_MAX_RETRIES: "3"
+```
+
+### RabbitMQ Configuration
+
+```yaml
+# configmap-rabbitmq.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq-config
+  namespace: retrogame
+data:
+  RABBITMQ_HOST: "rabbitmq-service"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_VHOST: "/"
+  RABBITMQ_EXCHANGE: "retrogame-events"
+  RABBITMQ_QUEUE_SCORES: "scores-queue"
+  RABBITMQ_QUEUE_CACHE_INVALIDATION: "cache-invalidation-queue"
+```
+
+### CDN Configuration
+
+```yaml
+# configmap-cdn.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cdn-config
+  namespace: retrogame
+data:
+  CDN_URL: "https://d1abc23def456.cloudfront.net"
+  CDN_GAMES_PATH: "/juegos"
+  CDN_IMAGES_PATH: "/img"
+  CDN_EMULATOR_PATH: "/jsdos"
+```
+
+## Secrets
+
+```yaml
+# secrets.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+  namespace: retrogame
+type: Opaque
+stringData:
+  DB_USER: "retrogame_app"
+  DB_PASSWORD: "your-secure-db-password"
+  JWT_SECRET: "your-super-secret-jwt-key-here"
+  REDIS_PASSWORD: ""
+  RABBITMQ_USER: "retrogame"
+  RABBITMQ_PASSWORD: "your-rabbitmq-password"
+  AWS_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE"
+  AWS_SECRET_ACCESS_KEY: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+```
+
+## Deployments
+
+### Auth Service
+
+```yaml
+# deployment-auth-service.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: retrogame
+  labels:
+    app: auth-service
+    version: v1
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3001"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: auth-service
+        image: retrogame/auth-service:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 3001
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3001"
+        - name: SERVICE_NAME
+          value: "auth-service"
+        
+        # Database
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_PASSWORD
+        
+        # Redis
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: redis-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: redis-config
+              key: REDIS_PORT
+        
+        # JWT
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: JWT_SECRET
+        - name: JWT_EXPIRES_IN
+          value: "7d"
+        
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+```
+
+### User Service
+
+```yaml
+# deployment-user-service.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: retrogame
+  labels:
+    app: user-service
+    version: v1
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3002"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: user-service
+        image: retrogame/user-service:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 3002
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3002"
+        - name: SERVICE_NAME
+          value: "user-service"
+        
+        # Database
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_PASSWORD
+        
+        # Redis
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: redis-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: redis-config
+              key: REDIS_PORT
+        
+        # AWS S3 (para avatares)
+        - name: AWS_REGION
+          value: "us-east-1"
+        - name: S3_BUCKET_AVATARS
+          value: "retrogame-user-avatars"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: AWS_ACCESS_KEY_ID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: AWS_SECRET_ACCESS_KEY
+        
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 10
+          periodSeconds: 5
+```
+
+### Game Catalog Service
+
+```yaml
+# deployment-game-catalog.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: game-catalog-service
+  namespace: retrogame
+  labels:
+    app: game-catalog-service
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: game-catalog-service
+  template:
+    metadata:
+      labels:
+        app: game-catalog-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3003"
+    spec:
+      containers:
+      - name: game-catalog-service
+        image: retrogame/game-catalog-service:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 3003
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3003"
+        - name: SERVICE_NAME
+          value: "game-catalog-service"
+        
+        # Database
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_PASSWORD
+        
+        # CDN
+        - name: CDN_URL
+          valueFrom:
+            configMapKeyRef:
+              name: cdn-config
+              key: CDN_URL
+        
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3003
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3003
+          initialDelaySeconds: 10
+          periodSeconds: 5
+```
+
+### Score Service
+
+```yaml
+# deployment-score-service.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: score-service
+  namespace: retrogame
+  labels:
+    app: score-service
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: score-service
+  template:
+    metadata:
+      labels:
+        app: score-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3004"
+    spec:
+      containers:
+      - name: score-service
+        image: retrogame/score-service:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 3004
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3004"
+        - name: SERVICE_NAME
+          value: "score-service"
+        
+        # Database
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_PASSWORD
+        
+        # RabbitMQ
+        - name: RABBITMQ_URL
+          value: "amqp://$(RABBITMQ_USER):$(RABBITMQ_PASSWORD)@$(RABBITMQ_HOST):$(RABBITMQ_PORT)/"
+        - name: RABBITMQ_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: rabbitmq-config
+              key: RABBITMQ_HOST
+        - name: RABBITMQ_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: rabbitmq-config
+              key: RABBITMQ_PORT
+        - name: RABBITMQ_USER
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: RABBITMQ_USER
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: RABBITMQ_PASSWORD
+        
+        # Anti-cheat
+        - name: ANTI_CHEAT_ENABLED
+          value: "true"
+        - name: MAX_SCORE_INCREASE_PER_SECOND
+          value: "1000"
+        
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3004
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3004
+          initialDelaySeconds: 10
+          periodSeconds: 5
+```
+
+### Ranking Service
+
+```yaml
+# deployment-ranking-service.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ranking-service
+  namespace: retrogame
+  labels:
+    app: ranking-service
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ranking-service
+  template:
+    metadata:
+      labels:
+        app: ranking-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3005"
+    spec:
+      containers:
+      - name: ranking-service
+        image: retrogame/ranking-service:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 3005
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3005"
+        - name: SERVICE_NAME
+          value: "ranking-service"
+        
+        # Database
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_PASSWORD
+        
+        # Redis
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: redis-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: redis-config
+              key: REDIS_PORT
+        
+        # RabbitMQ
+        - name: RABBITMQ_URL
+          value: "amqp://$(RABBITMQ_USER):$(RABBITMQ_PASSWORD)@$(RABBITMQ_HOST):$(RABBITMQ_PORT)/"
+        - name: RABBITMQ_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: rabbitmq-config
+              key: RABBITMQ_HOST
+        - name: RABBITMQ_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: rabbitmq-config
+              key: RABBITMQ_PORT
+        - name: RABBITMQ_USER
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: RABBITMQ_USER
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: RABBITMQ_PASSWORD
+        
+        # Cache
+        - name: CACHE_TTL_GLOBAL_RANKING
+          value: "300"
+        - name: CACHE_TTL_GAME_RANKING
+          value: "60"
+        
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3005
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3005
+          initialDelaySeconds: 10
+          periodSeconds: 5
+```
+
+### Frontend
+
+```yaml
+# deployment-frontend.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: retrogame
+  labels:
+    app: frontend
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+        version: v1
+    spec:
+      containers:
+      - name: frontend
+        image: retrogame/frontend:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 80
+        env:
+        - name: CDN_URL
+          valueFrom:
+            configMapKeyRef:
+              name: cdn-config
+              key: CDN_URL
+        - name: API_URL
+          value: "http://kong-gateway:8000"
+        
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        
+        livenessProbe:
+          httpGet:
+            path: /health.html
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        
+        readinessProbe:
+          httpGet:
+            path: /health.html
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+```
+
+## Services
+
+```yaml
+# services.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: retrogame
+spec:
+  type: ClusterIP
+  selector:
+    app: auth-service
+  ports:
+  - name: http
+    port: 3001
+    targetPort: 3001
+    protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: retrogame
+spec:
+  type: ClusterIP
+  selector:
+    app: user-service
+  ports:
+  - name: http
+    port: 3002
+    targetPort: 3002
+    protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: game-catalog-service
+  namespace: retrogame
+spec:
+  type: ClusterIP
+  selector:
+    app: game-catalog-service
+  ports:
+  - name: http
+    port: 3003
+    targetPort: 3003
+    protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: score-service
+  namespace: retrogame
+spec:
+  type: ClusterIP
+  selector:
+    app: score-service
+  ports:
+  - name: http
+    port: 3004
+    targetPort: 3004
+    protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ranking-service
+  namespace: retrogame
+spec:
+  type: ClusterIP
+  selector:
+    app: ranking-service
+  ports:
+  - name: http
+    port: 3005
+    targetPort: 3005
+    protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: retrogame
+spec:
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+```
+
+## Ingress
+
+```yaml
+# ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: retrogame-ingress
+  namespace: retrogame
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+spec:
+  tls:
+    - hosts:
+        - retrogamehub.games
+        - www.retrogamehub.games
+      secretName: retrogame-tls
+  rules:
+    # Frontend
+    - host: retrogamehub.games
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+    
+    - host: www.retrogamehub.games
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+```
+
+## HorizontalPodAutoscaler
+
+```yaml
+# hpa.yaml
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: auth-service-hpa
+  namespace: retrogame
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: auth-service
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: score-service-hpa
+  namespace: retrogame
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: score-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ranking-service-hpa
+  namespace: retrogame
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ranking-service
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+```
+
+## PodDisruptionBudget
+
+```yaml
+# pdb.yaml
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: auth-service-pdb
+  namespace: retrogame
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: auth-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: score-service-pdb
+  namespace: retrogame
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: score-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ranking-service-pdb
+  namespace: retrogame
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ranking-service
+```
+
+## NetworkPolicy
+
+```yaml
+# network-policy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-kong
+  namespace: retrogame
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: kong-gateway
+    ports:
+    - protocol: TCP
+      port: 3001
+    - protocol: TCP
+      port: 3002
+    - protocol: TCP
+      port: 3003
+    - protocol: TCP
+      port: 3004
+    - protocol: TCP
+      port: 3005
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-db
+  namespace: retrogame
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 5432
+```
+
+## ServiceMonitor (Prometheus)
+
+```yaml
+# servicemonitor.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: retrogame-services
+  namespace: retrogame
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: auth-service
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kong-metrics
+  namespace: retrogame
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: kong-gateway
+  endpoints:
+  - port: admin
+    path: /metrics
+    interval: 30s
+```
+
+## Comandos de Deployment
+
+### Aplicar todos los manifiestos
+
+```bash
+# Namespace
+kubectl apply -f namespace.yaml
+
+# ConfigMaps y Secrets
+kubectl apply -f configmap-database.yaml
+kubectl apply -f configmap-redis.yaml
+kubectl apply -f configmap-rabbitmq.yaml
+kubectl apply -f configmap-cdn.yaml
+kubectl apply -f secrets.yaml
+
+# Deployments
+kubectl apply -f deployment-auth-service.yaml
+kubectl apply -f deployment-user-service.yaml
+kubectl apply -f deployment-game-catalog.yaml
+kubectl apply -f deployment-score-service.yaml
+kubectl apply -f deployment-ranking-service.yaml
+kubectl apply -f deployment-frontend.yaml
+
+# Services
+kubectl apply -f services.yaml
+
+# Ingress
+kubectl apply -f ingress.yaml
+
+# HPA y PDB
+kubectl apply -f hpa.yaml
+kubectl apply -f pdb.yaml
+
+# Network Policies
+kubectl apply -f network-policy.yaml
+
+# ServiceMonitors
+kubectl apply -f servicemonitor.yaml
+```
+
+### Verificar deployment
+
+```bash
+# Ver todos los recursos
+kubectl get all -n retrogame
+
+# Ver pods
+kubectl get pods -n retrogame -o wide
+
+# Ver services
+kubectl get svc -n retrogame
+
+# Ver ingress
+kubectl get ingress -n retrogame
+
+# Ver HPA
+kubectl get hpa -n retrogame
+```
+
+### Logs y debugging
+
+```bash
+# Logs de un pod
+kubectl logs -n retrogame deployment/auth-service --follow
+
+# Logs de todos los pods de un deployment
+kubectl logs -n retrogame -l app=auth-service --tail=100
+
+# Exec en un pod
+kubectl exec -it -n retrogame deployment/auth-service -- /bin/sh
+
+# Port forward para testing local
+kubectl port-forward -n retrogame svc/auth-service 3001:3001
+```
+
+### Rollout
+
+```bash
+# Ver estado de rollout
+kubectl rollout status deployment/auth-service -n retrogame
+
+# Ver historial
+kubectl rollout history deployment/auth-service -n retrogame
+
+# Rollback a versión anterior
+kubectl rollout undo deployment/auth-service -n retrogame
+
+# Rollback a versión específica
+kubectl rollout undo deployment/auth-service -n retrogame --to-revision=2
+
+# Pausar rollout
+kubectl rollout pause deployment/auth-service -n retrogame
+
+# Reanudar rollout
+kubectl rollout resume deployment/auth-service -n retrogame
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Pods en estado CrashLoopBackOff">
+    ```bash
+    # Ver logs del pod
+    kubectl logs -n retrogame <pod-name> --previous
+    
+    # Describir pod para ver eventos
+    kubectl describe pod -n retrogame <pod-name>
+    
+    # Verificar ConfigMaps y Secrets
+    kubectl get configmap -n retrogame
+    kubectl get secret -n retrogame
+    ```
+  </Accordion>
+
+  <Accordion title="Service no accesible">
+    ```bash
+    # Verificar endpoints
+    kubectl get endpoints -n retrogame <service-name>
+    
+    # Verificar labels de pods
+    kubectl get pods -n retrogame --show-labels
+    
+    # Test de conectividad desde otro pod
+    kubectl run -it --rm debug --image=busybox --restart=Never -- wget -O- http://<service-name>:3001/health
+    ```
+  </Accordion>
+
+  <Accordion title="Ingress no funciona">
+    ```bash
+    # Verificar Ingress Controller
+    kubectl get pods -n ingress-nginx
+    
+    # Ver logs del Ingress Controller
+    kubectl logs -n ingress-nginx deployment/ingress-nginx-controller
+    
+    # Verificar certificado TLS
+    kubectl get certificate -n retrogame
+    kubectl describe certificate retrogame-tls -n retrogame
+    ```
+  </Accordion>
+
+  <Accordion title="HPA no escala">
+    ```bash
+    # Verificar métricas
+    kubectl get hpa -n retrogame
+    kubectl describe hpa auth-service-hpa -n retrogame
+    
+    # Verificar Metrics Server
+    kubectl get deployment metrics-server -n kube-system
+    kubectl top nodes
+    kubectl top pods -n retrogame
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Documentación Relacionada
+
+<CardGroup cols={2}>
+  <Card title="Backend Services" icon="server" href="/api-reference/backend-main">
+    Microservicios desplegados
+  </Card>
+  <Card title="Kong Gateway" icon="route" href="/api-reference/kong-config">
+    API Gateway configuration
+  </Card>
+  <Card title="EKS Cluster" icon="dharmachakra" href="/infrastructure/eks-cluster">
+    Configuración del clúster
+  </Card>
+  <Card title="Monitoring" icon="chart-line" href="/infrastructure/monitoring">
+    Observabilidad completa
+  </Card>
+</CardGroup>
