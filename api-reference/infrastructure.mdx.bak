@@ -10,16 +10,17 @@ icon: "code"
 </Info>
 
 ## Infrastructure: bootstrap
+
+```hcl
 resource "aws_iam_group" "admins" {
   name = "Administrators"
 }
 
---
 resource "aws_iam_group_policy_attachment" "admin_policy" {
   group      = aws_iam_group.admins.name
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
---
+
 resource "aws_iam_user" "terraform_user" {
   name          = "retrogamecloud-terraform"
   force_destroy = false
