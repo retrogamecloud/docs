@@ -1,0 +1,596 @@
+---
+title: "kubernetes"
+description: "Documentación generada automáticamente"
+icon: "code"
+---
+
+<Info>
+  Documentación generada automáticamente.
+  Última actualización: 2025-11-21
+</Info>
+
+# Kubernetes Manifests
+
+## argocd-application.yaml
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: retro-game-hub
+  namespace: argocd
+spec: 
+  project: default 
+  source: 
+    repoURL: https://github.com/retrogamecloud/kubernetes.git 
+    targetRevision: main 
+    path: .
+    directory: 
+      exclude: '{package.json,package-lock.json,README.md,tests/*,gitops/*}'
+  destination: 
+    server: https://kubernetes.default.svc
+    namespace: retrogamecloud
+  syncPolicy: 
+    automated: 
+      prune: true
+      selfHeal: true
+    syncOptions: 
+    - CreateNamespace=true ```
+
+## 04-frontend.yaml
+```yaml
+# --- 1. Despliegue del Frontend ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  namespace: retrogamecloud
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: retrogamehub/frontend:sha-801476d
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: NODE_ENV
+              value: "production"
+            # Hacemos que las URLs sean relativas a la raíz
+            # Kong se encargará de enrutarlas correctamente
+            - name: API_GATEWAY_URL
+              value: "/"
+            - name: CDN_BASE_URL
+              value: "/"
+
+---
+# --- 2. Servicio Interno para el Frontend ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: retrogamecloud
+spec:
+  selector:
+    app: frontend
+  ports:
+    - protocol: TCP
+      port: 8081
+      targetPort: 8080```
+
+## 05-kong.yaml
+```yaml
+# --- 1. Configuración de Kong (¡LA VERSIÓN FINAL!) ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-config
+  namespace: retrogamecloud
+data:
+  kong.yml: |
+    _format_version: "3.0"
+
+    services:
+      # --- Servicio de Backend (API) ---
+      # ¡IMPORTANTE! Las rutas de la API deben ir PRIMERO
+      - name: database-service
+        url: http://gamehub-database-service:3000
+        routes:
+          # --- RUTAS /api/* ---
+          - name: api-routes
+            paths:
+              - /api/
+            strip_path: false
+            
+          # --- RUTAS SIN /api ---
+          - name: root-auth-routes
+            paths:
+              - /auth/
+            strip_path: false
+          - name: root-scores-route # Para el app.post('/')
+            paths:
+              - /
+            methods:
+              - POST
+            strip_path: false
+          
+          # --- Arreglo para GET /games (Rankings) ---
+          - name: games-ranking-route
+            paths:
+              - /games/ # <-- ¡AÑADIDA BARRA!
+            methods:
+              - GET
+            strip_path: false
+
+        # Plugin de CORS (¡corregido!) aplicado a TODAS las rutas de este servicio
+        plugins:
+          - name: cors
+            config:
+              origins: ["*"]
+              methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+              headers: ["Accept", "Authorization", "Content-Type"]
+              exposed_headers: ["X-Auth-Token"]
+              credentials: true
+              max_age: 3600
+              preflight_continue: false # <-- ¡LA LÍNEA MÁGICA!
+
+      # --- Servicio del CDN (Juegos y Assets) ---
+      - name: cdn-service
+        url: http://cdn-service:80
+        routes:
+          - name: cdn-juegos
+            paths:
+              - /juegos/
+            strip_path: false
+          - name: cdn-img
+            paths:
+              - /img/
+            strip_path: false
+
+      # --- Servicio del Frontend (¡Acepta TODO lo demás!) ---
+      # ¡CRÍTICO! Esta ruta debe ser la ÚLTIMA en definirse.
+      # Maneja todo lo demás (/, /games.html, /retro.css, etc.)
+      - name: frontend-service
+        url: http://frontend-service:8081
+        routes:
+          - name: frontend-all-paths
+            paths:
+              - /
+            strip_path: false
+
+---
+# --- 2. Despliegue de Kong ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong-deployment
+  namespace: retrogamecloud
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kong
+  template:
+    metadata:
+      labels:
+        app: kong
+    spec:
+      containers:
+        - name: kong
+          # Imagen de Kong desde DockerHub - v1.0.10 (sha-23f7dbd)
+          image: retrogamehub/kong:sha-23f7dbd
+          # La imagen se descarga solo si no existe localmente (mejor práctica)
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000 # Proxy
+            - containerPort: 8001 # Admin
+          env:
+            - name: KONG_DATABASE
+              value: "off"
+            - name: KONG_DECLARATIVE_CONFIG
+              value: "/etc/kong/kong.yml"
+            - name: KONG_PROXY_ACCESS_LOG
+              value: /dev/stdout
+            - name: KONG_ADMIN_ACCESS_LOG
+              value: /dev/stdout
+            - name: KONG_PROXY_ERROR_LOG
+              value: /dev/stderr
+            - name: KONG_ADMIN_ERROR_LOG
+              value: /dev/stderr
+            - name: KONG_ADMIN_LISTEN
+              value: 0.0.0.0:8001
+            - name: KONG_PROXY_LISTEN
+              value: 0.0.0.0:8000
+          volumeMounts:
+            - name: kong-config-volume
+              mountPath: /etc/kong/
+              readOnly: true
+      volumes:
+        - name: kong-config-volume
+          configMap:
+            name: kong-config
+
+---
+# --- 3. Servicio Externo (LoadBalancer) ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-service
+  namespace: retrogamecloud
+spec:
+  type: LoadBalancer
+  selector:
+    app: kong
+  ports:
+    - name: proxy
+      protocol: TCP
+      port: 80
+      targetPort: 8000```
+
+## ci.yml
+```yaml
+name: Kubernetes Manifests CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    
+    - name: Install dependencies
+      run: npm install
+    
+    - name: Run tests
+      run: npm test
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage/lcov.info
+        flags: manifests
+        name: kubernetes-manifests
+        fail_ci_if_error: false
+  
+  validate-yamls:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Validate YAML syntax
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y yamllint
+        yamllint *.yaml
+  
+  kubectl-validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v4
+      with:
+        version: 'latest'
+    
+    - name: Setup kind
+      uses: helm/kind-action@v1.10.0
+      with:
+        install_only: true
+    
+    - name: Create kind cluster
+      run: kind create cluster
+    
+    - name: Validate Kubernetes manifests
+      run: |
+        for file in *.yaml; do
+          echo "Validating $file..."
+          kubectl apply --dry-run=client -f "$file"
+        done
+```
+
+## 03-cdn.yaml
+```yaml
+# --- 1. Despliegue del CDN ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cdn-deployment
+  namespace: retrogamecloud
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cdn
+  template:
+    metadata:
+      labels:
+        app: cdn
+    spec:
+      containers:
+        - name: cdn
+          # Imagen del CDN desde DockerHub - v1.0.13 (sha-0f69884)
+          image: retrogamehub/gamescdn:sha-0f69884
+          # La imagen se descarga solo si no existe localmente (mejor práctica)
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+
+---
+# --- 2. Servicio Interno para el CDN ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cdn-service
+  namespace: retrogamecloud
+spec:
+  selector:
+    app: cdn
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80```
+
+## 02-backend.yaml
+```yaml
+# --- 1. Despliegue del Backend (API) ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: retrogamecloud
+spec:
+  replicas: 2 # Corremos 2 copias para alta disponibilidad
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          # Imagen del backend desde DockerHub - v1.0.42 (sha-2fa38a0)
+          image: retrogamehub/backend:sha-9cb11ba
+          # La imagen se descarga solo si no existe localmente (mejor práctica)
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: NODE_ENV
+              value: "production"
+            - name: DATABASE_URL
+              # El Service 'postgres-db' (del archivo 01) resuelve a la IP de la BD
+              value: "postgresql://gamecloud:gamecloud@postgres-db:5432/retrogamecloud"
+            - name: JWT_SECRET
+              value: "supersecret-jwt-key-change-in-production-2024"
+          readinessProbe:
+            httpGet:
+              path: /health # Asumiendo que tienes una ruta raíz. Cambia si es /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+---
+# --- 2. Servicio Interno para el Backend ---
+apiVersion: v1
+kind: Service
+metadata:
+  # Este nombre DEBE COINCIDIR con el 'url' en kong.yml
+  name: gamehub-database-service
+  namespace: retrogamecloud
+spec:
+  selector:
+    app: backend # Apunta a los pods con la etiqueta 'app: backend'
+  ports:
+    - protocol: TCP
+      port: 3000       # El puerto que Kong busca
+      targetPort: 3000 # El puerto del contenedor```
+
+## 01-postgres.yaml
+```yaml
+# --- 1. Secreto para la contraseña de la BD ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: retrogamecloud
+type: Opaque
+data:
+  # Contraseñas codificadas en Base64
+  # POSTGRES_DB: retrogamecloud
+  POSTGRES_DB: cmV0cm9nYW1lY2xvdWQ=
+  # POSTGRES_USER: gamecloud
+  POSTGRES_USER: Z2FtZWNsb3Vk
+  # POSTGRES_PASSWORD: gamecloud
+  POSTGRES_PASSWORD: Z2FtZWNsb3Vk
+
+---
+# --- 2. ConfigMap para el script de inicialización ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-cm
+  namespace: retrogamecloud
+data:
+  "init.sql": |
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username VARCHAR(50) UNIQUE NOT NULL,
+      email VARCHAR(255) UNIQUE,
+      password_hash VARCHAR(255) NOT NULL,
+      display_name VARCHAR(100),
+      avatar_url TEXT,
+      bio TEXT,
+      is_active BOOLEAN DEFAULT true,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS refresh_tokens (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token VARCHAR(500) UNIQUE NOT NULL,
+      expires_at TIMESTAMP NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS user_stats (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      total_games_played INTEGER DEFAULT 0,
+      total_score INTEGER DEFAULT 0,
+      highest_score INTEGER DEFAULT 0,
+      favorite_game VARCHAR(100),
+      last_played_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS games (
+      id SERIAL PRIMARY KEY,
+      slug VARCHAR(100) UNIQUE NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      description TEXT,
+      thumbnail TEXT,
+      file_url TEXT,
+      year INTEGER,
+      developer VARCHAR(100),
+      tags TEXT[],
+      controls JSONB
+    );
+    CREATE TABLE IF NOT EXISTS scores (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      score BIGINT NOT NULL DEFAULT 0,
+      metadata JSONB,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS score_history (
+      id SERIAL PRIMARY KEY,
+      score_id INTEGER NOT NULL REFERENCES scores(id) ON DELETE CASCADE,
+      old_score BIGINT,
+      new_score BIGINT,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Insertar juegos iniciales
+    INSERT INTO games (slug, name, description, year, developer) VALUES
+    ('doom', 'DOOM', 'Juego de acción en primera persona', 1993, 'id Software'),
+    ('duke3d', 'Duke Nukem 3D', 'Shooter en primera persona', 1996, '3D Realms'),
+    ('wolf', 'Wolfenstein 3D', 'Shooter en primera persona', 1992, 'id Software'),
+    ('digger', 'Digger', 'Juego de arcade', 1983, 'Windmill Software'),
+    ('tetris', 'Tetris', 'Puzzle clásico', 1984, 'Alexey Pajitnov'),
+    ('streetfighter2', 'Street Fighter II', 'Juego de lucha', 1991, 'Capcom'),
+    ('mortalkombat', 'Mortal Kombat', 'Juego de lucha', 1992, 'Midway'),
+    ('lostvikings', 'The Lost Vikings', 'Puzzle y plataformas', 1992, 'Silicon & Synapse'),
+    ('heroesofmightandmagic2', 'Heroes of Might and Magic II', 'Estrategia por turnos', 1996, 'New World Computing'),
+    ('dangerousdave2', 'Dangerous Dave 2', 'Plataformas', 1990, 'John Romero')
+    ON CONFLICT (slug) DO NOTHING;
+
+---
+# --- 3. Petición de Volumen Persistente ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: retrogamecloud
+spec:
+  accessModes:
+    - ReadWriteOnce # Solo puede ser montado por un nodo a la vez
+  resources:
+    requests:
+      storage: 2Gi # Pide 2GB de espacio
+
+---
+# --- 4. El despliegue de la Base de Datos (StatefulSet) ---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-db
+  namespace: retrogamecloud
+spec:
+  serviceName: "postgres-db"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-db
+  template:
+    metadata:
+      labels:
+        app: postgres-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: postgres-secret
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+            - name: postgres-init-db
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: postgres-init-db
+          configMap:
+            name: postgres-init-cm
+
+  # Definición del volumen persistente
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
+---
+# --- 5. El Servicio interno (DNS) para la BD ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-db
+  namespace: retrogamecloud
+spec:
+  selector:
+    app: postgres-db
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432```
+
+## 00-namespace.yaml
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: retrogamecloud```
+
+

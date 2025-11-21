@@ -1,0 +1,707 @@
+---
+title: "kong"
+description: "Documentación generada automáticamente"
+icon: "code"
+---
+
+<Info>
+  Documentación generada automáticamente.
+  Última actualización: 2025-11-21
+</Info>
+
+# Kong Gateway Configuration
+
+## notify-docs-kong.yml
+```yaml
+name: Notify Docs - Kong
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**/*.yml'
+      - '**/*.yaml'
+
+jobs:
+  notify-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger docs sync
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ secrets.PAT_TOKEN }}" \
+            https://api.github.com/repos/retrogamecloud/docs/dispatches \
+            -d '{"event_type":"kong-updated"}'
+```
+
+## validate-config.yml
+```yaml
+name: Validar Configuración de Kong
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar tests
+        run: npm test
+
+      - name: Generar reporte de cobertura
+        run: npm run test:coverage
+
+      - name: Validar sintaxis YAML
+        run: |
+          echo "🔍 Validando sintaxis de kong.yml..."
+          # Verificar que el archivo existe
+          if [ ! -f kong.yml ]; then
+            echo "❌ Error: kong.yml no encontrado"
+            exit 1
+          fi
+          
+          # Validar sintaxis YAML usando yq
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          
+          if yq eval '.' kong.yml > /dev/null 2>&1; then
+            echo "✅ Sintaxis YAML válida"
+          else
+            echo "❌ Error de sintaxis YAML"
+            exit 1
+          fi
+
+      - name: Validar configuración declarativa de Kong
+        run: |
+          echo "🔍 Validando configuración declarativa de Kong..."
+          
+          # Validar estructura básica de Kong
+          _FORMAT_VERSION=$(yq eval '._format_version' kong.yml)
+          
+          if [ "$_FORMAT_VERSION" != "null" ]; then
+            echo "✅ Versión de formato: $_FORMAT_VERSION"
+          else
+            echo "❌ Falta _format_version"
+            exit 1
+          fi
+          
+          # Validar que existen servicios
+          SERVICES_COUNT=$(yq eval '.services | length' kong.yml)
+          echo "📊 Servicios definidos: $SERVICES_COUNT"
+          
+          if [ "$SERVICES_COUNT" -gt 0 ]; then
+            echo "✅ Configuración de servicios encontrada"
+          else
+            echo "⚠️  Advertencia: No hay servicios definidos"
+          fi
+          
+          # Validar que existen rutas
+          ROUTES_COUNT=$(yq eval '.routes | length' kong.yml)
+          echo "📊 Rutas definidas: $ROUTES_COUNT"
+          
+          if [ "$ROUTES_COUNT" -gt 0 ]; then
+            echo "✅ Configuración de rutas encontrada"
+          else
+            echo "⚠️  Advertencia: No hay rutas definidas"
+          fi
+
+      - name: Probar configuración de Kong con Docker
+        run: |
+          echo "🐳 Probando configuración de Kong en contenedor..."
+          
+          # Crear directorio temporal
+          mkdir -p /tmp/kong
+          cp kong.yml /tmp/kong/
+          
+          # Validar configuración con Kong en modo DB-less
+          docker run --rm \
+            -e "KONG_DATABASE=off" \
+            -e "KONG_DECLARATIVE_CONFIG=/kong/declarative/kong.yml" \
+            -v /tmp/kong:/kong/declarative \
+            kong:alpine \
+            kong config parse /kong/declarative/kong.yml
+          
+          if [ $? -eq 0 ]; then
+            echo "✅ Configuración de Kong válida"
+          else
+            echo "❌ Validación de configuración de Kong falló"
+            exit 1
+          fi
+
+      - name: Resumen de configuración
+        if: success()
+        run: |
+          echo "## 📋 Resumen de Configuración" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Sintaxis YAML: **Válida**" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Configuración Kong: **Válida**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Servicios" >> $GITHUB_STEP_SUMMARY
+          yq eval '.services[] | "- **" + .name + "**: " + .url' kong.yml >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Rutas" >> $GITHUB_STEP_SUMMARY
+          yq eval '.routes[] | "- **" + .name + "**: " + (.paths | join(", "))' kong.yml >> $GITHUB_STEP_SUMMARY
+```
+
+## docker-publish-and-update-k8s.yml
+```yaml
+name: Compilar, Publicar y Actualizar Kubernetes
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+
+env:
+  REGISTRY_GHCR: ghcr.io
+  REGISTRY_DOCKERHUB: docker.io
+  IMAGE_NAME: retrogamecloud/kong
+  K8S_REPO: retrogamecloud/kubernetes
+  K8S_MANIFEST_FILE: 05-kong.yaml
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Validar configuración de Kong
+        run: npm test
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Iniciar sesión en GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_GHCR }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Iniciar sesión en Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_DOCKERHUB }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Generar etiqueta de versión y SHA
+        id: version
+        run: |
+          # Contar commits desde el inicio
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          VERSION="v1.0.${COMMIT_COUNT}"
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "Versión generada: ${VERSION}"
+          echo "SHA corto: ${SHORT_SHA}"
+
+      - name: Extraer metadatos
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/retrogamecloud/kong
+            retrogamehub/kong
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=sha,prefix=sha-,format=short
+
+      - name: Compilar y publicar imagen Docker
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+          platforms: linux/amd64
+
+      - name: Resumen de imagen publicada
+        run: |
+          echo "✅ Imagen publicada exitosamente"
+          echo "📦 Versión: ${{ steps.version.outputs.version }}"
+          echo "🔖 SHA: sha-${{ steps.version.outputs.short_sha }}"
+
+  update-kubernetes-manifest:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Clonar repositorio de Kubernetes
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.K8S_REPO }}
+          token: ${{ secrets.K8S_UPDATE_TOKEN }}
+          ref: main
+
+      - name: Obtener información de la imagen desde el job anterior
+        id: image_info
+        run: |
+          # Reutilizar el SHA del commit actual sin clonar de nuevo
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          COMMIT_COUNT=${{ github.run_number }}
+          VERSION="v1.0.${COMMIT_COUNT}"
+          
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "image_tag=sha-${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Actualizar manifiesto de Kubernetes
+        run: |
+          IMAGE_TAG="${{ steps.image_info.outputs.image_tag }}"
+          VERSION="${{ steps.image_info.outputs.version }}"
+          
+          # Actualizar la imagen en el manifiesto usando sed
+          sed -i "s|image: retrogamehub/kong:.*|image: retrogamehub/kong:${IMAGE_TAG}|g" ${{ env.K8S_MANIFEST_FILE }}
+          
+          # Actualizar el comentario con la versión
+          sed -i "s|# Imagen de Kong desde DockerHub.*|# Imagen de Kong desde DockerHub - ${VERSION} (${IMAGE_TAG})|g" ${{ env.K8S_MANIFEST_FILE }}
+          
+          echo "✅ Manifiesto actualizado con imagen: ${IMAGE_TAG}"
+
+      - name: Configurar Git
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
+      - name: Crear rama y PR con cambios
+        run: |
+          VERSION="${{ steps.image_info.outputs.version }}"
+          IMAGE_TAG="${{ steps.image_info.outputs.image_tag }}"
+          BRANCH_NAME="auto/kong-${IMAGE_TAG}"
+          
+          git add ${{ env.K8S_MANIFEST_FILE }}
+          
+          # Solo proceder si hay cambios
+          if git diff --staged --quiet; then
+            echo "No hay cambios en el manifiesto"
+          else
+            # Crear rama para el PR
+            git checkout -b "${BRANCH_NAME}"
+            
+            git commit -m "chore: Actualizar imagen de Kong a ${IMAGE_TAG} [skip ci]" \
+                       -m "Version: ${VERSION}" \
+                       -m "SHA: ${{ steps.image_info.outputs.short_sha }}" \
+                       -m "Commit origen: ${{ github.sha }}" \
+                       -m "Actualizacion automatica desde CI/CD del repositorio kong"
+            
+            git push origin "${BRANCH_NAME}"
+            
+            # Crear PR usando GitHub CLI
+            PR_URL=$(gh pr create \
+              --repo ${{ env.K8S_REPO }} \
+              --base main \
+              --head "${BRANCH_NAME}" \
+              --title "chore(kong): Actualizar a ${IMAGE_TAG}" \
+              --body "Actualizacion automatica de Kong - Version: ${VERSION}, Tag: ${IMAGE_TAG}, SHA: ${{ steps.image_info.outputs.short_sha }}, Commit: ${{ github.sha }}")
+            
+            echo "✅ PR creado: ${PR_URL}"
+            
+            # Auto-aprobar el PR
+            gh pr review "${PR_URL}" --approve --body "Auto-aprobado por CI/CD"
+            
+            # Hacer merge automático
+            gh pr merge "${PR_URL}" --auto --squash --delete-branch
+            
+            echo "✅ PR auto-aprobado y configurado para merge automático"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.K8S_UPDATE_TOKEN }}
+
+      - name: Resumen
+        run: |
+          echo "## Actualizacion de Kubernetes Completada" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ steps.image_info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag de imagen**: ${{ steps.image_info.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Manifiesto actualizado**: ${{ env.K8S_MANIFEST_FILE }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repositorio**: ${{ env.K8S_REPO }}" >> $GITHUB_STEP_SUMMARY
+```
+
+## argocd.yml
+```yaml
+name: ArgoCD CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  DOCKERHUB_USERNAME: retrogamecloud
+  GHCR_REGISTRY: ghcr.io
+  DOCKERHUB_IMAGE: retrogamecloud/kong
+  GHCR_IMAGE: ghcr.io/retrogamecloud/kong
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      
+    steps:
+      - name: Descargar código fuente
+        uses: actions/checkout@v4
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login en Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login en GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extraer metadatos
+        id: meta
+        run: |
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+          echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+
+      - name: Construir y publicar en Docker Hub
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.DOCKERHUB_IMAGE }}:latest
+            ${{ env.DOCKERHUB_IMAGE }}:sha-${{ steps.meta.outputs.sha_short }}
+            ${{ env.DOCKERHUB_IMAGE }}:${{ steps.meta.outputs.branch }}-${{ steps.meta.outputs.date }}
+          cache-from: type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:buildcache,mode=max
+
+      - name: Construir y publicar en GitHub Container Registry
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.GHCR_IMAGE }}:latest
+            ${{ env.GHCR_IMAGE }}:sha-${{ steps.meta.outputs.sha_short }}
+            ${{ env.GHCR_IMAGE }}:${{ steps.meta.outputs.branch }}-${{ steps.meta.outputs.date }}
+
+      - name: Descargar repositorio infrastructure
+        uses: actions/checkout@v4
+        with:
+          repository: retrogamecloud/infrastructure
+          token: ${{ secrets.K8S_UPDATE_TOKEN }}
+          path: infrastructure
+          ref: main
+
+      - name: Actualizar manifiesto de Kubernetes
+        run: |
+          cd infrastructure
+          sed -i "s|image: retrogamecloud/kong:.*|image: retrogamecloud/kong:sha-${{ steps.meta.outputs.sha_short }}|g" k8s/kong/deployment.yaml
+          
+      - name: Commitear y subir cambios
+        run: |
+          cd infrastructure
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/kong/deployment.yaml
+          git commit -m "Actualizar imagen kong a sha-${{ steps.meta.outputs.sha_short }}" || exit 0
+          git push
+
+      - name: Resumen de despliegue
+        run: |
+          echo "### 🚀 Resumen del Despliegue" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags en Docker Hub:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.DOCKERHUB_IMAGE }}:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.DOCKERHUB_IMAGE }}:sha-${{ steps.meta.outputs.sha_short }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.DOCKERHUB_IMAGE }}:${{ steps.meta.outputs.branch }}-${{ steps.meta.outputs.date }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags en GitHub Packages:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.GHCR_IMAGE }}:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.GHCR_IMAGE }}:sha-${{ steps.meta.outputs.sha_short }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.GHCR_IMAGE }}:${{ steps.meta.outputs.branch }}-${{ steps.meta.outputs.date }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Manifiesto de Kubernetes actualizado en repositorio infrastructure**" >> $GITHUB_STEP_SUMMARY
+```
+
+## kong.yml
+```yaml
+
+_format_version: "3.0"
+
+services:
+  - name: database-service
+    url: http://gamehub-database-service:3000
+    routes:
+      - name: auth-login
+        paths:
+          - /api/auth/login
+        strip_path: false
+        methods:
+          - POST
+          - OPTIONS
+
+      - name: auth-register
+        paths:
+          - /api/auth/register
+        strip_path: false
+        methods:
+          - POST
+          - OPTIONS
+      
+      - name: auth-profile
+        paths:
+          - /api/auth/profile
+        strip_path: false
+        methods:
+          - GET
+          - PUT
+          - OPTIONS
+      
+      - name: user-routes
+        paths:
+          - /api/users
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 500
+          hour: 5000
+          policy: local
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - Accept-Language
+            - X-Requested-With
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
+          preflight_continue: false
+
+  - name: score-service
+    url: http://gamehub-database-service:3000
+    routes:
+      - name: score-routes
+        paths:
+          - /api/scores
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - OPTIONS
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 500
+          policy: local
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+          credentials: true
+          max_age: 3600
+
+  - name: ranking-service
+    url: http://gamehub-database-service:3000
+    routes:
+      - name: ranking-routes
+        paths:
+          - /api/rankings
+        strip_path: false
+        methods:
+          - GET
+          - OPTIONS
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 500
+          policy: local
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+          credentials: true
+          max_age: 3600
+      - name: response-transformer
+        config:
+          add:
+            headers:
+              - X-Cache-Status:HIT
+
+  - name: game-catalog-service
+    url: http://game-catalog-service:3005
+    routes:
+      - name: game-catalog-routes
+        paths:
+          - /api/games
+          - /api/tags
+        strip_path: false
+        methods:
+          - GET
+          - OPTIONS
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 500
+          policy: local
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+          credentials: true
+          max_age: 3600
+
+  # Mintlify Documentation (proxy)
+  - name: mintlify-docs
+    url: https://retrogamecloud.mintlify.app
+    protocol: https
+    routes:
+      - name: docs-wiki
+        paths:
+          - /wiki
+        strip_path: true
+        methods:
+          - GET
+          - OPTIONS
+        preserve_host: false
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 100
+          hour: 1000
+          policy: local
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - OPTIONS
+          headers:
+            - Accept
+            - Content-Type
+          credentials: false
+          max_age: 3600
+      - name: request-transformer
+        config:
+          replace:
+            headers:
+              - Host:retrogamecloud.mintlify.app
+
+# Global plugins
+plugins:
+  - name: prometheus
+    config:
+      status_code_metrics: true
+      latency_metrics: true
+      bandwidth_metrics: true
+      upstream_health_metrics: true
+```
+
+
