@@ -8,124 +8,6 @@
     "dark": "#00aa55"
   },
   "favicon": "/logo/favicon.svg",
-  "navigation": {
-    "tabs": [
-      {
-        "tab": "Documentación",
-        "groups": [
-          {
-            "group": "Inicio",
-            "pages": [
-              "index",
-              "quickstart",
-              "desarrollo-local",
-              "deployment",
-              "configuration",
-              "troubleshooting",
-              "sequence-diagrams",
-              "architecture"
-            ]
-          },
-          {
-            "group": "Infraestructura",
-            "pages": [
-              "infrastructure/overview",
-              "infrastructure/eks-cluster",
-              "infrastructure/networking",
-              "infrastructure/cdn-cloudfront",
-              "infrastructure/route53-ssl",
-              "infrastructure/oauth2-authentication",
-              "infrastructure/argocd-gitops",
-              "infrastructure/monitoring"
-            ]
-          },
-          {
-            "group": "CI/CD y GitOps",
-            "pages": [
-              "cicd/overview",
-              "cicd/github-actions",
-              "cicd/gitops-workflow"
-            ]
-          },
-          {
-            "group": "Servicios",
-            "pages": [
-              "services/auth-service",
-              "services/game-catalog",
-              "services/score-service",
-              "services/ranking-service",
-              "services/user-service"
-            ]
-          },
-          {
-            "group": "Frontend",
-            "pages": [
-              "frontend/overview",
-              "frontend/jsdos-integration"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "Referencia API",
-        "groups": [
-          {
-            "group": "Backend Services",
-            "pages": [
-              "api-reference/auth-service",
-              "api-reference/game-catalog-service",
-              "api-reference/score-service",
-              "api-reference/ranking-service",
-              "api-reference/user-service",
-              "api-reference/backend-main"
-            ]
-          },
-          {
-            "group": "Frontend",
-            "pages": [
-              "api-reference/frontend"
-            ]
-          },
-          {
-            "group": "Infrastructure",
-            "pages": [
-              "api-reference/infrastructure-docs",
-              "api-reference/kong-config",
-              "api-reference/kubernetes-manifests"
-            ]
-          },
-          {
-            "group": "Endpoints Manuales",
-            "pages": [
-              "api-reference/auth/login",
-              "api-reference/auth/register",
-              "api-reference/auth/verify",
-              "api-reference/games/list",
-              "api-reference/games/get",
-              "api-reference/scores/submit",
-              "api-reference/scores/get",
-              "api-reference/rankings/global",
-              "api-reference/rankings/by-game"
-            ]
-          }
-        ]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "GitHub",
-          "href": "https://github.com/retrogamecloud",
-          "icon": "github"
-        },
-        {
-          "anchor": "Jugar",
-          "href": "https://retrogamehub.games",
-          "icon": "gamepad"
-        }
-      ]
-    }
-  },
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
@@ -145,19 +27,182 @@
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {
       "github": "https://github.com/retrogamecloud"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentación",
+        "groups": [
+          {
+            "group": "1. Primeros Pasos",
+            "pages": [
+              "index",
+              "quickstart",
+              "desarrollo-local"
+            ],
+            "description": "Introducción al proyecto y guías de inicio rápido para comenzar a trabajar"
+          },
+          {
+            "group": "2. Arquitectura y Diseño",
+            "pages": [
+              "architecture",
+              "sequence-diagrams"
+            ],
+            "description": "Visión general de la arquitectura del sistema y diagramas de flujo"
+          },
+          {
+            "group": "3. Servicios Backend",
+            "pages": [
+              "services/auth-service",
+              "services/user-service",
+              "services/game-catalog",
+              "services/score-service",
+              "services/ranking-service"
+            ],
+            "description": "Documentación detallada de cada microservicio del backend"
+          },
+          {
+            "group": "4. Frontend",
+            "pages": [
+              "frontend/overview",
+              "frontend/jsdos-integration"
+            ],
+            "description": "Aplicación web frontend y sus integraciones"
+          },
+          {
+            "group": "5. Infraestructura Cloud",
+            "pages": [
+              "infrastructure/overview",
+              "infrastructure/eks-cluster",
+              "infrastructure/networking",
+              "infrastructure/cdn-cloudfront",
+              "infrastructure/route53-ssl",
+              "infrastructure/monitoring"
+            ],
+            "description": "Componentes de infraestructura en AWS: EKS, redes, CDN, DNS y monitorización"
+          },
+          {
+            "group": "6. Autenticación y Seguridad",
+            "pages": [
+              "infrastructure/oauth2-authentication"
+            ],
+            "description": "Sistemas de autenticación OAuth2 y configuración de seguridad"
+          },
+          {
+            "group": "7. CI/CD y GitOps",
+            "pages": [
+              "cicd/overview",
+              "cicd/github-actions",
+              "cicd/gitops-workflow",
+              "infrastructure/argocd-gitops"
+            ],
+            "description": "Pipelines de integración continua, despliegue automatizado y flujos GitOps con ArgoCD"
+          },
+          {
+            "group": "8. Configuración y Despliegue",
+            "pages": [
+              "configuration",
+              "deployment"
+            ],
+            "description": "Guías de configuración de entornos y despliegue en producción"
+          },
+          {
+            "group": "9. Solución de Problemas",
+            "pages": [
+              "troubleshooting"
+            ],
+            "description": "Guía de resolución de problemas comunes y debugging"
+          }
+        ]
+      },
+      {
+        "tab": "Referencia API",
+        "groups": [
+          {
+            "group": "1. Autenticación",
+            "pages": [
+              "api-reference/auth/login",
+              "api-reference/auth/register",
+              "api-reference/auth/verify",
+              "api-reference/auth-service"
+            ],
+            "description": "Endpoints de autenticación: login, registro y verificación de tokens"
+          },
+          {
+            "group": "2. Usuarios",
+            "pages": [
+              "api-reference/user-service"
+            ],
+            "description": "Gestión de perfiles y datos de usuarios"
+          },
+          {
+            "group": "3. Catálogo de Juegos",
+            "pages": [
+              "api-reference/games/list",
+              "api-reference/games/get",
+              "api-reference/game-catalog-service"
+            ],
+            "description": "Listado, búsqueda y detalles de juegos disponibles"
+          },
+          {
+            "group": "4. Puntuaciones",
+            "pages": [
+              "api-reference/scores/submit",
+              "api-reference/scores/get",
+              "api-reference/score-service"
+            ],
+            "description": "Envío y consulta de puntuaciones de partidas"
+          },
+          {
+            "group": "5. Rankings",
+            "pages": [
+              "api-reference/rankings/global",
+              "api-reference/rankings/by-game",
+              "api-reference/ranking-service"
+            ],
+            "description": "Tablas de clasificación globales y por juego"
+          },
+          {
+            "group": "6. Documentación Técnica",
+            "pages": [
+              "api-reference/backend-main",
+              "api-reference/frontend",
+              "api-reference/infrastructure-docs",
+              "api-reference/kong-config",
+              "api-reference/kubernetes-manifests"
+            ],
+            "description": "Especificaciones técnicas de backend, frontend, infraestructura y configuraciones"
+          }
+        ]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "GitHub",
+          "href": "https://github.com/retrogamecloud",
+          "icon": "github"
+        },
+        {
+          "anchor": "Jugar",
+          "href": "https://retrogamehub.games",
+          "icon": "gamepad"
+        }
+      ]
     }
   }
 }
