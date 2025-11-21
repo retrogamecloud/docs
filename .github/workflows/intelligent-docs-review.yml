@@ -1,0 +1,105 @@
+name: Intelligent Documentation Review
+
+on:
+  # Ejecutar semanalmente los domingos a las 2 AM
+  schedule:
+    - cron: '0 2 * * 0'
+  
+  # Permitir ejecución manual
+  workflow_dispatch:
+    inputs:
+      analysis_depth:
+        description: 'Profundidad del análisis'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - quick
+          - full
+          - deep
+
+jobs:
+  intelligent-review:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout docs repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+          fetch-depth: 0  # Historia completa para análisis
+          
+      - name: Checkout all source repos
+        run: |
+          mkdir -p .analysis-repos
+          
+          echo "📦 Clonando repositorios para análisis completo..."
+          
+          git clone --depth 1 https://${{ secrets.PAT_TOKEN }}@github.com/retrogamecloud/backend.git .analysis-repos/backend
+          git clone --depth 1 https://${{ secrets.PAT_TOKEN }}@github.com/retrogamecloud/frontend.git .analysis-repos/frontend
+          git clone --depth 1 https://${{ secrets.PAT_TOKEN }}@github.com/retrogamecloud/kong.git .analysis-repos/kong
+          git clone --depth 1 https://${{ secrets.PAT_TOKEN }}@github.com/retrogamecloud/infrastructure.git .analysis-repos/infrastructure
+          git clone --depth 1 https://${{ secrets.PAT_TOKEN }}@github.com/retrogamecloud/kubernetes.git .analysis-repos/kubernetes
+          
+          echo "✅ Todos los repositorios clonados"
+          
+      - name: Setup Python for Claude
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install anthropic pyyaml markdown
+          
+      - name: Run Intelligent Analysis
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANALYSIS_DEPTH: ${{ inputs.analysis_depth || 'full' }}
+        run: |
+          echo "🤖 Iniciando análisis inteligente de documentación..."
+          echo "📊 Profundidad: $ANALYSIS_DEPTH"
+          
+          python .github/scripts/intelligent-doc-analyzer.py \
+            --docs-path . \
+            --repos-path .analysis-repos \
+            --depth $ANALYSIS_DEPTH \
+            --output analysis-results.json
+          
+      - name: Create improvement proposals
+        run: |
+          if [ -f "analysis-results.json" ]; then
+            echo "📋 Propuestas de mejora generadas"
+            cat analysis-results.json | python -m json.tool || true
+          fi
+          
+      - name: Create PR with improvements
+        if: hashFiles('IMPROVEMENTS.md') != ''
+        run: |
+          git config user.name "claude-ai-bot[bot]"
+          git config user.email "claude-ai-bot[bot]@users.noreply.github.com"
+          
+          # Crear rama para mejoras
+          BRANCH_NAME="docs/intelligent-improvements-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH_NAME"
+          
+          # Añadir todos los cambios propuestos
+          git add -A
+          
+          if git diff --staged --quiet; then
+            echo "ℹ️  No hay cambios que commitear"
+          else
+            git commit -m "docs: Mejoras inteligentes propuestas por Claude AI" -m "Análisis automático de la documentación completa" -m "- Revisión de estructura y organización" -m "- Detección de gaps en documentación" -m "- Propuestas de diagramas y visualizaciones" -m "- Recomendaciones de mejoras" -m "Generado automáticamente por Claude Sonnet 4.5"
+            
+            git push -u origin "$BRANCH_NAME"
+            
+            gh pr create --title "🤖 Mejoras inteligentes de documentación ($(date +%Y-%m-%d))" --body-file IMPROVEMENTS.md --label "documentation,ai-generated,enhancement" --base main || echo "PR creation skipped"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf .analysis-repos
+          echo "✅ Limpieza completada"
