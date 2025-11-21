@@ -226,6 +226,10 @@ RECUERDA:
 - Prioriza por impacto
 - Propón contenido concreto, no solo ideas abstractas
 - Usa Mermaid.js para todos los diagramas
+- **CRÍTICO**: En el JSON, NO uses saltos de línea (\\n) dentro de strings
+- **CRÍTICO**: Escapa comillas dobles dentro de strings con \\"
+- **CRÍTICO**: Mantén los valores de strings en una sola línea o usa espacios
+- Si necesitas múltiples líneas, usa arrays de strings separados
 """
     
     return prompt
@@ -251,16 +255,47 @@ def analyze_with_claude(client, docs_content, architecture, docs_structure, anal
         
         print(f"✅ Respuesta recibida ({len(response_text)} chars)")
         
-        # Extraer JSON
-        if '{' in response_text and '}' in response_text:
-            start = response_text.find('{')
-            end = response_text.rfind('}') + 1
-            json_text = response_text[start:end]
+        # Estrategia más agresiva de extracción de JSON
+        json_text = response_text
+        
+        # Intentar extraer entre llaves
+        if '{' in json_text and '}' in json_text:
+            # Encontrar el primer { y el último }
+            start_idx = json_text.find('{')
             
+            # Buscar el } correspondiente contando llaves
+            brace_count = 0
+            end_idx = start_idx
+            for i in range(start_idx, len(json_text)):
+                if json_text[i] == '{':
+                    brace_count += 1
+                elif json_text[i] == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        end_idx = i + 1
+                        break
+            
+            json_text = json_text[start_idx:end_idx]
+        
+        # Intentar parsear
+        try:
             return json.loads(json_text)
-        else:
-            print("⚠️  No se encontró JSON en la respuesta")
-            return None
+        except json.JSONDecodeError as e:
+            print(f"⚠️  Error parseando JSON: {e}")
+            print(f"📄 Primeros 500 chars del JSON:")
+            print(json_text[:500])
+            print(f"\n📄 Últimos 500 chars del JSON:")
+            print(json_text[-500:])
+            
+            # Intentar arreglar comillas escapadas mal
+            try:
+                # Reemplazar saltos de línea en strings
+                import re
+                fixed_json = re.sub(r'(?<!\\)\\n', ' ', json_text)
+                return json.loads(fixed_json)
+            except:
+                print("❌ No se pudo parsear después de intentar fixes")
+                return None
             
     except Exception as e:
         print(f"❌ Error en análisis: {e}")
