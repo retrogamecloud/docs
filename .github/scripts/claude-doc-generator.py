@@ -111,7 +111,15 @@ Si no hay cambios significativos que documentar, retorna: {"action": "none"}
         return json.loads(response_text)
         
     except Exception as e:
+        error_msg = str(e)
         print(f"Error llamando a Claude: {e}")
+        
+        if "not_found_error" in error_msg and "model:" in error_msg:
+            print("\n⚠️  El modelo de Claude especificado no está disponible.")
+            print("Verifica tu API key en: https://console.anthropic.com/settings/keys")
+            print("Verifica modelos disponibles en: https://console.anthropic.com/settings/plans")
+            print("Modelos comunes: claude-3-opus-20240229, claude-3-sonnet-20240229, claude-3-haiku-20240307")
+        
         return None
 
 def apply_documentation_changes(doc_result, docs_base_path):
