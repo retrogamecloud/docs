@@ -1,11 +1,11 @@
-name: Intelligent Documentation Review
+name: Daily Documentation Analysis & Reorganization
 
 on:
-  # Ejecutar diariamente a medianoche
+  # Ejecutar diariamente a medianoche (análisis completo)
   schedule:
     - cron: '0 0 * * *'  # Todos los días a las 00:00 UTC
   
-  # Permitir ejecución manual
+  # Permitir ejecución manual para pruebas
   workflow_dispatch:
     inputs:
       analysis_depth:
@@ -27,6 +27,10 @@ on:
           - 'false'
 
 jobs:
+  # Flujo secuencial:
+  # 1. intelligent-doc-analyzer.py analiza toda la documentación y genera IMPROVEMENTS.md
+  # 2. reorganize-docs-structure.py reorganiza docs.json basándose en el análisis y genera STRUCTURE_CHANGELOG.md
+  # 3. Se crea un PR con ambos resultados
   intelligent-review:
     runs-on: ubuntu-latest
     
@@ -61,6 +65,7 @@ jobs:
           pip install anthropic pyyaml markdown json-repair
           
       - name: Run Intelligent Analysis
+        id: analysis
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANALYSIS_DEPTH: ${{ inputs.analysis_depth || 'full' }}
@@ -73,19 +78,31 @@ jobs:
             --repos-path .analysis-repos \
             --depth $ANALYSIS_DEPTH \
             --output analysis-results.json
+          
+          if [ -f "IMPROVEMENTS.md" ]; then
+            echo "✅ Análisis completado - IMPROVEMENTS.md generado"
+            echo "analysis_completed=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  Análisis completado pero sin mejoras que aplicar"
+            echo "analysis_completed=false" >> $GITHUB_OUTPUT
+          fi
       
       - name: Reorganize Documentation Structure
-        if: ${{ inputs.reorganize_structure != 'false' }}
+        if: steps.analysis.outputs.analysis_completed == 'true' && inputs.reorganize_structure != 'false'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          echo "📐 Reorganizando estructura de documentación..."
+          echo "📐 Reorganizando estructura basándose en el análisis previo..."
+          echo "⏳ Esperando 2 segundos para asegurar que el análisis está completo..."
+          sleep 2
           
           python .github/scripts/reorganize-docs-structure.py \
             --docs-path . \
             --output-changelog STRUCTURE_CHANGELOG.md
           
-          echo "✅ Estructura reorganizada"
+          if [ -f "STRUCTURE_CHANGELOG.md" ]; then
+            echo "✅ Estructura reorganizada - STRUCTURE_CHANGELOG.md generado"
+          fi
           
       - name: Create improvement proposals
         run: |
