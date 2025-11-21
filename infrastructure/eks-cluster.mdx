@@ -12,7 +12,7 @@ El cluster EKS es el corazón de la infraestructura de Retro Game Hub. Proporcio
 
 <CardGroup cols={2}>
   <Card title="Versión Kubernetes" icon="dharmachakra">
-    **v1.32**
+    **v1.34**
     
     Última versión estable con soporte extendido de AWS
   </Card>
@@ -181,13 +181,13 @@ variable "cluster_name" {
 variable "k8s_version" {
   description = "Versión de Kubernetes"
   type        = string
-  default     = "1.32"
+  default     = "1.34"
 }
 
 variable "node_instance_types" {
   description = "Tipos de instancia para los nodos"
   type        = list(string)
-  default     = ["t3.small"]
+  default     = ["t3.medium"]
 }
 
 variable "node_min_size" {
@@ -228,7 +228,7 @@ Plugin de red que asigna IPs de la VPC a los pods.
 
 <Accordion title="Capacidad de Pods por Tipo de Instancia">
   - **t3.micro**: 4 pods máximo ❌ (Insuficiente)
-  - **t3.small**: 11 pods máximo ✅
+  - **t3.medium**: 17 pods máximo ✅
   - **t3.medium**: 17 pods máximo ✅
   - **t3.large**: 35 pods máximo ✅
   

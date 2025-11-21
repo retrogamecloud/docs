@@ -123,14 +123,14 @@ terraform {
 
 ### Costos Actuales (Estimados)
 - **Cluster EKS**: $72/mes (plano de control)
-- **Instancias EC2**: ~$15-30/mes (nodos t3.small)
+- **Instancias EC2**: ~$30-60/mes (nodos t3.medium)
 - **RDS**: $15-25/mes (db.t3.micro)
 - **NAT Gateway**: $32/mes
 - **Transferencia de Datos**: Variable
 - **Total**: ~$135-160/mes
 
 <Warning>
-Las instancias t3.micro son insuficientes para cargas de trabajo de EKS. Mínimo recomendado: **t3.small** (2GB RAM, 11 pods/nodo).
+Las instancias t3.micro son insuficientes para cargas de trabajo de EKS. Mínimo recomendado: **t3.medium** (4GB RAM, 17 pods/nodo).
 </Warning>
 
 ### Consideraciones de Free Tier

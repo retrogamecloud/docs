@@ -35,6 +35,7 @@
               "infrastructure/cdn-cloudfront",
               "infrastructure/route53-ssl",
               "infrastructure/oauth2-authentication",
+              "infrastructure/argocd-gitops",
               "infrastructure/monitoring"
             ]
           },

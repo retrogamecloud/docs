@@ -120,10 +120,10 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
     
     # EKS Cluster
     cluster_name = "retrogame"
-    k8s_version  = "1.32"
+    k8s_version  = "1.34"
     
-    # Node Group (IMPORTANTE: mínimo t3.small)
-    node_instance_types = ["t3.small"]
+    # Node Group (IMPORTANTE: mínimo t3.medium)
+    node_instance_types = ["t3.medium"]
     node_desired_size   = 2
     node_min_size       = 1
     node_max_size       = 4
@@ -319,7 +319,7 @@ terraform output
     - ❌ Memoria insuficiente
     - ❌ Límites de CPU excedidos
     
-    **Solución**: Usar mínimo `t3.small` (2GB RAM, 11 pods/nodo)
+    **Solución**: Usar mínimo `t3.medium` (4GB RAM, 17 pods/nodo)
   </Accordion>
   
   <Accordion icon="lock" title="Terraform State Locked">
