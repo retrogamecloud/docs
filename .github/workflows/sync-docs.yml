@@ -4,9 +4,14 @@ on:
   # Trigger manual
   workflow_dispatch:
   
-  # Trigger desde el repo backend usando repository_dispatch
+  # Trigger desde los repos usando repository_dispatch
   repository_dispatch:
-    types: [docs-update]
+    types: 
+      - backend-updated
+      - frontend-updated
+      - infrastructure-updated
+      - kong-updated
+      - kubernetes-updated
   
   # O programado cada 6 horas
   schedule:
