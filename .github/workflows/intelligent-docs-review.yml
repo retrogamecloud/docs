@@ -50,7 +50,7 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install anthropic pyyaml markdown
+          pip install anthropic pyyaml markdown json-repair
           
       - name: Run Intelligent Analysis
         env:

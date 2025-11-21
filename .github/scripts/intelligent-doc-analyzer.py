@@ -10,6 +10,7 @@ import argparse
 import anthropic
 from pathlib import Path
 from datetime import datetime
+from json_repair import repair_json
 
 def scan_directory_structure(base_path):
     """Escanea la estructura completa del directorio"""
@@ -292,14 +293,15 @@ def analyze_with_claude(client, docs_content, architecture, docs_structure, anal
             print(f"\n📄 Últimos 500 chars del JSON:")
             print(json_text[-500:])
             
-            # Intentar arreglar comillas escapadas mal
+            # Intentar reparar el JSON
             try:
-                # Reemplazar saltos de línea en strings
-                import re
-                fixed_json = re.sub(r'(?<!\\)\\n', ' ', json_text)
-                return json.loads(fixed_json)
-            except:
-                print("❌ No se pudo parsear después de intentar fixes")
+                print("🔧 Intentando reparar JSON...")
+                repaired = repair_json(json_text)
+                result = json.loads(repaired)
+                print("✅ JSON reparado exitosamente")
+                return result
+            except Exception as repair_error:
+                print(f"❌ No se pudo reparar: {repair_error}")
                 return None
             
     except Exception as e:
