@@ -259,8 +259,24 @@ def analyze_with_claude(client, docs_content, architecture, docs_structure, anal
         print(f"\n📄 Últimos 500 caracteres de la respuesta:")
         print(response_text[-500:])
         
-        # Estrategia más agresiva de extracción de JSON
+        # Limpiar markdown code blocks si existen
         json_text = response_text
+        if "```json" in json_text:
+            print("🔍 Detectado bloque de código markdown ```json, extrayendo...")
+            json_start = json_text.find("```json") + 7
+            json_end = json_text.find("```", json_start)
+            if json_end == -1:
+                json_end = len(json_text)
+            json_text = json_text[json_start:json_end].strip()
+            print(f"✅ JSON extraído de markdown, longitud: {len(json_text)} caracteres")
+        elif "```" in json_text:
+            print("🔍 Detectado bloque de código genérico, extrayendo...")
+            json_start = json_text.find("```") + 3
+            json_end = json_text.find("```", json_start)
+            if json_end == -1:
+                json_end = len(json_text)
+            json_text = json_text[json_start:json_end].strip()
+            print(f"✅ JSON extraído de bloque genérico, longitud: {len(json_text)} caracteres")
         
         # Intentar extraer entre llaves
         if '{' in json_text and '}' in json_text:
