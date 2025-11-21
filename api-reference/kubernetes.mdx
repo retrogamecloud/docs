@@ -43,7 +43,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend-deployment
-  namespace: retrogamecloud
+  namespace: retrogame
 spec:
   replicas: 2
   selector:
@@ -78,7 +78,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: frontend-service
-  namespace: retrogamecloud
+  namespace: retrogame
 spec:
   selector:
     app: frontend
@@ -94,7 +94,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kong-config
-  namespace: retrogamecloud
+  namespace: retrogame
 data:
   kong.yml: |
     _format_version: "3.0"
@@ -173,7 +173,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kong-deployment
-  namespace: retrogamecloud
+  namespace: retrogame
 spec:
   replicas: 1
   selector:
@@ -225,7 +225,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kong-service
-  namespace: retrogamecloud
+  namespace: retrogame
 spec:
   type: LoadBalancer
   selector:
@@ -318,7 +318,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cdn-deployment
-  namespace: retrogamecloud
+  namespace: retrogame
 spec:
   replicas: 2
   selector:
@@ -344,7 +344,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: cdn-service
-  namespace: retrogamecloud
+  namespace: retrogame
 spec:
   selector:
     app: cdn
@@ -360,7 +360,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend-deployment
-  namespace: retrogamecloud
+  namespace: retrogame
 spec:
   replicas: 2 # Corremos 2 copias para alta disponibilidad
   selector:
@@ -403,7 +403,7 @@ kind: Service
 metadata:
   # Este nombre DEBE COINCIDIR con el 'url' en kong.yml
   name: gamehub-database-service
-  namespace: retrogamecloud
+  namespace: retrogame
 spec:
   selector:
     app: backend # Apunta a los pods con la etiqueta 'app: backend'
@@ -419,7 +419,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: postgres-secret
-  namespace: retrogamecloud
+  namespace: retrogame
 type: Opaque
 data:
   # Contraseñas codificadas en Base64
@@ -436,7 +436,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: postgres-init-cm
-  namespace: retrogamecloud
+  namespace: retrogame
 data:
   "init.sql": |
     CREATE TABLE IF NOT EXISTS users (
@@ -518,7 +518,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgres-pvc
-  namespace: retrogamecloud
+  namespace: retrogame
 spec:
   accessModes:
     - ReadWriteOnce # Solo puede ser montado por un nodo a la vez
@@ -532,7 +532,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: postgres-db
-  namespace: retrogamecloud
+  namespace: retrogame
 spec:
   serviceName: "postgres-db"
   replicas: 1
@@ -577,7 +577,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres-db
-  namespace: retrogamecloud
+  namespace: retrogame
 spec:
   selector:
     app: postgres-db
