@@ -102,13 +102,34 @@ Si no hay cambios significativos que documentar, retorna: {"action": "none"}
         
         response_text = message.content[0].text
         
-        # Extraer JSON de la respuesta
+        print(f"📝 Respuesta de Claude (primeros 500 chars):")
+        print(response_text[:500])
+        
+        # Extraer JSON de la respuesta de múltiples formas
+        json_text = response_text
+        
+        # Intento 1: Buscar entre ```json y ```
         if '```json' in response_text:
             json_start = response_text.find('```json') + 7
             json_end = response_text.find('```', json_start)
-            response_text = response_text[json_start:json_end].strip()
+            if json_end != -1:
+                json_text = response_text[json_start:json_end].strip()
         
-        return json.loads(response_text)
+        # Intento 2: Buscar entre { y } más externo
+        elif '{' in response_text and '}' in response_text:
+            start = response_text.find('{')
+            end = response_text.rfind('}') + 1
+            json_text = response_text[start:end]
+        
+        # Intento 3: Limpiar caracteres problemáticos
+        json_text = json_text.strip()
+        
+        try:
+            return json.loads(json_text)
+        except json.JSONDecodeError as je:
+            print(f"❌ Error parseando JSON: {je}")
+            print(f"📄 JSON intentado: {json_text[:200]}...")
+            return None
         
     except Exception as e:
         error_msg = str(e)
