@@ -150,6 +150,32 @@ jobs:
         run: |
           node .github/scripts/transform-to-mdx.js
       
+      # AI-powered documentation analysis with Claude
+      - name: Setup Python for Claude
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install Anthropic SDK
+        run: |
+          pip install anthropic
+      
+      - name: Analyze Changes with Claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "🤖 Analizando cambios con Claude AI..."
+          
+          # Analizar cada repositorio
+          for repo in backend frontend kong; do
+            if [ -d "/tmp/repos/$repo" ]; then
+              echo "📂 Analizando $repo..."
+              python .github/scripts/claude-doc-generator.py "$repo" "/tmp/repos/$repo" || true
+            fi
+          done
+          
+          echo "✅ Análisis con Claude completado"
+      
       - name: Cleanup temporary directories
         run: |
           echo "🧹 Cleaning up temporary directories..."
