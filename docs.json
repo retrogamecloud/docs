@@ -49,84 +49,75 @@
         "tab": "Documentación",
         "groups": [
           {
-            "group": "1. Primeros Pasos",
+            "group": "Primeros Pasos",
             "pages": [
               "index",
               "quickstart",
               "desarrollo-local"
-            ],
-            "description": "Introducción al proyecto y guías de inicio rápido para comenzar a trabajar"
+            ]
           },
           {
-            "group": "2. Arquitectura y Diseño",
+            "group": "Arquitectura y Diseño",
             "pages": [
               "architecture",
               "sequence-diagrams"
-            ],
-            "description": "Visión general de la arquitectura del sistema y diagramas de flujo"
+            ]
           },
           {
-            "group": "3. Servicios Backend",
+            "group": "Servicios Backend",
             "pages": [
               "services/auth-service",
               "services/user-service",
               "services/game-catalog",
               "services/score-service",
               "services/ranking-service"
-            ],
-            "description": "Documentación detallada de cada microservicio del backend"
+            ]
           },
           {
-            "group": "4. Frontend",
+            "group": "Frontend",
             "pages": [
               "frontend/overview",
               "frontend/jsdos-integration"
-            ],
-            "description": "Aplicación web frontend y sus integraciones"
+            ]
           },
           {
-            "group": "5. Infraestructura Cloud",
+            "group": "Infraestructura Cloud",
             "pages": [
               "infrastructure/overview",
-              "infrastructure/eks-cluster",
+              "infrastructure/eks",
               "infrastructure/networking",
-              "infrastructure/cdn-cloudfront",
-              "infrastructure/route53-ssl",
+              "infrastructure/cdn",
+              "infrastructure/route53",
               "infrastructure/monitoring"
-            ],
-            "description": "Componentes de infraestructura en AWS: EKS, redes, CDN, DNS y monitorización"
+            ]
           },
           {
-            "group": "6. Autenticación y Seguridad",
+            "group": "Autenticación y Seguridad",
             "pages": [
-              "infrastructure/oauth2-authentication"
-            ],
-            "description": "Sistemas de autenticación OAuth2 y configuración de seguridad"
+              "security/oauth2-authentication"
+            ]
           },
           {
-            "group": "7. CI/CD y GitOps",
+            "group": "CI/CD y GitOps",
             "pages": [
               "cicd/overview",
               "cicd/github-actions",
               "cicd/gitops-workflow",
               "infrastructure/argocd-gitops"
-            ],
-            "description": "Pipelines de integración continua, despliegue automatizado y flujos GitOps con ArgoCD"
+            ]
           },
           {
-            "group": "8. Configuración y Despliegue",
+            "group": "Configuración y Despliegue",
             "pages": [
               "configuration",
               "deployment"
-            ],
-            "description": "Guías de configuración de entornos y despliegue en producción"
+            ]
           },
           {
-            "group": "9. Solución de Problemas",
+            "group": "Solución de Problemas",
             "pages": [
               "troubleshooting"
-            ],
-            "description": "Guía de resolución de problemas comunes y debugging"
+            ]
           }
         ]
       },
@@ -134,59 +125,53 @@
         "tab": "Referencia API",
         "groups": [
           {
-            "group": "1. Autenticación",
+            "group": "Autenticación",
             "pages": [
               "api-reference/auth/login",
               "api-reference/auth/register",
               "api-reference/auth/verify",
               "api-reference/auth-service"
-            ],
-            "description": "Endpoints de autenticación: login, registro y verificación de tokens"
+            ]
           },
           {
-            "group": "2. Usuarios",
+            "group": "Usuarios",
             "pages": [
               "api-reference/user-service"
-            ],
-            "description": "Gestión de perfiles y datos de usuarios"
+            ]
           },
           {
-            "group": "3. Catálogo de Juegos",
+            "group": "Catálogo de Juegos",
             "pages": [
               "api-reference/games/list",
               "api-reference/games/get",
               "api-reference/game-catalog-service"
-            ],
-            "description": "Listado, búsqueda y detalles de juegos disponibles"
+            ]
           },
           {
-            "group": "4. Puntuaciones",
+            "group": "Puntuaciones",
             "pages": [
               "api-reference/scores/submit",
               "api-reference/scores/get",
               "api-reference/score-service"
-            ],
-            "description": "Envío y consulta de puntuaciones de partidas"
+            ]
           },
           {
-            "group": "5. Rankings",
+            "group": "Rankings",
             "pages": [
               "api-reference/rankings/global",
               "api-reference/rankings/by-game",
               "api-reference/ranking-service"
-            ],
-            "description": "Tablas de clasificación globales y por juego"
+            ]
           },
           {
-            "group": "6. Documentación Técnica",
+            "group": "Documentación Técnica",
             "pages": [
               "api-reference/backend-main",
               "api-reference/frontend",
               "api-reference/infrastructure-docs",
               "api-reference/kong-config",
               "api-reference/kubernetes-manifests"
-            ],
-            "description": "Especificaciones técnicas de backend, frontend, infraestructura y configuraciones"
+            ]
           }
         ]
       }
