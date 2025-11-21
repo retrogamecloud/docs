@@ -254,6 +254,10 @@ def analyze_with_claude(client, docs_content, architecture, docs_structure, anal
         response_text = message.content[0].text.strip()
         
         print(f"✅ Respuesta recibida ({len(response_text)} chars)")
+        print(f"📄 Primeros 1000 caracteres de la respuesta:")
+        print(response_text[:1000])
+        print(f"\n📄 Últimos 500 caracteres de la respuesta:")
+        print(response_text[-500:])
         
         # Estrategia más agresiva de extracción de JSON
         json_text = response_text
