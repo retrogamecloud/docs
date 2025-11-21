@@ -1,0 +1,211 @@
+---
+title: "2.1. Visión General de Infraestructura"
+description: "Infraestructura cloud AWS gestionada con Terraform"
+---
+
+## Infraestructura como Código
+
+La infraestructura de Retro Game Hub está completamente gestionada con **Terraform**, asegurando despliegues reproducibles y versionados.
+
+## Servicios AWS Utilizados
+
+<CardGroup cols={2}>
+  <Card title="EKS" icon="dharmachakra">
+    Cluster Kubernetes gestionado para orquestación de contenedores
+  </Card>
+  <Card title="VPC" icon="network-wired">
+    Red aislada con subnets públicas y privadas
+  </Card>
+  <Card title="RDS" icon="database">
+    Base de datos PostgreSQL gestionada
+  </Card>
+  <Card title="ElastiCache" icon="bolt">
+    Redis gestionado para caché
+  </Card>
+  <Card title="ALB" icon="scale-balanced">
+    Application Load Balancer con terminación SSL
+  </Card>
+  <Card title="Route53" icon="globe">
+    Gestión DNS para retrogamehub.games
+  </Card>
+  <Card title="CloudFront" icon="cloud">
+    CDN para assets de juegos y contenido estático
+  </Card>
+  <Card title="S3" icon="bucket">
+    Almacenamiento de objetos para archivos y logs
+  </Card>
+  <Card title="ACM" icon="certificate">
+    Certificados SSL/TLS automáticos
+  </Card>
+  <Card title="IAM" icon="shield">
+    Gestión de identidad y acceso
+  </Card>
+  <Card title="Ingress NGINX" icon="route">
+    Routing con autenticación OAuth2
+  </Card>
+  <Card title="OAuth2-Proxy" icon="lock">
+    Autenticación GitHub para monitoreo
+  </Card>
+</CardGroup>
+
+## Estructura de Terraform
+
+```
+terraform/eks_test/
+├── main.tf                  # Configuración del provider
+├── variables.tf             # Variables de entrada
+├── outputs.tf               # Valores de salida
+├── vpc.tf                   # VPC y redes
+├── eks.tf                   # Configuración del cluster EKS
+├── rds.tf                   # Base de datos PostgreSQL
+├── s3.tf                    # Buckets S3 y CloudFront
+├── route53.tf               # DNS y certificados SSL
+├── alb.tf                   # Application Load Balancer
+├── monitoring.tf            # Prometheus, Grafana, AlertManager
+├── oauth2_proxy.tf          # OAuth de GitHub para monitoreo
+├── kubernetes.tf            # Deployments de K8s
+├── kong.tf                  # Kong API Gateway
+└── terraform.tfvars         # Valores de variables (gitignored)
+```
+
+## Arquitectura de Red
+
+### Configuración de VPC
+- **CIDR**: `10.0.0.0/16`
+- **Zonas de Disponibilidad**: 3 (eu-west-1a, eu-west-1b, eu-west-1c)
+
+### Subnets
+
+<Tabs>
+  <Tab title="Subnets Públicas">
+    - `10.0.1.0/24` (eu-west-1a)
+    - `10.0.2.0/24` (eu-west-1b)
+    - `10.0.3.0/24` (eu-west-1c)
+    
+    **Contiene**:
+    - Application Load Balancer
+    - NAT Gateway
+    - Internet Gateway
+  </Tab>
+  
+  <Tab title="Subnets Privadas">
+    - `10.0.11.0/24` (eu-west-1a)
+    - `10.0.12.0/24` (eu-west-1b)
+    - `10.0.13.0/24` (eu-west-1c)
+    
+    **Contiene**:
+    - Nodos worker de EKS
+    - Base de datos RDS
+    - Cluster Redis
+    - Pods de aplicación
+  </Tab>
+</Tabs>
+
+## Gestión de Estado
+
+<Info>
+El estado de Terraform se almacena remotamente en S3 con bloqueo DynamoDB para permitir colaboración en equipo.
+</Info>
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket         = "retrogame-terraform-state"
+    key            = "eks-test/terraform.tfstate"
+    region         = "eu-west-1"
+    dynamodb_table = "terraform-lock"
+    encrypt        = true
+  }
+}
+```
+
+## Optimización de Costos
+
+### Costos Actuales (Estimados)
+- **Cluster EKS**: $72/mes (plano de control)
+- **Instancias EC2**: ~$30-60/mes (nodos t3.medium)
+- **RDS**: $15-25/mes (db.t3.micro)
+- **NAT Gateway**: $32/mes
+- **Transferencia de Datos**: Variable
+- **Total**: ~$135-160/mes
+
+<Warning>
+Las instancias t3.micro son insuficientes para cargas de trabajo de EKS. Mínimo recomendado: **t3.medium** (4GB RAM, 17 pods/nodo).
+</Warning>
+
+### Consideraciones de Free Tier
+- Plano de control EKS: **NO** cubierto por Free Tier ($72/mes inevitable)
+- Instancias t3.micro: Solo 750 horas/mes = 1 instancia gratis
+- RDS: 750 horas/mes db.t3.micro incluidas
+- S3: 5GB de almacenamiento estándar gratis
+- Transferencia de Datos: 100GB salida por mes gratis
+
+## Flujo de Despliegue
+
+<Steps>
+  <Step title="Inicializar Terraform">
+    ```bash
+    cd terraform/eks_test
+    terraform init
+    ```
+  </Step>
+  
+  <Step title="Planificar Cambios">
+    ```bash
+    terraform plan
+    ```
+  </Step>
+  
+  <Step title="Aplicar Infraestructura">
+    ```bash
+    terraform apply
+    ```
+  </Step>
+  
+  <Step title="Configurar kubectl">
+    ```bash
+    aws eks update-kubeconfig --region eu-west-1 --name retrogame
+    ```
+  </Step>
+  
+  <Step title="Verificar Despliegue">
+    ```bash
+    kubectl get nodes
+    kubectl get pods --all-namespaces
+    ```
+  </Step>
+</Steps>
+
+## Recursos Clave
+
+<CardGroup cols={2}>
+  <Card title="Detalles del Cluster EKS" icon="dharmachakra" href="/infrastructure/eks-cluster">
+    Conoce la configuración de Kubernetes
+  </Card>
+  <Card title="Configuración de Red" icon="network-wired" href="/infrastructure/networking">
+    Entiende la VPC y security groups
+  </Card>
+  <Card title="CDN con CloudFront" icon="cloud" href="/infrastructure/cdn-cloudfront">
+    Distribución global de juegos y assets
+  </Card>
+  <Card title="Route53 y SSL" icon="certificate" href="/infrastructure/route53-ssl">
+    DNS personalizado y certificados HTTPS
+  </Card>
+  <Card title="OAuth2 Authentication" icon="lock" href="/infrastructure/oauth2-authentication">
+    Protección de herramientas con GitHub
+  </Card>
+  <Card title="Stack de Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
+    Prometheus, Grafana, y configuración OAuth
+  </Card>
+</CardGroup>
+
+## Próximos Pasos
+
+¿Listo para profundizar? Explora los componentes específicos de infraestructura:
+
+- [Configuración del Cluster EKS](/infrastructure/eks-cluster)
+- [Networking y Seguridad](/infrastructure/networking)
+- [CDN con S3 y CloudFront](/infrastructure/cdn-cloudfront)
+- [Route53 y Certificados SSL](/infrastructure/route53-ssl)
+- [Autenticación OAuth2 con GitHub](/infrastructure/oauth2-authentication)
+- [Monitoreo y Observabilidad](/infrastructure/monitoring)

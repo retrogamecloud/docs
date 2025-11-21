@@ -1,0 +1,719 @@
+---
+title: "2.2. Cluster EKS"
+description: "Configuración detallada del cluster de Kubernetes en AWS"
+icon: "dharmachakra"
+---
+
+## Visión General
+
+El cluster EKS es el corazón de la infraestructura de Retro Game Hub. Proporciona orquestación de contenedores, auto-escalado y alta disponibilidad.
+
+## Especificaciones del Cluster
+
+<CardGroup cols={2}>
+  <Card title="Versión Kubernetes" icon="dharmachakra">
+    **v1.34**
+    
+    Última versión estable con soporte extendido de AWS
+  </Card>
+  
+  <Card title="Región" icon="globe">
+    **eu-west-1 (Irlanda)**
+    
+    Latencia óptima para Europa
+  </Card>
+  
+  <Card title="Zonas de Disponibilidad" icon="server">
+    **3 AZs**
+    
+    eu-west-1a, eu-west-1b, eu-west-1c
+  </Card>
+  
+  <Card title="Endpoint" icon="link">
+    **Privado + Público**
+    
+    Accesible desde VPC e Internet
+  </Card>
+</CardGroup>
+
+## Configuración de Terraform
+
+<CodeGroup>
+```hcl eks.tf
+module "eks" {
+  source  = "terraform-aws-modules/eks/aws"
+  version = "~> 19.0"
+
+  cluster_name    = var.cluster_name
+  cluster_version = var.k8s_version
+
+  # Endpoint de acceso
+  cluster_endpoint_public_access  = true
+  cluster_endpoint_private_access = true
+
+  # Encriptación de secretos con KMS
+  cluster_encryption_config = {
+    provider_key_arn = aws_kms_key.eks.arn
+    resources        = ["secrets"]
+  }
+
+  # Logging del cluster
+  cluster_enabled_log_types = [
+    "api",
+    "audit",
+    "authenticator",
+    "controllerManager",
+    "scheduler"
+  ]
+
+  # VPC y subredes
+  vpc_id                   = module.vpc.vpc_id
+  subnet_ids               = module.vpc.private_subnets
+  control_plane_subnet_ids = module.vpc.private_subnets
+
+  # Addons del cluster
+  cluster_addons = {
+    coredns = {
+      most_recent = true
+    }
+    kube-proxy = {
+      most_recent = true
+    }
+    vpc-cni = {
+      most_recent = true
+    }
+    aws-ebs-csi-driver = {
+      most_recent              = true
+      service_account_role_arn = aws_iam_role.ebs_csi_driver.arn
+    }
+  }
+
+  # Node groups
+  eks_managed_node_groups = {
+    general = {
+      name = "${var.cluster_name}-node-group"
+
+      instance_types = var.node_instance_types
+      capacity_type  = "ON_DEMAND"
+
+      min_size     = var.node_min_size
+      max_size     = var.node_max_size
+      desired_size = var.node_desired_size
+
+      # Disco EBS
+      block_device_mappings = {
+        xvda = {
+          device_name = "/dev/xvda"
+          ebs = {
+            volume_size           = 50
+            volume_type           = "gp3"
+            encrypted             = true
+            delete_on_termination = true
+          }
+        }
+      }
+
+      # Etiquetas de Kubernetes
+      labels = {
+        Environment = var.environment
+        NodeGroup   = "general"
+      }
+
+      # Taints (ninguno por defecto)
+      taints = []
+
+      # Actualización del node group
+      update_config = {
+        max_unavailable_percentage = 33
+      }
+
+      tags = {
+        Name        = "${var.cluster_name}-node"
+        Environment = var.environment
+      }
+    }
+  }
+
+  # OIDC Provider para IRSA
+  enable_irsa = true
+
+  # Acceso al cluster
+  manage_aws_auth_configmap = true
+  aws_auth_users = [
+    {
+      userarn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/admin"
+      username = "admin"
+      groups   = ["system:masters"]
+    }
+  ]
+
+  tags = {
+    Name        = var.cluster_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
+
+# KMS Key para encriptación
+resource "aws_kms_key" "eks" {
+  description             = "EKS Secret Encryption Key"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  tags = {
+    Name = "${var.cluster_name}-eks-key"
+  }
+}
+
+resource "aws_kms_alias" "eks" {
+  name          = "alias/eks/${var.cluster_name}"
+  target_key_id = aws_kms_key.eks.key_id
+}
+```
+
+```hcl variables.tf
+variable "cluster_name" {
+  description = "Nombre del cluster EKS"
+  type        = string
+  default     = "retrogame"
+}
+
+variable "k8s_version" {
+  description = "Versión de Kubernetes"
+  type        = string
+  default     = "1.34"
+}
+
+variable "node_instance_types" {
+  description = "Tipos de instancia para los nodos"
+  type        = list(string)
+  default     = ["t3.medium"]
+}
+
+variable "node_min_size" {
+  description = "Número mínimo de nodos"
+  type        = number
+  default     = 1
+}
+
+variable "node_max_size" {
+  description = "Número máximo de nodos"
+  type        = number
+  default     = 4
+}
+
+variable "node_desired_size" {
+  description = "Número deseado de nodos"
+  type        = number
+  default     = 2
+}
+```
+</CodeGroup>
+
+## Addons del Cluster
+
+### CoreDNS
+Servicio de DNS interno para resolución de nombres de servicios.
+
+```bash
+# Ver pods de CoreDNS
+kubectl get pods -n kube-system -l k8s-app=kube-dns
+
+# Logs de CoreDNS
+kubectl logs -n kube-system -l k8s-app=kube-dns --tail=50
+```
+
+### VPC CNI
+Plugin de red que asigna IPs de la VPC a los pods.
+
+<Accordion title="Capacidad de Pods por Tipo de Instancia">
+  - **t3.micro**: 4 pods máximo ❌ (Insuficiente)
+  - **t3.medium**: 17 pods máximo ✅
+  - **t3.medium**: 17 pods máximo ✅
+  - **t3.large**: 35 pods máximo ✅
+  
+  [Ver tabla completa de AWS](https://github.com/awslabs/amazon-eks-ami/blob/master/files/eni-max-pods.txt)
+</Accordion>
+
+```bash
+# Ver configuración del VPC CNI
+kubectl describe daemonset aws-node -n kube-system
+
+# Ver IPs asignadas
+kubectl get pods -A -o wide
+```
+
+### kube-proxy
+Gestiona las reglas de red y enrutamiento de servicios.
+
+```bash
+# Ver pods de kube-proxy
+kubectl get pods -n kube-system -l k8s-app=kube-proxy
+
+# Ver configuración
+kubectl get configmap kube-proxy-config -n kube-system -o yaml
+```
+
+### EBS CSI Driver
+Controlador para volúmenes persistentes EBS.
+
+```bash
+# Ver pods del CSI driver
+kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-ebs-csi-driver
+
+# Crear StorageClass
+kubectl apply -f - <<EOF
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ebs-sc
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  type: gp3
+  encrypted: "true"
+EOF
+```
+
+## Node Groups
+
+### Configuración de Nodos
+
+<Table>
+  <thead>
+    <tr>
+      <th>Parámetro</th>
+      <th>Valor</th>
+      <th>Descripción</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**Instance Type**</td>
+      <td>t3.small</td>
+      <td>2 vCPU, 2GB RAM, 11 pods</td>
+    </tr>
+    <tr>
+      <td>**Min Size**</td>
+      <td>1</td>
+      <td>Mínimo de nodos siempre activos</td>
+    </tr>
+    <tr>
+      <td>**Max Size**</td>
+      <td>4</td>
+      <td>Máximo durante escalado</td>
+    </tr>
+    <tr>
+      <td>**Desired**</td>
+      <td>2</td>
+      <td>Estado normal de operación</td>
+    </tr>
+    <tr>
+      <td>**Disk**</td>
+      <td>50GB gp3</td>
+      <td>Almacenamiento por nodo</td>
+    </tr>
+    <tr>
+      <td>**AMI**</td>
+      <td>EKS Optimized</td>
+      <td>Amazon Linux 2</td>
+    </tr>
+  </tbody>
+</Table>
+
+### Auto Scaling
+
+El node group se escala automáticamente basado en:
+
+<Steps>
+  <Step title="Cluster Autoscaler">
+    Monitorea pods pendientes y solicita nuevos nodos cuando es necesario.
+    
+    ```bash
+    # Instalar Cluster Autoscaler
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/autoscaler/master/cluster-autoscaler/cloudprovider/aws/examples/cluster-autoscaler-autodiscover.yaml
+    
+    # Configurar con nombre del cluster
+    kubectl -n kube-system annotate deployment.apps/cluster-autoscaler \
+      cluster-autoscaler.kubernetes.io/safe-to-evict="false"
+    ```
+  </Step>
+  
+  <Step title="Políticas de Escalado">
+    **Scale Up**: Cuando hay pods pendientes por más de 3 minutos
+    
+    **Scale Down**: Cuando un nodo tiene menos del 50% de utilización por más de 10 minutos
+    
+    **Cooldown**: 10 minutos entre operaciones de escalado
+  </Step>
+</Steps>
+
+### Gestión de Nodos
+
+```bash
+# Ver nodos del cluster
+kubectl get nodes
+
+# Detalles de un nodo
+kubectl describe node <node-name>
+
+# Ver recursos disponibles
+kubectl top nodes
+
+# Drenar un nodo (para mantenimiento)
+kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data
+
+# Hacer que un nodo sea no programable
+kubectl cordon <node-name>
+
+# Volver a habilitar un nodo
+kubectl uncordon <node-name>
+```
+
+## Seguridad
+
+### IRSA (IAM Roles for Service Accounts)
+
+Permite que pods asuman roles de IAM sin credenciales estáticas.
+
+<Accordion title="Configuración de IRSA">
+```bash
+# 1. El OIDC provider ya está creado por Terraform
+
+# 2. Crear un IAM role para un ServiceAccount
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-service-account
+  namespace: default
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/my-role
+EOF
+
+# 3. Usar el ServiceAccount en un pod
+kubectl run my-pod \
+  --image=nginx \
+  --serviceaccount=my-service-account
+```
+</Accordion>
+
+### Encriptación de Secretos
+
+Todos los secretos de Kubernetes están encriptados en reposo con KMS.
+
+```bash
+# Crear un secreto
+kubectl create secret generic db-password \
+  --from-literal=password=mi-password-seguro
+
+# Ver secreto (cifrado en etcd)
+kubectl get secret db-password -o yaml
+
+# Usar secreto en un pod
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secret-test
+spec:
+  containers:
+  - name: test
+    image: nginx
+    env:
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: db-password
+          key: password
+EOF
+```
+
+### Security Groups
+
+El cluster tiene security groups configurados automáticamente:
+
+<CardGroup cols={2}>
+  <Card title="Cluster SG" icon="shield">
+    - Permite tráfico desde nodes
+    - Permite tráfico desde ALB
+    - Permite kubectl desde Internet
+  </Card>
+  
+  <Card title="Node SG" icon="server">
+    - Permite tráfico entre nodos
+    - Permite SSH (solo desde bastion)
+    - Permite tráfico desde cluster SG
+  </Card>
+</CardGroup>
+
+## Logging y Auditoría
+
+### CloudWatch Logs
+
+Los logs del cluster se envían automáticamente a CloudWatch:
+
+```bash
+# Ver log groups
+aws logs describe-log-groups \
+  --log-group-name-prefix /aws/eks/retrogame
+
+# Ver logs del API server
+aws logs tail /aws/eks/retrogame/cluster --follow
+
+# Ver logs de audit
+aws logs tail /aws/eks/retrogame/cluster-audit --follow
+```
+
+### Tipos de Logs Habilitados
+
+<Accordion title="API Server">
+  Registra todas las llamadas a la API de Kubernetes.
+  
+  **Uso**: Debugging de problemas de permisos, auditoría de cambios
+</Accordion>
+
+<Accordion title="Audit">
+  Registra quién hizo qué y cuándo en el cluster.
+  
+  **Uso**: Compliance, seguridad, investigación de incidentes
+</Accordion>
+
+<Accordion title="Authenticator">
+  Logs de autenticación de usuarios y service accounts.
+  
+  **Uso**: Troubleshooting de problemas de acceso
+</Accordion>
+
+<Accordion title="Controller Manager">
+  Logs de los controladores del cluster (deployments, services, etc.)
+  
+  **Uso**: Debugging de problemas de reconciliación
+</Accordion>
+
+<Accordion title="Scheduler">
+  Logs del scheduler de Kubernetes.
+  
+  **Uso**: Entender por qué pods no se programan
+</Accordion>
+
+## Acceso al Cluster
+
+### Configurar kubectl
+
+```bash
+# Actualizar kubeconfig
+aws eks update-kubeconfig --region eu-west-1 --name retrogame
+
+# Verificar conexión
+kubectl cluster-info
+
+# Ver contextos disponibles
+kubectl config get-contexts
+
+# Cambiar de contexto
+kubectl config use-context arn:aws:eks:eu-west-1:ACCOUNT:cluster/retrogame
+```
+
+### Acceso para Múltiples Usuarios
+
+<Steps>
+  <Step title="Crear usuario IAM">
+    ```bash
+    aws iam create-user --user-name developer-juan
+    aws iam create-access-key --user-name developer-juan
+    ```
+  </Step>
+  
+  <Step title="Dar permisos de EKS">
+    ```bash
+    aws iam attach-user-policy \
+      --user-name developer-juan \
+      --policy-arn arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+    ```
+  </Step>
+  
+  <Step title="Añadir al ConfigMap aws-auth">
+    ```bash
+    kubectl edit configmap aws-auth -n kube-system
+    ```
+    
+    Añadir:
+    ```yaml
+    mapUsers: |
+      - userarn: arn:aws:iam::ACCOUNT:user/developer-juan
+        username: developer-juan
+        groups:
+          - developers  # Grupo personalizado
+    ```
+  </Step>
+  
+  <Step title="Crear RoleBinding">
+    ```bash
+    kubectl create rolebinding developer-juan-binding \
+      --clusterrole=edit \
+      --user=developer-juan \
+      --namespace=retrogame
+    ```
+  </Step>
+</Steps>
+
+## Costos
+
+### Desglose de Costos del Cluster
+
+<Table>
+  <thead>
+    <tr>
+      <th>Componente</th>
+      <th>Costo/Hora</th>
+      <th>Costo/Mes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**EKS Control Plane**</td>
+      <td>$0.10</td>
+      <td>**$72.00**</td>
+    </tr>
+    <tr>
+      <td>**2 × t3.small nodes**</td>
+      <td>$0.0208</td>
+      <td>**$30.00**</td>
+    </tr>
+    <tr>
+      <td>**2 × 50GB EBS gp3**</td>
+      <td>-</td>
+      <td>**$8.00**</td>
+    </tr>
+    <tr>
+      <td>**Data Transfer**</td>
+      <td>Variable</td>
+      <td>**~$5-10**</td>
+    </tr>
+    <tr>
+      <td>**CloudWatch Logs**</td>
+      <td>-</td>
+      <td>**~$3-5**</td>
+    </tr>
+    <tr>
+      <td>**TOTAL**</td>
+      <td>-</td>
+      <td>**~$118-125/mes**</td>
+    </tr>
+  </tbody>
+</Table>
+
+<Warning>
+  El control plane de EKS cuesta $72/mes independientemente del uso - **no está cubierto por Free Tier**.
+</Warning>
+
+### Optimización de Costos
+
+<CardGroup cols={2}>
+  <Card title="Usar Spot Instances" icon="dollar-sign">
+    Ahorra hasta 90% en nodos
+    
+    ```hcl
+    capacity_type = "SPOT"
+    ```
+  </Card>
+  
+  <Card title="Auto Scaling Agresivo" icon="chart-line">
+    Escala a 0 en horarios de baja demanda
+    
+    ```
+    min_size = 0
+    ```
+  </Card>
+  
+  <Card title="Fargate para Workloads Específicos" icon="cloud">
+    Paga solo por tiempo de ejecución
+    
+    Sin overhead de nodos EC2
+  </Card>
+  
+  <Card title="Reserved Instances" icon="calendar">
+    Compromiso de 1-3 años = 40-60% descuento
+    
+    Solo para producción estable
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Pods no se programan (Pending)">
+    ```bash
+    # Ver eventos del pod
+    kubectl describe pod <pod-name>
+    
+    # Causas comunes:
+    # - Recursos insuficientes: Escalar node group
+    # - Taints/Tolerations: Revisar taints de nodos
+    # - Affinity rules: Revisar reglas de afinidad
+    # - Límite de pods: Cambiar a instancias más grandes
+    ```
+  </Accordion>
+  
+  <Accordion title="No puedo conectar con kubectl">
+    ```bash
+    # Verificar credenciales AWS
+    aws sts get-caller-identity
+    
+    # Actualizar kubeconfig
+    aws eks update-kubeconfig --region eu-west-1 --name retrogame
+    
+    # Verificar permisos
+    kubectl auth can-i get pods --all-namespaces
+    ```
+  </Accordion>
+  
+  <Accordion title="Nodos no se unen al cluster">
+    ```bash
+    # Ver logs de un nodo
+    ssh ec2-user@<node-ip>
+    sudo journalctl -u kubelet -n 100
+    
+    # Causas comunes:
+    # - Security groups bloqueando tráfico
+    # - IAM role sin permisos
+    # - Subnet sin acceso a Internet (para private subnets, verificar NAT)
+    ```
+  </Accordion>
+  
+  <Accordion title="Cluster Autoscaler no funciona">
+    ```bash
+    # Ver logs del autoscaler
+    kubectl logs -f deployment/cluster-autoscaler -n kube-system
+    
+    # Verificar permisos IAM del service account
+    kubectl describe sa cluster-autoscaler -n kube-system
+    
+    # El role debe tener políticas:
+    # - autoscaling:DescribeAutoScalingGroups
+    # - autoscaling:SetDesiredCapacity
+    # - ec2:DescribeLaunchTemplateVersions
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Próximos Pasos
+
+<CardGroup cols={2}>
+  <Card title="Configurar Networking" icon="network-wired" href="/infrastructure/networking">
+    VPC, subnets, security groups
+  </Card>
+  
+  <Card title="Setup de Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
+    Prometheus, Grafana, alertas
+  </Card>
+  
+  <Card title="Desplegar Servicios" icon="cubes" href="/services/auth-service">
+    Microservicios en el cluster
+  </Card>
+  
+  <Card title="Gestión de Secretos" icon="key">
+    External Secrets Operator + AWS Secrets Manager
+  </Card>
+</CardGroup>

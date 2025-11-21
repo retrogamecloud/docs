@@ -36,35 +36,35 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: retrogamecloud/backend
-          path: backend
+          path: /tmp/repos/backend
           token: ${{ secrets.PAT_TOKEN }}
           
       - name: Checkout frontend repo
         uses: actions/checkout@v4
         with:
           repository: retrogamecloud/frontend
-          path: frontend
+          path: /tmp/repos/frontend
           token: ${{ secrets.PAT_TOKEN }}
           
       - name: Checkout infrastructure repo
         uses: actions/checkout@v4
         with:
           repository: retrogamecloud/infrastructure
-          path: infrastructure
+          path: /tmp/repos/infrastructure
           token: ${{ secrets.PAT_TOKEN }}
           
       - name: Checkout kong repo
         uses: actions/checkout@v4
         with:
           repository: retrogamecloud/kong
-          path: kong
+          path: /tmp/repos/kong
           token: ${{ secrets.PAT_TOKEN }}
           
       - name: Checkout kubernetes repo
         uses: actions/checkout@v4
         with:
           repository: retrogamecloud/kubernetes
-          path: kubernetes
+          path: /tmp/repos/kubernetes
           token: ${{ secrets.PAT_TOKEN }}
           
       - name: Install documentation tools
@@ -78,31 +78,31 @@ jobs:
           echo "📚 Generating Backend API Documentation..."
           # Backend services
           for service in auth-service game-catalog-service score-service ranking-service user-service; do
-            if [ -d "backend/src/${service}" ]; then
+            if [ -d "/tmp/repos/backend/src/${service}" ]; then
               echo "  → ${service}"
-              jsdoc2md "backend/src/${service}/**/*.js" > "temp-docs/${service}-api.md" 2>/dev/null || echo "    ⚠️  No JSDoc found"
+              jsdoc2md "/tmp/repos/backend/src/${service}/**/*.js" > "temp-docs/${service}-api.md" 2>/dev/null || echo "    ⚠️  No JSDoc found"
             fi
           done
           
           # Si el backend tiene estructura diferente
-          if [ -f "backend/index.js" ]; then
+          if [ -f "/tmp/repos/backend/index.js" ]; then
             echo "  → backend-main"
-            jsdoc2md "backend/**/*.js" --exclude "node_modules/**" > "temp-docs/backend-main-api.md" 2>/dev/null || echo "    ⚠️  No JSDoc found"
+            jsdoc2md "/tmp/repos/backend/**/*.js" --exclude "node_modules/**" > "temp-docs/backend-main-api.md" 2>/dev/null || echo "    ⚠️  No JSDoc found"
           fi
           
           echo "🎨 Generating Frontend Documentation..."
           # Frontend
-          if [ -d "frontend" ]; then
+          if [ -d "/tmp/repos/frontend" ]; then
             echo "  → frontend-client"
-            jsdoc2md "frontend/**/*.js" --exclude "node_modules/**" --exclude "jsdos/**" > "temp-docs/frontend-api.md" 2>/dev/null || echo "    ⚠️  No JSDoc found"
+            jsdoc2md "/tmp/repos/frontend/**/*.js" --exclude "node_modules/**" --exclude "jsdos/**" > "temp-docs/frontend-api.md" 2>/dev/null || echo "    ⚠️  No JSDoc found"
           fi
           
           echo "🏗️ Generating Infrastructure Documentation..."
           # Infrastructure (Terraform)
-          if [ -d "infrastructure" ]; then
+          if [ -d "/tmp/repos/infrastructure" ]; then
             echo "  → terraform-modules"
             # Extraer descripciones de variables.tf y outputs.tf
-            find infrastructure -name "*.tf" -type f | while read tf_file; do
+            find /tmp/repos/infrastructure -name "*.tf" -type f | while read tf_file; do
               service_name=$(basename $(dirname "$tf_file"))
               echo "## Infrastructure: ${service_name}" >> "temp-docs/infrastructure-docs.md"
               grep -A 3 'variable\|output\|resource' "$tf_file" >> "temp-docs/infrastructure-docs.md" 2>/dev/null || true
@@ -111,12 +111,12 @@ jobs:
           
           echo "🔀 Generating Kong Configuration Documentation..."
           # Kong (YAML configs)
-          if [ -d "kong" ]; then
+          if [ -d "/tmp/repos/kong" ]; then
             echo "  → kong-gateway"
             {
               echo "# Kong Gateway Configuration"
               echo ""
-              find kong -name "*.yml" -o -name "*.yaml" | while read yml_file; do
+              find /tmp/repos/kong -name "*.yml" -o -name "*.yaml" | while read yml_file; do
                 echo "## $(basename $yml_file)"
                 echo "\`\`\`yaml"
                 cat "$yml_file"
@@ -128,12 +128,12 @@ jobs:
           
           echo "☸️ Generating Kubernetes Documentation..."
           # Kubernetes (manifests)
-          if [ -d "kubernetes" ]; then
+          if [ -d "/tmp/repos/kubernetes" ]; then
             echo "  → k8s-manifests"
             {
               echo "# Kubernetes Manifests"
               echo ""
-              find kubernetes -name "*.yml" -o -name "*.yaml" | while read yml_file; do
+              find /tmp/repos/kubernetes -name "*.yml" -o -name "*.yaml" | while read yml_file; do
                 echo "## $(basename $yml_file)"
                 echo "\`\`\`yaml"
                 cat "$yml_file"
@@ -153,7 +153,7 @@ jobs:
       - name: Cleanup temporary directories
         run: |
           echo "🧹 Cleaning up temporary directories..."
-          rm -rf backend frontend infrastructure kong kubernetes temp-docs
+          rm -rf /tmp/repos temp-docs
           echo "✅ Cleanup complete"
           
       - name: Check for changes
