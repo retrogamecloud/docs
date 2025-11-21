@@ -1,0 +1,194 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "RetroGame Cloud",
+  "theme": "mint",
+  "version": "2.0",
+  "colors": {
+    "primary": "#00ff88",
+    "light": "#55ffaa",
+    "dark": "#00aa55"
+  },
+  "favicon": "/logo/favicon.svg",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/retrogamecloud"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Jugar Ahora",
+      "href": "https://retrogamehub.games"
+    }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/retrogamecloud"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentación",
+        "groups": [
+          {
+            "group": "Primeros Pasos",
+            "pages": [
+              "index",
+              "quickstart",
+              "desarrollo-local"
+            ]
+          },
+          {
+            "group": "Arquitectura y Diseño",
+            "pages": [
+              "architecture",
+              "sequence-diagrams"
+            ]
+          },
+          {
+            "group": "Servicios Backend",
+            "pages": [
+              "services/auth-service",
+              "services/user-service",
+              "services/game-catalog",
+              "services/score-service",
+              "services/ranking-service"
+            ]
+          },
+          {
+            "group": "Frontend",
+            "pages": [
+              "frontend/overview",
+              "frontend/jsdos-integration"
+            ]
+          },
+          {
+            "group": "Infraestructura Cloud",
+            "pages": [
+              "infrastructure/overview",
+              "infrastructure/eks",
+              "infrastructure/networking",
+              "infrastructure/cdn",
+              "infrastructure/route53",
+              "infrastructure/monitoring"
+            ]
+          },
+          {
+            "group": "Autenticación y Seguridad",
+            "pages": [
+              "security/oauth2-authentication"
+            ]
+          },
+          {
+            "group": "CI/CD y GitOps",
+            "pages": [
+              "cicd/overview",
+              "cicd/github-actions",
+              "cicd/gitops-workflow",
+              "infrastructure/argocd-gitops"
+            ]
+          },
+          {
+            "group": "Configuración y Despliegue",
+            "pages": [
+              "configuration",
+              "deployment"
+            ]
+          },
+          {
+            "group": "Solución de Problemas",
+            "pages": [
+              "troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Referencia API",
+        "groups": [
+          {
+            "group": "Autenticación",
+            "pages": [
+              "api-reference/auth/login",
+              "api-reference/auth/register",
+              "api-reference/auth/verify",
+              "api-reference/auth-service"
+            ]
+          },
+          {
+            "group": "Usuarios",
+            "pages": [
+              "api-reference/user-service"
+            ]
+          },
+          {
+            "group": "Catálogo de Juegos",
+            "pages": [
+              "api-reference/games/list",
+              "api-reference/games/get",
+              "api-reference/game-catalog-service"
+            ]
+          },
+          {
+            "group": "Puntuaciones",
+            "pages": [
+              "api-reference/scores/submit",
+              "api-reference/scores/get",
+              "api-reference/score-service"
+            ]
+          },
+          {
+            "group": "Rankings",
+            "pages": [
+              "api-reference/rankings/global",
+              "api-reference/rankings/by-game",
+              "api-reference/ranking-service"
+            ]
+          },
+          {
+            "group": "Documentación Técnica",
+            "pages": [
+              "api-reference/backend-main",
+              "api-reference/frontend",
+              "api-reference/infrastructure-docs",
+              "api-reference/kong-config",
+              "api-reference/kubernetes-manifests"
+            ]
+          }
+        ]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "GitHub",
+          "href": "https://github.com/retrogamecloud",
+          "icon": "github"
+        },
+        {
+          "anchor": "Jugar",
+          "href": "https://retrogamehub.games",
+          "icon": "gamepad"
+        }
+      ]
+    }
+  }
+}
