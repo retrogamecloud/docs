@@ -269,6 +269,7 @@ def analyze_with_claude(client, docs_content, architecture, docs_structure, anal
                 json_end = len(json_text)
             json_text = json_text[json_start:json_end].strip()
             print(f"✅ JSON extraído de markdown, longitud: {len(json_text)} caracteres")
+            print(f"🔍 Primeros 200 chars después de extraer: {json_text[:200]}")
         elif "```" in json_text:
             print("🔍 Detectado bloque de código genérico, extrayendo...")
             json_start = json_text.find("```") + 3
@@ -278,24 +279,8 @@ def analyze_with_claude(client, docs_content, architecture, docs_structure, anal
             json_text = json_text[json_start:json_end].strip()
             print(f"✅ JSON extraído de bloque genérico, longitud: {len(json_text)} caracteres")
         
-        # Intentar extraer entre llaves
-        if '{' in json_text and '}' in json_text:
-            # Encontrar el primer { y el último }
-            start_idx = json_text.find('{')
-            
-            # Buscar el } correspondiente contando llaves
-            brace_count = 0
-            end_idx = start_idx
-            for i in range(start_idx, len(json_text)):
-                if json_text[i] == '{':
-                    brace_count += 1
-                elif json_text[i] == '}':
-                    brace_count -= 1
-                    if brace_count == 0:
-                        end_idx = i + 1
-                        break
-            
-            json_text = json_text[start_idx:end_idx]
+        # Ya no necesitamos buscar llaves si ya extrajimos del markdown
+        # El JSON debería estar completo
         
         # Intentar parsear
         try:
