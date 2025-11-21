@@ -50,6 +50,8 @@ def analyze_changes_with_claude(client, repo_name, changed_files, repo_path):
     # Preparar prompt para Claude
     prompt = f"""Eres un experto en documentación técnica. Analiza estos cambios recientes en el repositorio {repo_name} y genera/actualiza la documentación correspondiente.
 
+**IMPORTANTE: TODO el contenido debe estar en español de España (castellano). Usa terminología técnica en español cuando exista traducción estándar.**
+
 ## Archivos Modificados:
 
 {json.dumps(list(files_content.keys()), indent=2)}
@@ -76,12 +78,13 @@ def analyze_changes_with_claude(client, repo_name, changed_files, repo_path):
 Responde SOLO con un objeto JSON válido (sin markdown, sin bloques de código). Usa esta estructura EXACTA:
 
 Para cambios que requieren documentación:
-{"action": "create", "section": "api-authentication", "filename": "docs/api/auth-register.mdx", "title": "Endpoint de Registro", "description": "Descripción del cambio", "summary": "Resumen breve"}
+{"action": "create", "section": "api-authentication", "filename": "docs/api/auth-register.mdx", "title": "Endpoint de Registro EN ESPAÑOL", "description": "Descripción del cambio EN ESPAÑOL", "summary": "Resumen breve EN ESPAÑOL"}
 
 Para cambios sin documentación:
 {"action": "none"}
 
 IMPORTANTE: 
+- **TODO el texto debe estar en español de España**
 - NO incluyas saltos de línea en los valores
 - NO uses bloques ```json```
 - Responde SOLO el JSON, nada más

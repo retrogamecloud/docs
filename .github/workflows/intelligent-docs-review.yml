@@ -93,7 +93,12 @@ jobs:
             
             git push -u origin "$BRANCH_NAME"
             
-            gh pr create --title "🤖 Mejoras inteligentes de documentación ($(date +%Y-%m-%d))" --body-file IMPROVEMENTS.md --label "documentation,ai-generated,enhancement" --base main || echo "PR creation skipped"
+            # Crear PR sin el label ai-generated que no existe
+            gh pr create \
+              --title "🤖 Mejoras inteligentes de documentación ($(date +%Y-%m-%d))" \
+              --body-file IMPROVEMENTS.md \
+              --label "documentation,enhancement" \
+              --base main || echo "⚠️  No se pudo crear PR automáticamente"
           fi
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}

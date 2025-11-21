@@ -176,23 +176,25 @@ Analiza TODO y propón mejoras en:
 
 ## FORMATO DE RESPUESTA
 
+**IMPORTANTE: TODO el contenido debe estar en español de España (castellano), incluyendo títulos, descripciones, contenido propuesto y diagramas. Usa terminología técnica en español cuando exista traducción estándar (por ejemplo: "Despliegue" en lugar de "Deployment", "Autenticación" en lugar de "Authentication", etc.).**
+
 Responde en JSON puro (sin markdown, sin bloques ```):
 
 {{
-  "analysis_summary": "Resumen ejecutivo del análisis en 2-3 líneas",
+  "analysis_summary": "Resumen ejecutivo del análisis en 2-3 líneas EN ESPAÑOL DE ESPAÑA",
   "overall_score": 7.5,
   "improvements": [
     {{
       "priority": "high|medium|low",
       "category": "structure|content|diagrams|quality|new_section",
-      "title": "Título de la mejora",
-      "description": "Descripción detallada",
+      "title": "Título de la mejora EN ESPAÑOL",
+      "description": "Descripción detallada EN ESPAÑOL",
       "files_to_create": ["path/to/new/file.mdx"],
       "files_to_modify": ["path/to/existing/file.mdx"],
       "files_to_delete": ["path/to/obsolete/file.mdx"],
-      "proposed_content": "Contenido propuesto (si aplica, máximo 500 chars)",
-      "mermaid_diagram": "diagram content (si aplica)",
-      "rationale": "Por qué es importante esta mejora"
+      "proposed_content": "Contenido propuesto EN ESPAÑOL (si aplica, máximo 500 chars)",
+      "mermaid_diagram": "diagram content con labels EN ESPAÑOL (si aplica)",
+      "rationale": "Por qué es importante esta mejora EN ESPAÑOL"
     }}
   ],
   "new_sections": [
@@ -207,22 +209,35 @@ Responde en JSON puro (sin markdown, sin bloques ```):
         }}
       ]
     }}
+  "new_sections": [
+    {{
+      "name": "Nombre de sección EN ESPAÑOL",
+      "description": "Propósito de la sección EN ESPAÑOL",
+      "files": [
+        {{
+          "filename": "section/intro.mdx",
+          "title": "Título EN ESPAÑOL",
+          "content_outline": "Outline del contenido EN ESPAÑOL"
+        }}
+      ]
+    }}
   ],
   "diagrams_needed": [
     {{
       "type": "architecture|sequence|flow|component",
-      "title": "Título del diagrama",
-      "description": "Qué muestra",
+      "title": "Título del diagrama EN ESPAÑOL",
+      "description": "Qué muestra EN ESPAÑOL",
       "location": "Dónde colocarlo",
-      "mermaid_code": "```mermaid\\ngraph TD\\n...\\n```"
+      "mermaid_code": "```mermaid\\ngraph TD\\n...\\n```  (con labels EN ESPAÑOL)"
     }}
   ],
   "quick_wins": [
-    "Mejoras rápidas que se pueden implementar ya"
+    "Mejoras rápidas que se pueden implementar ya EN ESPAÑOL"
   ]
 }}
 
 RECUERDA: 
+- **TODO en español de España (castellano)**
 - Sé específico y accionable
 - Prioriza por impacto
 - Propón contenido concreto, no solo ideas abstractas
