@@ -20,7 +20,7 @@ jobs:
       - name: Checkout docs repo
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
           
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -144,6 +144,12 @@ jobs:
       - name: Transform to MDX format
         run: |
           node .github/scripts/transform-to-mdx.js
+      
+      - name: Cleanup temporary directories
+        run: |
+          echo "🧹 Cleaning up temporary directories..."
+          rm -rf backend frontend infrastructure kong kubernetes temp-docs
+          echo "✅ Cleanup complete"
           
       - name: Check for changes
         id: check_changes
