@@ -1,19 +1,19 @@
 ---
 title: "Endpoint de Registro de Usuario"
-description: "Se implementó el controlador de registro de usuarios con validación completa de datos, hash de contraseñas con bcrypt, generación de JWT y validación de unicidad. Incluye campos obligatorios (username, password, email) y opcionales (display_name, avatar_url, bio). El endpoint maneja múltiples casos de error con códigos HTTP apropiados."
+description: "Documentación del controlador de registro con validaciones de seguridad, hash de contraseñas con bcrypt, generación de JWT y gestión de campos obligatorios y opcionales del usuario"
 ---
 
 # Endpoint de Registro de Usuario
 
 ## Descripción
 
-Se implementó el controlador de registro de usuarios con validación completa de datos, hash de contraseñas con bcrypt, generación de JWT y validación de unicidad. Incluye campos obligatorios (username, password, email) y opcionales (display_name, avatar_url, bio). El endpoint maneja múltiples casos de error con códigos HTTP apropiados.
+Documentación del controlador de registro con validaciones de seguridad, hash de contraseñas con bcrypt, generación de JWT y gestión de campos obligatorios y opcionales del usuario
 
 ## Cambios Realizados
 
-Nuevo endpoint POST /api/auth/register para registro de usuarios con validación de datos, seguridad BCrypt y generación de tokens JWT
+Se ha implementado el controlador de registro con validación completa de datos (username alfanumérico 3-20 caracteres, email RFC 5322), hash bcrypt de 10 rondas, generación automática de JWT con expiración de 24 horas y soporte para campos opcionales como nombre visible, avatar y biografía
 
 ---
 
 *Documentación generada automáticamente por Claude AI*
-*Fecha: 2025-11-21 12:30:45*
+*Fecha: 2025-11-21 13:21:40*
