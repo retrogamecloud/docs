@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+"""
+Documentation Structure Reorganizer with Claude AI
+Analiza y reorganiza la estructura de docs.json de manera inteligente
+"""
+import os
+import sys
+import json
+import argparse
+from pathlib import Path
+from datetime import datetime
+from json_repair import repair_json
+
+def load_docs_json(docs_path):
+    """Carga el archivo docs.json"""
+    docs_file = Path(docs_path) / "docs.json"
+    if not docs_file.exists():
+        print(f"❌ No se encontró docs.json en {docs_path}")
+        return None
+    
+    with open(docs_file, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+def save_docs_json(docs_path, docs_data):
+    """Guarda el archivo docs.json con formato bonito"""
+    docs_file = Path(docs_path) / "docs.json"
+    with open(docs_file, 'w', encoding='utf-8') as f:
+        json.dump(docs_data, f, indent=2, ensure_ascii=False)
+    print(f"✅ docs.json actualizado")
+
+def analyze_structure_with_claude(client, current_structure):
+    """Analiza la estructura actual y propone reorganización"""
+    
+    prompt = f"""Eres un experto en arquitectura de información y documentación técnica. Analiza la estructura actual de navegación de la documentación y propón una reorganización óptima.
+
+**IMPORTANTE: TODO el contenido debe estar en español de España (castellano).**
+
+## Estructura Actual de Navegación:
+
+```json
+{json.dumps(current_structure, indent=2, ensure_ascii=False)}
+```
+
+## Tareas:
+
+1. **Analizar la organización actual**: ¿Tiene sentido la agrupación? ¿Hay redundancias?
+2. **Proponer reorganización**: Grupos lógicos, orden jerárquico, numeración apropiada
+3. **Recomendar nuevos grupos**: Si faltan secciones importantes
+4. **Optimizar nombres**: Títulos claros y concisos en español de España
+
+## Principios de Reorganización:
+
+- **Orden lógico**: De lo general a lo específico (Introducción → Conceptos → Implementación → Referencia)
+- **Agrupación semántica**: Relacionar conceptos similares
+- **Jerarquía clara**: Máximo 3 niveles de profundidad
+- **Nomenclatura consistente**: Usar números para orden jerárquico cuando sea apropiado
+- **Eliminar redundancias**: Consolidar páginas duplicadas
+
+## Formato de Respuesta:
+
+Responde SOLO con JSON puro (sin markdown, sin bloques ```):
+
+{{
+  "proposed_structure": {{
+    "tabs": [
+      {{
+        "tab": "Nombre del Tab EN ESPAÑOL",
+        "groups": [
+          {{
+            "group": "1. Nombre del Grupo EN ESPAÑOL",
+            "pages": ["page1", "page2"],
+            "description": "Qué contiene este grupo"
+          }}
+        ]
+      }}
+    ]
+  }},
+  "changes_summary": "Resumen de cambios realizados EN ESPAÑOL",
+  "rationale": "Por qué esta organización es mejor EN ESPAÑOL",
+  "new_groups_needed": [
+    {{
+      "name": "Nombre del grupo EN ESPAÑOL",
+      "reason": "Por qué se necesita",
+      "suggested_pages": ["page1.mdx", "page2.mdx"]
+    }}
+  ],
+  "pages_to_consolidate": [
+    {{
+      "pages": ["page1", "page2"],
+      "reason": "Por qué consolidar",
+      "new_page_name": "consolidated-page"
+    }}
+  ]
+}}
+
+RECUERDA:
+- Usa números para indicar jerarquía/orden lógico en los nombres de grupos (ej: "1. Inicio", "2. Arquitectura")
+- TODO en español de España
+- Responde SOLO JSON sin markdown
+- Mantén los nombres de archivos (pages) tal cual están, solo reorganiza grupos y orden
+"""
+
+    try:
+        import anthropic
+        
+        print("🤖 Analizando estructura con Claude Sonnet 4.5...")
+        
+        message = client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=8192,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+        
+        response_text = message.content[0].text.strip()
+        
+        print(f"✅ Respuesta recibida ({len(response_text)} chars)")
+        
+        # Limpiar markdown code blocks si existen
+        json_text = response_text
+        if "```json" in json_text:
+            print("🔍 Detectado bloque de código markdown ```json, extrayendo...")
+            json_start = json_text.find("```json") + 7
+            json_end = json_text.find("```", json_start)
+            if json_end == -1:
+                json_end = len(json_text)
+            json_text = json_text[json_start:json_end].strip()
+        elif "```" in json_text:
+            json_start = json_text.find("```") + 3
+            json_end = json_text.find("```", json_start)
+            if json_end == -1:
+                json_end = len(json_text)
+            json_text = json_text[json_start:json_end].strip()
+        
+        # Intentar parsear
+        try:
+            return json.loads(json_text)
+        except json.JSONDecodeError as e:
+            print(f"⚠️  Error parseando JSON: {e}")
+            # Intentar reparar el JSON
+            try:
+                print("🔧 Intentando reparar JSON...")
+                repaired = repair_json(json_text)
+                result = json.loads(repaired)
+                print("✅ JSON reparado exitosamente")
+                return result
+            except Exception as repair_error:
+                print(f"❌ No se pudo reparar: {repair_error}")
+                return None
+    
+    except Exception as e:
+        print(f"❌ Error en análisis: {e}")
+        return None
+
+def apply_reorganization(docs_data, proposed_structure):
+    """Aplica la reorganización propuesta al docs.json"""
+    
+    if not proposed_structure or 'proposed_structure' not in proposed_structure:
+        print("❌ No hay estructura propuesta válida")
+        return docs_data
+    
+    # Mantener todo excepto navigation
+    new_docs = {k: v for k, v in docs_data.items() if k != 'navigation'}
+    
+    # Aplicar nueva estructura de navegación
+    new_navigation = proposed_structure['proposed_structure']
+    
+    # Mantener global anchors si existen
+    if 'navigation' in docs_data and 'global' in docs_data['navigation']:
+        new_navigation['global'] = docs_data['navigation']['global']
+    
+    new_docs['navigation'] = new_navigation
+    
+    print("✅ Reorganización aplicada")
+    return new_docs
+
+def generate_changelog(changes_summary, rationale):
+    """Genera un changelog de los cambios estructurales"""
+    
+    changelog = f"""# 📋 Reorganización de Estructura de Documentación
+
+**Fecha**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  
+**Generado por**: Claude Sonnet 4.5
+
+## 📊 Resumen de Cambios
+
+{changes_summary}
+
+## 🎯 Justificación
+
+{rationale}
+
+---
+
+*Reorganización automática generada por el sistema inteligente de documentación*
+"""
+    
+    return changelog
+
+def main():
+    parser = argparse.ArgumentParser(description='Reorganizar estructura de docs.json con Claude AI')
+    parser.add_argument('--docs-path', required=True, help='Path al directorio de documentación')
+    parser.add_argument('--output-changelog', default='STRUCTURE_CHANGELOG.md', help='Archivo de changelog')
+    parser.add_argument('--dry-run', action='store_true', help='Simular sin aplicar cambios')
+    
+    args = parser.parse_args()
+    
+    # Verificar API key
+    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    if not api_key:
+        print("❌ ANTHROPIC_API_KEY no configurada")
+        sys.exit(1)
+    
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+    except ImportError:
+        print("❌ Librería anthropic no instalada")
+        sys.exit(1)
+    
+    print("📊 Cargando estructura actual...")
+    docs_data = load_docs_json(args.docs_path)
+    if not docs_data:
+        sys.exit(1)
+    
+    current_structure = docs_data.get('navigation', {})
+    
+    print("🤖 Analizando y reorganizando estructura...")
+    analysis_result = analyze_structure_with_claude(client, current_structure)
+    
+    if not analysis_result:
+        print("❌ No se pudo obtener propuesta de reorganización")
+        sys.exit(1)
+    
+    print(f"\n📋 Resumen: {analysis_result.get('changes_summary', 'N/A')}")
+    
+    if args.dry_run:
+        print("\n🔍 Modo DRY RUN - No se aplicarán cambios")
+        print("\n📄 Estructura propuesta:")
+        print(json.dumps(analysis_result.get('proposed_structure'), indent=2, ensure_ascii=False))
+    else:
+        print("\n✏️  Aplicando reorganización...")
+        new_docs_data = apply_reorganization(docs_data, analysis_result)
+        save_docs_json(args.docs_path, new_docs_data)
+        
+        # Generar changelog
+        changelog = generate_changelog(
+            analysis_result.get('changes_summary', ''),
+            analysis_result.get('rationale', '')
+        )
+        
+        changelog_path = Path(args.docs_path) / args.output_changelog
+        with open(changelog_path, 'w', encoding='utf-8') as f:
+            f.write(changelog)
+        print(f"✅ Changelog generado: {args.output_changelog}")
+        
+        # Mostrar nuevos grupos recomendados
+        if 'new_groups_needed' in analysis_result and analysis_result['new_groups_needed']:
+            print("\n💡 Nuevos grupos recomendados:")
+            for group in analysis_result['new_groups_needed']:
+                print(f"  - {group['name']}: {group['reason']}")
+        
+        # Mostrar páginas a consolidar
+        if 'pages_to_consolidate' in analysis_result and analysis_result['pages_to_consolidate']:
+            print("\n🔗 Páginas sugeridas para consolidar:")
+            for consolidation in analysis_result['pages_to_consolidate']:
+                print(f"  - {', '.join(consolidation['pages'])} → {consolidation['new_page_name']}")
+                print(f"    Razón: {consolidation['reason']}")
+    
+    print("\n✅ Reorganización completada")
+
+if __name__ == "__main__":
+    main()

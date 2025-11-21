@@ -1,9 +1,9 @@
 name: Intelligent Documentation Review
 
 on:
-  # Ejecutar semanalmente los domingos a las 2 AM
+  # Ejecutar diariamente a medianoche
   schedule:
-    - cron: '0 2 * * 0'
+    - cron: '0 0 * * *'  # Todos los días a las 00:00 UTC
   
   # Permitir ejecución manual
   workflow_dispatch:
@@ -17,6 +17,14 @@ on:
           - quick
           - full
           - deep
+      reorganize_structure:
+        description: 'Reorganizar estructura de docs.json'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 jobs:
   intelligent-review:
@@ -65,6 +73,19 @@ jobs:
             --repos-path .analysis-repos \
             --depth $ANALYSIS_DEPTH \
             --output analysis-results.json
+      
+      - name: Reorganize Documentation Structure
+        if: ${{ inputs.reorganize_structure != 'false' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "📐 Reorganizando estructura de documentación..."
+          
+          python .github/scripts/reorganize-docs-structure.py \
+            --docs-path . \
+            --output-changelog STRUCTURE_CHANGELOG.md
+          
+          echo "✅ Estructura reorganizada"
           
       - name: Create improvement proposals
         run: |
@@ -79,24 +100,22 @@ jobs:
           git config user.name "claude-ai-bot[bot]"
           git config user.email "claude-ai-bot[bot]@users.noreply.github.com"
           
-          # Crear rama para mejoras
           BRANCH_NAME="docs/intelligent-improvements-$(date +%Y%m%d-%H%M%S)"
           git checkout -b "$BRANCH_NAME"
-          
-          # Añadir todos los cambios propuestos
           git add -A
           
           if git diff --staged --quiet; then
             echo "ℹ️  No hay cambios que commitear"
           else
-            git commit -m "docs: Mejoras inteligentes propuestas por Claude AI" -m "Análisis automático de la documentación completa" -m "- Revisión de estructura y organización" -m "- Detección de gaps en documentación" -m "- Propuestas de diagramas y visualizaciones" -m "- Recomendaciones de mejoras" -m "Generado automáticamente por Claude Sonnet 4.5"
+            git commit -m "docs: Mejoras inteligentes y reorganización estructural" \
+              -m "Análisis automático de documentación completa" \
+              -m "Generado automáticamente por Claude Sonnet 4.5"
             
             git push -u origin "$BRANCH_NAME"
             
-            # Crear PR sin el label ai-generated que no existe
             gh pr create \
-              --title "🤖 Mejoras inteligentes de documentación ($(date +%Y-%m-%d))" \
-              --body-file IMPROVEMENTS.md \
+              --title "🤖 Mejoras y reorganización automática ($(date +%Y-%m-%d))" \
+              --body "Análisis automático de documentación y reorganización estructural. Ver archivos IMPROVEMENTS.md y STRUCTURE_CHANGELOG.md" \
               --label "documentation,enhancement" \
               --base main || echo "⚠️  No se pudo crear PR automáticamente"
           fi
