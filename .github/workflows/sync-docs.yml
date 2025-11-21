@@ -166,6 +166,7 @@ jobs:
       - name: Commit and push changes
         if: steps.check_changes.outputs.has_changes == 'true'
         run: |
+          git pull --rebase
           git commit -m "docs: auto-sync API documentation from backend
 
           - Generated from backend repository
