@@ -84,17 +84,17 @@
             "group": "Infraestructura Cloud",
             "pages": [
               "infrastructure/overview",
-              "infrastructure/eks",
+              "infrastructure/eks-cluster",
               "infrastructure/networking",
-              "infrastructure/cdn",
-              "infrastructure/route53",
+              "infrastructure/cdn-cloudfront",
+              "infrastructure/route53-ssl",
               "infrastructure/monitoring"
             ]
           },
           {
             "group": "Autenticación y Seguridad",
             "pages": [
-              "security/oauth2-authentication"
+              "infrastructure/oauth2-authentication"
             ]
           },
           {
