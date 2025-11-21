@@ -69,26 +69,22 @@ def analyze_changes_with_claude(client, repo_name, changed_files, repo_path):
 
 1. Identifica qué tipo de cambios se hicieron (nueva feature, bug fix, refactor, etc.)
 2. Determina qué sección de documentación necesita actualizarse o crearse
-3. Genera documentación en formato MDX (Markdown con componentes JSX)
-4. Incluye:
-   - Título descriptivo
-   - Descripción general
-   - Ejemplos de uso si aplica
-   - Parámetros/configuración
-   - Consideraciones técnicas
+3. Genera un resumen de lo que se debe documentar
 
 ## Formato de Respuesta:
 
-Responde en JSON con esta estructura:
-{
-  "action": "create" | "update" | "none",
-  "section": "nombre-de-seccion",
-  "filename": "ruta/archivo.mdx",
-  "content": "contenido MDX completo",
-  "summary": "breve descripción de los cambios"
-}
+Responde SOLO con un objeto JSON válido (sin markdown, sin bloques de código). Usa esta estructura EXACTA:
 
-Si no hay cambios significativos que documentar, retorna: {"action": "none"}
+Para cambios que requieren documentación:
+{"action": "create", "section": "api-authentication", "filename": "docs/api/auth-register.mdx", "title": "Endpoint de Registro", "description": "Descripción del cambio", "summary": "Resumen breve"}
+
+Para cambios sin documentación:
+{"action": "none"}
+
+IMPORTANTE: 
+- NO incluyas saltos de línea en los valores
+- NO uses bloques ```json```
+- Responde SOLO el JSON, nada más
 """
     
     try:
@@ -150,11 +146,35 @@ def apply_documentation_changes(doc_result, docs_base_path):
         return False
     
     filename = doc_result.get('filename')
-    content = doc_result.get('content')
+    title = doc_result.get('title', 'Documentation')
+    description = doc_result.get('description', '')
+    summary = doc_result.get('summary', '')
     
-    if not filename or not content:
-        print("Respuesta inválida de Claude")
+    if not filename:
+        print("Respuesta inválida de Claude - falta filename")
         return False
+    
+    # Generar contenido MDX basado en los metadatos
+    content = f"""---
+title: "{title}"
+description: "{description}"
+---
+
+# {title}
+
+## Descripción
+
+{description}
+
+## Cambios Realizados
+
+{summary}
+
+---
+
+*Documentación generada automáticamente por Claude AI*
+*Fecha: {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*
+"""
     
     filepath = Path(docs_base_path) / filename
     filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -164,7 +184,7 @@ def apply_documentation_changes(doc_result, docs_base_path):
             f.write(content)
         
         print(f"✅ Documentación {'actualizada' if doc_result['action'] == 'update' else 'creada'}: {filename}")
-        print(f"📝 Resumen: {doc_result.get('summary', 'Sin resumen')}")
+        print(f"📝 Resumen: {summary}")
         return True
         
     except Exception as e:
