@@ -93,7 +93,7 @@ Si no hay cambios significativos que documentar, retorna: {"action": "none"}
     
     try:
         message = client.messages.create(
-            model="claude-3-5-sonnet-latest",
+            model="claude-3-sonnet-20240229",
             max_tokens=4096,
             messages=[
                 {"role": "user", "content": prompt}
