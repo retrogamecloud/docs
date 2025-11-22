@@ -56,7 +56,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: retrogamehub/frontend:sha-85ecbe7
+          image: retrogamehub/frontend:sha-8bc1b67
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -186,8 +186,8 @@ spec:
     spec:
       containers:
         - name: kong
-          # Imagen de Kong desde DockerHub - v1.0.13 (sha-a3115b6)
-          image: retrogamehub/kong:sha-a3115b6
+          # Imagen de Kong desde DockerHub - v1.0.14 (sha-81ba3fa)
+          image: retrogamehub/kong:sha-81ba3fa
           # La imagen se descarga solo si no existe localmente (mejor práctica)
           imagePullPolicy: IfNotPresent
           ports:

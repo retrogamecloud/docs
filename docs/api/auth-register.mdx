@@ -1,19 +1,19 @@
 ---
-title: "Endpoint de Registro de Usuario"
-description: "Documentación del controlador de registro que implementa validación completa de usuarios, hash seguro de contraseñas con bcrypt, generación de JWT y validación de unicidad. Incluye especificaciones de formato para username (alfanumérico 3-20 caracteres), email (RFC 5322), campos opcionales (display_name, avatar_url, bio) y códigos de respuesta HTTP detallados."
+title: "Endpoint de Registro de Usuarios"
+description: "Documentación actualizada del controlador de registro que incluye validación completa de campos (username alfanumérico de 3-20 caracteres, email RFC 5322, hash bcrypt con 10 rondas), generación de JWT con expiración de 24h, validación de unicidad y soporte para campos opcionales como display_name, avatar_url y bio. Se han actualizado los flujos de trabajo para sincronizar kubernetes e infrastructure."
 ---
 
-# Endpoint de Registro de Usuario
+# Endpoint de Registro de Usuarios
 
 ## Descripción
 
-Documentación del controlador de registro que implementa validación completa de usuarios, hash seguro de contraseñas con bcrypt, generación de JWT y validación de unicidad. Incluye especificaciones de formato para username (alfanumérico 3-20 caracteres), email (RFC 5322), campos opcionales (display_name, avatar_url, bio) y códigos de respuesta HTTP detallados.
+Documentación actualizada del controlador de registro que incluye validación completa de campos (username alfanumérico de 3-20 caracteres, email RFC 5322, hash bcrypt con 10 rondas), generación de JWT con expiración de 24h, validación de unicidad y soporte para campos opcionales como display_name, avatar_url y bio. Se han actualizado los flujos de trabajo para sincronizar kubernetes e infrastructure.
 
 ## Cambios Realizados
 
-Nueva documentación para el endpoint POST /api/auth/register con validaciones de seguridad, ejemplos de uso y gestión de errores actualizada a la versión 1.0.1
+Actualización del controlador de autenticación versión 1.0.1 con validaciones mejoradas, gestión segura de contraseñas y documentación técnica detallada de códigos de error y ejemplos de uso
 
 ---
 
 *Documentación generada automáticamente por Claude AI*
-*Fecha: 2025-11-22 05:25:55*
+*Fecha: 2025-11-22 06:30:51*
