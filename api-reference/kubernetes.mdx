@@ -347,9 +347,32 @@ jobs:
           cd infrastructure
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Crear rama con timestamp para evitar conflictos
+          BRANCH_NAME="sync/backend-manifest-$(date +%s)"
+          git checkout -b $BRANCH_NAME
+          
           git add argocd/backend-overlays/base/02-backend.yaml
-          git diff --staged --quiet || git commit -m "chore: sync backend manifest from kubernetes repo"
-          git push
+          
+          # Solo commit y push si hay cambios
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: sync backend manifest from kubernetes repo"
+            git push origin $BRANCH_NAME
+            
+            # Crear PR usando GitHub CLI
+            echo "Creating PR..."
+            gh pr create \
+              --repo retrogamecloud/infrastructure \
+              --base main \
+              --head $BRANCH_NAME \
+              --title "chore: sync backend manifest from kubernetes repo" \
+              --body "Automated sync of 02-backend.yaml from kubernetes repository" \
+              --label "automated"
+          else
+            echo "No changes to sync"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 ```
 
 ## 03-cdn.yaml
@@ -414,7 +437,7 @@ spec:
     spec:
       containers:
         - name: backend
-          # Imagen del backend desde DockerHub - v1.0.42 (sha-2fa38a0)
+          # Backend image v0.0.1 - testing PR workflow
           image: retrogamehub/backend:v0.0.1
           # La imagen se descarga solo si no existe localmente (mejor práctica)
           imagePullPolicy: IfNotPresent
@@ -451,7 +474,8 @@ spec:
   ports:
     - protocol: TCP
       port: 3000       # El puerto que Kong busca
-      targetPort: 3000 # El puerto del contenedor```
+      targetPort: 3000 # El puerto del contenedor# Test sync
+```
 
 ## 01-postgres.yaml
 ```yaml
