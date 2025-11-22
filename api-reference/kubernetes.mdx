@@ -11,31 +11,6 @@ icon: "code"
 
 # Kubernetes Manifests
 
-## argocd-application.yaml
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: retro-game-hub
-  namespace: argocd
-spec: 
-  project: default 
-  source: 
-    repoURL: https://github.com/retrogamecloud/kubernetes.git 
-    targetRevision: main 
-    path: .
-    directory: 
-      exclude: '{package.json,package-lock.json,README.md,tests/*,gitops/*}'
-  destination: 
-    server: https://kubernetes.default.svc
-    namespace: retrogamecloud
-  syncPolicy: 
-    automated: 
-      prune: true
-      selfHeal: true
-    syncOptions: 
-    - CreateNamespace=true ```
-
 ## 04-frontend.yaml
 ```yaml
 # --- 1. Despliegue del Frontend ---
