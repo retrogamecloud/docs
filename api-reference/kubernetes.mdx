@@ -311,6 +311,47 @@ jobs:
         done
 ```
 
+## sync-backend-manifest.yml
+```yaml
+name: Sync Backend Manifest to Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '02-backend.yaml'
+
+jobs:
+  sync-to-infrastructure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout kubernetes repo
+        uses: actions/checkout@v4
+        with:
+          path: kubernetes
+
+      - name: Checkout infrastructure repo
+        uses: actions/checkout@v4
+        with:
+          repository: retrogamecloud/infrastructure
+          token: ${{ secrets.PAT_TOKEN }}
+          path: infrastructure
+
+      - name: Copy backend manifest
+        run: |
+          cp kubernetes/02-backend.yaml infrastructure/argocd/backend-overlays/base/02-backend.yaml
+
+      - name: Commit and push changes
+        run: |
+          cd infrastructure
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add argocd/backend-overlays/base/02-backend.yaml
+          git diff --staged --quiet || git commit -m "chore: sync backend manifest from kubernetes repo"
+          git push
+```
+
 ## 03-cdn.yaml
 ```yaml
 # --- 1. Despliegue del CDN ---
