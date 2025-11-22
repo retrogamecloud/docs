@@ -56,7 +56,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: retrogamehub/frontend:sha-911b8e8
+          image: retrogamehub/frontend:sha-2f9f13a
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -438,7 +438,7 @@ spec:
       containers:
         - name: backend
           # Backend image v0.0.1 - testing PR workflow
-          image: retrogamehub/backend:sha-a88b342
+          image: retrogamehub/backend:sha-f07c8a9
           # La imagen se descarga solo si no existe localmente (mejor práctica)
           imagePullPolicy: IfNotPresent
           ports:
