@@ -1,165 +1,198 @@
 # 🤖 Análisis Inteligente de Documentación
 
-**Fecha**: 2025-11-21 13:19:34  
+**Fecha**: 2025-11-22 03:18:22  
 **Generado por**: Claude Sonnet 4.5  
-**Puntuación General**: 6.8/10
+**Puntuación General**: 7.2/10
 
 ## 📊 Resumen Ejecutivo
 
-La documentación está bien estructurada pero presenta gaps críticos: falta documentación de seguridad, estrategias de respaldo/recuperación, guías operativas de producción, y diagramas de arquitectura de infraestructura. Hay inconsistencias en profundidad entre secciones y contenido duplicado en 'essentials' y 'api-reference'.
+La documentación está bien estructurada pero presenta gaps críticos: falta arquitectura de datos detallada, patrones de resiliencia, guías de migración/rollback, métricas de observabilidad, y diagramas de componentes internos de servicios. La estructura es sólida pero necesita consolidación en secciones redundantes y profundización en aspectos operacionales.
 
 ## 🎯 Mejoras Prioritarias
 
 
 ### Prioridad Alta ⚡
 
-#### Documentación de Seguridad Completa
+#### Arquitectura de Datos y Modelos
 
 **Categoría**: content  
-**Descripción**: Falta documentación crítica sobre políticas de seguridad, gestión de secretos, RBAC en Kubernetes, políticas de red, y cumplimiento normativo. Esto es fundamental para operaciones en producción.  
-**Razón**: La seguridad es fundamental en producción. Sin documentación clara sobre políticas de seguridad, gestión de secretos y RBAC, el sistema queda vulnerable y dificulta auditorías y cumplimiento normativo.  
+**Descripción**: Falta documentación completa de los modelos de datos, esquemas de base de datos, relaciones entre entidades, estrategia de caché en Redis y políticas de consistencia. Es crítico para desarrolladores que necesitan entender el dominio.  
+**Razón**: Sin conocer los modelos de datos es imposible contribuir efectivamente al backend. Los desarrolladores necesitan ver las relaciones, índices y constraints para escribir queries eficientes y evitar bugs de integridad referencial.  
 
-**Archivos a crear**: security/overview.mdx, security/secrets-management.mdx, security/network-policies.mdx, security/rbac.mdx, security/compliance.mdx  
-
----
-
-#### Diagrama de Arquitectura de Infraestructura AWS Completo
-
-**Categoría**: diagrams  
-**Descripción**: No existe un diagrama completo que muestre toda la infraestructura AWS (VPC, subnets, security groups, EKS, RDS, S3, CloudFront, Route53) y sus interconexiones.  
-**Razón**: Un diagrama de infraestructura completo es esencial para entender la arquitectura, planificar cambios, diagnosticar problemas y onboarding de nuevos ingenieros. Actualmente esta información está fragmentada.  
-
-**Archivos a crear**: infrastructure/architecture-diagram.mdx  
-**Archivos a modificar**: infrastructure/overview.mdx  
-
-**Diagrama propuesto**:
-```mermaid
-graph TB subgraph Internet[Internet] User[Usuario] end subgraph Route53[Route53 DNS] DNS[retrogame.es] end subgraph CloudFront[CloudFront CDN] CF[Distribución CDN<br/>Assets Estáticos] end subgraph VPC[VPC 10.0.0.0/16] subgraph PublicSubnets[Subnets Públicas Multi-AZ] ALB[Application Load Balancer<br/>SSL/TLS Termination] NAT[NAT Gateway] end subgraph PrivateSubnets[Subnets Privadas Multi-AZ] subgraph EKS[EKS Cluster] Kong[Kong API Gateway] Auth[Auth Service] Catalog[Catalog Service] Score[Score Service] Rank[Ranking Service] Users[User Service] end RDS[(RDS PostgreSQL<br/>Multi-AZ)] Redis[(ElastiCache Redis)] end end subgraph S3[S3 Buckets] Games[retrogame-games<br/>Archivos .jsdos] Assets[retrogame-assets<br/>Imágenes] end User --> DNS DNS --> CF CF --> Games CF --> ALB ALB --> Kong Kong --> Auth Kong --> Catalog Kong --> Score Kong --> Rank Kong --> Users Auth --> RDS Catalog --> RDS Score --> RDS Rank --> RDS Users --> RDS Auth --> Redis EKS -.-> NAT NAT -.-> Internet
-```
-
-
----
-
-#### Estrategias de Respaldo y Recuperación ante Desastres
-
-**Categoría**: content  
-**Descripción**: No existe documentación sobre backups de RDS, estrategias de recuperación ante desastres (DR), RPO/RTO, ni procedimientos de restauración.  
-**Razón**: Sin estrategias documentadas de backup y DR, el sistema está en riesgo ante fallos. Es crítico para business continuity y debe estar documentado antes de incidentes reales.  
-
-**Archivos a crear**: operations/backup-restore.mdx, operations/disaster-recovery.mdx  
-**Archivos a modificar**: infrastructure/overview.mdx  
-
----
-
-#### Diagrama de Flujo de Datos Completo Usuario-a-Base de Datos
-
-**Categoría**: diagrams  
-**Descripción**: Falta un diagrama que muestre el flujo completo de una petición desde el navegador hasta la base de datos, incluyendo todos los componentes intermedios.  
-**Razón**: Esencial para entender la arquitectura en profundidad, diagnosticar problemas de latencia, y optimizar el rendimiento. Actualmente cada componente está documentado aisladamente.  
-
-**Archivos a crear**: architecture/data-flow.mdx  
+**Archivos a crear**: architecture/data-architecture.mdx, architecture/database-schemas.mdx, architecture/cache-strategy.mdx  
 **Archivos a modificar**: architecture.mdx  
 
 **Diagrama propuesto**:
 ```mermaid
-sequenceDiagram participant U as Usuario<br/>Navegador participant CF as CloudFront participant R53 as Route53 participant ALB as Application<br/>Load Balancer participant K as Kong<br/>Gateway participant A as Auth<br/>Service participant S as Score<br/>Service participant RDS as PostgreSQL<br/>RDS participant Redis as ElastiCache<br/>Redis U->>CF: GET /assets/game.jsdos CF-->>U: Asset (caché) U->>R53: POST api.retrogame.es/scores R53->>ALB: Resolución DNS ALB->>K: HTTPS (TLS terminado) K->>K: Verificar JWT K->>K: Rate Limiting K->>S: Proxy request S->>Redis: Verificar caché Redis-->>S: Cache miss S->>RDS: INSERT/UPDATE score RDS-->>S: Confirmación S->>Redis: Actualizar caché S-->>K: Response 200 K-->>ALB: Response ALB-->>U: Response
+erDiagram USERS ||--o{ SCORES : submits USERS { string id PK string username UK string email UK string password_hash timestamp created_at } GAMES ||--o{ SCORES : has GAMES { string id PK string slug UK string title string description string jsdos_url timestamp created_at } SCORES ||--o{ RANKINGS : generates SCORES { string id PK string user_id FK string game_id FK int score timestamp achieved_at } RANKINGS { string id PK string game_id FK string user_id FK int rank int score timestamp updated_at }
 ```
 
 
 ---
 
-#### Guía de Monitorización y Observabilidad Operativa
+#### Diagrama de Componentes Detallado por Servicio
+
+**Categoría**: diagrams  
+**Descripción**: Cada microservicio necesita un diagrama de componentes mostrando su arquitectura interna: controladores, servicios, repositorios, middlewares, y dependencias externas. Actualmente solo hay diagramas de alto nivel.  
+**Razón**: Los desarrolladores necesitan entender la arquitectura interna de cada servicio para debuggear, extender funcionalidad o refactorizar sin romper dependencias. Sin esto, la curva de aprendizaje es muy alta.  
+
+**Archivos a crear**: services/auth-service-architecture.mdx, services/score-service-architecture.mdx, services/catalog-service-architecture.mdx  
+**Archivos a modificar**: services/auth-service.mdx, services/score-service.mdx, services/game-catalog.mdx  
+
+**Diagrama propuesto**:
+```mermaid
+graph TB subgraph AuthService A[API Routes] --> B[AuthController] B --> C[AuthService] C --> D[UserRepository] C --> E[JWTService] D --> F[(PostgreSQL)] E --> G[(Redis)] B --> H[ValidationMiddleware] B --> I[ErrorHandler] end subgraph Dependencies J[bcrypt] K[jsonwebtoken] C --> J C --> K end
+```
+
+
+---
+
+#### Estrategia de Resiliencia y Manejo de Fallos
 
 **Categoría**: content  
-**Descripción**: infrastructure/monitoring.mdx existe pero está incompleto. Falta documentación sobre dashboards específicos, alertas críticas, runbooks, y procedimientos de on-call.  
-**Razón**: Monitorización efectiva es crítica en producción. Sin documentación clara de alertas y runbooks, los incidentes tardan más en resolverse y aumenta el MTTR (Mean Time To Recovery).  
+**Descripción**: No existe documentación sobre patrones de resiliencia: circuit breakers, retries, timeouts, fallbacks, health checks detallados. Crítico para producción robusta.  
+**Razón**: Sin patrones de resiliencia, un fallo en un servicio puede causar cascada de fallos. La documentación debe guiar implementación de circuit breakers, especialmente en llamadas entre microservicios y a Redis/PostgreSQL.  
 
-**Archivos a crear**: operations/monitoring-dashboards.mdx, operations/alerting.mdx, operations/on-call-runbook.mdx  
+**Archivos a crear**: architecture/resilience-patterns.mdx, operations/health-monitoring.mdx, operations/failure-scenarios.mdx  
+**Archivos a modificar**: architecture.mdx, troubleshooting.mdx  
+
+**Diagrama propuesto**:
+```mermaid
+stateDiagram-v2 [*] --> Closed Closed --> Open : Fallos > threshold Open --> HalfOpen : Timeout transcurrido HalfOpen --> Closed : Request exitoso HalfOpen --> Open : Request falla Open --> [*] : Service degradado Closed --> [*] : Operación normal
+```
+
+
+---
+
+#### Guía de Migración y Rollback
+
+**Categoría**: content  
+**Descripción**: Falta documentación sobre cómo realizar migraciones de base de datos, actualizaciones de esquemas, y procedimientos de rollback en caso de despliegue fallido. Esencial para operaciones seguras.  
+**Razón**: Las migraciones de BD son el punto más riesgoso en despliegues. Sin procedimientos claros de rollback, un fallo puede resultar en downtime prolongado o pérdida de datos. Esto debe estar perfectamente documentado.  
+
+**Archivos a crear**: operations/migration-guide.mdx, operations/rollback-procedures.mdx, operations/blue-green-deployment.mdx  
+**Archivos a modificar**: deployment.mdx, cicd/gitops-workflow.mdx  
+
+**Diagrama propuesto**:
+```mermaid
+sequenceDiagram participant DevOps participant ArgoCD participant EKS participant PostgreSQL participant Monitoring DevOps->>ArgoCD: Sync nueva versión ArgoCD->>EKS: Deploy green environment EKS->>PostgreSQL: Aplicar migraciones forward-compatible DevOps->>Monitoring: Verificar métricas alt Despliegue exitoso DevOps->>EKS: Cambiar tráfico a green DevOps->>EKS: Eliminar blue environment else Fallo detectado DevOps->>ArgoCD: Rollback a versión anterior ArgoCD->>EKS: Restaurar blue environment DevOps->>PostgreSQL: Ejecutar rollback SQL end
+```
+
+
+---
+
+#### Métricas y Observabilidad Detallada
+
+**Categoría**: content  
+**Descripción**: La sección de monitorización es superficial. Falta especificar qué métricas exactas recoger (RED method, USE method), dashboards de Grafana, alertas de Prometheus, traces distribuidos, y logs estructurados.  
+**Razón**: Sin observabilidad detallada es imposible detectar degradación de servicio antes de que afecte usuarios. Necesitamos métricas específicas, dashboards útiles y alertas accionables, no solo mencionar que existe Prometheus.  
+
+**Archivos a crear**: operations/metrics-catalog.mdx, operations/alerting-rules.mdx, operations/distributed-tracing.mdx, operations/log-aggregation.mdx  
 **Archivos a modificar**: infrastructure/monitoring.mdx  
+
+**Diagrama propuesto**:
+```mermaid
+graph LR subgraph Servicios A[Auth Service] --> M1[Prometheus Metrics] B[Score Service] --> M2[Prometheus Metrics] C[Catalog Service] --> M3[Prometheus Metrics] end subgraph Observabilidad M1 --> P[Prometheus] M2 --> P M3 --> P P --> G[Grafana Dashboards] P --> AM[AlertManager] A --> J[Jaeger Tracing] B --> J C --> J A --> L[Loki Logs] B --> L C --> L end subgraph Alertas AM --> S[Slack] AM --> PS[PagerDuty] end
+```
+
 
 ---
 
 
 ### Prioridad Media 📌
 
-#### Guía de Escalado Horizontal y Vertical
+#### Gestión de Secretos y Seguridad
 
 **Categoría**: content  
-**Descripción**: No existe documentación sobre cuándo y cómo escalar servicios, configuración de HPA (Horizontal Pod Autoscaler), límites de recursos, ni estrategias de capacity planning.  
-**Razón**: Sin documentación de escalado, el equipo no sabe cómo responder a aumentos de carga. Esto es crítico para mantener SLAs durante picos de tráfico.  
+**Descripción**: Falta documentación sobre gestión segura de secretos (AWS Secrets Manager, K8s Secrets, Sealed Secrets), rotación de credenciales, políticas de RBAC, y auditoría de seguridad.  
+**Razón**: La seguridad es crítica en aplicaciones con autenticación. Debe haber guías claras sobre cómo gestionar secretos sin exponerlos en Git, cómo rotarlos, y cómo auditar accesos. Actualmente solo menciona variables de entorno sin contexto seguro.  
 
-**Archivos a crear**: operations/scaling.mdx, operations/capacity-planning.mdx  
-**Archivos a modificar**: infrastructure/eks-cluster.mdx  
+**Archivos a crear**: security/secrets-management.mdx, security/rbac-policies.mdx, security/security-audit.mdx, security/compliance.mdx  
+**Archivos a modificar**: configuration.mdx  
+
+**Diagrama propuesto**:
+```mermaid
+graph TB A[AWS Secrets Manager] --> B[External Secrets Operator] B --> C[Kubernetes Secrets] C --> D[Pod: Auth Service] A --> E[RDS Credentials] A --> F[Redis Credentials] A --> G[JWT Secret] H[GitHub Repo] --> I[Sealed Secrets] I --> B J[Developer] -.No acceso directo.-> A J --> K[kubectl con RBAC] K --> L[Namespace dev]
+```
+
 
 ---
 
-#### Diagrama de Estados del Ciclo de Vida del Usuario
+#### Flujo Completo de Datos de Puntuaciones
 
 **Categoría**: diagrams  
-**Descripción**: Falta un diagrama que muestre los estados del usuario (registrado, verificado, activo, suspendido, eliminado) y las transiciones entre estados.  
-**Razón**: Clarifica el comportamiento del sistema respecto a usuarios, ayuda a implementar features como verificación de email y políticas de retención de datos (GDPR compliance).  
+**Descripción**: Falta un diagrama de secuencia detallado mostrando el flujo completo desde que un usuario envía un score hasta que aparece en el ranking, incluyendo validaciones, actualizaciones de caché, y propagación.  
+**Razón**: El flujo de scores es crítico para la lógica de negocio. Los desarrolladores necesitan ver todas las validaciones, transacciones DB, y actualizaciones de caché para entender el comportamiento y optimizar performance.  
 
-**Archivos a crear**: services/user-lifecycle.mdx  
-**Archivos a modificar**: services/user-service.mdx  
+**Archivos a crear**: architecture/score-data-flow.mdx  
+**Archivos a modificar**: sequence-diagrams.mdx, services/score-service.mdx  
 
 **Diagrama propuesto**:
 ```mermaid
-stateDiagram-v2 [*] --> Registrado Registrado --> EmailPendiente: POST /auth/register EmailPendiente --> Verificado: GET /auth/verify?token=xxx EmailPendiente --> Expirado: 24h sin verificar Expirado --> [*]: Limpieza automática Verificado --> Activo: Primera autenticación Activo --> Suspendido: Violación ToS Suspendido --> Activo: Revisión admin Activo --> Inactivo: 365 días sin login Inactivo --> Activo: Login exitoso Activo --> Eliminado: DELETE /users/:id (soft delete) Eliminado --> [*]: Hard delete tras 30 días
+sequenceDiagram actor U as Usuario participant F as Frontend participant K as Kong Gateway participant SS as Score Service participant DB as PostgreSQL participant R as Redis participant RS as Ranking Service U->>F: Envía score (gameId, score) F->>K: POST /api/scores + JWT K->>K: Valida JWT K->>SS: Forward request SS->>DB: SELECT current_score WHERE user_id AND game_id alt score > current_score SS->>DB: UPDATE scores SET score=new_score SS->>R: DEL cache:ranking:{gameId} SS->>RS: Trigger ranking update (async) RS->>DB: SELECT TOP 10 scores RS->>R: SET cache:ranking:{gameId} TTL 300s SS-->>F: 200 OK {updated: true} else score <= current_score SS-->>F: 200 OK {updated: false} end F->>U: Mostrar confirmación
 ```
 
 
 ---
 
-#### Documentación de Pipeline CI/CD Detallado
+#### Optimización de Rendimiento y Caching
 
 **Categoría**: content  
-**Descripción**: cicd/github-actions.mdx y cicd/gitops-workflow.mdx existen pero están superficiales. Falta detalle sobre stages del pipeline, tests ejecutados, políticas de merge, y rollback automático.  
-**Razón**: Pipeline CI/CD bien documentado acelera onboarding, reduce errores de despliegue, y facilita troubleshooting cuando el pipeline falla. Actualmente la documentación es demasiado general.  
+**Descripción**: No hay documentación sobre estrategias de optimización: query optimization, índices de BD, políticas de caching, CDN caching, lazy loading, paginación. Necesario para escalabilidad.  
+**Razón**: La performance es clave para buena UX. Sin guías de optimización, los desarrolladores pueden escribir queries lentos, no cachear apropiadamente, o saturar la BD. Documentar best practices previene problemas de escalabilidad.  
 
-**Archivos a crear**: cicd/pipeline-stages.mdx, cicd/testing-strategy.mdx, cicd/rollback-procedures.mdx  
-**Archivos a modificar**: cicd/github-actions.mdx, cicd/gitops-workflow.mdx  
+**Archivos a crear**: performance/optimization-guide.mdx, performance/database-indexing.mdx, performance/caching-strategies.mdx  
+**Archivos a modificar**: architecture/cache-strategy.mdx  
 
 **Diagrama propuesto**:
 ```mermaid
-graph LR A[Git Push] --> B[GitHub Actions Trigger] B --> C[Lint & Format] C --> D[Unit Tests] D --> E[Integration Tests] E --> F[Build Docker Image] F --> G[Security Scan Trivy] G --> H{Vulnerabilidades<br/>críticas?} H -->|Sí| I[Pipeline Falla] H -->|No| J[Push to ECR] J --> K[Update K8s Manifests] K --> L[Git Commit to k8s repo] L --> M[ArgoCD Sync] M --> N[Deploy to EKS] N --> O[Health Checks] O --> P{Healthy?} P -->|No| Q[Auto Rollback] P -->|Sí| R[Smoke Tests] R --> S[Success]
+graph TB U[Usuario] --> CF[CloudFront CDN] CF -->|Cache HIT| A[Assets estáticos] CF -->|Cache MISS| S3[S3 Bucket] U --> ALB[Application LB] ALB --> K[Kong Gateway] K --> SS[Score Service] SS -->|Check L1| R1[Redis: Rankings Cache] R1 -->|HIT| SS R1 -->|MISS| SS SS -->|Query| DB[(PostgreSQL)] DB -->|Índices optimizados| SS SS -->|Store| R1 K --> CS[Catalog Service] CS -->|Check L2| R2[Redis: Games Cache] R2 -->|HIT| CS R2 -->|MISS| CS CS --> DB
 ```
 
 
 ---
 
-#### Diagrama de Arquitectura de Microservicios con Dependencias
-
-**Categoría**: diagrams  
-**Descripción**: Falta un diagrama que muestre las dependencias entre microservicios, qué servicios llaman a qué otros, y las dependencias externas (RDS, Redis, S3).  
-**Razón**: Entender dependencias entre servicios es fundamental para planificar cambios, identificar puntos únicos de fallo (SPOF), y diseñar estrategias de circuit breaking y resilience.  
-
-**Archivos a crear**: architecture/service-dependencies.mdx  
-**Archivos a modificar**: architecture.mdx  
-
-**Diagrama propuesto**:
-```mermaid
-graph TB subgraph Frontend FE[Frontend React<br/>js-dos] end subgraph Gateway GW[Kong API Gateway] end subgraph Microservicios AUTH[Auth Service<br/>:3001] CAT[Catalog Service<br/>:3002] SCORE[Score Service<br/>:3003] RANK[Ranking Service<br/>:3004] USER[User Service<br/>:3005] end subgraph DataStores DB[(PostgreSQL RDS)] REDIS[(ElastiCache Redis)] S3[S3 Buckets] end FE -->|HTTPS| GW GW -->|JWT Auth| AUTH GW --> CAT GW --> SCORE GW --> RANK GW --> USER AUTH -.->|Validate JWT| GW SCORE --> AUTH SCORE -.->|Update trigger| RANK RANK --> SCORE USER --> AUTH AUTH --> DB AUTH --> REDIS CAT --> DB CAT --> S3 SCORE --> DB RANK --> DB RANK --> REDIS USER --> DB
-```
-
-
----
-
-#### Guía de Contribución y Estándares de Código
+#### Pruebas y Calidad de Código
 
 **Categoría**: content  
-**Descripción**: Falta documentación sobre cómo contribuir al proyecto: estándares de código, convenciones de commits, process de code review, y branching strategy.  
-**Razón**: Sin guías de contribución claras, el código se vuelve inconsistente, las PRs tardan más en revisarse, y los nuevos contribuidores no saben cómo empezar.  
+**Descripción**: Falta documentación sobre estrategia de testing: unit tests, integration tests, e2e tests, test coverage mínimo, mocking, test fixtures, y CI pipelines para testing.  
+**Razón**: Sin tests automatizados, cada cambio es riesgoso. Debe haber guías claras sobre qué testear, cómo estructurar tests, y qué herramientas usar. La cobertura debe medirse y enforcearse en CI.  
 
-**Archivos a crear**: development/contributing.mdx, development/code-standards.mdx, development/git-workflow.mdx  
-**Archivos a modificar**: development.mdx  
+**Archivos a crear**: development/testing-strategy.mdx, development/unit-tests.mdx, development/integration-tests.mdx, development/e2e-tests.mdx  
+**Archivos a modificar**: development.mdx, cicd/github-actions.mdx  
+
+**Diagrama propuesto**:
+```mermaid
+graph TB subgraph Developer Machine D[Desarrollador] --> U[Unit Tests: Jest] U --> I[Integration Tests: Supertest] I --> L[Lint: ESLint] end subgraph CI Pipeline GitHub Actions G[Git Push] --> B[Build Docker Image] B --> UT[Run Unit Tests] UT --> IT[Run Integration Tests] IT --> SC[SonarQube Scan] SC --> COV{Coverage > 80%} COV -->|Yes| PUSH[Push to Registry] COV -->|No| FAIL[Build Failed] end subgraph CD Pipeline ArgoCD PUSH --> A[ArgoCD Detect] A --> DS[Deploy to Staging] DS --> E2E[E2E Tests: Cypress] E2E --> PROD{Tests Pass} PROD -->|Yes| DP[Deploy to Prod] PROD -->|No| RB[Rollback] end
+```
+
 
 ---
 
-#### Consolidar Contenido Duplicado en essentials y api-reference
+#### Consolidar Documentación API Redundante
 
-**Categoría**: quality  
-**Descripción**: Existe contenido duplicado y genérico en carpetas 'essentials' (markdown.mdx, code.mdx, etc.) y contenido genérico en 'api-reference/endpoint' que parece ser boilerplate no relacionado con el proyecto.  
-**Razón**: La carpeta 'essentials' contiene documentación genérica sobre Mintlify que no aporta valor al proyecto. Los endpoints en 'api-reference/endpoint' parecen ejemplos genéricos. Eliminarlos reduce ruido y mejora navegación.  
+**Categoría**: structure  
+**Descripción**: Existe duplicación entre api-reference/* y services/*. Por ejemplo, auth-service.mdx y api-reference/auth-service.mdx. Consolidar en una estructura única referenciando OpenAPI/Swagger.  
+**Razón**: La duplicación genera inconsistencias y dificulta mantenimiento. Mejor tener una única fuente de verdad: servicios documentan arquitectura, API reference apunta a specs OpenAPI autogeneradas desde el código.  
+
+**Archivos a crear**: api-reference/openapi-spec.mdx  
+**Archivos a modificar**: services/auth-service.mdx, services/score-service.mdx, services/game-catalog.mdx  
+
+---
+
+#### Costes y Estimaciones de AWS
+
+**Categoría**: content  
+**Descripción**: Falta documentación sobre costes estimados de infraestructura AWS, breakdown por servicio (EKS, RDS, CloudFront, S3), y estrategias de optimización de costes.  
+**Razón**: Los usuarios necesitan saber cuánto costará ejecutar la plataforma antes de desplegarla. Sin estimaciones, pueden tener sorpresas en la factura. También necesitan estrategias para optimizar costes sin sacrificar performance.  
+
+**Archivos a crear**: operations/cost-estimation.mdx, operations/cost-optimization.mdx  
+**Archivos a modificar**: quickstart.mdx, deployment.mdx  
+
+**Diagrama propuesto**:
+```mermaid
+pie title Costes Mensuales AWS Estimados (Producción) "EKS Cluster (3 nodes t3.medium)" : 150 "RDS PostgreSQL (db.t3.small)" : 50 "ElastiCache Redis (cache.t3.micro)" : 25 "Application Load Balancer" : 25 "CloudFront CDN" : 15 "S3 Storage" : 10 "Route53" : 5 "Secrets Manager" : 5 "CloudWatch" : 15
+```
 
 
 ---
@@ -167,94 +200,96 @@ graph TB subgraph Frontend FE[Frontend React<br/>js-dos] end subgraph Gateway GW
 
 ### Prioridad Baja 💡
 
-#### Documentación de Testing End-to-End
+#### Guía de Contribución y Estándares de Código
 
 **Categoría**: content  
-**Descripción**: No existe documentación sobre estrategia de tests E2E, herramientas utilizadas (Cypress, Playwright), ni suites de tests existentes.  
-**Razón**: Tests E2E son la última línea de defensa contra regresiones. Sin documentación, los desarrolladores no saben qué está cubierto ni cómo agregar nuevos tests.  
+**Descripción**: Falta un CONTRIBUTING.md detallado con guías de estilo, convenciones de código, proceso de PR, branching strategy, y cómo contribuir a la documentación.  
+**Razón**: Para que el proyecto sea sostenible y escalable con múltiples contribuidores, necesita guías claras de contribución. Sin esto, el código se vuelve inconsistente, los PRs son difíciles de revisar, y la calidad degrada.  
 
-**Archivos a crear**: development/e2e-testing.mdx  
-**Archivos a modificar**: cicd/testing-strategy.mdx  
-
----
-
-#### Documentación de Costes de Infraestructura
-
-**Categoría**: content  
-**Descripción**: No existe documentación sobre el coste estimado de la infraestructura AWS (EKS, RDS, CloudFront, etc.) ni estrategias de optimización de costes.  
-**Razón**: Transparencia en costes ayuda a tomar decisiones informadas sobre arquitectura y evita sorpresas en facturación. Útil especialmente para proyectos educativos o startups.  
-
-**Archivos a crear**: operations/cost-management.mdx  
-**Archivos a modificar**: infrastructure/overview.mdx  
-
----
-
-#### Diagrama de Arquitectura del Frontend
-
-**Categoría**: diagrams  
-**Descripción**: frontend/overview.mdx y frontend/jsdos-integration.mdx existen pero sin diagrama de arquitectura del cliente (componentes React, gestión de estado, integración js-dos).  
-**Razón**: Aunque el backend está bien documentado, el frontend carece de diagramas arquitectónicos. Esto ayuda a entender el flujo de datos en el cliente y facilita refactorizaciones.  
-
-**Archivos a crear**: frontend/architecture.mdx  
-**Archivos a modificar**: frontend/overview.mdx  
+**Archivos a crear**: CONTRIBUTING.md, development/code-standards.mdx, development/git-workflow.mdx  
+**Archivos a modificar**: README.md  
 
 **Diagrama propuesto**:
 ```mermaid
-graph TB subgraph Frontend Application APP[App Component] NAV[Navigation] AUTH[Auth Context] end subgraph Pages HOME[Home/GameList] PLAYER[Game Player] LEAD[Leaderboards] PROFILE[User Profile] end subgraph Components GAME[GameCard] JSDOS[js-dos Emulator] SCORE[ScoreForm] RANK[RankingTable] end subgraph Services API[API Service] STORAGE[LocalStorage] end APP --> NAV APP --> AUTH NAV --> HOME NAV --> PLAYER NAV --> LEAD NAV --> PROFILE HOME --> GAME PLAYER --> JSDOS PLAYER --> SCORE LEAD --> RANK SCORE --> API RANK --> API AUTH --> API API -->|Kong Gateway| BACKEND[Backend Services] JSDOS -->|Load| S3[S3 .jsdos files]
+gitGraph commit id: "Initial commit" branch develop checkout develop commit id: "Setup base" branch feature/auth-jwt checkout feature/auth-jwt commit id: "Implement JWT" commit id: "Add tests" checkout develop merge feature/auth-jwt commit id: "Merge auth" branch release/1.0 checkout release/1.0 commit id: "Bump version" checkout main merge release/1.0 tag: "v1.0.0" checkout develop merge release/1.0 branch hotfix/security checkout hotfix/security commit id: "Fix vulnerability" checkout main merge hotfix/security tag: "v1.0.1" checkout develop merge hotfix/security
 ```
 
 
 ---
 
-#### Glosario de Términos Técnicos
+#### Casos de Uso y User Stories
 
 **Categoría**: content  
-**Descripción**: Para facilitar onboarding, sería útil un glosario con definiciones de términos clave usados en el proyecto (microservicios, Kong, js-dos, GitOps, etc.).  
-**Razón**: Facilita onboarding de personas menos familiarizadas con la stack tecnológica. Reduce tiempo necesario para entender documentación técnica.  
+**Descripción**: La documentación es muy técnica pero falta contexto de negocio: casos de uso reales, user journeys, personas, y decisiones de producto. Útil para entender el por qué detrás de decisiones técnicas.  
+**Razón**: Documentar el contexto de producto ayuda a que los contribuidores entiendan el propósito del sistema, no solo cómo funciona técnicamente. Esto guía mejores decisiones de arquitectura alineadas con necesidades de usuarios.  
 
-**Archivos a crear**: reference/glossary.mdx  
+**Archivos a crear**: product/use-cases.mdx, product/user-journeys.mdx, product/roadmap.mdx  
 **Archivos a modificar**: index.mdx  
+
+**Diagrama propuesto**:
+```mermaid
+journey title User Journey: Primera Partida section Descubrimiento Usuario llega a landing: 5: Usuario Ver catálogo de juegos: 4: Usuario section Registro Hacer clic en Registrarse: 3: Usuario Rellenar formulario: 2: Usuario Verificar email: 3: Usuario section Juego Seleccionar juego nostálgico: 5: Usuario Cargar emulador js-dos: 4: Sistema Jugar y disfrutar: 5: Usuario section Competición Ver puntuación final: 4: Usuario Guardar score en ranking: 5: Usuario Ver posición en top 10: 5: Usuario Compartir logro: 4: Usuario
+```
+
+
+---
+
+#### Actualizar Referencias a Mintlify
+
+**Categoría**: quality  
+**Descripción**: El archivo development.mdx contiene contenido genérico de Mintlify (Preview changes locally to update your docs) que no aplica a este proyecto. Debe actualizarse con instrucciones específicas de Retro Game Hub.  
+**Razón**: El contenido genérico confunde a los desarrolladores. La documentación debe ser 100% específica del proyecto, sin templates ni placeholders.  
+
+**Archivos a modificar**: development.mdx  
+
+---
+
+#### Disaster Recovery y Backup
+
+**Categoría**: content  
+**Descripción**: Falta documentación sobre estrategias de disaster recovery: backups automáticos de RDS, snapshots de volúmenes, restore procedures, RPO/RTO targets, y plan de continuidad de negocio.  
+**Razón**: Sin plan de DR, un desastre (fallo de región AWS, corrupción de datos, ataque) puede significar pérdida permanente de datos. Debe haber procedimientos claros, testados regularmente, para recuperarse de cualquier escenario.  
+
+**Archivos a crear**: operations/disaster-recovery.mdx, operations/backup-strategy.mdx  
+**Archivos a modificar**: deployment.mdx  
+
+**Diagrama propuesto**:
+```mermaid
+graph TB subgraph Producción P[RDS Primary eu-west-1] --> B1[Automated Backup Diario] P --> S1[Manual Snapshot Pre-deploy] P --> R[Read Replica eu-west-1] end subgraph Disaster Recovery B1 --> S3[S3 Backup Bucket] S1 --> S3 P -.Cross-region replication.-> DR[RDS Standby us-east-1] DR --> B2[Automated Backup Diario] end subgraph Restore Procedure S3 --> RT{Restore Type} RT -->|Full| RFULL[Create new RDS from snapshot] RT -->|Point-in-time| RPIT[PITR desde backup] RFULL --> V[Validar datos] RPIT --> V V --> SW[Switch DNS] end
+```
+
 
 ---
 
 
 ## 📁 Nuevas Secciones Propuestas
 
-### Operaciones (Operations)
+### Arquitectura de Datos
 
-Nueva sección dedicada a operaciones en producción: monitorización, alertas, escalado, backups, disaster recovery, y gestión de incidentes.  
-
-**Archivos**:
-- `operations/overview.mdx`: 5.1. Visión General de Operaciones  
-- `operations/monitoring-dashboards.mdx`: 5.2. Dashboards de Monitorización  
-- `operations/alerting.mdx`: 5.3. Sistema de Alertas  
-- `operations/on-call-runbook.mdx`: 5.4. Runbook de Guardia On-Call  
-- `operations/backup-restore.mdx`: 5.5. Respaldos y Restauración  
-- `operations/disaster-recovery.mdx`: 5.6. Recuperación ante Desastres  
-- `operations/scaling.mdx`: 5.7. Estrategias de Escalado  
-- `operations/capacity-planning.mdx`: 5.8. Planificación de Capacidad  
-- `operations/cost-management.mdx`: 5.9. Gestión de Costes  
-
-### Seguridad (Security)
-
-Nueva sección dedicada a seguridad: gestión de secretos, RBAC, políticas de red, cumplimiento normativo, y escaneo de vulnerabilidades.  
+Sección dedicada a modelos de datos, esquemas de base de datos, relaciones entre entidades, y estrategias de persistencia y caché  
 
 **Archivos**:
-- `security/overview.mdx`: 6.1. Visión General de Seguridad  
-- `security/secrets-management.mdx`: 6.2. Gestión de Secretos  
-- `security/rbac.mdx`: 6.3. Control de Acceso Basado en Roles (RBAC)  
-- `security/network-policies.mdx`: 6.4. Políticas de Red  
-- `security/compliance.mdx`: 6.5. Cumplimiento Normativo  
-- `security/vulnerability-scanning.mdx`: 6.6. Escaneo de Vulnerabilidades  
+- `architecture/data-architecture.mdx`: Arquitectura de Datos  
+- `architecture/database-schemas.mdx`: Esquemas de Base de Datos  
+- `architecture/cache-strategy.mdx`: Estrategia de Caché  
 
-### Referencia (Reference)
+### Operaciones y SRE
 
-Nueva sección para material de referencia rápida: glosario, comandos útiles, tablas de puertos/servicios, y FAQs.  
+Sección para Site Reliability Engineering: observabilidad, incident response, disaster recovery, runbooks, y operational excellence  
 
 **Archivos**:
-- `reference/glossary.mdx`: 7.1. Glosario de Términos  
-- `reference/useful-commands.mdx`: 7.2. Comandos Útiles  
-- `reference/ports-services.mdx`: 7.3. Tabla de Puertos y Servicios  
+- `operations/metrics-catalog.mdx`: Catálogo de Métricas  
+- `operations/alerting-rules.mdx`: Reglas de Alertas  
+- `operations/incident-response.mdx`: Respuesta a Incidentes  
+- `operations/disaster-recovery.mdx`: Recuperación ante Desastres  
+
+### Seguridad
+
+Sección dedicada a seguridad, compliance, gestión de secretos, y mejores prácticas de seguridad en cloud-native  
+
+**Archivos**:
+- `security/secrets-management.mdx`: Gestión de Secretos  
+- `security/rbac-policies.mdx`: Políticas RBAC  
 
 
 
