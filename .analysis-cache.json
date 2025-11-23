@@ -13,9 +13,9 @@
       "size": 19638
     },
     "architecture.mdx": {
-      "hash": "b9cb152e9ff5407c22fcd769f5c0cfb2946d6d28ff404482fd72da9f0a8f2c0a",
-      "last_analyzed": "2025-11-23T13:56:11.095317",
-      "size": 7757
+      "hash": "5892ca6bbb7ad0b995dfade01248593509fc82cd5a13e6d55ace3314923b7cd6",
+      "last_analyzed": "2025-11-23T14:07:39.366624",
+      "size": 8440
     },
     "configuration.mdx": {
       "hash": "89e8bff078814672f341de43dcf58fc8c0ab791cf89d86ec797c906599431258",
@@ -79,7 +79,7 @@
     },
     "snippets/snippet-intro.mdx": {
       "hash": "64728fc9c661833b4424b60b5f5533c57280bf8d2ab755b73bee529ec921f64d",
-      "last_analyzed": "2025-11-23T13:56:11.095150",
+      "last_analyzed": "2025-11-23T14:07:39.366969",
       "size": 311
     },
     "infrastructure/route53-ssl.mdx": {
@@ -149,42 +149,42 @@
     },
     "ai-tools/claude-code.mdx": {
       "hash": "129e4066fb71eca25cdb86bd4399c0a83390d36d162eca63fb283b706b26218f",
-      "last_analyzed": "2025-11-23T13:56:11.095118",
+      "last_analyzed": "2025-11-23T14:07:39.367090",
       "size": 2473
     },
     "ai-tools/cursor.mdx": {
       "hash": "a6230151334474f99cc23fccbe49e867ba68e7985e169a40607e5a3f5f4bbe81",
-      "last_analyzed": "2025-11-23T13:56:11.095245",
+      "last_analyzed": "2025-11-23T14:07:39.367062",
       "size": 11076
     },
     "ai-tools/windsurf.mdx": {
       "hash": "f67033d437ea6fa0961c84dba4bc27c0290a06dbd2781175947f9fde0e83d9fa",
-      "last_analyzed": "2025-11-23T13:56:11.095506",
+      "last_analyzed": "2025-11-23T14:07:39.366758",
       "size": 2783
     },
     "essentials/images.mdx": {
       "hash": "65e9360a5646d3c1f47d32c73fd2851db9995d25946810ddac41346d4bd1567d",
-      "last_analyzed": "2025-11-23T13:56:11.095386",
+      "last_analyzed": "2025-11-23T14:07:39.366662",
       "size": 1550
     },
     "essentials/navigation.mdx": {
       "hash": "7227f4c339ce1b0928b190af7e3553eeea60719c734b16cf7f52afdfb0ed7ffe",
-      "last_analyzed": "2025-11-23T13:56:11.095451",
+      "last_analyzed": "2025-11-23T14:07:39.366912",
       "size": 1974
     },
     "essentials/markdown.mdx": {
       "hash": "54a7c9361f9842037563a08f94227993bbdcf4fff700e77e1a0df5b57f7965cb",
-      "last_analyzed": "2025-11-23T13:56:11.095080",
+      "last_analyzed": "2025-11-23T14:07:39.366834",
       "size": 2570
     },
     "essentials/code.mdx": {
       "hash": "7404bb9af6309688e32632a7c0908006789e0ac3ca4c5dca1ba4c52125e6be61",
-      "last_analyzed": "2025-11-23T13:56:11.095478",
+      "last_analyzed": "2025-11-23T14:07:39.366941",
       "size": 895
     },
     "essentials/settings.mdx": {
       "hash": "8d3b9fad87b2499efc11580c372d6d5723a82aeeeb374fd7676b60d168971bc9",
-      "last_analyzed": "2025-11-23T13:56:11.095422",
+      "last_analyzed": "2025-11-23T14:07:39.366879",
       "size": 11353
     },
     "api-reference/kubernetes.mdx": {
@@ -324,33 +324,33 @@
     },
     "AUTO_FIXES_REPORT.md": {
       "hash": "f07d713a39189a334600ae0a2fe01b0247f6017a2220f246f8dde4ab92eac1b6",
-      "last_analyzed": "2025-11-23T13:56:11.095206",
+      "last_analyzed": "2025-11-23T14:07:39.367028",
       "size": 1423
     },
     "STRUCTURE_CHANGELOG.md": {
-      "hash": "f31eeac5a32a770e5e9163ee0b78afc778a5f7a6f592fa7c35493c9b246d3c16",
-      "last_analyzed": "2025-11-23T13:54:17.309602",
-      "size": 1304
+      "hash": "c2b0976b24249177d9f29ca4cc6676c2dcd3ae0b73bb7d2a5e89b4a1e4af02b0",
+      "last_analyzed": "2025-11-23T14:07:39.366726",
+      "size": 1307
     },
     "CHANGELOG_WIKI_2025-11-20.md": {
       "hash": "d13877754ef905f75e10e04599d08786c84a78b89b5a478d17f4b058a96099e0",
-      "last_analyzed": "2025-11-23T13:56:11.095283",
+      "last_analyzed": "2025-11-23T14:07:39.366802",
       "size": 12710
     },
     "README.md": {
       "hash": "024bf7c7673705356f681d02d8192dcae1115ccbdf621307bae295c7f89abb0b",
-      "last_analyzed": "2025-11-23T13:56:11.095355",
+      "last_analyzed": "2025-11-23T14:07:39.366696",
       "size": 1394
     },
     "BROKEN_LINKS_REPORT.md": {
       "hash": "e4ab54560729b962ac916a4e6b6973bf22d4d25116ffdc19cfc55dd40efc776b",
-      "last_analyzed": "2025-11-23T13:56:11.095534",
+      "last_analyzed": "2025-11-23T14:07:39.366999",
       "size": 3244
     },
     "IMPROVEMENTS.md": {
-      "hash": "e1685ebfe89fcae9c24362106a5f2699e117435c9cdc3a80e6f815c431332851",
-      "last_analyzed": "2025-11-23T13:54:17.309433",
-      "size": 13637
+      "hash": "909a7aa4bd3c058db6b48be54f4f89742423b47b9b7b28295851fd36b24af56a",
+      "last_analyzed": "2025-11-23T14:07:39.367116",
+      "size": 1179
     }
   },
   "analysis_results": {
