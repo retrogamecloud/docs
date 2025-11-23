@@ -42,22 +42,31 @@ El servicio de usuarios gestiona los perfiles, preferencias y estadísticas de l
 ### Gestión de Perfiles
 
 - Creación y actualización de perfiles de usuario
+
 - Subida y gestión de avatares personalizados
+
 - Biografías y información personal
+
 - Sistema de verificación de cuentas
 
 ### Sistema de Estadísticas
 
 - Tracking automático de actividad de juego
+
 - Cálculo de rankings globales y por juego
+
 - Historial detallado de scores y logros
+
 - Métricas de tiempo de juego
 
 ### Configuración y Preferencias
 
 - Personalización de interfaz (tema, idioma)
+
 - Configuración de privacidad granular
+
 - Gestión de notificaciones
+
 - Preferencias de juego
 
 ## Endpoints Principales
@@ -96,36 +105,45 @@ El servicio de usuarios gestiona los perfiles, preferencias y estadísticas de l
 
 ### Error: Usuario no encontrado (404)
 
-**Síntomas:**
+* *Síntomas:**
+
 - Error al obtener perfil de usuario
+
 - Usuario inexistente en base de datos
 
-**Logs relevantes:**
+* *Logs relevantes:**
+
 ```bash
 [ERROR] User not found: username 'player123' does not exist in database
 [WARN] Attempted access to non-existent user profile
+
 ```
 
-**Soluciones rápidas:**
+* *Soluciones rápidas:**
 1. Verificar que el username sea correcto
 2. Comprobar que la cuenta no haya sido eliminada
 3. Revisar sincronización con Auth Service
 
 ### Error: Fallo en subida de avatar
 
-**Síntomas:**
+* *Síntomas:**
+
 - Avatar no se actualiza
+
 - Error 413 (archivo muy grande)
+
 - Error de formato de imagen
 
-**Logs relevantes:**
+* *Logs relevantes:**
+
 ```bash
 [ERROR] Avatar upload failed: File size exceeds 5MB limit
 [ERROR] Invalid image format: only JPG, PNG, GIF allowed
 [WARN] S3 bucket connection timeout
+
 ```
 
-**Soluciones rápidas:**
+* *Soluciones rápidas:**
 1. Verificar tamaño del archivo (máximo 5MB)
 2. Confirmar formato válido (JPG, PNG, GIF)
 3. Revisar conexión con almacenamiento S3
@@ -133,42 +151,53 @@ El servicio de usuarios gestiona los perfiles, preferencias y estadísticas de l
 
 ### Error: Estadísticas desactualizadas
 
-**Síntomas:**
+* *Síntomas:**
+
 - Rankings no reflejan juegos recientes
+
 - Estadísticas congeladas
+
 - Diferencias entre servicios
 
-**Logs relevantes:**
+* *Logs relevantes:**
+
 ```bash
 [ERROR] Stats sync failed: Game Service unreachable
 [WARN] Ranking calculation timeout after 30s
 [INFO] Stats cache invalidated for user: player123
+
 ```
 
-**Soluciones rápidas:**
+* *Soluciones rápidas:**
 1. Verificar conexión con Game Service
 2. Forzar recálculo de estadísticas:
    ```bash
    curl -X POST http://localhost:3002/api/admin/recalculate-stats
    ```
+
 3. Limpiar cache de rankings: `redis-cli FLUSHDB 2`
 4. Revisar job de sincronización en cola de tareas
 
 ### Error: Preferencias no se guardan
 
-**Síntomas:**
+* *Síntomas:**
+
 - Configuración se resetea al recargar
+
 - Error 422 en validación
+
 - Preferencias no persisten
 
-**Logs relevantes:**
+* *Logs relevantes:**
+
 ```bash
 [ERROR] Invalid preference value: theme must be 'light', 'dark', or 'auto'
 [WARN] Database constraint violation on preferences update
 [ERROR] Redis session store unavailable
+
 ```
 
-**Soluciones rápidas:**
+* *Soluciones rápidas:**
 1. Validar formato de preferencias según esquema
 2. Verificar conexión a base de datos PostgreSQL
 3. Revisar disponibilidad de Redis para sesiones
@@ -176,23 +205,29 @@ El servicio de usuarios gestiona los perfiles, preferencias y estadísticas de l
 
 ### Performance: Consultas lentas en rankings
 
-**Síntomas:**
+* *Síntomas:**
+
 - Timeout en carga de rankings
+
 - Alto uso de CPU/memoria
+
 - Respuestas lentas en endpoints de estadísticas
 
-**Logs relevantes:**
+* *Logs relevantes:**
+
 ```bash
 [WARN] Slow query detected: ranking calculation took 15.2s
 [INFO] Database connection pool exhausted
 [ERROR] Query timeout: rankings for game_type 'puzzle'
+
 ```
 
-**Soluciones rápidas:**
+* *Soluciones rápidas:**
 1. Verificar índices en tablas de estadísticas
 2. Aumentar pool de conexiones PostgreSQL
 3. Activar cache de rankings:
    ```bash
    redis-cli SET "ranking:puzzle:cache" "enabled" EX 3600
    ```
+
 4. Considerar paginación en rankings grandes

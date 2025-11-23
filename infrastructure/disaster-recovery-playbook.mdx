@@ -1,6 +1,8 @@
 ---
 title: 4.6 Procedimientos de Recuperación Ante Desastres
-description: Guía completa de disaster recovery con procedimientos paso a paso, RPO/RTO definidos por servicio, runbooks de recuperación detallados y programa de simulacros trimestrales
+description: Guía completa de disaster recovery con procedimientos paso a paso, RPO/RTO
+  definidos por servicio, runbooks de recuperación detallados y programa de simulacros
+  trimestrales
 icon: shield-halved
 ---
 
@@ -49,7 +51,9 @@ Esta guía establece los procedimientos completos de recuperación ante desastre
 <Tab title="Escenario: Falla de Instancia Principal">
 
 #### Detección Automática
+
 ```bash
+
 # Verificar estado RDS
 aws rds describe-db-instances \
   --db-instance-identifier retrogame-prod-primary \
@@ -60,11 +64,14 @@ aws cloudwatch get-metric-statistics \
   --namespace AWS/RDS \
   --metric-name DatabaseConnections \
   --dimensions Name=DBInstanceIdentifier,Value=retrogame-prod-primary
+
 ```
 
 #### Procedimiento de Failover
+
 ```bash
 #!/bin/bash
+
 # recovery-rds-failover.sh
 
 echo "=== INICIANDO FAILOVER RDS ==="
@@ -86,14 +93,14 @@ while true; do
     --db-instance-identifier retrogame-prod-primary \
     --query 'DBInstances[0].DBInstanceStatus' \
     --output text)
-  
+
   echo "Estado actual: $STATUS"
-  
+
   if [ "$STATUS" = "available" ]; then
     echo "✅ Failover completado exitosamente"
     break
   fi
-  
+
   sleep 30
 done
 
@@ -102,12 +109,17 @@ psql -h retrogame-prod-primary.cluster-xyz.us-east-1.rds.amazonaws.com \
      -U admin -d retrogame -c "SELECT 1;"
 
 echo "=== FAILOVER RDS COMPLETADO ==="
+
 ```
 
 #### Verificaciones Post-Recuperación
+
 - [ ] Conectividad desde aplicaciones
+
 - [ ] Replicación funcionando
+
 - [ ] Métricas de performance normales
+
 - [ ] Logs sin errores críticos
 
 </Tab>
@@ -115,8 +127,10 @@ echo "=== FAILOVER RDS COMPLETADO ==="
 <Tab title="Escenario: Corrupción de Datos">
 
 #### Procedimiento de Point-in-Time Recovery
+
 ```bash
 #!/bin/bash
+
 # recovery-rds-pitr.sh
 
 RESTORE_TIME="2024-01-15T10:30:00.000Z"
@@ -152,6 +166,7 @@ SELECT MAX(created_at) FROM user_sessions;
 EOF
 
 echo "=== POINT-IN-TIME RECOVERY COMPLETADO ==="
+
 ```
 
 </Tab>
@@ -159,8 +174,10 @@ echo "=== POINT-IN-TIME RECOVERY COMPLETADO ==="
 <Tab title="Escenario: Disaster Recovery Cross-Region">
 
 #### Procedimiento de Recuperación Regional
+
 ```bash
 #!/bin/bash
+
 # recovery-rds-cross-region.sh
 
 DR_REGION="us-west-2"
@@ -187,6 +204,7 @@ aws rds restore-db-instance-from-db-snapshot \
   --region $DR_REGION
 
 echo "=== DR CROSS-REGION EN PROGRESO ==="
+
 ```
 
 </Tab>
@@ -198,8 +216,10 @@ echo "=== DR CROSS-REGION EN PROGRESO ==="
 <Tab title="Escenario: Falla del Control Plane">
 
 #### Diagnóstico y Detección
+
 ```bash
 #!/bin/bash
+
 # diagnosis-eks-control-plane.sh
 
 echo "=== DIAGNÓSTICO EKS CONTROL PLANE ==="
@@ -220,11 +240,14 @@ kubectl get pods -n kube-system
 
 # 5. Verificar eventos recientes
 kubectl get events --sort-by='.lastTimestamp' | tail -20
+
 ```
 
 #### Procedimiento de Recuperación
+
 ```bash
 #!/bin/bash
+
 # recovery-eks-control-plane.sh
 
 echo "=== RECUPERACIÓN EKS CONTROL PLANE ==="
@@ -246,10 +269,13 @@ kubectl get pods -n retrogame-system -o wide
 # 5. Restaurar aplicaciones desde backup
 helm list -n retrogame-prod
 argocd app sync retrogame-core-apps
+
 ```
 
 #### Escalación Automática
+
 ```yaml
+
 # eks-recovery-automation.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -268,6 +294,7 @@ data:
       fi
       sleep 30
     done
+
 ```
 
 </Tab>
@@ -275,8 +302,10 @@ data:
 <Tab title="Escenario: Pérdida de Nodos Worker">
 
 #### Diagnóstico de Nodos
+
 ```bash
 #!/bin/bash
+
 # diagnosis-eks-nodes.sh
 
 echo "=== DIAGNÓSTICO NODOS WORKER ==="
@@ -293,11 +322,14 @@ kubectl get pods --field-selector=status.phase=Pending -A
 # 4. Verificar Auto Scaling Groups
 aws autoscaling describe-auto-scaling-groups \
   --auto-scaling-group-names retrogame-prod-nodes
+
 ```
 
 #### Recuperación de Nodos
+
 ```bash
 #!/bin/bash
+
 # recovery-eks-nodes.sh
 
 ASG_NAME="retrogame-prod-nodes"
@@ -329,10 +361,13 @@ kubectl get pods -o wide -A | grep Pending | while read line; do
   POD=$(echo $line | awk '{print $2}')
   kubectl delete pod $POD -n $NAMESPACE
 done
+
 ```
 
 #### Configuración Cluster Autoscaler
+
 ```yaml
+
 # cluster-autoscaler-config.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -356,6 +391,7 @@ spec:
         - --balance-similar-node-groups
         - --scale-down-delay-after-add=10m
         - --scale-down-unneeded-time=10m
+
 ```
 
 </Tab>
@@ -363,8 +399,10 @@ spec:
 <Tab title="Escenario: Pérdida de Datos de Aplicaciones">
 
 #### Recuperación con Velero
+
 ```bash
 #!/bin/bash
+
 # recovery-eks-velero.sh
 
 BACKUP_NAME="daily-backup-$(date -d '1 day ago' +%Y%m%d)"
@@ -389,11 +427,14 @@ velero restore logs restore-$(date +%Y%m%d-%H%M)
 # 5. Verificar aplicaciones
 kubectl get pods -n retrogame-prod
 kubectl get pvc -n retrogame-prod
+
 ```
 
 #### Recuperación Selectiva
+
 ```bash
 #!/bin/bash
+
 # selective-restore.sh
 
 echo "=== RECUPERACIÓN SELECTIVA ==="
@@ -412,6 +453,7 @@ velero restore create restore-db-$(date +%Y%m%d) \
 velero restore create restore-safe-$(date +%Y%m%d) \
   --from-backup $BACKUP_NAME \
   --exclude-resources nodes,events
+
 ```
 
 </Tab>

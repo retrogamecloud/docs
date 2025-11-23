@@ -38,6 +38,7 @@ js-dos es una biblioteca JavaScript que permite ejecutar juegos y programas de M
     "wlibzip.js": "ZIP decompression support"
   }
 }
+
 ```
 
 <Note>
@@ -60,6 +61,7 @@ graph TD
     G --> K[Fullscreen Display]
     F --> L[Memory Access]
     L --> M[Score Tracker]
+
 ```
 
 ## Estructura de un Bundle .jsdos
@@ -67,11 +69,13 @@ graph TD
 Un archivo `.jsdos` es un ZIP que contiene:
 
 ```
+
 game.jsdos
 ├── game.exe              # Ejecutable del juego
 ├── *.dat, *.wad, etc.   # Assets del juego
 ├── dosbox.conf          # Configuración DOSBox
 └── metadata.json        # Información del bundle
+
 ```
 
 ### Ejemplo: doom.jsdos
@@ -93,6 +97,7 @@ game.jsdos
     }
   }
 }
+
 ```
 
 ## Implementación Frontend
@@ -106,25 +111,27 @@ game.jsdos
 <div id="jsdos-container">
   <canvas id="jsdos-canvas"></canvas>
 </div>
+
 ```
 
 ```javascript
 // Inicializar emulador
 async function loadGame(gameUrl) {
   const canvas = document.getElementById('jsdos-canvas');
-  
+
   const ci = await Dos(canvas, {
     wdosboxUrl: "/js-dos/wdosbox.js",
     cycles: "auto",
     autolock: false
   });
-  
+
   const bundle = await fetch(gameUrl);
   const fs = await ci.fs();
   await fs.extract(bundle);
-  
+
   await ci.main(["-conf", "dosbox.conf"]);
 }
+
 ```
 
 ### 4.2.2. Control de Entrada
@@ -135,17 +142,17 @@ class InputHandler {
     this.ci = ci;
     this.setupEventListeners();
   }
-  
+
   setupEventListeners() {
     // Keyboard events
     document.addEventListener('keydown', (e) => {
       this.ci.events().onKeyDown(e.keyCode, e.key);
     });
-    
+
     document.addEventListener('keyup', (e) => {
       this.ci.events().onKeyUp(e.keyCode, e.key);
     });
-    
+
     // Mouse events
     const canvas = this.ci.canvas();
     canvas.addEventListener('mousemove', (e) => {
@@ -156,6 +163,7 @@ class InputHandler {
     });
   }
 }
+
 ```
 
 ### 4.2.3. Gestión de Estado
@@ -167,28 +175,28 @@ class GameStateManager {
     this.memoryWatcher = null;
     this.scoreCallback = null;
   }
-  
+
   async startScoreTracking(gameType, callback) {
     this.scoreCallback = callback;
-    
+
     const memory = await this.ci.memory();
     this.memoryWatcher = setInterval(() => {
       this.checkScore(memory, gameType);
     }, 100);
   }
-  
+
   checkScore(memory, gameType) {
     const config = GAME_MEMORY_CONFIGS[gameType];
     if (!config) return;
-    
+
     const scoreValue = memory.readUint32(config.scoreAddress);
-    
+
     if (this.scoreCallback && scoreValue !== this.lastScore) {
       this.scoreCallback(scoreValue);
       this.lastScore = scoreValue;
     }
   }
-  
+
   stopTracking() {
     if (this.memoryWatcher) {
       clearInterval(this.memoryWatcher);
@@ -196,6 +204,7 @@ class GameStateManager {
     }
   }
 }
+
 ```
 
 ## Configuraciones por Juego
@@ -218,7 +227,7 @@ const GAME_CONFIGS = {
       ammo: 0x9ABC
     }
   },
-  
+
   quake: {
     cycles: "max",
     memsize: 32,
@@ -234,6 +243,7 @@ const GAME_CONFIGS = {
     }
   }
 };
+
 ```
 
 ### 4.2.5. Optimización de Rendimiento
@@ -245,10 +255,10 @@ class PerformanceOptimizer {
     this.frameSkip = 0;
     this.targetFPS = 60;
   }
-  
+
   async optimizeForDevice() {
     const deviceInfo = this.getDeviceInfo();
-    
+
     if (deviceInfo.isMobile) {
       await this.ci.config({
         cycles: "auto",
@@ -269,7 +279,7 @@ class PerformanceOptimizer {
       });
     }
   }
-  
+
   getDeviceInfo() {
     return {
       isMobile: /Android|iPhone|iPad/i.test(navigator.userAgent),
@@ -277,6 +287,7 @@ class PerformanceOptimizer {
     };
   }
 }
+
 ```
 
 ## Depuración y Monitoreo
@@ -289,28 +300,28 @@ class DOSDebugger {
     this.ci = ci;
     this.enabled = false;
   }
-  
+
   async enable() {
     this.enabled = true;
-    
+
     // Monitor de memoria en tiempo real
     this.memoryMonitor = setInterval(async () => {
       const memory = await this.ci.memory();
       console.log('Memory usage:', memory.getUsage());
     }, 1000);
-    
+
     // Monitor de FPS
     this.fpsMonitor = new FPSMonitor(this.ci.canvas());
     this.fpsMonitor.start();
   }
-  
+
   logMemoryAt(address, size = 4) {
     this.ci.memory().then(memory => {
       const value = memory.readBytes(address, size);
       console.log(`Memory[0x${address.toString(16)}]:`, value);
     });
   }
-  
+
   disable() {
     if (this.memoryMonitor) {
       clearInterval(this.memoryMonitor);
@@ -321,6 +332,7 @@ class DOSDebugger {
     this.enabled = false;
   }
 }
+
 ```
 
 <Tip>

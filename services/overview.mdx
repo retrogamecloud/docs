@@ -57,6 +57,7 @@ graph TB
     class AuthDB,UserDB,CatalogDB,ScoreDB,RankingDB database
     class S3,CDN external
     class Redis cache
+
 ```
 
 </div>
@@ -78,30 +79,46 @@ graph TB
 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
 <div className="border rounded-lg p-4">
-**Auth Service - 99.9% / 100ms P95**
+
+* *Auth Service - 99.9% / 100ms P95**
+
 - Servicio crítico del que dependen todos los demás
+
 - Latencia baja esencial para UX fluida
+
 - Tolerancia mínima a errores
 </div>
 
 <div className="border rounded-lg p-4">
-**Score Service - 99.9% / 50ms P95**
+
+* *Score Service - 99.9% / 50ms P95**
+
 - Funcionalidad core del gaming
+
 - Debe ser ultra-rápido para gameplay en tiempo real
+
 - Los errores afectan directamente la experiencia de juego
 </div>
 
 <div className="border rounded-lg p-4">
-**User Service - 99.5% / 150ms P95**
+
+* *User Service - 99.5% / 150ms P95**
+
 - Importante pero no crítico para funcionalidad core
+
 - Tolerancia media a errores
+
 - Latencia aceptable para operaciones de perfil
 </div>
 
 <div className="border rounded-lg p-4">
-**Ranking Service - 99.0% / 300ms P95**
+
+* *Ranking Service - 99.0% / 300ms P95**
+
 - Operaciones complejas de agregación
+
 - Mayor tolerancia a latencia por naturaleza analítica
+
 - Funcionalidad complementaria
 </div>
 
@@ -110,19 +127,21 @@ graph TB
 ### 3.2.3. Monitoreo y Alertas
 
 ```yaml
+
 # Configuración de alertas por SLO
 alerts:
   latency_p95:
     threshold_multiplier: 1.2  # Alerta al 120% del SLO
     evaluation_window: "5m"
-    
+
   availability:
     threshold_offset: -0.1%    # Alerta 0.1% antes del límite
     evaluation_window: "10m"
-    
+
   error_rate:
     threshold_multiplier: 0.8  # Alerta al 80% del límite
     evaluation_window: "5m"
+
 ```
 
 ## 3.3. Inventario de Servicios
@@ -166,6 +185,7 @@ sequenceDiagram
     U-->>S: Datos usuario
     S-->>G: Score guardado
     G-->>C: 201 Created
+
 ```
 
 ### 3.4.2. Manejo de Errores
@@ -191,13 +211,14 @@ services:
     environment:
       - DATABASE_URL=postgresql://auth_db
       - REDIS_URL=redis://redis:6379
-    
+
   user-service:
     build: ./services/user
     ports: ['8002:8002']
     depends_on: [auth-service]
-    
+
   # ... otros servicios
+
 ```
 
 ### 3.5.2. Variables de Entorno
@@ -214,16 +235,24 @@ services:
 
 <div className="flex flex-col gap-4">
 
-**📋 Documentación Detallada**
+* *📋 Documentación Detallada**
+
 - [Auth Service](/services/auth) - Autenticación y autorización
+
 - [User Service](/services/user) - Gestión de usuarios
+
 - [Game Catalog](/services/catalog) - Catálogo de juegos
+
 - [Score Service](/services/scores) - Sistema de puntuaciones
+
 - [Ranking Service](/services/rankings) - Rankings y estadísticas
 
-**🔧 Recursos Técnicos**
+* *🔧 Recursos Técnicos**
+
 - [Guía de Despliegue](/deployment/overview)
+
 - [Monitoreo y Alertas](/monitoring/setup)
+
 - [Desarrollo Local](/development/setup)
 
 </div>

@@ -139,51 +139,51 @@ graph TB
     Route53 --> CloudFront
     CloudFront --> WAF
     WAF --> IGW
-    
+
     IGW --> ALB1
     IGW --> ALB2
-    
+
     ALB1 --> API_POD1
     ALB1 --> API_POD2
     ALB2 --> API_POD3
-    
+
     API_POD1 --> AUTH_POD1
     API_POD1 --> GAME_POD1
     API_POD1 --> USER_POD1
-    
+
     API_POD2 --> AUTH_POD2
     API_POD2 --> GAME_POD2
     API_POD2 --> USER_POD2
-    
+
     GAME_POD1 --> RDS_PRIMARY
     USER_POD1 --> RDS_PRIMARY
     AUTH_POD1 --> REDIS_PRIMARY
-    
+
     RDS_PRIMARY --> RDS_STANDBY
     REDIS_PRIMARY --> REDIS_REPLICA
-    
+
     NAT1 --> IGW
     NAT2 --> IGW
     NAT3 --> IGW
-    
+
     PODS1 --> NAT1
     PODS2 --> NAT2
     PODS3 --> NAT3
-    
+
     PODS1 --> S3_ASSETS
     PODS2 --> S3_ASSETS
     PODS3 --> S3_ASSETS
-    
+
     DEV --> BASTION1
     DEV --> BASTION2
-    
+
     BASTION1 --> EKS1
     BASTION2 --> EKS2
-    
+
     PODS1 --> GITHUB
     PODS2 --> GITHUB
     PODS3 --> GITHUB
-    
+
     MONITOR_POD3 --> DATADOG
     USER_POD1 --> SENDGRID
     USER_POD2 --> SENDGRID
@@ -196,6 +196,7 @@ graph TB
     style AZ1 fill:#fff8e1
     style AZ2 fill:#f1f8e9
     style AZ3 fill:#fce4ec
+
 ```
 
 ## Componentes de Red y Seguridad
@@ -210,19 +211,19 @@ graph TB
             PUB2[us-east-1b<br/>10.0.2.0/24]
             PUB3[us-east-1c<br/>10.0.3.0/24]
         end
-        
+
         subgraph PRIVATE[Private Subnets]
             PRIV1[us-east-1a<br/>10.0.11.0/24]
             PRIV2[us-east-1b<br/>10.0.12.0/24]
             PRIV3[us-east-1c<br/>10.0.13.0/24]
         end
-        
+
         subgraph DATABASE[Database Subnets]
             DB1[us-east-1a<br/>10.0.21.0/24]
             DB2[us-east-1b<br/>10.0.22.0/24]
             DB3[us-east-1c<br/>10.0.23.0/24]
         end
-        
+
         subgraph ROUTING[Route Tables]
             RT_PUB[Public Route Table<br/>0.0.0.0/0 → IGW]
             RT_PRIV1[Private RT AZ-1a<br/>0.0.0.0/0 → NAT-1]
@@ -231,6 +232,7 @@ graph TB
             RT_DB[Database Route Table<br/>Local VPC Only]
         end
     end
+
 ```
 
 ### Security Groups
@@ -241,26 +243,27 @@ graph LR
         ALB_IN[Inbound:<br/>443/tcp from 0.0.0.0/0<br/>80/tcp from 0.0.0.0/0]
         ALB_OUT[Outbound:<br/>8080/tcp to EKS-SG]
     end
-    
+
     subgraph SG_EKS[EKS Security Group]
         EKS_IN[Inbound:<br/>8080/tcp from ALB-SG<br/>443/tcp from Bastion-SG<br/>All traffic from self]
         EKS_OUT[Outbound:<br/>5432/tcp to RDS-SG<br/>6379/tcp to Redis-SG<br/>443/tcp to 0.0.0.0/0]
     end
-    
+
     subgraph SG_RDS[RDS Security Group]
         RDS_IN[Inbound:<br/>5432/tcp from EKS-SG]
         RDS_OUT[Outbound:<br/>None]
     end
-    
+
     subgraph SG_REDIS[Redis Security Group]
         REDIS_IN[Inbound:<br/>6379/tcp from EKS-SG]
         REDIS_OUT[Outbound:<br/>None]
     end
-    
+
     subgraph SG_BASTION[Bastion Security Group]
         BASTION_IN[Inbound:<br/>22/tcp from Admin IPs]
         BASTION_OUT[Outbound:<br/>22/tcp to EKS-SG<br/>443/tcp to 0.0.0.0/0]
     end
+
 ```
 
 ## Servicios de Infraestructura
@@ -276,17 +279,17 @@ graph TB
             SCHEDULER[Kubernetes Scheduler]
             CONTROLLER[Controller Manager]
         end
-        
+
         subgraph NODE_GROUPS[Node Groups]
             subgraph NG1[Primary Node Group]
                 NG1_CONFIG[Instance Type: t3.large<br/>Min: 2, Max: 10, Desired: 6<br/>AZ: us-east-1a, us-east-1b]
             end
-            
+
             subgraph NG2[Monitoring Node Group]
                 NG2_CONFIG[Instance Type: t3.medium<br/>Min: 1, Max: 3, Desired: 2<br/>AZ: us-east-1c<br/>Taint: monitoring=true]
             end
         end
-        
+
         subgraph ADDONS[EKS Add-ons]
             VPC_CNI[VPC CNI<br/>Pod Networking]
             CORE_DNS[CoreDNS<br/>Service Discovery]
@@ -295,6 +298,7 @@ graph TB
             CSI_DRIVER[EBS CSI Driver<br/>Persistent Volumes]
         end
     end
+
 ```
 
 ### Database Architecture
@@ -305,18 +309,19 @@ graph TB
         subgraph PRIMARY[Primary Instance - us-east-1a]
             RDS_P[PostgreSQL 14.7<br/>db.r5.large<br/>2 vCPU, 16 GB RAM<br/>100 GB gp3 Storage]
         end
-        
+
         subgraph STANDBY[Standby Instance - us-east-1b]
             RDS_S[PostgreSQL 14.7<br/>db.r5.large<br/>2 vCPU, 16 GB RAM<br/>100 GB gp3 Storage<br/>Synchronous Replication]
         end
-        
+
         subgraph BACKUP[Backup Strategy]
             AUTO_BACKUP[Automated Backups<br/>7 days retention<br/>Daily at 03:00 UTC]
             SNAPSHOT[Manual Snapshots<br/>Before deployments]
         end
     end
-    
+
     subgraph REDIS_CLUSTER[ElastiCache Redis Cluster]
         subgraph REDIS_PRIMARY[Primary - us-east-1a]
             REDIS
+
 ```

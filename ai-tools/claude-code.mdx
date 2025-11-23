@@ -21,6 +21,7 @@ Claude Code is Anthropic's official CLI tool, excellent for documentation workfl
 ### Prerequisites
 
 - Active Claude subscription (Pro, Max, or API access)
+
 - Node.js installed
 
 ### Installation
@@ -29,6 +30,7 @@ Claude Code is Anthropic's official CLI tool, excellent for documentation workfl
 
 ```bash
 npm install -g @anthropic-ai/claude-code
+
 ```
 
 2. Navigate to your docs directory
@@ -40,42 +42,59 @@ npm install -g @anthropic-ai/claude-code
 Create a `CLAUDE.md` file at the root of your documentation repository:
 
 ````markdown
+
 # Mintlify Documentation Assistant
 
 ## Working Relationship
 
 - Push back on ideas when needed - cite sources and explain reasoning
+
 - ALWAYS ask for clarification rather than making assumptions
+
 - NEVER lie, guess, or make up information
 
 ## Project Context
 
 - Format: MDX files with YAML frontmatter
+
 - Config: docs.json for navigation, theme, settings
+
 - Components: Mintlify components available
 
 ## Content Strategy
 
 - Document just enough for user success
+
 - Prioritize accuracy and usability
+
 - Make content evergreen when possible
+
 - Check for existing content before adding new
+
 - Maintain consistency with existing patterns
+
 - Start with smallest reasonable changes
 
 ## Writing Standards
 
 - Second-person voice ("you", "your")
+
 - Active voice when possible
+
 - Clear, concise sentences
+
 - Consistent terminology
+
 - Proper heading hierarchy
 
 ## File Naming Convention
 
 - ALL .mdx files MUST use format X.Y. Title in frontmatter
+
 - Example: `1.0. Getting Started` not `getting-started`
+
 - Verify numbering consistency across all files
+
 - Update frontmatter title to match filename format
 
 ## Quality Checks
@@ -88,6 +107,7 @@ Before finalizing any content:
 4. Validate internal links
 5. Test code examples
 6. Review for accessibility
+
 ````
 
 ## Cursor Setup
@@ -103,7 +123,9 @@ Cursor is a VS Code fork with built-in AI capabilities, perfect for editing docu
 ### Best Practices
 
 - Use Cmd+K for inline AI editing
+
 - Leverage the composer for multi-file changes
+
 - Set up custom rules for documentation standards
 
 ## Windsurf Setup
@@ -119,7 +141,9 @@ Windsurf excels at understanding entire project contexts and making coordinated 
 ### Documentation Workflow
 
 - Use for large-scale content reorganization
+
 - Excellent for maintaining consistency across files
+
 - Helpful for generating related content sections
 
 ## Best Practices for AI-Assisted Documentation
@@ -127,22 +151,31 @@ Windsurf excels at understanding entire project contexts and making coordinated 
 ### Content Quality
 
 - Always review AI-generated content for accuracy
+
 - Maintain your brand voice and style
+
 - Verify technical accuracy of code examples
+
 - Test all provided instructions
 
 ### Workflow Integration
 
 - Use AI for first drafts, then refine manually
+
 - Leverage AI for consistency checks
+
 - Automate repetitive formatting tasks
+
 - Generate variations for A/B testing
 
 ### File Organization
 
 - Ensure ALL .mdx files follow the X.Y. Title format
+
 - Maintain consistent frontmatter structure
+
 - Use AI tools to audit and fix naming inconsistencies
+
 - Regular cleanup of outdated content
 
 ## Troubleshooting
@@ -150,13 +183,19 @@ Windsurf excels at understanding entire project contexts and making coordinated 
 ### Common Issues
 
 - **Authentication errors**: Verify API keys and subscriptions
+
 - **Context limitations**: Break large documents into smaller sections
+
 - **Inconsistent output**: Use detailed prompts and examples
+
 - **File naming issues**: Regular audits to ensure X.Y. format compliance
 
 ### Performance Tips
 
 - Provide clear, specific prompts
+
 - Include relevant context in your requests
+
 - Use examples to guide AI output
+
 - Iterate on prompts for better results
