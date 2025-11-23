@@ -49,7 +49,7 @@
         "tab": "Documentación",
         "groups": [
           {
-            "group": "1. Introducción",
+            "group": "1. Inicio",
             "pages": [
               "index",
               "quickstart"
@@ -57,7 +57,15 @@
             "description": "Introducción al proyecto y guía de inicio rápido para comenzar a usar la plataforma"
           },
           {
-            "group": "2. Desarrollo Local",
+            "group": "2. Arquitectura",
+            "pages": [
+              "architecture",
+              "sequence-diagrams"
+            ],
+            "description": "Visión general de la arquitectura del sistema, patrones de diseño y diagramas de secuencia de los flujos principales"
+          },
+          {
+            "group": "3. Desarrollo",
             "pages": [
               "desarrollo-local",
               "configuration",
@@ -66,15 +74,7 @@
             "description": "Configuración del entorno de desarrollo local, gestión de variables de entorno y resolución de problemas comunes"
           },
           {
-            "group": "3. Arquitectura y Diseño",
-            "pages": [
-              "architecture",
-              "sequence-diagrams"
-            ],
-            "description": "Visión general de la arquitectura del sistema, patrones de diseño y diagramas de secuencia de los flujos principales"
-          },
-          {
-            "group": "4. Aplicación Frontend",
+            "group": "4. Frontend",
             "pages": [
               "frontend/overview",
               "frontend/jsdos-integration"
@@ -82,7 +82,7 @@
             "description": "Arquitectura de la aplicación React, estructura de componentes e integración del emulador js-dos para juegos retro"
           },
           {
-            "group": "5. Microservicios Backend",
+            "group": "5. Backend",
             "pages": [
               "services/auth-service",
               "services/user-service",
@@ -100,7 +100,7 @@
             "description": "Implementación de OAuth2 con GitHub y Google, gestión de tokens JWT y políticas de seguridad de la plataforma"
           },
           {
-            "group": "7. Infraestructura Cloud",
+            "group": "7. Infraestructura",
             "pages": [
               "infrastructure/overview",
               "infrastructure/eks-cluster",
@@ -112,7 +112,7 @@
             "description": "Infraestructura completa en AWS: clúster EKS, redes VPC, CDN CloudFront, gestión DNS con Route53, certificados SSL y monitorización"
           },
           {
-            "group": "8. Despliegue Continuo",
+            "group": "8. Despliegue",
             "pages": [
               "cicd/overview",
               "cicd/github-actions",
@@ -145,7 +145,7 @@
             "description": "Gestión completa de perfiles de usuario, actualización de datos personales y configuración de preferencias"
           },
           {
-            "group": "3. Catálogo de Juegos",
+            "group": "3. Juegos",
             "pages": [
               "api-reference/games/list",
               "api-reference/games/get",
@@ -172,7 +172,7 @@
             "description": "Tablas de clasificación globales, rankings específicos por juego, estadísticas y posicionamiento de jugadores"
           },
           {
-            "group": "6. Gateway y Enrutamiento",
+            "group": "6. Gateway",
             "pages": [
               "api-reference/kong-config"
             ],
