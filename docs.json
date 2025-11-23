@@ -94,11 +94,14 @@
             "group": "6. Infraestructura AWS",
             "pages": [
               "infrastructure/overview",
+              "infrastructure/aws-topology",
               "infrastructure/eks-cluster",
               "infrastructure/networking",
               "infrastructure/cdn-cloudfront",
               "infrastructure/route53-ssl",
-              "infrastructure/monitoring"
+              "infrastructure/monitoring",
+              "infrastructure/database-migrations",
+              "infrastructure/redis-troubleshooting"
             ],
             "description": "Infraestructura completa en AWS: clúster EKS, redes VPC, CDN CloudFront, gestión DNS con Route53, certificados SSL y monitorización"
           },
@@ -117,6 +120,7 @@
             "group": "8. Entorno de Desarrollo",
             "pages": [
               "desarrollo-local",
+              "development/e2e-testing",
               "configuration",
               "troubleshooting"
             ],
