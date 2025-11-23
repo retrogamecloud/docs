@@ -233,31 +233,44 @@ Responde en JSON puro (sin markdown, sin bloques ```):
   ]
 }}
 
-**REGLAS CRÍTICAS PARA JSON VÁLIDO:**
-1. TODOS los strings deben estar en UNA SOLA LÍNEA (sin \n literales)
-2. Escapa comillas dobles dentro de strings: \"
-3. NO incluyas bloques ```mermaid``` dentro del JSON
-4. Para strings largos (>500 chars), TRUNCA a 400 chars y añade "..."
-5. analysis_summary: MAX 200 caracteres en UNA LÍNEA
-6. proposed_content: MAX 400 caracteres en UNA LÍNEA
-7. description: MAX 300 caracteres en UNA LÍNEA
-8. mermaid_diagram: MAX 500 caracteres, usa \n para saltos de línea
-9. Si un valor es muy largo, RESUME en lugar de truncar el JSON
-10. VERIFICA que cada string termine con comillas antes de pasar al siguiente campo
+**REGLAS CRÍTICAS PARA JSON VÁLIDO (OBLIGATORIO):**
 
-**PRIORIDAD ABSOLUTA: CONSOLIDACIÓN**
+⚠️ LONGITUD MÁXIMA ESTRICTA (Claude, NO EXCEDAS ESTOS LÍMITES):
+- analysis_summary: MÁXIMO 150 caracteres, UNA LÍNEA
+- title: MÁXIMO 80 caracteres
+- description: MÁXIMO 200 caracteres, SÉ CONCISO
+- proposed_content: MÁXIMO 250 caracteres O DÉJALO VACÍO ""
+- mermaid_diagram: MÁXIMO 400 caracteres O DÉJALO VACÍO ""
+- rationale: MÁXIMO 150 caracteres
+
+🚨 FORMATO JSON:
+1. TODOS los strings en UNA SOLA LÍNEA (sin saltos de línea literales)
+2. Escapa comillas: \" 
+3. NO uses bloques de código dentro del JSON
+4. Si algo es largo, RESUME radicalmente o usa ""
+5. Prefiere arrays cortos (máx 10-12 mejoras)
+6. MENOS mejoras, MÁS calidad
+
+🎯 PRIORIDAD ABSOLUTA: CONSOLIDACIÓN PRIMERO
 Cuando detectes duplicación:
-- SIEMPRE incluye files_to_delete con los archivos duplicados
-- SIEMPRE incluye files_to_modify con el archivo destino consolidado
-- Describe claramente qué se fusionará en description
-- Category debe ser "structure" para consolidación
-- Priority debe ser "high"
+- files_to_delete: ["archivo1.mdx", "archivo2.mdx"] ← OBLIGATORIO
+- files_to_modify: ["archivo-destino.mdx"] ← donde se consolida
+- category: "structure"
+- priority: "high"
+- description: "Fusionar X e Y en Z, eliminar duplicados"
+
+💡 ESTRATEGIA:
+1. Identifica 2-3 consolidaciones críticas (alta prioridad)
+2. Identifica 3-4 correcciones de numeración
+3. Identifica 2-3 mejoras de contenido existente
+4. Propón 1-2 archivos nuevos SOLO si son esenciales
+TOTAL: Máximo 10-12 mejoras
 
 RECUERDA: 
-- **TODO en español de España (castellano)**
-- Sé específico y accionable
-- Prioriza CONSOLIDACIÓN sobre creación
-- Propón contenido concreto, no solo ideas abstractas
+- TODO en español de España
+- SÉ BREVE Y PRECISO
+- Prioriza CONSOLIDAR > MEJORAR > CREAR
+- Strings cortos = JSON válido
 """
     
     return prompt
@@ -273,7 +286,8 @@ def analyze_with_claude(client, docs_content, architecture, docs_structure, anal
     try:
         message = client.messages.create(
             model="claude-sonnet-4-5-20250929",
-            max_tokens=8192,  # Más tokens para análisis completo
+            max_tokens=16384,  # Aumentado para respuestas completas sin truncar
+            temperature=0.3,  # Más determinista para JSON consistente
             messages=[
                 {"role": "user", "content": prompt}
             ]
