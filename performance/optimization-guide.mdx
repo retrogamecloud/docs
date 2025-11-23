@@ -1,7 +1,8 @@
 ---
-title: "Guía de Optimización de Rendimiento"
-description: "Estrategias completas de optimización para mejorar el rendimiento de RetroGameCloud: caching, base de datos, Kubernetes, Kong, Docker y monitorización"
-icon: "gauge-high"
+title: Guía de Optimización de Rendimiento
+description: 'Estrategias completas de optimización para mejorar el rendimiento de
+  RetroGameCloud: caching, base de datos, Kubernetes, Kong, Docker y monitorización'
+icon: gauge-high
 ---
 
 # Guía de Optimización de Rendimiento
@@ -29,6 +30,7 @@ Las optimizaciones deben implementarse de forma gradual y siempre midiendo el im
           cache_control: false
           storage_ttl: 3600
     ```
+
   </Tab>
   <Tab title="Por Endpoints">
     ```yaml
@@ -40,7 +42,7 @@ Las optimizaciones deben implementarse de forma gradual y siempre midiendo el im
             config:
               cache_ttl: 300
               vary_headers: ["Accept-Language"]
-    
+
     # Rankings - TTL 2 minutos
     services:
       - name: ranking
@@ -50,12 +52,14 @@ Las optimizaciones deben implementarse de forma gradual y siempre midiendo el im
               cache_ttl: 120
               cache_control: true
     ```
+
   </Tab>
 </Tabs>
 
 ### CloudFront para Assets Estáticos
 
 ```yaml
+
 # cloudfront-config.yml
 Distribution:
   DistributionConfig:
@@ -73,6 +77,7 @@ Distribution:
       - PathPattern: "*.png"
         TTL:
           DefaultTTL: 86400   # 1 día
+
 ```
 
 ## Optimización de Base de Datos
@@ -80,25 +85,29 @@ Distribution:
 ### Índices Recomendados
 
 <Card title="Índices Críticos" icon="database">
+
 ```sql
--- Servicio de Scores
-CREATE INDEX CONCURRENTLY idx_scores_game_score 
+
+- - Servicio de Scores
+CREATE INDEX CONCURRENTLY idx_scores_game_score
 ON scores(game_id, score DESC);
 
-CREATE INDEX CONCURRENTLY idx_scores_user_game 
+CREATE INDEX CONCURRENTLY idx_scores_user_game
 ON scores(user_id, game_id);
 
--- Servicio de Game Catalog
-CREATE INDEX CONCURRENTLY idx_games_slug 
+- - Servicio de Game Catalog
+CREATE INDEX CONCURRENTLY idx_games_slug
 ON games(slug);
 
-CREATE INDEX CONCURRENTLY idx_games_category_created 
+CREATE INDEX CONCURRENTLY idx_games_category_created
 ON games(category, created_at DESC);
 
--- Servicio de User
-CREATE INDEX CONCURRENTLY idx_users_email_active 
+- - Servicio de User
+CREATE INDEX CONCURRENTLY idx_users_email_active
 ON users(email) WHERE active = true;
+
 ```
+
 </Card>
 
 ### Connection Pooling
@@ -111,18 +120,19 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
   port: 5432,
-  
+
   // Configuración del pool
   max: 20,              // Máximo de conexiones
   min: 5,               // Mínimo de conexiones
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
-  
+
   // Configuración de performance
   statement_timeout: 5000,
   query_timeout: 5000,
   application_name: 'retrogame-service'
 });
+
 ```
 
 ## Configuración de Kubernetes
@@ -155,6 +165,7 @@ const pool = new Pool({
               initialDelaySeconds: 10
               periodSeconds: 5
     ```
+
   </Tab>
   <Tab title="Game Catalog">
     ```yaml
@@ -178,6 +189,7 @@ const pool = new Pool({
             - name: NODE_OPTIONS
               value: "--max-old-space-size=400"
     ```
+
   </Tab>
   <Tab title="User Service">
     ```yaml
@@ -198,6 +210,7 @@ const pool = new Pool({
                 memory: "256Mi"
                 cpu: "300m"
     ```
+
   </Tab>
   <Tab title="Score & Ranking">
     ```yaml
@@ -222,6 +235,7 @@ const pool = new Pool({
             - name: MAX_CONCURRENT_REQUESTS
               value: "100"
     ```
+
   </Tab>
 </Tabs>
 
@@ -252,6 +266,7 @@ spec:
       target:
         type: Utilization
         averageUtilization: 80
+
 ```
 
 ## Optimización de Kong Gateway
@@ -259,6 +274,7 @@ spec:
 ### Configuración Avanzada
 
 ```yaml
+
 # kong.yml
 _format_version: "2.1"
 
@@ -270,13 +286,13 @@ services:
         config:
           minute: 100
           hour: 1000
-      
+
       - name: response-transformer
         config:
           add:
             headers:
               - "Cache-Control: public, max-age=300"
-      
+
       - name: gzip
         config:
           types:
@@ -297,6 +313,7 @@ upstreams:
         unhealthy:
           interval: 5
           http_failures: 3
+
 ```
 
 <Warning>
@@ -308,7 +325,9 @@ La compresión gzip puede aumentar el uso de CPU. Monitoriza el impacto en el re
 ### Imágenes Multi-stage con Alpine
 
 ```dockerfile
+
 # Dockerfile optimizado
+
 # Etapa de construcción
 FROM node:18-alpine AS builder
 
@@ -343,15 +362,21 @@ EXPOSE 3000
 
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "server.js"]
+
 ```
 
 ### Mejores Prácticas Docker
 
 <Card title="Optimizaciones Adicionales" icon="docker">
+
 - **Usar .dockerignore**: Excluir archivos innecesarios
+
 - **Layers eficientes**: Ordenar comandos del menos al más cambiante
+
 - **Limpiar caches**: Eliminar archivos temporales en la misma capa
+
 - **Imágenes base mínimas**: Preferir Alpine o Distroless
+
 - **Escaneo de seguridad**: Usar herramientas como Snyk o Trivy
 </Card>
 
@@ -360,6 +385,7 @@ CMD ["node", "server.js"]
 ### Métricas Clave a Monitorizar
 
 ```yaml
+
 # prometheus-rules.yml
 groups:
   - name: retrogame-performance
@@ -389,6 +415,7 @@ groups:
           severity: warning
         annotations:
           summary: "Alto uso de conexiones de BD"
+
 ```
 
 ### Dashboard de Grafana
@@ -424,6 +451,7 @@ groups:
     ]
   }
 }
+
 ```
 
 ## Objetivos de Rendimiento
@@ -479,18 +507,19 @@ const activeGames = new promClient.Gauge({
 // Middleware de métricas
 const metricsMiddleware = (req, res, next) => {
   const start = Date.now();
-  
+
   res.on('finish', () => {
     const duration = (Date.now() - start) / 1000;
     httpRequestDuration
       .labels(req.method, req.route?.path || req.url, res.statusCode)
       .observe(duration);
   });
-  
+
   next();
 };
 
 module.exports = { httpRequestDuration, gameLoadTime, activeGames, metricsMiddleware };
+
 ```
 
 <Note>

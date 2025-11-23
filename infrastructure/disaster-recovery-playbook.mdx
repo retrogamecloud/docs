@@ -1,7 +1,8 @@
 ---
-title: "Procedimientos de Recuperación ante Desastres"
-description: "Guía completa de disaster recovery con procedimientos paso a paso, RPO/RTO definidos y simulacros de DR"
-icon: "shield-halved"
+title: Procedimientos de Recuperación Ante Desastres
+description: Guía completa de disaster recovery con procedimientos paso a paso, RPO/RTO
+  definidos y simulacros de DR
+icon: shield-halved
 ---
 
 # Procedimientos de Recuperación ante Desastres
@@ -37,19 +38,20 @@ graph TB
     A --> C[Backup S3 Cross-Region]
     A --> D[Git Repository]
     A --> E[Terraform State S3]
-    
+
     B --> F[Región DR Frankfurt]
     C --> F
     D --> F
     E --> F
-    
+
     F --> G[RDS Restaurado]
     F --> H[EKS Cluster]
     F --> I[Kong Config]
     F --> J[Aplicaciones]
-    
+
     style A fill:#ff9999
     style F fill:#99ff99
+
 ```
 
 ## Procedimiento de Disaster Recovery
@@ -63,28 +65,30 @@ graph TB
     aws ec2 describe-regions --region eu-west-1
     aws rds describe-db-instances --region eu-west-1
     aws eks describe-cluster --name retrogame-prod --region eu-west-1
-    
+
     # Comprobar último snapshot disponible
     aws rds describe-db-snapshots \
       --db-instance-identifier retrogame-prod \
       --snapshot-type automated \
       --max-items 5
     ```
+
   </Tab>
-  
+
   <Tab title="Activación DR">
     ```bash
     # 1. Declarar incidente DR
     echo "DR-$(date +%Y%m%d-%H%M%S)" > /tmp/incident_id
-    
+
     # 2. Notificar al equipo
     curl -X POST $SLACK_WEBHOOK \
       -H 'Content-type: application/json' \
       --data '{"text":"🚨 DR ACTIVADO - Incidente: '$(cat /tmp/incident_id)'"}'
-    
+
     # 3. Cambiar a región de DR
     export AWS_DEFAULT_REGION=eu-central-1
     ```
+
   </Tab>
 </Tabs>
 
@@ -96,6 +100,7 @@ La restauración de RDS es crítica y debe ejecutarse primero
 
 ```bash
 #!/bin/bash
+
 # restore-database.sh
 
 # Obtener el último snapshot automático
@@ -126,12 +131,14 @@ DB_ENDPOINT=$(aws rds describe-db-instances \
   --output text)
 
 echo "Base de datos restaurada en: $DB_ENDPOINT"
+
 ```
 
 ### Fase 3: Recreación de Infraestructura EKS
 
 ```bash
 #!/bin/bash
+
 # restore-infrastructure.sh
 
 # Clonar repositorio de infraestructura
@@ -157,6 +164,7 @@ terraform apply -var-file=terraform.tfvars -auto-approve
 
 # Configurar kubectl
 aws eks update-kubeconfig --name retrogame-dr --region eu-central-1
+
 ```
 
 ### Fase 4: Despliegue de Aplicaciones
@@ -167,63 +175,66 @@ aws eks update-kubeconfig --name retrogame-dr --region eu-central-1
     # Instalar Kong
     helm repo add kong https://charts.konghq.com
     helm repo update
-    
+
     helm install kong kong/kong \
       --namespace kong-system \
       --create-namespace \
       --values kong-dr-values.yaml
-    
+
     # Restaurar configuración desde S3
     aws s3 cp s3://retrogame-backups/kong/latest-config.yaml ./kong-config.yaml
     kubectl apply -f kong-config.yaml
     ```
+
   </Tab>
-  
+
   <Tab title="Aplicaciones">
     ```bash
     # Clonar repositorio de aplicaciones
     git clone https://github.com/retrogame/k8s-manifests.git
     cd k8s-manifests
-    
+
     # Crear namespaces
     kubectl apply -f namespaces/
-    
+
     # Aplicar configuraciones base
     kubectl apply -f configmaps/
     kubectl apply -f secrets/
-    
+
     # Desplegar servicios por orden de dependencia
     kubectl apply -f auth-service/
     kubectl apply -f user-service/
     kubectl apply -f game-catalog-service/
     kubectl apply -f score-service/
     kubectl apply -f ranking-service/
-    
+
     # Verificar despliegues
     kubectl get pods --all-namespaces
     ```
+
   </Tab>
-  
+
   <Tab title="Frontend">
     ```bash
     # Construir y desplegar frontend
     cd frontend/
-    
+
     # Actualizar configuración para endpoints DR
     cat > .env.production << EOF
     REACT_APP_API_URL=https://api-dr.retrogamecloud.com
     REACT_APP_CDN_URL=https://cdn-dr.retrogamecloud.com
     EOF
-    
+
     # Build y despliegue
     npm run build
     aws s3 sync dist/ s3://retrogame-frontend-dr/
-    
+
     # Invalidar caché CloudFront
     aws cloudfront create-invalidation \
       --distribution-id E3QXAMPLE67890 \
       --paths "/*"
     ```
+
   </Tab>
 </Tabs>
 
@@ -231,6 +242,7 @@ aws eks update-kubeconfig --name retrogame-dr --region eu-central-1
 
 ```bash
 #!/bin/bash
+
 # update-dns.sh
 
 # Obtener nuevo load balancer endpoint
@@ -253,6 +265,7 @@ aws route53 change-resource-record-sets \
   }'
 
 echo "DNS actualizado: api.retrogamecloud.com -> $LB_ENDPOINT"
+
 ```
 
 ## Validación Post-Recovery
@@ -266,24 +279,30 @@ Ejecutar todas las verificaciones antes de declarar la recuperación completa
 #### ✅ Infraestructura Base
 
 - [ ] Cluster EKS operativo
+
 - [ ] Nodos de trabajo disponibles
+
 - [ ] Load balancers funcionando
+
 - [ ] Conectividad de red establecida
 
 #### ✅ Base de Datos
 
 ```bash
+
 # Test de conectividad a BD
 kubectl run postgres-test --rm -i --tty --restart=Never \
   --image=postgres:13 -- psql -h $DB_ENDPOINT -U retrogame_user -d retrogame_db -c "\dt"
 
 # Verificar integridad de datos
 kubectl exec -it auth-service-xxxx -- npm run db:health-check
+
 ```
 
 #### ✅ Servicios de Aplicación
 
 ```bash
+
 # Health checks de microservicios
 services=("auth-service" "user-service" "game-catalog-service" "score-service" "ranking-service")
 
@@ -291,17 +310,19 @@ for service in "${services[@]}"; do
   echo "Verificando $service..."
   kubectl get pods -l app=$service
   kubectl logs -l app=$service --tail=10
-  
+
   # Health check endpoint
   kubectl port-forward svc/$service 8080:80 &
   curl -f http://localhost:8080/health || echo "❌ $service no responde"
   pkill -f "port-forward.*$service"
 done
+
 ```
 
 #### ✅ API Gateway
 
 ```bash
+
 # Verificar Kong
 kubectl get pods -n kong-system
 kubectl get svc -n kong-system
@@ -309,17 +330,20 @@ kubectl get svc -n kong-system
 # Test de routing
 curl -H "Host: api.retrogamecloud.com" http://$LB_ENDPOINT/health
 curl -H "Host: api.retrogamecloud.com" http://$LB_ENDPOINT/auth/status
+
 ```
 
 #### ✅ Frontend y CDN
 
 ```bash
+
 # Verificar distribución CloudFront
 aws cloudfront get-distribution --id E3QXAMPLE67890
 
 # Test de carga del frontend
 curl -I https://retrogamecloud.com
 curl -I https://cdn.retrogamecloud.com/js/main.js
+
 ```
 
 ### Tests Funcionales
@@ -360,12 +384,13 @@ tests.forEach(async (test) => {
       headers: { 'Content-Type': 'application/json' },
       body: test.payload ? JSON.stringify(test.payload) : undefined
     });
-    
+
     console.log(`✅ ${test.name}: ${response.status}`);
   } catch (error) {
     console.log(`❌ ${test.name}: ${error.message}`);
   }
 });
+
 ```
 
 ## Simulacros de Disaster Recovery
@@ -389,76 +414,79 @@ tests.forEach(async (test) => {
       fecha: "2024-03-15"
       tipo: "completo"
       duracion: "6 horas"
-      
+
     participantes:
       - "Equipo DevOps"
       - "Desarrolladores Backend"
       - "QA Team"
       - "Product Owner"
-      
+
     escenario:
       descripcion: "Caída completa de región eu-west-1"
       impacto: "Pérdida total de servicios"
       tiempo_deteccion: "15 minutos"
-      
+
     objetivos:
       - "Restaurar servicios en < 4 horas"
       - "Pérdida de datos < 1 hora"
       - "Validar comunicación de equipo"
     ```
+
   </Tab>
-  
+
   <Tab title="Ejecución">
     ```bash
     #!/bin/bash
     # ejecutar-simulacro.sh
-    
+
     SIMULACRO_ID="DR-SIM-$(date +%Y%m%d)"
     START_TIME=$(date +%s)
-    
+
     echo "🔥 INICIANDO SIMULACRO: $SIMULACRO_ID"
-    
+
     # Simular caída (redirigir tráfico a página de mantenimiento)
     aws route53 change-resource-record-sets \
       --hosted-zone-id Z3M3LMPEXAMPLE \
       --change-batch file://maintenance-mode.json
-    
+
     # Cronometrar procedimiento DR
     echo "⏱️  Cronómetro iniciado: $(date)"
-    
+
     # Ejecutar procedimiento completo
     ./restore-database.sh
     ./restore-infrastructure.sh
     ./update-dns.sh
-    
+
     # Validaciones
     ./validate-recovery.sh
-    
+
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
-    
+
     echo "✅ Simulacro completado en $((DURATION/60)) minutos"
     ```
+
   </Tab>
-  
+
   <Tab title="Evaluación">
     ```markdown
     # Informe de Simulacro DR-SIM-20240315
-    
+
     ## Resumen Ejecutivo
     - **Duración Total**: 3h 45min (objetivo: 4h) ✅
     - **RPO Alcanzado**: 45 minutos (objetivo: 1h) ✅
     - **Servicios Restaurados**: 5/5 ✅
-    
+
     ## Métricas
     - Tiempo detección: 8 minutos
     - Tiempo activación DR: 15 minutos
     - Restauración BD: 25 minutos
     - Despliegue apps: 2h 30min
     - Validación: 35 minutos
-    
+
     ## Problemas Identificados
     1. Demora en restauración Kong (30min extra)
 </Tab>
 </Tabs>
+
 ```

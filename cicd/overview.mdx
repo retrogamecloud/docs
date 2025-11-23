@@ -1,6 +1,7 @@
 ---
 title: 7.1. Visión General de CI/CD
-description: Pipeline completo de integración y despliegue continuo con GitHub Actions, Docker, ECR y ArgoCD
+description: Pipeline completo de integración y despliegue continuo con GitHub Actions,
+  Docker, ECR y ArgoCD
 icon: rocket
 ---
 
@@ -11,19 +12,19 @@ Retro Game Hub implementa un pipeline completo de CI/CD que automatiza desde el 
 <CardGroup cols={3}>
   <Card title="Automatización Total" icon="robot">
     Desde commit hasta producción
-    
+
     Pipeline completamente automatizado
   </Card>
 
   <Card title="GitOps" icon="code-branch">
     Git como fuente de verdad
-    
+
     Declarativo e inmutable
   </Card>
 
   <Card title="Zero Downtime" icon="shield-halved">
     Rolling updates y health checks
-    
+
     Rollback automático
   </Card>
 </CardGroup>
@@ -45,10 +46,10 @@ graph TB
         C2 --> C3[Integration Tests]
         C3 --> C4[Security Scan]
         C4 --> D{All Tests Pass?}
-        
+
         D -->|✅ Success| E[Build Docker Image]
         D -->|❌ Fail| STOP[❌ Stop Pipeline]
-        
+
         E --> F[Multi-stage Build]
         F --> G[Security Scan Image]
         G --> H[Push to AWS ECR]
@@ -60,7 +61,7 @@ graph TB
         J --> K[Kustomize Build]
         K --> L[Validate Manifests]
         L --> M[Create PR to Config Repo]
-        
+
         M --> N{Auto-merge Enabled?}
         N -->|Yes| O[Auto-merge PR]
         N -->|No| P[Manual Review]
@@ -73,12 +74,12 @@ graph TB
         R --> S[Git Repository Sync]
         S --> T[Kustomize Build]
         T --> U[Apply to EKS Cluster]
-        
+
         U --> V[Rolling Update Strategy]
         V --> W[Readiness Probe]
         W --> X[Liveness Probe]
         X --> Y{Health Check Pass?}
-        
+
         Y -->|✅ Healthy| Z[Deployment Complete]
         Y -->|❌ Failed| AA[Automatic Rollback]
         AA --> AB[Previous Version Restored]
@@ -98,7 +99,7 @@ graph TB
         AG --> AH[Kong Gateway]
         AH --> AI[Load Balancer]
         AI --> AJ[End Users]
-        
+
         AG --> AK[Auto-scaling]
         AK --> AL[HPA & VPA]
     end
@@ -112,6 +113,7 @@ graph TB
     style Z fill:#00d4aa,stroke:#00b894,color:#fff
     style STOP fill:#ff6b6b,stroke:#ee5a52,color:#fff
     style AA fill:#ffd93d,stroke:#ffcd02,color:#000
+
 ```
 
 ## Etapas del Pipeline
@@ -144,6 +146,7 @@ graph TB
 ### 🏗️ Build y Containerización
 
 ```yaml
+
 # Ejemplo de multi-stage Dockerfile
 FROM node:18-alpine AS builder
 WORKDIR /app
@@ -156,18 +159,19 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY . .
 EXPOSE 3000
 CMD ["npm", "start"]
+
 ```
 
 <CardGroup cols={2}>
   <Card title="Multi-stage Build" icon="layer-group">
     Optimización del tamaño de imagen
-    
+
     Separación de dependencias build/runtime
   </Card>
 
   <Card title="Registry Push" icon="cloud-upload">
     AWS ECR como registry privado
-    
+
     Versionado semántico automático
   </Card>
 </CardGroup>
@@ -178,19 +182,19 @@ CMD ["npm", "start"]
   <Step title="Actualización de Manifiestos">
     GitHub Actions actualiza automáticamente los manifiestos de Kubernetes con la nueva imagen
   </Step>
-  
+
   <Step title="Validación de Configuración">
     Kustomize valida la sintaxis y estructura de los manifiestos
   </Step>
-  
+
   <Step title="Pull Request Automático">
     Se crea un PR al repositorio de configuración con los cambios
   </Step>
-  
+
   <Step title="Sincronización ArgoCD">
     ArgoCD detecta cambios y sincroniza el estado deseado
   </Step>
-  
+
   <Step title="Rolling Update">
     Despliegue progresivo sin interrupciones de servicio
   </Step>
@@ -201,7 +205,7 @@ CMD ["npm", "start"]
 <CardGroup cols={2}>
   <Card title="Rolling Update" icon="arrows-spin">
     **Por defecto**: Actualización progresiva
-    
+
     - maxUnavailable: 25%
     - maxSurge: 25%
     - Zero downtime garantizado
@@ -209,7 +213,7 @@ CMD ["npm", "start"]
 
   <Card title="Blue-Green" icon="toggle-on">
     **Para releases críticas**: Cambio instantáneo
-    
+
     - Ambiente completo duplicado
     - Switch inmediato de tráfico
     - Rollback instantáneo
@@ -221,12 +225,14 @@ CMD ["npm", "start"]
 ### 📊 Métricas de Pipeline
 
 ```yaml
+
 # Métricas clave tracked
 pipeline_metrics:
   - deployment_frequency: "Multiple times per day"
   - lead_time_for_changes: "< 1 hour"
   - time_to_restore_service: "< 30 minutes"
   - change_failure_rate: "< 5%"
+
 ```
 
 ### 🚨 Alertas y Notificaciones
@@ -237,13 +243,13 @@ pipeline_metrics:
     - Alertas de fallos en pipeline
     - Métricas de rendimiento
   </Tab>
-  
+
   <Tab title="Email Alerts">
     - Resumen diario de deployments
     - Alertas críticas de seguridad
     - Reportes semanales de calidad
   </Tab>
-  
+
   <Tab title="PagerDuty">
     - Incidentes críticos en producción
     - Escalation automático
@@ -256,25 +262,25 @@ pipeline_metrics:
 <CardGroup cols={2}>
   <Card title="Velocidad" icon="gauge-high">
     **Deploy en < 10 minutos**
-    
+
     Desde commit hasta producción automatizado
   </Card>
 
   <Card title="Confiabilidad" icon="check-double">
     **99.9% Success Rate**
-    
+
     Tests exhaustivos y validaciones automáticas
   </Card>
 
   <Card title="Seguridad" icon="lock">
     **Security by Design**
-    
+
     Scans automáticos en cada etapa del pipeline
   </Card>
 
   <Card title="Observabilidad" icon="chart-line">
     **Full Visibility**
-    
+
     Métricas, logs y tracing completos
   </Card>
 </CardGroup>
@@ -284,6 +290,9 @@ pipeline_metrics:
 En las siguientes secciones profundizaremos en cada componente:
 
 - **GitHub Actions**: Configuración de workflows y jobs
+
 - **Docker & ECR**: Estrategias de containerización y registry
+
 - **ArgoCD**: GitOps y continuous deployment
+
 - **Monitoreo**: Observabilidad y alertas del pipeline

@@ -1,7 +1,8 @@
 ---
-title: "Servicios - Visión General"
-description: "Documentación consolidada de todos los microservicios de RetroGameCloud con arquitectura, dependencias y endpoints principales"
-icon: "microchip"
+title: Servicios - Visión General
+description: Documentación consolidada de todos los microservicios de RetroGameCloud
+  con arquitectura, dependencias y endpoints principales
+icon: microchip
 ---
 
 # Visión General de Microservicios
@@ -11,6 +12,7 @@ RetroGameCloud está construido sobre una arquitectura de microservicios que pro
 ## Arquitectura General
 
 <div className="mermaid">
+
 ```mermaid
 graph TB
     Gateway[Kong API Gateway] --> Auth[Servicio de Autenticación]
@@ -18,16 +20,18 @@ graph TB
     Gateway --> Catalog[Servicio de Catálogo]
     Gateway --> Score[Servicio de Puntuaciones]
     Gateway --> Ranking[Servicio de Rankings]
-    
+
     Auth --> AuthDB[(PostgreSQL<br/>Auth DB)]
     User --> UserDB[(PostgreSQL<br/>User DB)]
     Catalog --> CatalogDB[(PostgreSQL<br/>Catalog DB)]
     Score --> ScoreDB[(PostgreSQL<br/>Score DB)]
     Ranking --> RankingDB[(PostgreSQL<br/>Ranking DB)]
-    
+
     Catalog --> S3[AWS S3<br/>Game Assets]
     Gateway --> CDN[CloudFront CDN]
+
 ```
+
 </div>
 
 ## Tabla Comparativa de Servicios
@@ -47,23 +51,23 @@ graph TB
     <Card title="Auth Service" icon="shield-check" href="/services/auth-service">
       Gestiona la autenticación, autorización y tokens JWT. Incluye OAuth2 y integración con proveedores externos.
     </Card>
-    
+
     <Card title="User Service" icon="user" href="/services/user-service">
       Administra perfiles de usuario, preferencias y configuraciones personales.
     </Card>
   </Tab>
-  
+
   <Tab title="Contenido y Juegos">
     <Card title="Game Catalog Service" icon="gamepad-2" href="/services/game-catalog">
       Catálogo completo de juegos retro con metadatos, assets y gestión de contenido.
     </Card>
   </Tab>
-  
+
   <Tab title="Puntuaciones y Rankings">
     <Card title="Score Service" icon="trophy" href="/services/score-service">
       Registro y gestión de puntuaciones de jugadores con validación y histórico.
     </Card>
-    
+
     <Card title="Ranking Service" icon="chart-line" href="/services/ranking-service">
       Sistema de clasificaciones globales y por juego con algoritmos de ranking.
     </Card>
@@ -91,11 +95,12 @@ graph LR
     Auth --> Ranking[Ranking Service]
     User --> Score
     Score --> Ranking
-    
+
     style Auth fill:#e1f5fe
     style User fill:#f3e5f5
     style Score fill:#e8f5e8
     style Ranking fill:#fff3e0
+
 ```
 
 ## Configuración de Infraestructura
@@ -104,15 +109,20 @@ graph LR
 
 <Warning>
 Cada microservicio se despliega como un conjunto independiente de recursos de Kubernetes:
+
 - **Deployment**: Para la gestión de pods
+
 - **Service**: Para la comunicación interna
+
 - **ConfigMap**: Para configuraciones no sensibles
+
 - **Secret**: Para credenciales y claves
 </Warning>
 
 ### Variables de Entorno Comunes
 
 ```yaml
+
 # Configuración común para todos los servicios
 NODE_ENV: production
 PORT: 800X  # Específico para cada servicio
@@ -120,6 +130,7 @@ DB_HOST: postgres-service
 DB_PORT: 5432
 JWT_SECRET: <secret-ref>
 API_GATEWAY_URL: https://api.retrogamecloud.com
+
 ```
 
 ## Monitoreo y Observabilidad
@@ -129,7 +140,9 @@ API_GATEWAY_URL: https://api.retrogamecloud.com
 Todos los servicios exponen métricas en el endpoint `/metrics`:
 
 - **Métricas HTTP**: Latencia, códigos de respuesta, throughput
+
 - **Métricas de Base de Datos**: Conexiones activas, tiempo de consulta
+
 - **Métricas de Aplicación**: Usuarios activos, juegos jugados, puntuaciones registradas
 
 ### Health Checks
@@ -137,7 +150,9 @@ Todos los servicios exponen métricas en el endpoint `/metrics`:
 Cada servicio implementa endpoints de salud:
 
 - `GET /health` - Estado general del servicio
+
 - `GET /ready` - Disponibilidad para recibir tráfico
+
 - `GET /metrics` - Métricas para Prometheus
 
 ## Guías de Desarrollo
@@ -154,8 +169,9 @@ Cada servicio implementa endpoints de salud:
       "timestamp": "2024-01-01T00:00:00Z"
     }
     ```
+
   </Tab>
-  
+
   <Tab title="Errores">
     ```json
     {
@@ -167,14 +183,16 @@ Cada servicio implementa endpoints de salud:
       "timestamp": "2024-01-01T00:00:00Z"
     }
     ```
+
   </Tab>
-  
+
   <Tab title="Headers">
     ```http
     Authorization: Bearer <jwt_token>
     Content-Type: application/json
     X-Request-ID: <uuid>
     ```
+
   </Tab>
 </Tabs>
 
@@ -183,7 +201,9 @@ Cada servicio implementa endpoints de salud:
 Cada servicio incluye:
 
 - **Tests unitarios**: Jest con cobertura > 80%
+
 - **Tests de integración**: Supertest para endpoints
+
 - **Tests de contrato**: Pact para comunicación entre servicios
 
 ## Próximos Pasos
@@ -192,11 +212,14 @@ Cada servicio incluye:
   Selecciona un servicio específico de la tabla superior para ver su documentación detallada, incluyendo todos sus endpoints y ejemplos de uso.
 </Card>
 
----
+- --
 
 ## Enlaces Rápidos
 
 - [Referencia completa de la API](/api-reference)
+
 - [Guía de despliegue](/deployment)
+
 - [Configuración de desarrollo](/development/setup)
+
 - [Monitoreo y alertas](/monitoring)

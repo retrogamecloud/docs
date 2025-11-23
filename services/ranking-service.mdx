@@ -1,6 +1,7 @@
 ---
 title: 3.5. Servicio de Rankings
-description: Leaderboards y clasificaciones globales con cache Redis y actualizaciones en tiempo real
+description: Leaderboards y clasificaciones globales con cache Redis y actualizaciones
+  en tiempo real
 icon: ranking-star
 ---
 
@@ -11,19 +12,19 @@ El servicio de rankings proporciona tablas de clasificación (leaderboards) para
 <CardGroup cols={3}>
   <Card title="Top Rankings" icon="medal">
     Los mejores jugadores
-    
+
     Por cada juego o global
   </Card>
 
   <Card title="Real-time" icon="bolt">
     Actualización inmediata
-    
+
     Al guardar scores
   </Card>
 
   <Card title="Cache Redis" icon="database">
     Performance optimizada
-    
+
     Reducir carga en PostgreSQL
   </Card>
 </CardGroup>
@@ -33,13 +34,13 @@ El servicio de rankings proporciona tablas de clasificación (leaderboards) para
 <CardGroup cols={2}>
   <Card title="Base de Datos" icon="database">
     **PostgreSQL**: Almacenamiento persistente de rankings
-    
+
     **Redis**: Cache de rankings frecuentemente consultados
   </Card>
 
   <Card title="Configuración" icon="gear">
     **Puerto**: 3005
-    
+
     **Dependencias**: Auth Service, Scores Service
   </Card>
 </CardGroup>
@@ -47,9 +48,13 @@ El servicio de rankings proporciona tablas de clasificación (leaderboards) para
 ## Funcionalidades Principales
 
 - **Rankings por juego**: Top 10 mejores scores por cada juego
+
 - **Ranking global**: Mejores jugadores entre todos los juegos
+
 - **Cache inteligente**: Redis para consultas frecuentes
+
 - **Actualización automática**: Sync con nuevos scores
+
 - **Filtros temporales**: Rankings diarios, semanales, mensuales
 
 ## Endpoints Principales
@@ -59,13 +64,13 @@ El servicio expone los siguientes endpoints REST:
 <CardGroup cols={2}>
   <Card title="Rankings por Juego" icon="gamepad-2">
     `GET /api/rankings/games/:gameSlug`
-    
+
     Obtiene el top 10 de un juego específico
   </Card>
 
   <Card title="Ranking Global" icon="globe">
     `GET /api/rankings/global`
-    
+
     Mejores jugadores entre todos los juegos
   </Card>
 </CardGroup>
@@ -73,13 +78,13 @@ El servicio expone los siguientes endpoints REST:
 <CardGroup cols={2}>
   <Card title="Rankings Temporales" icon="calendar">
     `GET /api/rankings/games/:gameSlug/period`
-    
+
     Rankings por período de tiempo
   </Card>
 
   <Card title="Posición de Usuario" icon="user">
     `GET /api/rankings/users/:username/position`
-    
+
     Posición específica de un jugador
   </Card>
 </CardGroup>
@@ -116,6 +121,7 @@ const rankingsClient = {
 // Ejemplo de uso
 const doomRanking = await rankingsClient.getGameRanking('doom');
 console.log('Top 3 en Doom:', doomRanking.slice(0, 3));
+
 ```
 
 ## Estrategia de Cache
@@ -123,13 +129,13 @@ console.log('Top 3 en Doom:', doomRanking.slice(0, 3));
 <CardGroup cols={2}>
   <Card title="Cache Caliente" icon="flame">
     **Top 10 por juego**: TTL 5 minutos
-    
+
     **Global top 100**: TTL 10 minutos
   </Card>
 
   <Card title="Invalidación" icon="refresh-cw">
     **Automática**: Al recibir nuevos scores
-    
+
     **Manual**: Endpoint de administración
   </Card>
 </CardGroup>
@@ -137,6 +143,9 @@ console.log('Top 3 en Doom:', doomRanking.slice(0, 3));
 ## Monitoreo y Métricas
 
 - **Latencia promedio**: < 50ms (con cache)
+
 - **Hit ratio Redis**: > 95%
+
 - **Consultas por segundo**: Hasta 1000 RPS
+
 - **Disponibilidad**: 99.9% SLA

@@ -40,21 +40,33 @@ El servicio de usuarios gestiona los perfiles, preferencias y estadísticas de l
 ## Características Principales
 
 ### Gestión de Perfiles
+
 - Creación y actualización de perfiles de usuario
+
 - Subida y gestión de avatares personalizados
+
 - Biografías y información personal
+
 - Sistema de verificación de cuentas
 
 ### Sistema de Estadísticas
+
 - Tracking automático de actividad de juego
+
 - Cálculo de rankings globales y por juego
+
 - Historial detallado de scores y logros
+
 - Métricas de tiempo de juego
 
 ### Configuración y Preferencias
+
 - Personalización de interfaz (tema, idioma)
+
 - Configuración de privacidad granular
+
 - Gestión de notificaciones
+
 - Preferencias de juego
 
 ## Endpoints Principales
@@ -107,6 +119,7 @@ Obtiene el perfil público de un usuario con estadísticas básicas.
 
 ```bash Request
 curl http://api.retrogamecloud.com/api/users/player1
+
 ```
 
 ```json Response 200
@@ -126,6 +139,7 @@ curl http://api.retrogamecloud.com/api/users/player1
     "global_rank": 15
   }
 }
+
 ```
 
 </CodeGroup>
@@ -138,6 +152,7 @@ Obtiene el historial de scores de un usuario específico.
 
 ```bash Request
 curl http://api.retrogamecloud.com/api/users/player1/scores?limit=10
+
 ```
 
 ```json Response 200
@@ -151,7 +166,7 @@ curl http://api.retrogamecloud.com/api/users/player1/scores?limit=10
     "updated_at": "2025-11-18T10:15:00.000Z"
   },
   {
-    "game": "Duke Nukem 3D", 
+    "game": "Duke Nukem 3D",
     "game_slug": "duke3d",
     "score": 150000,
     "rank": 5,
@@ -159,6 +174,7 @@ curl http://api.retrogamecloud.com/api/users/player1/scores?limit=10
     "updated_at": "2025-11-16T09:00:00.000Z"
   }
 ]
+
 ```
 
 </CodeGroup>
@@ -172,7 +188,9 @@ Para información detallada sobre todos los endpoints, parámetros, respuestas y
 El servicio de usuarios se integra estrechamente con:
 
 - **[Auth Service](/services/auth-service)**: Autenticación y autorización
+
 - **[Game Service](/services/game-service)**: Tracking de actividad de juego
+
 - **[Score Service](/services/score-service)**: Gestión de puntuaciones y rankings
 
 <Note>

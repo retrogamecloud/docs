@@ -1,6 +1,7 @@
 ---
 title: 8.2. Solución de Problemas Comunes
-description: Guía de resolución de problemas comunes en Retro Game Hub para desarrollo y producción
+description: Guía de resolución de problemas comunes en Retro Game Hub para desarrollo
+  y producción
 icon: file-lines
 ---
 
@@ -8,19 +9,24 @@ icon: file-lines
 
 Guía completa para diagnosticar y resolver problemas comunes en Retro Game Hub en entornos de desarrollo y producción.
 
----
+- --
 
 ## 🚨 Problemas de Desarrollo Local
 
 ### 1. Juego No Carga
 
 #### Síntomas
+
 - Pantalla negra después de seleccionar juego
+
 - Mensaje "Error loading game"
+
 - Barra de progreso se queda congelada
 
 #### Diagnóstico
+
 ```bash
+
 # 1. Verificar que el archivo .jsdos existe en S3
 aws s3 ls s3://retrogame-cdn-production/juegos/
 
@@ -32,12 +38,15 @@ aws cloudfront get-distribution --id E1XXXXXXXXXXXXX
 
 # 4. Probar descarga directa
 curl -I https://cdn.retrogamehub.games/juegos/doom.jsdos
+
 ```
 
 #### Soluciones
 
-**A. Archivo no encontrado (404)**
+* *A. Archivo no encontrado (404)**
+
 ```bash
+
 # Subir el archivo faltante
 aws s3 cp doom.jsdos s3://retrogame-cdn-production/juegos/
 
@@ -45,10 +54,13 @@ aws s3 cp doom.jsdos s3://retrogame-cdn-production/juegos/
 aws cloudfront create-invalidation \
   --distribution-id E1XXXXXXXXXXXXX \
   --paths "/juegos/doom.jsdos"
+
 ```
 
-**B. Problema de CORS**
+* *B. Problema de CORS**
+
 ```bash
+
 # Verificar configuración CORS del bucket
 aws s3api get-bucket-cors --bucket retrogame-cdn-production
 
@@ -67,26 +79,34 @@ EOF
 aws s3api put-bucket-cors \
   --bucket retrogame-cdn-production \
   --cors-configuration file://cors.json
+
 ```
 
-**C. js-dos no inicializa**
+* *C. js-dos no inicializa**
+
 ```javascript
 // Verificar en consola del navegador
 console.log(typeof Dos); // Debe ser 'function'
 
 // Si es undefined, verificar que js-dos.js está cargado
 <script src="jsdos/js-dos.js"></script>
+
 ```
 
 ### 2. Error de Autenticación
 
 #### Síntomas
+
 - Login falla con credenciales correctas
+
 - Token JWT inválido
+
 - "Unauthorized" en requests autenticados
 
 #### Diagnóstico
+
 ```bash
+
 # Verificar variables de entorno
 echo $JWT_SECRET
 echo $GITHUB_CLIENT_ID
@@ -94,10 +114,13 @@ echo $GITHUB_CLIENT_SECRET
 
 # Verificar conectividad con GitHub OAuth
 curl -I https://github.com/login/oauth/authorize
+
 ```
 
 #### Soluciones
+
 ```bash
+
 # Regenerar JWT secret
 kubectl create secret generic jwt-secret \
   --from-literal=JWT_SECRET=$(openssl rand -base64 32) \
@@ -105,21 +128,27 @@ kubectl create secret generic jwt-secret \
 
 # Reiniciar auth service
 kubectl rollout restart deployment auth-service
+
 ```
 
----
+- --
 
 ## 🏭 Problemas de Producción
 
 ### 1. Pod CrashLoopBackOff
 
 #### Síntomas
+
 - Pods se reinician continuamente
+
 - Estado "CrashLoopBackOff" en kubectl get pods
+
 - Aplicación no responde
 
 #### Diagnóstico
+
 ```bash
+
 # Verificar estado de los pods
 kubectl get pods -n retrogame
 
@@ -128,12 +157,15 @@ kubectl logs -f pod-name -n retrogame --previous
 
 # Describir el pod para ver eventos
 kubectl describe pod pod-name -n retrogame
+
 ```
 
 #### Soluciones Comunes
 
-**A. Verificar secrets faltantes**
+* *A. Verificar secrets faltantes**
+
 ```bash
+
 # Listar secrets disponibles
 kubectl get secrets -n retrogame
 
@@ -144,10 +176,13 @@ kubectl describe secret app-secrets -n retrogame
 kubectl create secret generic app-secrets \
   --from-literal=DATABASE_URL="postgresql://user:pass@host:5432/db" \
   --from-literal=REDIS_URL="redis://redis:6379"
+
 ```
 
-**B. Validar health checks**
+* *B. Validar health checks**
+
 ```yaml
+
 # Ajustar probe configuration en deployment
 livenessProbe:
   httpGet:
@@ -164,17 +199,23 @@ readinessProbe:
     port: 3000
   initialDelaySeconds: 30
   periodSeconds: 5
+
 ```
 
 ### 2. OOMKilled (Out of Memory)
 
 #### Síntomas
+
 - Pods terminan con código de salida 137
+
 - "OOMKilled" en kubectl describe pod
+
 - Performance degradada antes del crash
 
 #### Diagnóstico
+
 ```bash
+
 # Verificar usage actual de memoria
 kubectl top pods -n retrogame
 
@@ -183,11 +224,13 @@ kubectl describe pod pod-name -n retrogame | grep -A 10 "Last State"
 
 # Verificar límites configurados
 kubectl get pod pod-name -n retrogame -o yaml | grep -A 5 resources
+
 ```
 
 #### Soluciones
 
-**A. Aumentar memory limits**
+* *A. Aumentar memory limits**
+
 ```yaml
 resources:
   limits:
@@ -196,10 +239,13 @@ resources:
   requests:
     memory: "512Mi"
     cpu: "500m"
+
 ```
 
-**B. Analizar memory leaks**
+* *B. Analizar memory leaks**
+
 ```bash
+
 # Habilitar debugging en Node.js
 kubectl set env deployment/app-service NODE_OPTIONS="--inspect=0.0.0.0:9229"
 
@@ -207,41 +253,53 @@ kubectl set env deployment/app-service NODE_OPTIONS="--inspect=0.0.0.0:9229"
 kubectl port-forward pod-name 9229:9229
 
 # Usar Chrome DevTools para analizar heap
+
 # chrome://inspect -> Configure -> Add localhost:9229
+
 ```
 
 ### 3. Latencia Alta en Base de Datos
 
 #### Síntomas
+
 - Respuestas lentas de la API (>2s)
+
 - Timeouts en queries
+
 - High CPU usage en RDS
 
 #### Diagnóstico
+
 ```bash
+
 # Verificar slow queries con RDS Performance Insights
 aws rds describe-db-instances --db-instance-identifier retrogame-prod
 
 # Conectar a la base y verificar queries activas
 psql $DATABASE_URL -c "SELECT pid, now() - pg_stat_activity.query_start AS duration, query FROM pg_stat_activity WHERE (now() - pg_stat_activity.query_start) > interval '5 minutes';"
+
 ```
 
 #### Soluciones
 
-**A. Revisar índices faltantes**
+* *A. Revisar índices faltantes**
+
 ```sql
--- Identificar queries sin índices
+
+- - Identificar queries sin índices
 SELECT schemaname, tablename, attname, n_distinct, correlation
 FROM pg_stats
 WHERE tablename IN ('games', 'users', 'favorites')
 ORDER BY n_distinct DESC;
 
--- Crear índices necesarios
+- - Crear índices necesarios
 CREATE INDEX CONCURRENTLY idx_games_category ON games(category);
 CREATE INDEX CONCURRENTLY idx_favorites_user_game ON favorites(user_id, game_id);
+
 ```
 
-**B. Verificar connection pooling**
+* *B. Verificar connection pooling**
+
 ```javascript
 // Configurar pgPool correctamente
 const pool = new Pool({
@@ -250,17 +308,23 @@ const pool = new Pool({
   idleTimeoutMillis: 30000,   // timeout para conexiones idle
   connectionTimeoutMillis: 2000,
 });
+
 ```
 
 ### 4. Error 502 Bad Gateway
 
 #### Síntomas
+
 - Kong devuelve 502 en requests
+
 - "Bad Gateway" en navegador
+
 - Intermitente o constante
 
 #### Diagnóstico
+
 ```bash
+
 # Verificar estado de Kong
 kubectl get pods -l app=kong -n kong
 
@@ -269,12 +333,15 @@ kubectl logs -f deployment/kong-proxy -n kong
 
 # Verificar upstream health
 kubectl exec -it deployment/kong-proxy -n kong -- kong health
+
 ```
 
 #### Soluciones
 
-**A. Verificar Kong upstream health**
+* *A. Verificar Kong upstream health**
+
 ```bash
+
 # Listar upstreams configurados
 curl -s http://localhost:8001/upstreams
 
@@ -283,26 +350,35 @@ curl -s http://localhost:8001/upstreams/api-service/targets
 
 # Verificar health de targets
 curl -s http://localhost:8001/upstreams/api-service/health
+
 ```
 
-**B. Revisar service endpoints**
+* *B. Revisar service endpoints**
+
 ```bash
+
 # Verificar que los servicios tienen endpoints
 kubectl get endpoints -n retrogame
 
 # Verificar conectividad interna
 kubectl run debug --image=busybox --rm -it --restart=Never -- nslookup api-service.retrogame.svc.cluster.local
+
 ```
 
 ### 5. OAuth2 Redirect Loops
 
 #### Síntomas
+
 - Login redirige infinitamente
-- Error "redirect_uri_mismatch" 
+
+- Error "redirect_uri_mismatch"
+
 - Usuario no puede completar autenticación
 
 #### Diagnóstico
+
 ```bash
+
 # Verificar configuración OAuth en GitHub
 echo "GitHub OAuth App Settings:"
 echo "Homepage URL: https://retrogamehub.games"
@@ -310,22 +386,30 @@ echo "Callback URL: https://retrogamehub.games/auth/callback"
 
 # Verificar variables de entorno
 kubectl get secret oauth-secrets -o yaml | base64 -d
+
 ```
 
 #### Soluciones
 
-**A. Validar callback URLs**
+* *A. Validar callback URLs**
+
 ```bash
+
 # Verificar que las URLs coinciden exactamente
+
 # En GitHub OAuth App:
+
 # - Homepage URL: https://retrogamehub.games
+
 # - Authorization callback URL: https://retrogamehub.games/auth/github/callback
 
 # En el código:
 GITHUB_CALLBACK_URL=https://retrogamehub.games/auth/github/callback
+
 ```
 
-**B. Verificar configuración de sesiones**
+* *B. Verificar configuración de sesiones**
+
 ```javascript
 // Configurar session correctamente
 app.use(session({
@@ -338,36 +422,44 @@ app.use(session({
     maxAge: 24 * 60 * 60 * 1000 // 24 horas
   }
 }));
+
 ```
 
 ### 6. Agotamiento de Conexiones RDS
 
 #### Síntomas
+
 - "Too many connections" errors
+
 - Nuevas conexiones fallan
+
 - Degradación de performance
 
 #### Diagnóstico
+
 ```sql
--- Verificar conexiones activas
+
+- - Verificar conexiones activas
 SELECT count(*) FROM pg_stat_activity;
 
--- Ver conexiones por estado
-SELECT state, count(*) 
-FROM pg_stat_activity 
-WHERE state IS NOT NULL 
+- - Ver conexiones por estado
+SELECT state, count(*)
+FROM pg_stat_activity
+WHERE state IS NOT NULL
 GROUP BY state;
 
--- Identificar conexiones idle
+- - Identificar conexiones idle
 SELECT pid, usename, application_name, state, query_start
-FROM pg_stat_activity 
-WHERE state = 'idle' 
+FROM pg_stat_activity
+WHERE state = 'idle'
 ORDER BY query_start;
+
 ```
 
 #### Soluciones
 
-**A. Configurar connection pooling**
+* *A. Configurar connection pooling**
+
 ```javascript
 // Usar PgBouncer o configurar pool limits
 const pool = new Pool({
@@ -377,10 +469,13 @@ const pool = new Pool({
   acquire: 30000,
   idle: 10000
 });
+
 ```
 
-**B. Aumentar max_connections en RDS**
+* *B. Aumentar max_connections en RDS**
+
 ```bash
+
 # Modificar parameter group
 aws rds modify-db-parameter-group \
   --db-parameter-group-name retrogame-params \
@@ -388,15 +483,17 @@ aws rds modify-db-parameter-group \
 
 # Reiniciar instancia RDS
 aws rds reboot-db-instance --db-instance-identifier retrogame-prod
+
 ```
 
----
+- --
 
 ## 🔍 Herramientas de Monitoreo
 
 ### Comandos Útiles
 
 ```bash
+
 # Monitoreo general del cluster
 kubectl top nodes
 kubectl top pods -A
@@ -409,16 +506,20 @@ kubectl logs -f -l app=api-service -n retrogame
 
 # Verificar conectividad entre servicios
 kubectl run debug --image=nicolaka/netshoot --rm -it --restart=Never
+
 ```
 
 ### Dashboards Recomendados
 
 - **Grafana**: Métricas de infraestructura y aplicación
+
 - **AWS CloudWatch**: Logs centralizados y métricas de AWS
+
 - **RDS Performance Insights**: Análisis detallado de queries
+
 - **Kong Manager**: Estado y métricas del API Gateway
 
----
+- --
 
 ## 📞 Escalación
 

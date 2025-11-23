@@ -1,7 +1,8 @@
 ---
-title: "Casos de Uso End-to-End"
-description: "Ejemplos completos de flujos de usuario desde el registro hasta el juego y clasificación"
-icon: "route"
+title: Casos de Uso End-to-end
+description: Ejemplos completos de flujos de usuario desde el registro hasta el juego
+  y clasificación
+icon: route
 ---
 
 # Casos de Uso End-to-End
@@ -26,32 +27,33 @@ sequenceDiagram
     F->>API: POST /api/auth/register
     API->>A: Validar y crear usuario
     A->>F: JWT Token
-    
+
     U->>F: 2. Login
     F->>API: POST /api/auth/login
     API->>A: Validar credenciales
     A->>F: JWT Token
-    
+
     F->>API: 3. Obtener catálogo
     API->>G: GET /api/games
     G->>F: Lista de juegos
-    
+
     U->>F: 4. Seleccionar juego
     F->>API: GET /api/games/{slug}
     API->>G: Datos del juego
     G->>F: Configuración del juego
-    
+
     U->>F: 5. Jugar
     F->>F: Cargar JS-DOS emulator
-    
+
     U->>F: 6. Finalizar partida
     F->>API: POST /api/scores
     API->>S: Guardar puntuación
     S->>F: Confirmación
-    
+
     F->>API: 7. Ver ranking
     API->>R: GET /api/rankings
     R->>F: Clasificación actualizada
+
 ```
 
 ## Caso 1: Registro de Usuario
@@ -67,6 +69,7 @@ curl -X POST "https://api.retrogamecloud.com/api/auth/register" \
     "password": "MiPassword123!",
     "confirm_password": "MiPassword123!"
   }'
+
 ```
 
 ### Respuesta Exitosa (201)
@@ -88,6 +91,7 @@ curl -X POST "https://api.retrogamecloud.com/api/auth/register" \
     "expires_in": 3600
   }
 }
+
 ```
 
 ### Ejemplo en JavaScript
@@ -102,23 +106,24 @@ const registrarUsuario = async (userData) => {
       },
       body: JSON.stringify(userData)
     });
-    
+
     const data = await response.json();
-    
+
     if (data.success) {
       // Guardar token en localStorage
       localStorage.setItem('auth_token', data.data.token);
       localStorage.setItem('refresh_token', data.data.refresh_token);
-      
+
       return data.data.user;
     }
-    
+
     throw new Error(data.message);
   } catch (error) {
     console.error('Error en registro:', error);
     throw error;
   }
 };
+
 ```
 
 <Note>
@@ -136,6 +141,7 @@ curl -X POST "https://api.retrogamecloud.com/api/auth/login" \
     "email": "jugador@example.com",
     "password": "MiPassword123!"
   }'
+
 ```
 
 ### Respuesta Exitosa (200)
@@ -158,6 +164,7 @@ curl -X POST "https://api.retrogamecloud.com/api/auth/login" \
     "expires_in": 3600
   }
 }
+
 ```
 
 ### Ejemplo con React Hook
@@ -169,10 +176,10 @@ import { AuthContext } from '../contexts/AuthContext';
 const useAuth = () => {
   const [loading, setLoading] = useState(false);
   const { setUser, setToken } = useContext(AuthContext);
-  
+
   const login = async (email, password) => {
     setLoading(true);
-    
+
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -181,19 +188,19 @@ const useAuth = () => {
         },
         body: JSON.stringify({ email, password })
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         setToken(data.data.token);
         setUser(data.data.user);
-        
+
         localStorage.setItem('auth_token', data.data.token);
         localStorage.setItem('refresh_token', data.data.refresh_token);
-        
+
         return data.data.user;
       }
-      
+
       throw new Error(data.message);
     } catch (error) {
       console.error('Error en login:', error);
@@ -202,9 +209,10 @@ const useAuth = () => {
       setLoading(false);
     }
   };
-  
+
   return { login, loading };
 };
+
 ```
 
 ## Caso 3: Obtener Catálogo de Juegos
@@ -214,6 +222,7 @@ const useAuth = () => {
 ```bash
 curl -X GET "https://api.retrogamecloud.com/api/games?page=1&limit=20&category=arcade" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
 ```
 
 ### Respuesta Exitosa (200)
@@ -269,6 +278,7 @@ curl -X GET "https://api.retrogamecloud.com/api/games?page=1&limit=20&category=a
     }
   }
 }
+
 ```
 
 ### Componente React para Catálogo
@@ -291,7 +301,7 @@ const GameCatalog = () => {
 
   const fetchGames = async () => {
     setLoading(true);
-    
+
     try {
       const queryParams = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
@@ -305,7 +315,7 @@ const GameCatalog = () => {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         setGames(data.data.games);
       }
@@ -319,8 +329,8 @@ const GameCatalog = () => {
   return (
     <div className="game-catalog">
       <div className="filters">
-        <select 
-          value={filters.category} 
+        <select
+          value={filters.category}
           onChange={(e) => setFilters({...filters, category: e.target.value, page: 1})}
         >
           <option value="">Todas las categorías</option>
@@ -342,6 +352,7 @@ const GameCatalog = () => {
     </div>
   );
 };
+
 ```
 
 ## Caso 4: Cargar Juego Específico
@@ -351,6 +362,7 @@ const GameCatalog = () => {
 ```bash
 curl -X GET "https://api.retrogamecloud.com/api/games/prince-of-persia" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
 ```
 
 ### Respuesta Exitosa (200)
@@ -412,6 +424,7 @@ curl -X GET "https://api.retrogamecloud.com/api/games/prince-of-persia" \
     }
   }
 }
+
 ```
 
 ### Inicializar Emulador JS-DOS
@@ -434,10 +447,10 @@ const GameEmulator = ({ gameData }) => {
   const initializeDosBox = async () => {
     try {
       setLoading(true);
-      
+
       // Importar JS-DOS dinámicamente
       const { Dos } = await import('js-dos');
-      
+
       // Configurar DosBox
       const dos = Dos(canvasRef.current, {
         wdosboxUrl: "/wdosbox.js",
@@ -448,4 +461,5 @@ const GameEmulator = ({ gameData }) => {
       // Descargar y ejecutar el juego
       dos.ready((fs, main) => {
         //
+
 ```
