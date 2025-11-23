@@ -234,17 +234,29 @@ Responde en JSON puro (sin markdown, sin bloques ```):
 }}
 
 **REGLAS CRÍTICAS PARA JSON VÁLIDO:**
-1. NO uses saltos de línea literales (\\n) dentro de valores string
-2. Si un string es largo, mantenlo en una sola línea continua
-3. Escapa comillas dobles: \\"
-4. NO incluyas bloques ```mermaid``` dentro del JSON, solo el código directo
-5. Valores de mermaid_diagram deben ser strings planos sin marcadores
-6. El analysis_summary debe ser máximo 200 caracteres en una línea
+1. TODOS los strings deben estar en UNA SOLA LÍNEA (sin \n literales)
+2. Escapa comillas dobles dentro de strings: \"
+3. NO incluyas bloques ```mermaid``` dentro del JSON
+4. Para strings largos (>500 chars), TRUNCA a 400 chars y añade "..."
+5. analysis_summary: MAX 200 caracteres en UNA LÍNEA
+6. proposed_content: MAX 400 caracteres en UNA LÍNEA
+7. description: MAX 300 caracteres en UNA LÍNEA
+8. mermaid_diagram: MAX 500 caracteres, usa \n para saltos de línea
+9. Si un valor es muy largo, RESUME en lugar de truncar el JSON
+10. VERIFICA que cada string termine con comillas antes de pasar al siguiente campo
+
+**PRIORIDAD ABSOLUTA: CONSOLIDACIÓN**
+Cuando detectes duplicación:
+- SIEMPRE incluye files_to_delete con los archivos duplicados
+- SIEMPRE incluye files_to_modify con el archivo destino consolidado
+- Describe claramente qué se fusionará en description
+- Category debe ser "structure" para consolidación
+- Priority debe ser "high"
 
 RECUERDA: 
 - **TODO en español de España (castellano)**
 - Sé específico y accionable
-- Prioriza por impacto
+- Prioriza CONSOLIDACIÓN sobre creación
 - Propón contenido concreto, no solo ideas abstractas
 """
     

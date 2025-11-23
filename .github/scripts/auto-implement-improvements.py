@@ -234,25 +234,38 @@ Plataforma de juegos retro con:
         context = self.generate_context_summary()
         success_count = 0
         
-        # 1. ELIMINAR archivos obsoletos/duplicados
+        # 1. ELIMINAR archivos obsoletos/duplicados (PRIORIDAD PARA CONSOLIDACIÓN)
+        if files_to_delete:
+            print(f"   🗑️  Archivos a eliminar: {len(files_to_delete)}")
+        
         for file_path_str in files_to_delete:
-            file_path = self.docs_path / file_path_str
+            # Normalizar ruta: remover './' y espacios
+            normalized = file_path_str.strip().lstrip('./')
+            file_path = self.docs_path / normalized
+            
+            print(f"   🔍 Buscando: {normalized} -> {file_path}")
             
             if not file_path.exists():
-                print(f"   ⏭️  No existe: {file_path_str}")
-                continue
+                # Intentar sin normalizar también
+                alt_path = self.docs_path / file_path_str
+                if alt_path.exists():
+                    file_path = alt_path
+                    print(f"   ✓ Encontrado en ruta alternativa")
+                else:
+                    print(f"   ⏭️  No existe (ni {normalized} ni {file_path_str})")
+                    continue
             
             try:
                 file_path.unlink()
-                print(f"   🗑️  Eliminado: {file_path_str}")
+                print(f"   ✅ ELIMINADO: {normalized}")
                 success_count += 1
                 self.implemented.append({
                     'improvement': title,
-                    'file': file_path_str,
+                    'file': normalized,
                     'status': 'deleted'
                 })
             except Exception as e:
-                print(f"   ❌ Error eliminando {file_path_str}: {e}")
+                print(f"   ❌ Error eliminando {normalized}: {e}")
         
         # 2. CREAR archivos nuevos
         for file_path_str in files_to_create:
