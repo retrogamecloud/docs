@@ -119,7 +119,10 @@ jobs:
           
           BRANCH_NAME="docs/intelligent-improvements-$(date +%Y%m%d-%H%M%S)"
           git checkout -b "$BRANCH_NAME"
-          git add -A
+          
+          # Solo añadir archivos relevantes, no .analysis-repos/
+          git add docs.json IMPROVEMENTS.md STRUCTURE_CHANGELOG.md analysis-results.json 2>/dev/null || true
+          git add api-reference/ 2>/dev/null || true
           
           if git diff --staged --quiet; then
             echo "ℹ️  No hay cambios que commitear"

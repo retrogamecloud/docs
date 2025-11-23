@@ -1,6 +1,7 @@
 # Directorios temporales del workflow
 .repos/
 temp-docs/
+.analysis-repos/
 
 # Node modules
 node_modules/
