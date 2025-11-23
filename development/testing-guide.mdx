@@ -1,7 +1,8 @@
 ---
-title: "Testing y QA"
-description: "Estrategia completa de testing para RetroGameCloud: unitarios, integración, E2E y proceso de QA"
-icon: "flask-vial"
+title: Testing y QA
+description: 'Estrategia completa de testing para RetroGameCloud: unitarios, integración,
+  E2E y proceso de QA'
+icon: flask-vial
 ---
 
 # Testing y QA
@@ -17,11 +18,12 @@ graph TD
     A[Tests E2E - Playwright] --> B[Tests Integración - Supertest]
     B --> C[Tests Unitarios - Jest]
     C --> D[Tests de Carga - k6]
-    
+
     style A fill:#ff6b6b
     style B fill:#4ecdc4
     style C fill:#45b7d1
     style D fill:#96ceb4
+
 ```
 
 ## Tests Unitarios
@@ -58,8 +60,9 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
       }
     }
     ```
+
   </Tab>
-  
+
   <Tab title="jest.config.js">
     ```javascript
     module.exports = {
@@ -76,6 +79,7 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
       setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts']
     };
     ```
+
   </Tab>
 </Tabs>
 
@@ -124,6 +128,7 @@ describe('AuthService', () => {
     });
   });
 });
+
 ```
 
 ### Comandos de Ejecución
@@ -142,6 +147,7 @@ describe('AuthService', () => {
   # Tests para CI/CD
   npm run test:ci
   ```
+
 </Card>
 
 ## Tests de Integración
@@ -205,6 +211,7 @@ describe('Auth Integration Tests', () => {
     });
   });
 });
+
 ```
 
 ### Helper para Base de Datos de Test
@@ -233,6 +240,7 @@ export async function setupTestDatabase() {
 export async function cleanupTestDatabase() {
   await testDb.query('TRUNCATE TABLE users, games, scores RESTART IDENTITY CASCADE');
 }
+
 ```
 
 ## Tests End-to-End
@@ -277,8 +285,9 @@ Los tests E2E validan los flujos críticos de usuario utilizando **Playwright**.
       }
     });
     ```
+
   </Tab>
-  
+
   <Tab title="e2e/auth.spec.js">
     ```javascript
     import { test, expect } from '@playwright/test';
@@ -287,31 +296,32 @@ Los tests E2E validan los flujos críticos de usuario utilizando **Playwright**.
       test('flujo completo de registro y login', async ({ page }) => {
         // Ir a página de registro
         await page.goto('/register');
-        
+
         // Llenar formulario de registro
         await page.fill('input[name="username"]', 'testuser');
         await page.fill('input[name="email"]', 'test@example.com');
         await page.fill('input[name="password"]', 'Password123!');
         await page.fill('input[name="confirmPassword"]', 'Password123!');
-        
+
         // Enviar formulario
         await page.click('button[type="submit"]');
-        
+
         // Verificar redirección a login
         await expect(page).toHaveURL('/login');
         await expect(page.locator('.success-message')).toContainText('Registro exitoso');
-        
+
         // Realizar login
         await page.fill('input[name="email"]', 'test@example.com');
         await page.fill('input[name="password"]', 'Password123!');
         await page.click('button[type="submit"]');
-        
+
         // Verificar login exitoso
         await expect(page).toHaveURL('/dashboard');
         await expect(page.locator('.user-menu')).toContainText('testuser');
       });
     });
     ```
+
   </Tab>
 </Tabs>
 
@@ -335,28 +345,29 @@ test.describe('Gameplay', () => {
     // Ir al catálogo de juegos
     await page.click('nav a[href="/games"]');
     await expect(page).toHaveURL('/games');
-    
+
     // Seleccionar un juego
     await page.click('.game-card[data-game="pac-man"]');
     await expect(page).toHaveURL('/games/pac-man');
-    
+
     // Iniciar juego
     await page.click('button.start-game');
-    
+
     // Esperar a que cargue el emulador
     await expect(page.locator('canvas.dos-canvas')).toBeVisible();
-    
+
     // Verificar que el juego está cargado
     await expect(page.locator('.game-status')).toContainText('Juego cargado');
-    
+
     // Simular interacción (tecla de pausa)
     await page.keyboard.press('Space');
-    
+
     // Verificar guardar puntuación
     await page.click('button.save-score');
     await expect(page.locator('.score-saved')).toBeVisible();
   });
 });
+
 ```
 
 ## Tests de Carga
@@ -399,7 +410,7 @@ export function setup() {
     email: 'loadtest@example.com',
     password: 'LoadTest123!'
   });
-  
+
   return { authToken: loginRes.json().token };
 }
 
@@ -437,7 +448,7 @@ export default function(data) {
         score: Math.floor(Math.random() * 10000),
         level: Math.floor(Math.random() * 10)
       });
-      
+
       let res = http.post(`${BASE_URL}/api/scores`, payload, params);
       check(res, {
         'submit score status 201': (r) => r.status === 201,
@@ -446,6 +457,7 @@ export default function(data) {
     });
   });
 }
+
 ```
 
 ### Ejecutar Tests de Carga
@@ -466,6 +478,7 @@ export default function(data) {
   # Test de spike (picos de tráfico)
   k6 run k6/spike-test.js
   ```
+
 </Card>
 
 ## Testing Local con Minikube
@@ -473,4 +486,5 @@ export default function(data) {
 ### Setup del Entorno Local
 
 ```bash
+
 ```

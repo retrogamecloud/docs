@@ -67,6 +67,7 @@ erDiagram
         int score
         timestamp updated_at
     }
+
 ```
 
 ## Esquemas de Tablas
@@ -89,6 +90,7 @@ erDiagram
         is_active BOOLEAN DEFAULT true
     );
     ```
+
   </Tab>
   <Tab title="Índices">
     ```sql
@@ -98,16 +100,18 @@ erDiagram
     CREATE INDEX idx_users_created_at ON users(created_at);
     CREATE INDEX idx_users_is_active ON users(is_active);
     ```
+
   </Tab>
   <Tab title="Constraints">
     ```sql
-    ALTER TABLE users ADD CONSTRAINT chk_username_length 
+    ALTER TABLE users ADD CONSTRAINT chk_username_length
         CHECK (length(username) >= 3);
-    ALTER TABLE users ADD CONSTRAINT chk_email_format 
+    ALTER TABLE users ADD CONSTRAINT chk_email_format
         CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
-    ALTER TABLE users ADD CONSTRAINT chk_display_name_length 
+    ALTER TABLE users ADD CONSTRAINT chk_display_name_length
         CHECK (length(display_name) >= 1);
     ```
+
   </Tab>
 </Tabs>
 
@@ -130,6 +134,7 @@ erDiagram
         is_active BOOLEAN DEFAULT true
     );
     ```
+
   </Tab>
   <Tab title="Índices">
     ```sql
@@ -139,16 +144,18 @@ erDiagram
     CREATE INDEX idx_games_is_active ON games(is_active);
     CREATE INDEX idx_games_name_trgm ON games USING gin(name gin_trgm_ops);
     ```
+
   </Tab>
   <Tab title="Constraints">
     ```sql
-    ALTER TABLE games ADD CONSTRAINT chk_slug_format 
+    ALTER TABLE games ADD CONSTRAINT chk_slug_format
         CHECK (slug ~* '^[a-z0-9-]+$');
-    ALTER TABLE games ADD CONSTRAINT chk_year_range 
+    ALTER TABLE games ADD CONSTRAINT chk_year_range
         CHECK (year >= 1970 AND year <= EXTRACT(YEAR FROM CURRENT_DATE));
-    ALTER TABLE games ADD CONSTRAINT chk_name_length 
+    ALTER TABLE games ADD CONSTRAINT chk_name_length
         CHECK (length(name) >= 1);
     ```
+
   </Tab>
 </Tabs>
 
@@ -168,6 +175,7 @@ erDiagram
         UNIQUE(user_id, game_id)
     );
     ```
+
   </Tab>
   <Tab title="Índices">
     ```sql
@@ -177,14 +185,16 @@ erDiagram
     CREATE INDEX idx_scores_achieved_at ON scores(achieved_at);
     CREATE INDEX idx_scores_metadata ON scores USING gin(metadata);
     ```
+
   </Tab>
   <Tab title="Constraints">
     ```sql
-    ALTER TABLE scores ADD CONSTRAINT chk_score_positive 
+    ALTER TABLE scores ADD CONSTRAINT chk_score_positive
         CHECK (score >= 0);
-    ALTER TABLE scores ADD CONSTRAINT chk_achieved_at_valid 
+    ALTER TABLE scores ADD CONSTRAINT chk_achieved_at_valid
         CHECK (achieved_at <= CURRENT_TIMESTAMP);
     ```
+
   </Tab>
 </Tabs>
 
@@ -204,6 +214,7 @@ erDiagram
         UNIQUE(game_id, user_id)
     );
     ```
+
   </Tab>
   <Tab title="Índices">
     ```sql
@@ -211,14 +222,16 @@ erDiagram
     CREATE INDEX idx_rankings_user_id ON rankings(user_id);
     CREATE INDEX idx_rankings_updated_at ON rankings(updated_at);
     ```
+
   </Tab>
   <Tab title="Constraints">
     ```sql
-    ALTER TABLE rankings ADD CONSTRAINT chk_rank_positive 
+    ALTER TABLE rankings ADD CONSTRAINT chk_rank_positive
         CHECK (rank > 0);
-    ALTER TABLE rankings ADD CONSTRAINT chk_ranking_score_positive 
+    ALTER TABLE rankings ADD CONSTRAINT chk_ranking_score_positive
         CHECK (score >= 0);
     ```
+
   </Tab>
 </Tabs>
 
@@ -227,8 +240,9 @@ erDiagram
 ### Top 10 Jugadores por Juego
 
 ```sql
--- Obtener el ranking de los mejores 10 jugadores para un juego específico
-SELECT 
+
+- - Obtener el ranking de los mejores 10 jugadores para un juego específico
+SELECT
     r.rank,
     u.username,
     u.display_name,
@@ -237,17 +251,19 @@ SELECT
     r.updated_at
 FROM rankings r
 JOIN users u ON r.user_id = u.id
-WHERE r.game_id = $1 
+WHERE r.game_id = $1
     AND u.is_active = true
 ORDER BY r.rank
 LIMIT 10;
+
 ```
 
 ### Scores de Usuario
 
 ```sql
--- Obtener todos los scores de un usuario con información del juego
-SELECT 
+
+- - Obtener todos los scores de un usuario con información del juego
+SELECT
     g.name as game_name,
     g.slug,
     g.image_url,
@@ -257,16 +273,18 @@ SELECT
 FROM scores s
 JOIN games g ON s.game_id = g.id
 LEFT JOIN rankings r ON r.game_id = s.game_id AND r.user_id = s.user_id
-WHERE s.user_id = $1 
+WHERE s.user_id = $1
     AND g.is_active = true
 ORDER BY s.achieved_at DESC;
+
 ```
 
 ### Búsqueda de Juegos
 
 ```sql
--- Búsqueda de juegos por slug exacto
-SELECT 
+
+- - Búsqueda de juegos por slug exacto
+SELECT
     id,
     name,
     slug,
@@ -275,14 +293,16 @@ SELECT
     image_url,
     category,
     year
-FROM games 
-WHERE slug = $1 
+FROM games
+WHERE slug = $1
     AND is_active = true;
+
 ```
 
 ```sql
--- Búsqueda de juegos por nombre (fuzzy search)
-SELECT 
+
+- - Búsqueda de juegos por nombre (fuzzy search)
+SELECT
     id,
     name,
     slug,
@@ -291,18 +311,20 @@ SELECT
     category,
     year,
     similarity(name, $1) as sim_score
-FROM games 
-WHERE name % $1 
+FROM games
+WHERE name % $1
     AND is_active = true
 ORDER BY similarity(name, $1) DESC
 LIMIT 20;
+
 ```
 
 ### Estadísticas de Usuario
 
 ```sql
--- Estadísticas completas de un usuario
-SELECT 
+
+- - Estadísticas completas de un usuario
+SELECT
     COUNT(s.id) as total_games_played,
     AVG(s.score) as average_score,
     MAX(s.score) as highest_score,
@@ -313,6 +335,7 @@ LEFT JOIN scores s ON u.id = s.user_id
 LEFT JOIN rankings r ON u.id = r.user_id
 WHERE u.id = $1
 GROUP BY u.id;
+
 ```
 
 ## Triggers y Funciones
@@ -320,38 +343,41 @@ GROUP BY u.id;
 ### Trigger para Actualizar Rankings
 
 ```sql
--- Función para recalcular rankings después de insertar/actualizar scores
+
+- - Función para recalcular rankings después de insertar/actualizar scores
 CREATE OR REPLACE FUNCTION update_rankings_for_game()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Eliminar rankings existentes para el juego
     DELETE FROM rankings WHERE game_id = NEW.game_id;
-    
+
     -- Recalcular rankings
     INSERT INTO rankings (game_id, user_id, rank, score)
-    SELECT 
+    SELECT
         game_id,
         user_id,
         ROW_NUMBER() OVER (ORDER BY score DESC) as rank,
         score
-    FROM scores 
+    FROM scores
     WHERE game_id = NEW.game_id;
-    
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Crear trigger
+- - Crear trigger
 CREATE TRIGGER trigger_update_rankings
     AFTER INSERT OR UPDATE ON scores
     FOR EACH ROW
     EXECUTE FUNCTION update_rankings_for_game();
+
 ```
 
 ### Función para Búsqueda Eficiente
 
 ```sql
--- Función para búsqueda combinada de juegos
+
+- - Función para búsqueda combinada de juegos
 CREATE OR REPLACE FUNCTION search_games(
     search_term TEXT,
     category_filter TEXT DEFAULT NULL,
@@ -370,7 +396,7 @@ RETURNS TABLE (
 ) AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
+    SELECT
         g.id,
         g.name,
         g.slug,
@@ -378,7 +404,7 @@ BEGIN
         g.image_url,
         g.category,
         g.year,
-        CASE 
+        CASE
             WHEN g.name ILIKE '%' || search_term || '%' THEN 1.0
             WHEN g.description ILIKE '%' || search_term || '%' THEN 0.8
             ELSE similarity(g.name, search_term)
@@ -386,7 +412,7 @@ BEGIN
     FROM games g
     WHERE g.is_active = true
         AND (
-            g.name ILIKE '%' || search_term || '%' 
+            g.name ILIKE '%' || search_term || '%'
             OR g.description ILIKE '%' || search_term || '%'
             OR g.name % search_term
         )
@@ -396,6 +422,7 @@ BEGIN
     LIMIT limit_count;
 END;
 $$ LANGUAGE plpgsql;
+
 ```
 
 ## Optimizaciones de Rendimiento
@@ -403,16 +430,20 @@ $$ LANGUAGE plpgsql;
 ### Extensiones Requeridas
 
 ```sql
--- Extensiones necesarias para funcionalidad completa
+
+- - Extensiones necesarias para funcionalidad completa
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 CREATE EXTENSION IF NOT EXISTS "btree_gin";
+
 ```
 
 ### Configuraciones Recomendadas
 
 <CodeGroup>
+
 ```sql postgresql.conf
+
 # Configuraciones específicas para el workload
 shared_preload_libraries = 'pg_stat_statements'
 max_connections = 100
@@ -424,20 +455,24 @@ wal_buffers = 16MB
 default_statistics_target = 100
 random_page_cost = 1.1
 effective_io_concurrency = 200
+
 ```
 
 ```sql Índices Parciales
--- Índices parciales para consultas comunes
-CREATE INDEX idx_users_active_created 
+
+- - Índices parciales para consultas comunes
+CREATE INDEX idx_users_active_created
     ON users(created_at) WHERE is_active = true;
 
-CREATE INDEX idx_games_active_category 
+CREATE INDEX idx_games_active_category
     ON games(category) WHERE is_active = true;
 
-CREATE INDEX idx_recent_scores 
-    ON scores(achieved_at) 
+CREATE INDEX idx_recent_scores
+    ON scores(achieved_at)
     WHERE achieved_at > CURRENT_DATE - INTERVAL '30 days';
+
 ```
+
 </CodeGroup>
 
 ## Estrategias de Respaldo
@@ -445,17 +480,20 @@ CREATE INDEX idx_recent_scores
 ### Respaldo Continuo
 
 ```bash
+
 # Configuración de WAL archiving
 archive_mode = on
 archive_command = 'cp %p /backup/wal/%f'
 wal_level = replica
 max_wal_senders = 3
+
 ```
 
 ### Scripts de Respaldo
 
 ```sql
--- Respaldo lógico de datos críticos
+
+- - Respaldo lógico de datos críticos
 pg_dump \
     --host=localhost \
     --username=retrogame_user \
@@ -463,6 +501,7 @@ pg_dump \
     --format=custom \
     --compress=9 \
     --file=backup_$(date +%Y%m%d_%H%M%S).dump
+
 ```
 
 <Warning>
@@ -474,31 +513,34 @@ pg_dump \
 ### Queries de Monitoreo
 
 ```sql
--- Verificar el crecimiento de tablas
-SELECT 
+
+- - Verificar el crecimiento de tablas
+SELECT
     schemaname,
     tablename,
     attname,
     n_distinct,
     correlation
-FROM pg_stats 
+FROM pg_stats
 WHERE schemaname = 'public'
 ORDER BY tablename, attname;
 
--- Monitorear el uso de índices
-SELECT 
+- - Monitorear el uso de índices
+SELECT
     indexrelname,
     idx_scan,
     idx_tup_read,
     idx_tup_fetch
 FROM pg_stat_user_indexes
 ORDER BY idx_scan DESC;
+
 ```
 
 ### Mantenimiento Automatizado
 
 ```sql
--- Configurar autovacuum para tablas de alta actividad
+
+- - Configurar autovacuum para tablas de alta actividad
 ALTER TABLE scores SET (
     autovacuum_vacuum_scale_factor = 0.1,
     autovacuum_analyze_scale_factor = 0.05
@@ -508,4 +550,5 @@ ALTER TABLE rankings SET (
     autovacuum_vacuum_scale_factor = 0.1,
     autovacuum_analyze_scale_factor = 0.05
 );
+
 ```

@@ -1,6 +1,7 @@
 ---
 title: 2.1. Arquitectura del Sistema
-description: Visión general de la arquitectura de microservicios cloud-native de Retro Game Hub desplegada en AWS EKS
+description: Visión general de la arquitectura de microservicios cloud-native de Retro
+  Game Hub desplegada en AWS EKS
 icon: file-lines
 ---
 
@@ -16,18 +17,18 @@ graph TD
         A[CloudFront CDN<br/>Game Assets & Static Content]
         B[Application Load Balancer<br/>SSL/TLS Termination]
     end
-    
+
     subgraph "CAPA DE GATEWAY"
         C[GitHub OAuth2 Proxy<br/>Monitoring Authentication]
         G[Kong API Gateway<br/>Routing & Rate Limiting]
     end
-    
+
     subgraph "CAPA DE OBSERVABILIDAD"
         D[Grafana<br/>Dashboards]
         E[Prometheus<br/>Metrics Collection]
         F[AlertManager<br/>Alerting]
     end
-    
+
     subgraph "CAPA DE APLICACIÓN - EKS Cluster"
         H[Auth Service<br/>:3001]
         I[Game Catalog Service<br/>:3002]
@@ -36,13 +37,13 @@ graph TD
         L[User Service<br/>:3005]
         M[Frontend Static<br/>js-dos Emulator]
     end
-    
+
     subgraph "CAPA DE DATOS"
         N[PostgreSQL RDS<br/>Primary Database]
         O[Redis Cache<br/>Rankings & Sessions]
         P[S3 Bucket<br/>Game Assets & Static Files]
     end
-    
+
     A --> B
     B --> C
     B --> G
@@ -63,6 +64,7 @@ graph TD
     L --> N
     A -.-> P
     M -.-> P
+
 ```
 
 ## Arquitectura por Capas Detallada
@@ -71,19 +73,23 @@ graph TD
 Esta capa maneja todo el tráfico entrante y la distribución de contenido:
 
 - **CloudFront CDN**: Distribución global de contenido estático y assets de juegos
+
 - **Application Load Balancer**: Terminación SSL/TLS y balanceado de carga
 
 ### 2. Capa de Gateway
 Proporciona enrutamiento, autenticación y control de acceso:
 
 - **Kong API Gateway**: Enrutamiento inteligente, rate limiting, y middleware
+
 - **GitHub OAuth2 Proxy**: Autenticación para herramientas de monitoreo
 
 ### 3. Capa de Observabilidad
 Monitoreo y observabilidad del sistema:
 
 - **Prometheus**: Recolección de métricas de todos los servicios
+
 - **Grafana**: Visualización de métricas y dashboards
+
 - **AlertManager**: Gestión de alertas y notificaciones
 
 ### 4. Capa de Aplicación
@@ -136,34 +142,49 @@ Microservicios desplegados en EKS:
 Almacenamiento persistente y cache:
 
 - **PostgreSQL RDS**: Base de datos principal para usuarios, juegos, puntuaciones
+
 - **Redis Cache**: Cache de rankings y sesiones de usuario
+
 - **S3 Bucket**: Almacenamiento de archivos .jsdos y contenido estático
 
 ## Infraestructura como Código
 
 ### AWS EKS Cluster
+
 ```yaml
 Cluster Configuration:
+
 - Kubernetes Version: 1.28
-- Node Groups: 
+
+- Node Groups:
   - System: t3.medium (2-4 nodes)
   - Application: t3.large (2-6 nodes)
+
 - Auto Scaling: Habilitado
+
 - VPC: Private subnets con NAT Gateway
+
 ```
 
 ### Networking
+
 ```yaml
 VPC Configuration:
+
 - CIDR: 10.0.0.0/16
+
 - Public Subnets: 10.0.1.0/24, 10.0.2.0/24
+
 - Private Subnets: 10.0.10.0/24, 10.0.20.0/24
+
 - Availability Zones: Multi-AZ deployment
+
 ```
 
 ## Flujo de Datos Típico
 
 ### 1. Carga de Juego
+
 ```mermaid
 sequenceDiagram
     participant U as Usuario
@@ -172,7 +193,7 @@ sequenceDiagram
     participant GW as Kong Gateway
     participant GC as Game Catalog
     participant S3 as S3 Assets
-    
+
     U->>CF: Solicita página de juego
     CF->>FE: Sirve HTML/CSS/JS
     FE->>GW: GET /games/{id}/metadata
@@ -181,9 +202,11 @@ sequenceDiagram
     FE->>S3: Descarga archivo .jsdos
     S3->>FE: Archivo del juego
     FE->>U: Inicia emulador
+
 ```
 
 ### 2. Envío de Puntuación
+
 ```mermaid
 sequenceDiagram
     participant U as Usuario
@@ -194,7 +217,7 @@ sequenceDiagram
     participant RS as Ranking Service
     participant DB as PostgreSQL
     participant RC as Redis Cache
-    
+
     U->>FE: Finaliza juego con score
     FE->>GW: POST /scores (con JWT)
     GW->>AS: Valida token
@@ -205,30 +228,87 @@ sequenceDiagram
     RS->>RC: Actualiza cache de rankings
     SS->>FE: Confirmación
     FE->>U: Muestra resultado
+
 ```
 
 ## Características de la Arquitectura
 
 ### Escalabilidad
+
 - **Horizontal**: Auto-scaling de pods en EKS
+
 - **Vertical**: Ajuste dinámico de recursos por servicio
+
 - **CDN**: Distribución global de contenido estático
 
 ### Alta Disponibilidad
+
 - **Multi-AZ**: Despliegue en múltiples zonas de disponibilidad
+
 - **Load Balancing**: Distribución de carga entre instancias
+
 - **Health Checks**: Monitoreo continuo de salud de servicios
 
 ### Seguridad
+
 - **Network Policies**: Aislamiento de red entre microservicios
+
 - **JWT Authentication**: Autenticación stateless
+
 - **SSL/TLS**: Cifrado en tránsito
+
 - **VPC**: Red privada virtual aislada
 
 ### Observabilidad
+
 - **Metrics**: Prometheus para métricas de aplicación e infraestructura
+
 - **Logs**: Agregación centralizada de logs
+
 - **Tracing**: Seguimiento de requests distribuidos
+
 - **Alerting**: Notificaciones proactivas de problemas
 
 Esta arquitectura permite que Retro Game Hub sea altamente escalable, mantenible y resiliente, proporcionando una experiencia de usuario óptima mientras facilita el desarrollo y operación del sistema.
+
+## Arquitectura de Componentes
+
+```mermaid
+graph LR
+    subgraph Frontend
+        UI[Interfaz Web]
+        JSDOS[JS-DOS Emulator]
+    end
+
+    subgraph Gateway
+        Kong[Kong API Gateway]
+        OAuth[OAuth2 Proxy]
+    end
+
+    subgraph Microservicios
+        Auth[Auth Service]
+        User[User Service]
+        Catalog[Game Catalog]
+        Score[Score Service]
+        Ranking[Ranking Service]
+    end
+
+    subgraph Datos
+        DB[(PostgreSQL)]
+        S3[S3 Storage]
+    end
+
+    UI --> Kong
+    Kong --> OAuth
+    OAuth --> Auth
+    Kong --> User
+    Kong --> Catalog
+    Kong --> Score
+    Kong --> Ranking
+    Auth --> DB
+    User --> DB
+    Catalog --> S3
+    Score --> DB
+    Ranking --> DB
+```
+

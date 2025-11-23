@@ -16,15 +16,21 @@ Esta documentación cubre la estrategia completa de backup y disaster recovery (
 ### RPO (Recovery Point Objective)
 
 - **Base de Datos Principal**: 1 hora máximo
+
 - **Archivos de Juegos (S3)**: 24 horas máximo
+
 - **Configuraciones de Kubernetes**: 1 hora máximo
+
 - **Configuración Kong Gateway**: 1 hora máximo
 
 ### RTO (Recovery Time Objective)
 
 - **Servicios Críticos**: 4 horas máximo
+
 - **Base de Datos**: 2 horas máximo
+
 - **Frontend y CDN**: 30 minutos máximo
+
 - **API Gateway**: 1 hora máximo
 
 ## Configuración de Backups Automatizados
@@ -77,6 +83,7 @@ resource "aws_cloudwatch_event_rule" "snapshot_schedule" {
   description         = "Trigger for manual DB snapshots"
   schedule_expression = "cron(0 */6 * * ? *)"
 }
+
 ```
 
 </Tab>
@@ -121,6 +128,7 @@ resource "aws_lambda_function" "kong_backup" {
     }
   }
 }
+
 ```
 
 </Tab>
@@ -134,6 +142,7 @@ resource "aws_lambda_function" "kong_backup" {
 <Step title="1. Crear Nueva Base de Datos desde Snapshot">
 
 ```bash
+
 # Listar snapshots disponibles
 aws rds describe-db-snapshots \
   --db-instance-identifier retrogamecloud-prod \
@@ -146,6 +155,7 @@ aws rds restore-db-instance-from-db-snapshot \
   --db-instance-class db.r5.large \
   --multi-az \
   --storage-encrypted
+
 ```
 
 </Step>
@@ -153,6 +163,7 @@ aws rds restore-db-instance-from-db-snapshot \
 <Step title="2. Recrear Infraestructura en Región Alternativa">
 
 ```bash
+
 # Configurar región de DR
 export AWS_DEFAULT_REGION=us-east-1
 export TF_VAR_environment=disaster-recovery
@@ -163,6 +174,7 @@ terraform workspace select dr || terraform workspace new dr
 terraform init
 terraform plan -var="database_endpoint=retrogamecloud-dr.cluster-xxx.us-east-1.rds.amazonaws.com"
 terraform apply -auto-approve
+
 ```
 
 </Step>
@@ -170,6 +182,7 @@ terraform apply -auto-approve
 <Step title="3. Recrear Cluster EKS">
 
 ```bash
+
 # Obtener credenciales del nuevo cluster
 aws eks update-kubeconfig --region us-east-1 --name retrogamecloud-dr
 
@@ -178,6 +191,7 @@ kubectl apply -f k8s/namespaces/
 kubectl apply -f k8s/configs/
 kubectl apply -f k8s/deployments/
 kubectl apply -f k8s/services/
+
 ```
 
 </Step>
@@ -185,6 +199,7 @@ kubectl apply -f k8s/services/
 <Step title="4. Restaurar Configuración Kong">
 
 ```bash
+
 # Descargar último backup de Kong desde S3
 aws s3 cp s3://retrogamecloud-kong-config-backup/latest/kong-config.json ./
 
@@ -195,6 +210,7 @@ curl -X POST http://kong-admin:8001/config \
 # Verificar configuración
 curl -X GET http://kong-admin:8001/services
 curl -X GET http://kong-admin:8001/routes
+
 ```
 
 </Step>
@@ -202,6 +218,7 @@ curl -X GET http://kong-admin:8001/routes
 <Step title="5. Actualizar Registros DNS">
 
 ```bash
+
 # Obtener nueva dirección del Load Balancer
 NEW_LB=$(kubectl get svc kong-proxy -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 
@@ -209,9 +226,11 @@ NEW_LB=$(kubectl get svc kong-proxy -o jsonpath='{.status.loadBalancer.ingress[0
 aws route53 change-resource-record-sets \
   --hosted-zone-id Z123456789 \
   --change-batch file://dns-update.json
+
 ```
 
 DNS Update JSON:
+
 ```json
 {
   "Changes": [{
@@ -224,6 +243,7 @@ DNS Update JSON:
     }
   }]
 }
+
 ```
 
 </Step>
@@ -231,6 +251,7 @@ DNS Update JSON:
 <Step title="6. Verificar Health Checks">
 
 ```bash
+
 # Health check de la API
 curl -f https://api.retrogamecloud.com/health
 
@@ -240,6 +261,7 @@ kubectl exec -it $(kubectl get pods -l app=backend -o jsonpath='{.items[0].metad
 
 # Health check de Kong
 curl -f http://kong-admin:8001/status
+
 ```
 
 </Step>
@@ -253,12 +275,17 @@ curl -f http://kong-admin:8001/status
 <Tab title="Base de Datos">
 
 - [ ] Conexión a la base de datos establecida
+
 - [ ] Integridad de datos verificada
+
 - [ ] Usuarios y permisos restaurados
+
 - [ ] Backups automáticos reconfigurados
+
 - [ ] Monitoreo y alertas activos
 
 ```bash
+
 # Script de validación de BD
 #!/bin/bash
 echo "Validando conexión a BD..."
@@ -269,6 +296,7 @@ kubectl exec -it postgres-client -- psql -h $NEW_DB_HOST -c "SELECT pg_database_
 
 echo "Validando backups automáticos..."
 aws rds describe-db-instances --db-instance-identifier retrogamecloud-dr --query 'DBInstances[0].BackupRetentionPeriod'
+
 ```
 
 </Tab>
@@ -276,16 +304,22 @@ aws rds describe-db-instances --db-instance-identifier retrogamecloud-dr --query
 <Tab title="Aplicaciones">
 
 - [ ] Todos los pods en estado Running
+
 - [ ] Health checks respondiendo
+
 - [ ] APIs funcionales
+
 - [ ] Autenticación funcionando
+
 - [ ] Logs siendo generados correctamente
 
 ```bash
+
 # Validación de aplicaciones
 kubectl get pods --all-namespaces | grep -v Running
 curl -f https://api.retrogamecloud.com/api/v1/games | jq .
 curl -f https://retrogamecloud.com | grep -q "RetroGameCloud"
+
 ```
 
 </Tab>
@@ -293,17 +327,23 @@ curl -f https://retrogamecloud.com | grep -q "RetroGameCloud"
 <Tab title="Kong Gateway">
 
 - [ ] Kong Admin API accesible
+
 - [ ] Todas las rutas configuradas
+
 - [ ] Plugins funcionando
+
 - [ ] Rate limiting activo
+
 - [ ] SSL/TLS configurado
 
 ```bash
+
 # Validación Kong
 curl -s http://kong-admin:8001/status | jq .database.reachable
 curl -s http://kong-admin:8001/services | jq '.data | length'
 curl -s http://kong-admin:8001/routes | jq '.data | length'
 curl -I https://api.retrogamecloud.com | grep -q "HTTP/2 200"
+
 ```
 
 </Tab>
@@ -312,7 +352,8 @@ curl -I https://api.retrogamecloud.com | grep -q "HTTP/2 200"
 ### Checklist de Validación Completa
 
 <Note>
-**Tiempo estimado de validación**: 30-45 minutos
+
+* *Tiempo estimado de validación**: 30-45 minutos
 </Note>
 
 1. **Infraestructura Base** (10 min)
@@ -346,60 +387,88 @@ curl -I https://api.retrogamecloud.com | grep -q "HTTP/2 200"
 <Tabs>
 <Tab title="Q1 - Enero">
 
-**Simulacro Completo de Región**
+* *Simulacro Completo de Región**
+
 - **Fecha**: Segundo sábado de enero
+
 - **Duración**: 4-6 horas
+
 - **Alcance**: Failover completo a región secundaria
+
 - **Participantes**: DevOps, Backend, QA
 
-**Objetivos**:
+* *Objetivos**:
+
 - Validar RTO/RPO reales
+
 - Probar procedimientos completos
+
 - Actualizar documentación
 
 </Tab>
 
 <Tab title="Q2 - Abril">
 
-**Simulacro de Base de Datos**
+* *Simulacro de Base de Datos**
+
 - **Fecha**: Segundo sábado de abril
+
 - **Duración**: 2-3 horas
+
 - **Alcance**: Solo restauración de BD
+
 - **Participantes**: DevOps, Backend
 
-**Objetivos**:
+* *Objetivos**:
+
 - Validar snapshots automáticos
+
 - Probar restauración point-in-time
+
 - Verificar integridad de datos
 
 </Tab>
 
 <Tab title="Q3 - Julio">
 
-**Simulacro de Aplicaciones**
+* *Simulacro de Aplicaciones**
+
 - **Fecha**: Segundo sábado de julio
+
 - **Duración**: 3-4 horas
+
 - **Alcance**: Recreación de cluster y apps
+
 - **Participantes**: DevOps, Backend, Frontend
 
-**Objetivos**:
+* *Objetivos**:
+
 - Validar manifiestos K8s
+
 - Probar configuración Kong
+
 - Verificar funcionalidad end-to-end
 
 </Tab>
 
 <Tab title="Q4 - Octubre">
 
-**Simulacro de Chaos Engineering**
+* *Simulacro de Chaos Engineering**
+
 - **Fecha**: Segundo sábado de octubre
+
 - **Duración**: 6-8 horas
+
 - **Alcance**: Fallos aleatorios múltiples
+
 - **Participantes**: Todo el equipo
 
-**Objetivos**:
+* *Objetivos**:
+
 - Probar resistencia del sistema
+
 - Validar alertas y respuesta
+
 - Mejorar procedimientos de escalación
 
 </Tab>
@@ -408,6 +477,7 @@ curl -I https://api.retrogamecloud.com | grep -q "HTTP/2 200"
 ### Métricas de Simulacros
 
 ```yaml
+
 # Métricas a rastrear en cada simulacro
 metrics:
   rpo_achieved: "tiempo hasta último backup válido"
@@ -415,12 +485,14 @@ metrics:
   data_loss: "cantidad de datos perdidos"
   false_positives: "alertas incorrectas"
   procedure_gaps: "pasos faltantes en documentación"
-  
+
+
 # Dashboard de seguimiento
 simulacro_dashboard:
   - rto_trend: "tendencia de tiempo de recuperación"
   - success_rate: "tasa de éxito de simulacros"
   - team_readiness: "preparación del equipo"
+
 ```
 
 ## Contactos de Emergencia
@@ -442,7 +514,9 @@ simulacro_dashboard:
 ### Vendors y Soporte
 
 - **AWS Support**: Caso de Enterprise Support
+
 - **Kong Support**: Portal de soporte técnico
+
 - **Datadog**: Soporte 24/7 via chat
 
 <Warning>

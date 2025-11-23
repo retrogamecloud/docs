@@ -33,12 +33,13 @@ Retro Game Hub utiliza una VPC dedicada con subnets públicas y privadas distrib
 ## Topología de Red
 
 <Frame>
+
 ```mermaid
 graph TB
     subgraph "Internet"
         IGW[Internet Gateway]
     end
-    
+
     subgraph "VPC: 10.0.0.0/16"
         subgraph "Public Tier"
             direction TB
@@ -46,74 +47,76 @@ graph TB
             NAT1[NAT Gateway AZ-A]
             NAT2[NAT Gateway AZ-B]
             NAT3[NAT Gateway AZ-C]
-            
+
             subgraph "Public Subnets"
                 PUB1[Public 1<br/>10.0.1.0/24<br/>AZ-A]
                 PUB2[Public 2<br/>10.0.2.0/24<br/>AZ-B]
                 PUB3[Public 3<br/>10.0.3.0/24<br/>AZ-C]
             end
         end
-        
+
         subgraph "Application Tier"
             subgraph "Private Subnets"
                 PRIV1[Private 1<br/>10.0.11.0/24<br/>AZ-A]
                 PRIV2[Private 2<br/>10.0.12.0/24<br/>AZ-B]
                 PRIV3[Private 3<br/>10.0.13.0/24<br/>AZ-C]
             end
-            
+
             subgraph "EKS Nodes"
                 NODE1[Node Group AZ-A]
                 NODE2[Node Group AZ-B]
                 NODE3[Node Group AZ-C]
             end
         end
-        
+
         subgraph "Database Tier"
             subgraph "DB Subnets"
                 DB1[DB Subnet 1<br/>10.0.21.0/24<br/>AZ-A]
                 DB2[DB Subnet 2<br/>10.0.22.0/24<br/>AZ-B]
             end
-            
+
             RDS_PRIMARY[(RDS Primary<br/>AZ-A)]
             RDS_STANDBY[(RDS Standby<br/>AZ-B)]
             REDIS[(ElastiCache<br/>Redis)]
         end
     end
-    
+
     IGW --> ALB
     ALB --> NODE1
     ALB --> NODE2
     ALB --> NODE3
-    
+
     NAT1 --> IGW
     NAT2 --> IGW
     NAT3 --> IGW
-    
+
     NODE1 --> NAT1
     NODE2 --> NAT2
     NODE3 --> NAT3
-    
+
     NODE1 --> RDS_PRIMARY
     NODE2 --> RDS_PRIMARY
     NODE3 --> RDS_PRIMARY
-    
+
     NODE1 --> REDIS
     NODE2 --> REDIS
     NODE3 --> REDIS
-    
+
     RDS_PRIMARY <--> RDS_STANDBY
-    
+
     PUB1 --> NAT1
     PUB2 --> NAT2
     PUB3 --> NAT3
-    
+
     PRIV1 --> NODE1
     PRIV2 --> NODE2
     PRIV3 --> NODE3
-    
+
     DB1 --> RDS_PRIMARY
     DB2 --> RDS_STANDBY
+
 ```
+
 </Frame>
 
 ## Diseño de Subnets
@@ -153,9 +156,12 @@ Tienen acceso directo a Internet vía Internet Gateway.
   </tbody>
 </Table>
 
-**Recursos en subnets públicas:**
+* *Recursos en subnets públicas:**
+
 - Application Load Balancer (ALB)
+
 - NAT Gateway (uno por AZ)
+
 - Bastion Host (opcional)
 
 ### Subnets Privadas
@@ -225,6 +231,7 @@ Sin acceso directo a Internet - salen a través del NAT Gateway.
 ### Tráfico Entrante
 
 <Frame>
+
 ```mermaid
 sequenceDiagram
     participant U as Usuario
@@ -232,7 +239,7 @@ sequenceDiagram
     participant ALB as Load Balancer
     participant EKS as EKS Pods
     participant RDS as Base de Datos
-    
+
     U->>CF: 1. Solicitud HTTPS
     CF->>ALB: 2. Reenvío a ALB (público)
     ALB->>EKS: 3. Balanceo a pods (privado)
@@ -241,26 +248,31 @@ sequenceDiagram
     EKS->>ALB: 6. Respuesta HTTP
     ALB->>CF: 7. Respuesta
     CF->>U: 8. Respuesta al usuario
+
 ```
+
 </Frame>
 
 ### Tráfico Saliente
 
 <Frame>
+
 ```mermaid
 sequenceDiagram
     participant EKS as EKS Pods
     participant NAT as NAT Gateway
     participant IGW as Internet Gateway
     participant EXT as Servicios Externos
-    
+
     EKS->>NAT: 1. Solicitud saliente
     NAT->>IGW: 2. Traducción NAT
     IGW->>EXT: 3. Hacia Internet
     EXT->>IGW: 4. Respuesta
     IGW->>NAT: 5. Retorno
     NAT->>EKS: 6. Respuesta al pod
+
 ```
+
 </Frame>
 
 ## Security Groups
@@ -268,13 +280,14 @@ sequenceDiagram
 ### ALB Security Group
 
 <Accordion title="alb-security-group">
+
 ```yaml
 Inbound Rules:
   - Port: 80
     Protocol: HTTP
     Source: 0.0.0.0/0
     Description: "HTTP from anywhere"
-  
+
   - Port: 443
     Protocol: HTTPS
     Source: 0.0.0.0/0
@@ -285,24 +298,27 @@ Outbound Rules:
     Protocol: HTTP
     Destination: eks-nodes-sg
     Description: "To EKS nodes"
+
 ```
+
 </Accordion>
 
 ### EKS Nodes Security Group
 
 <Accordion title="eks-nodes-security-group">
+
 ```yaml
 Inbound Rules:
   - Port: 8080
     Protocol: HTTP
     Source: alb-security-group
     Description: "From ALB"
-  
+
   - Port: 443
     Protocol: HTTPS
     Source: eks-control-plane-sg
     Description: "From EKS control plane"
-  
+
   - Ports: 1025-65535
     Protocol: TCP
     Source: self
@@ -313,22 +329,25 @@ Outbound Rules:
     Protocol: HTTPS
     Destination: 0.0.0.0/0
     Description: "HTTPS to anywhere"
-  
+
   - Port: 5432
     Protocol: TCP
     Destination: rds-security-group
     Description: "To PostgreSQL"
-  
+
   - Port: 6379
     Protocol: TCP
     Destination: redis-security-group
     Description: "To Redis"
+
 ```
+
 </Accordion>
 
 ### RDS Security Group
 
 <Accordion title="rds-security-group">
+
 ```yaml
 Inbound Rules:
   - Port: 5432
@@ -338,12 +357,15 @@ Inbound Rules:
 
 Outbound Rules:
   - None (managed by AWS)
+
 ```
+
 </Accordion>
 
 ### Redis Security Group
 
 <Accordion title="redis-security-group">
+
 ```yaml
 Inbound Rules:
   - Port: 6379
@@ -353,7 +375,9 @@ Inbound Rules:
 
 Outbound Rules:
   - None (managed by AWS)
+
 ```
+
 </Accordion>
 
 ## Network ACLs
@@ -491,10 +515,11 @@ Outbound Rules:
       - Destination: 10.0.0.0/16
         Target: local
         Description: "VPC internal routing"
-      
+
       - Destination: 0.0.0.0/0
         Target: igw-xxx
         Description: "Internet Gateway
 </Tab>
 </Tabs>
+
 ```

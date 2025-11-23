@@ -32,6 +32,7 @@ graph TD
     D --> E[Services<br/>hashPass/genToken/validate]
     E --> F[Repositories<br/>create/findUser/update]
     F --> G[PostgreSQL<br/>Table: users]
+
 ```
 
 ## Configuración del Servicio
@@ -46,6 +47,7 @@ graph TD
     BCRYPT_SALT_ROUNDS=10
     NODE_ENV=production
     ```
+
   </Accordion>
 
   <Accordion title="Dockerfile">
@@ -58,6 +60,7 @@ graph TD
     EXPOSE 3001
     CMD ["npm", "start"]
     ```
+
   </Accordion>
 </AccordionGroup>
 
@@ -92,6 +95,7 @@ CREATE TABLE users (
 
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);
+
 ```
 
 ## Endpoints
@@ -147,6 +151,7 @@ sequenceDiagram
     DB-->>A: User created successfully
     A->>A: Generate JWT token
     A-->>C: 201 Created + JWT token
+
 ```
 
 ### Flujo de Login
@@ -164,6 +169,7 @@ sequenceDiagram
     A->>A: Generate JWT token
     A->>DB: UPDATE last_login
     A-->>C: 200 OK + JWT token
+
 ```
 
 ## Seguridad
@@ -185,6 +191,7 @@ const authMiddleware = require('./middleware/auth');
 // Proteger rutas que requieren autenticación
 app.use('/games', authMiddleware.verifyToken);
 app.use('/save-states', authMiddleware.verifyToken);
+
 ```
 
 ## Métricas y Monitoreo
@@ -201,15 +208,19 @@ app.use('/save-states', authMiddleware.verifyToken);
 El servicio incluye pruebas exhaustivas:
 
 - **Unit Tests**: Lógica de negocio y utilidades
+
 - **Integration Tests**: Endpoints y base de datos
+
 - **Security Tests**: Validación de tokens y ataques comunes
 
 ```bash
+
 # Ejecutar tests
 npm test                    # Todos los tests
 npm run test:unit          # Solo unit tests
 npm run test:integration   # Solo integration tests
 npm run test:coverage      # Con coverage report
+
 ```
 
 ## Enlaces Relacionados

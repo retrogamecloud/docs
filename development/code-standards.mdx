@@ -1,7 +1,8 @@
 ---
-title: "Guía de Contribución y Estándares de Código"
-description: "Proceso completo para contribuir al proyecto RetroGameCloud: pull requests, estándares de código, testing y revisiones"
-icon: "code-pull-request"
+title: Guía de Contribución y Estándares de Código
+description: 'Proceso completo para contribuir al proyecto RetroGameCloud: pull requests,
+  estándares de código, testing y revisiones'
+icon: code-pull-request
 ---
 
 # Guía de Contribución y Estándares de Código
@@ -18,29 +19,31 @@ Esta guía define el proceso completo para contribuir al proyecto RetroGameCloud
     # Fork del repositorio y clonado
     git clone https://github.com/tu-usuario/retro-game-cloud.git
     cd retro-game-cloud
-    
+
     # Configuración de upstream
     git remote add upstream https://github.com/original/retro-game-cloud.git
-    
+
     # Instalación de dependencias
     npm install
-    
+
     # Configuración de hooks de pre-commit
     npm run prepare
     ```
+
   </Tab>
-  
+
   <Tab title="Variables de Entorno">
     ```bash
     # Copia el archivo de ejemplo
     cp .env.example .env.local
-    
+
     # Configuración mínima para desarrollo
     NODE_ENV=development
     DATABASE_URL=postgresql://localhost:5432/retrogame_dev
     JWT_SECRET=your-dev-secret
     AWS_REGION=eu-west-1
     ```
+
   </Tab>
 </Tabs>
 
@@ -51,16 +54,20 @@ Siempre crea tu branch desde `main` actualizado y usa nomenclatura descriptiva.
 </Note>
 
 ```bash
+
 # Actualizar main
 git checkout main
 git pull upstream main
 
 # Crear nueva rama
 git checkout -b feature/nueva-funcionalidad
+
 # o
 git checkout -b fix/correccion-bug
+
 # o
 git checkout -b docs/actualizacion-readme
+
 ```
 
 ## Convenciones de Commits
@@ -70,28 +77,38 @@ git checkout -b docs/actualizacion-readme
 Utilizamos [Conventional Commits](https://www.conventionalcommits.org/es/) con el siguiente formato:
 
 ```
+
 <tipo>(<ámbito>): <descripción>
 
 [cuerpo opcional]
 
 [pie opcional]
+
 ```
 
 ### Tipos de Commit
 
 <Card title="Tipos Principales" icon="git-branch">
+
 - `feat`: Nueva funcionalidad
+
 - `fix`: Corrección de errores
+
 - `docs`: Cambios en documentación
+
 - `style`: Formato, punto y coma faltante, etc.
+
 - `refactor`: Cambio de código que no corrige errores ni añade funcionalidad
+
 - `test`: Añadir tests faltantes o corregir existentes
+
 - `chore`: Cambios en build, dependencias, etc.
 </Card>
 
 ### Ejemplos de Commits
 
 ```bash
+
 # Funcionalidad nueva
 git commit -m "feat(auth): implementar autenticación OAuth2 con Kong"
 
@@ -103,6 +120,7 @@ git commit -m "docs(api): añadir ejemplos de uso para endpoints de ranking"
 
 # Refactorización
 git commit -m "refactor(user-service): migrar callbacks a async/await"
+
 ```
 
 ## Estándares de Código
@@ -123,7 +141,7 @@ git commit -m "refactor(user-service): migrar callbacks a async/await"
         throw new Error('Failed to fetch user games');
       }
     }
-    
+
     // ❌ Incorrecto - Evitar callbacks
     function getUserGames(userId, callback) {
       User.findById(userId, (err, user) => {
@@ -135,8 +153,9 @@ git commit -m "refactor(user-service): migrar callbacks a async/await"
       });
     }
     ```
+
   </Tab>
-  
+
   <Tab title="Manejo de Errores">
     ```javascript
     // ✅ Correcto - Try-catch estructurado
@@ -144,31 +163,32 @@ git commit -m "refactor(user-service): migrar callbacks a async/await"
       try {
         // Validación de entrada
         const validatedData = await gameSchema.validateAsync(gameData);
-        
+
         // Operación principal
         const game = await Game.create(validatedData);
-        
+
         logger.info('Game created successfully', { gameId: game.id });
         return game;
-        
+
       } catch (validationError) {
         if (validationError.isJoi) {
           logger.warn('Invalid game data', validationError.details);
           throw new ValidationError('Invalid game data');
         }
-        
+
         logger.error('Failed to create game', validationError);
         throw new DatabaseError('Game creation failed');
       }
     }
     ```
+
   </Tab>
-  
+
   <Tab title="Logging">
     ```javascript
     // ✅ Configuración de Winston
     const winston = require('winston');
-    
+
     const logger = winston.createLogger({
       level: process.env.LOG_LEVEL || 'info',
       format: winston.format.combine(
@@ -181,11 +201,12 @@ git commit -m "refactor(user-service): migrar callbacks a async/await"
         new winston.transports.File({ filename: 'logs/app.log' })
       ]
     });
-    
+
     // Uso del logger
     logger.info('User authenticated', { userId, timestamp: new Date() });
     logger.error('Database connection failed', { error: error.message });
     ```
+
   </Tab>
 </Tabs>
 
@@ -211,17 +232,18 @@ const gameSchema = Joi.object({
 // Middleware de validación
 const validateGame = (req, res, next) => {
   const { error, value } = gameSchema.validate(req.body);
-  
+
   if (error) {
     return res.status(400).json({
       error: 'Validation failed',
       details: error.details.map(detail => detail.message)
     });
   }
-  
+
   req.validatedData = value;
   next();
 };
+
 ```
 
 ## Requisitos de Testing
@@ -229,9 +251,13 @@ const validateGame = (req, res, next) => {
 ### Cobertura Mínima
 
 <Card title="Requisitos de Cobertura" icon="chart-line">
+
 - **Cobertura general**: > 80%
+
 - **Funciones críticas**: > 95%
+
 - **Nuevas funcionalidades**: 100%
+
 - **Archivos de configuración**: > 70%
 </Card>
 
@@ -277,11 +303,13 @@ describe('GameService', () => {
     });
   });
 });
+
 ```
 
 ### Comandos de Testing
 
 ```bash
+
 # Ejecutar todos los tests
 npm test
 
@@ -299,6 +327,7 @@ npm run lint
 
 # Formateo de código
 npm run format
+
 ```
 
 ## Configuración de ESLint
@@ -320,11 +349,12 @@ Utilizamos la configuración de Airbnb con algunas personalizaciones:
     "no-console": "warn",
     "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
     "max-len": ["error", { "code": 120 }],
-    "import/no-extraneous-dependencies": ["error", { 
-      "devDependencies": ["**/*.test.js", "**/*.spec.js"] 
+    "import/no-extraneous-dependencies": ["error", {
+      "devDependencies": ["**/*.test.js", "**/*.spec.js"]
     }]
   }
 }
+
 ```
 
 ## Template de Pull Request
@@ -334,23 +364,36 @@ Utilizamos la configuración de Airbnb con algunas personalizaciones:
 Crea tus PR usando este template:
 
 ```markdown
+
 ## Descripción
 Breve descripción de los cambios realizados.
 
 ## Tipo de Cambio
+
 - [ ] Bug fix (cambio que corrige un error)
+
 - [ ] Nueva funcionalidad (cambio que añade funcionalidad)
+
 - [ ] Breaking change (cambio que puede romper funcionalidad existente)
+
 - [ ] Actualización de documentación
 
 ## Checklist Pre-merge
+
 - [ ] Los tests pasan localmente (`npm test`)
+
 - [ ] El código cumple con los estándares de linting (`npm run lint`)
+
 - [ ] La cobertura de tests es > 80% (`npm run test:coverage`)
+
 - [ ] Se ha actualizado la documentación si es necesario
+
 - [ ] No hay secretos o credenciales en el código
+
 - [ ] Se han añadido logs apropiados para debugging
+
 - [ ] Las migraciones de BD están incluidas (si aplica)
+
 - [ ] Se ha probado en entorno de desarrollo
 
 ## Tests Realizados
@@ -361,6 +404,7 @@ Añade capturas de pantalla si hay cambios visuales.
 
 ## Notas Adicionales
 Cualquier información adicional relevante para los revisores.
+
 ```
 
 ## Proceso de Code Review
@@ -374,28 +418,45 @@ Cada PR debe ser revisado por **mínimo 2 personas** antes del merge.
 ### Checklist para Revisores
 
 #### Código
+
 - [ ] El código es legible y está bien comentado
+
 - [ ] Sigue las convenciones de nomenclatura del proyecto
+
 - [ ] No hay código duplicado
+
 - [ ] Gestión adecuada de errores
+
 - [ ] Sin hardcoded values o secrets
 
 #### Tests
+
 - [ ] Tests cubren casos principales y edge cases
+
 - [ ] Tests son deterministas (no flaky)
+
 - [ ] Mocks apropiados para dependencias externas
+
 - [ ] Tests de integración incluidos si necesario
 
 #### Seguridad
+
 - [ ] Validación adecuada de inputs
+
 - [ ] No hay vulnerabilidades de inyección
+
 - [ ] Autenticación y autorización correctas
+
 - [ ] Datos sensibles correctamente manejados
 
 #### Performance
+
 - [ ] No hay operaciones bloqueantes innecesarias
+
 - [ ] Consultas de BD optimizadas
+
 - [ ] Gestión adecuada de memoria
+
 - [ ] Paginación en listados grandes
 
 ### Merge Strategy
@@ -405,9 +466,12 @@ Utilizamos **Squash and Merge** para mantener un historial limpio en `main`.
 </Warning>
 
 ```bash
+
 # El merge se realiza automáticamente tras aprobación
+
 # Título del commit de merge:
 feat(scope): descripción concisa del PR (#123)
+
 ```
 
 ## Flujo de Trabajo GitOps
@@ -425,6 +489,7 @@ graph LR
     H --> I[Integration Tests]
     I --> J[Deploy to Production]
     J --> K[ArgoCD Sync]
+
 ```
 
 ## Herramientas y Scripts Útiles
@@ -445,6 +510,7 @@ graph LR
     "prepare": "husky install"
   }
 }
+
 ```
 
 ### Configuración de Pre-commit
@@ -463,14 +529,19 @@ graph LR
     ]
   }
 }
+
 ```
 
 ## Contacto y Soporte
 
 <Card title="Canales de Comunicación" icon="message-circle">
+
 - **Slack**: `#retrogame-dev` para dudas generales
+
 - **GitHub Issues**: Para bugs y feature requests
+
 - **Tech Leads**: Para arquitectura y decisiones técnicas
+
 - **DevOps**: `#infrastructure` para temas de despliegue
 </Card>
 

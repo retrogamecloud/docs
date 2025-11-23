@@ -40,18 +40,27 @@ El servicio de puntuaciones permite a los jugadores guardar y actualizar sus mej
 ## Características Principales
 
 ### 🎯 Gestión de Puntuaciones
+
 - Almacenamiento del mejor score por usuario/juego
+
 - Validación automática contra scores existentes
+
 - Historial de mejoras de puntuaciones
 
 ### 🏆 Sistema de Rankings
+
 - Rankings globales por juego
+
 - Comparativas entre usuarios
+
 - Estadísticas de rendimiento
 
 ### 📊 Analytics de Jugador
+
 - Progress tracking individual
+
 - Métricas de mejora
+
 - Logros desbloqueados
 
 ## Endpoints
@@ -61,25 +70,25 @@ El servicio expone los siguientes endpoints principales:
 <CardGroup cols={2}>
   <Card title="Guardar Puntuación" icon="save" href="/api-reference/scores/save-score">
     `POST /api/scores`
-    
+
     Guarda o actualiza la puntuación de un jugador
   </Card>
 
   <Card title="Scores de Usuario" icon="user" href="/api-reference/scores/get-user-scores">
     `GET /api/scores/user/:userId`
-    
+
     Obtiene todas las puntuaciones de un usuario
   </Card>
 
   <Card title="Ranking Global" icon="trophy" href="/api-reference/scores/get-leaderboard">
     `GET /api/scores/leaderboard/:game`
-    
+
     Rankings globales por juego
   </Card>
 
   <Card title="Comparar Scores" icon="chart-bar" href="/api-reference/scores/compare-scores">
     `GET /api/scores/compare/:userId1/:userId2`
-    
+
     Compara puntuaciones entre usuarios
   </Card>
 </CardGroup>
@@ -98,6 +107,7 @@ curl -X POST http://api.retrogamecloud.com/api/scores \
     "game": "doom",
     "score": 125000
   }'
+
 ```
 
 ```json Response 200 (Nueva puntuación)
@@ -110,6 +120,7 @@ curl -X POST http://api.retrogamecloud.com/api/scores \
     "total": 247
   }
 }
+
 ```
 
 ```json Response 200 (Score menor)
@@ -119,6 +130,7 @@ curl -X POST http://api.retrogamecloud.com/api/scores \
   "submitted": 125000,
   "isNewRecord": false
 }
+
 ```
 
 </CodeGroup>
@@ -129,6 +141,7 @@ curl -X POST http://api.retrogamecloud.com/api/scores \
 
 ```bash Request
 curl http://api.retrogamecloud.com/api/scores/user/123
+
 ```
 
 ```json Response 200
@@ -150,6 +163,7 @@ curl http://api.retrogamecloud.com/api/scores/user/123
     "updated_at": "2025-11-16T09:20:00.000Z"
   }
 ]
+
 ```
 
 </CodeGroup>
@@ -157,13 +171,19 @@ curl http://api.retrogamecloud.com/api/scores/user/123
 ## Lógica de Negocio
 
 ### Validación de Puntuaciones
+
 - Solo se actualizan scores que superen el actual
+
 - Validación de integridad con datos del juego
+
 - Prevención de scores artificialmente altos
 
 ### Sistema de Rankings
+
 - Actualización en tiempo real de posiciones
+
 - Cache de rankings frecuentes
+
 - Paginación para grandes datasets
 
 ## Integración con Otros Servicios
@@ -186,5 +206,7 @@ Para detalles técnicos completos de cada endpoint, consulta la [Referencia de A
 ## Consideraciones de Rendimiento
 
 - Cache Redis para rankings frecuentemente consultados
+
 - Índices optimizados para consultas por usuario y juego
+
 - Batch updates para múltiples puntuaciones simultáneas

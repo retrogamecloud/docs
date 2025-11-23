@@ -45,41 +45,41 @@ sequenceDiagram
 
     U->>B: Accede a https://grafana.retrogamehub.com
     B->>N: GET /
-    
+
     Note over N: Ingress annotation: nginx.ingress.kubernetes.io/auth-url
     N->>O: auth-url: /oauth2/auth
     O-->>N: 401 Unauthorized (no cookie)
     N-->>B: 302 Redirect → /oauth2/start
-    
+
     Note over U,G: Proceso de autenticación GitHub
-    
+
     B->>O: GET /oauth2/start
     O-->>B: 302 Redirect → GitHub OAuth
     Note right of O: https://github.com/login/oauth/authorize<br/>?client_id=xxx&redirect_uri=xxx&scope=user:email
-    
+
     B->>G: GET /login/oauth/authorize
     G-->>B: Formulario de login
     U->>B: Credenciales GitHub
     B->>G: POST /login/oauth/authorize
     G-->>B: Página de autorización
     U->>B: Autoriza aplicación
-    
+
     Note over G,O: Intercambio de código por token
-    
+
     G-->>B: 302 Redirect → /oauth2/callback?code=AUTHORIZATION_CODE
     B->>O: GET /oauth2/callback?code=AUTHORIZATION_CODE
     O->>G: POST /login/oauth/access_token
     Note right of O: client_id, client_secret, code
     G-->>O: Access Token
-    
+
     Note over O: Validación de usuario y organización
-    
+
     O->>G: GET /user (con access token)
     G-->>O: User info
     O->>G: GET /user/orgs (con access token)
     G-->>O: User organizations
     O->>O: Verificar membership en 'retrogamecloud'
-    
+
     alt Usuario autorizado
         O-->>B: Set-Cookie: _oauth2_proxy=xxx + 302 Redirect → /
         Note over U,M: Acceso autorizado a la aplicación
@@ -95,6 +95,7 @@ sequenceDiagram
         O-->>B: 403 Forbidden
         Note right of O: No es miembro de retrogamecloud
     end
+
 ```
 
 ### Diagrama de Arquitectura OAuth2
@@ -104,28 +105,28 @@ graph TB
     subgraph "Internet"
         U[👤 Usuario]
     end
-    
+
     subgraph "Kubernetes Cluster"
         subgraph "Ingress Layer"
             I[🌐 Ingress NGINX<br/>grafana.retrogamehub.com]
         end
-        
+
         subgraph "Auth Layer"
             O[🔐 OAuth2-Proxy<br/>Pod]
         end
-        
+
         subgraph "Monitoring Stack"
             G[📊 Grafana]
             P[📈 Prometheus]
             A[🚨 AlertManager]
         end
     end
-    
+
     subgraph "External"
         GH[🐙 GitHub OAuth<br/>github.com]
         ORG[🏢 retrogamecloud<br/>Organization]
     end
-    
+
     %% Flow connections
     U -->|1. GET /grafana| I
     I -->|2. auth-url check| O
@@ -134,19 +135,20 @@ graph TB
     ORG -->|5. Validate membership| O
     O -->|6. Set cookie & redirect| I
     I -->|7. Forward request| G
-    
+
     %% Same protection for other services
     I -.->|Protected| P
     I -.->|Protected| A
-    
+
     %% Styling
     classDef auth fill:#ff6b6b,stroke:#c92a2a,color:#fff
     classDef monitor fill:#51cf66,stroke:#37b24d,color:#fff
     classDef external fill:#339af0,stroke:#1c7ed6,color:#fff
-    
+
     class O auth
     class G,P,A monitor
     class GH,ORG external
+
 ```
 
 ## Configuraciones Requeridas
@@ -162,21 +164,23 @@ graph TB
        - **Homepage URL**: `https://retrogamehub.com`
        - **Authorization callback URL**: `https://grafana.retrogamehub.com/oauth2/callback`
   </Step>
-  
+
   <Step title="Obtener credenciales">
     ```bash
     # Anotar estos valores
     CLIENT_ID="Ghp_xxxxxxxxxxxx"
     CLIENT_SECRET="gho_xxxxxxxxxxxx"
     ```
+
   </Step>
-  
+
   <Step title="Configurar organización">
     ```yaml
     # En oauth2-proxy config
     github-org: "retrogamecloud"
     email-domains: "*"  # Permitir cualquier email de la org
     ```
+
   </Step>
 </Steps>
 
@@ -193,32 +197,33 @@ data:
     # OAuth Provider
     provider = "github"
     github_org = "retrogamecloud"
-    
+
     # URLs
     http_address = "0.0.0.0:4180"
     redirect_url = "https://grafana.retrogamehub.com/oauth2/callback"
-    
+
     # Upstream
     upstreams = [
       "http://grafana.monitoring.svc.cluster.local:3000"
     ]
-    
+
     # Security
     cookie_secure = true
     cookie_httponly = true
     cookie_samesite = "lax"
     cookie_domains = [".retrogamehub.com"]
-    
+
     # Sessions
     cookie_expire = "168h"  # 7 days
     cookie_refresh = "1h"
-    
+
     # Email validation
     email_domains = ["*"]
-    
+
     # Logging
     request_logging = true
     auth_logging = true
+
 ```
 
 ### Ingress Annotations
@@ -234,7 +239,7 @@ metadata:
     nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.monitoring.svc.cluster.local:4180/oauth2/auth"
     nginx.ingress.kubernetes.io/auth-signin: "https://grafana.retrogamehub.com/oauth2/start"
     nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email"
-    
+
     # SSL
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -261,6 +266,7 @@ spec:
                 name: grafana
                 port:
                   number: 3000
+
 ```
 
 ## Seguridad y Mejores Prácticas
@@ -272,6 +278,7 @@ spec:
     cookie_httponly: true
     cookie_samesite: "lax"
     ```
+
   </Card>
 
   <Card title="Validación de Organización" icon="building">
@@ -279,6 +286,7 @@ spec:
     github_org: "retrogamecloud"
     # Solo miembros de la org
     ```
+
   </Card>
 
   <Card title="Headers de Auth" icon="header">
@@ -287,6 +295,7 @@ spec:
       - X-Auth-Request-User
       - X-Auth-Request-Email
     ```
+
   </Card>
 
   <Card title="Renovación de Tokens" icon="refresh">
@@ -294,6 +303,7 @@ spec:
     cookie_refresh: "1h"
     cookie_expire: "168h"
     ```
+
   </Card>
 </CardGroup>
 
@@ -304,48 +314,52 @@ spec:
 <AccordionGroup>
   <Accordion title="Error 403: Forbidden después de login">
     **Causa**: Usuario no es miembro de la organización `retrogamecloud`
-    
+
     **Solución**:
     ```bash
     # Verificar membership
     curl -H "Authorization: token $GITHUB_TOKEN" \
       https://api.github.com/orgs/retrogamecloud/members/USERNAME
-    
+
     # Agregar usuario a la organización
     # Via GitHub UI: Settings → Member privileges
     ```
+
   </Accordion>
 
   <Accordion title="Redirect loop infinito">
     **Causa**: Misconfiguration en redirect URLs
-    
+
     **Solución**:
     ```yaml
     # Verificar URLs en oauth2-proxy
     redirect_url: "https://grafana.retrogamehub.com/oauth2/callback"
-    
+
     # Y en GitHub OAuth App
     Authorization callback URL: https://grafana.retrogamehub.com/oauth2/callback
     ```
+
   </Accordion>
 
   <Accordion title="Cookie not secure warnings">
     **Causa**: HTTPS no configurado correctamente
-    
+
     **Solución**:
     ```yaml
     # Forzar HTTPS en ingress
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    
-    # Cookie segura en oauth2-proxy  
+
+    # Cookie segura en oauth2-proxy
     cookie_secure: true
     ```
+
   </Accordion>
 </AccordionGroup>
 
 ### Logs Útiles
 
 ```bash
+
 # Logs oauth2-proxy
 kubectl logs -f deployment/oauth2-proxy -n monitoring
 
@@ -354,4 +368,5 @@ kubectl logs -f deployment/ingress-nginx-controller -n ingress-nginx
 
 # Debug auth headers
 kubectl exec -it oauth2-proxy-pod -- curl -v http://localhost:4180/oauth2/auth
+
 ```

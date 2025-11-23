@@ -1,7 +1,8 @@
 ---
-title: "Monitorización y Observabilidad"
-description: "Stack completo de observabilidad para RetroGameCloud: métricas, logs, alertas y dashboards"
-icon: "chart-line"
+title: Monitorización y Observabilidad
+description: 'Stack completo de observabilidad para RetroGameCloud: métricas, logs,
+  alertas y dashboards'
+icon: chart-line
 ---
 
 # Monitorización y Observabilidad
@@ -11,11 +12,17 @@ RetroGameCloud implementa un stack completo de observabilidad que combina herram
 ## Stack de Observabilidad
 
 <Card title="Componentes Principales" icon="stack">
+
 - **CloudWatch Logs**: Agregación centralizada de logs
+
 - **CloudWatch Metrics**: Métricas de infraestructura AWS
+
 - **Prometheus**: Recolección de métricas de aplicación
+
 - **Grafana**: Dashboards y visualización
+
 - **CloudWatch Alarms**: Sistema de alertas
+
 - **AWS X-Ray**: Trazado distribuido
 </Card>
 
@@ -25,7 +32,9 @@ RetroGameCloud implementa un stack completo de observabilidad que combina herram
 
 <Tabs>
 <Tab title="Métricas Clave">
+
 ```yaml
+
 # Métricas críticas del servicio de autenticación
 auth_registrations_total:
   description: "Total de registros de usuarios"
@@ -45,12 +54,18 @@ auth_token_validation_duration:
 auth_active_sessions:
   description: "Sesiones activas concurrentes"
   type: "gauge"
+
 ```
+
 </Tab>
 <Tab title="Umbrales de Alerta">
+
 - **Tasa de fallos de login > 15%**: Posible ataque de fuerza bruta
+
 - **Duración de validación p95 > 500ms**: Degradación del rendimiento
+
 - **Registros/hora < 10**: Posible problema en el flujo de registro
+
 - **Sesiones activas > 10000**: Revisar capacidad del sistema
 </Tab>
 </Tabs>
@@ -58,6 +73,7 @@ auth_active_sessions:
 ### Game Catalog Service
 
 ```yaml
+
 # Métricas del catálogo de juegos
 game_catalog_searches_total:
   description: "Búsquedas realizadas en el catálogo"
@@ -78,6 +94,7 @@ most_played_games:
   description: "Juegos más jugados (top 10)"
   type: "gauge"
   labels: ["game_name", "platform"]
+
 ```
 
 <Warning>
@@ -88,6 +105,7 @@ El servicio de catálogo debe mantener un tiempo de respuesta p95 inferior a 1 s
 
 <Tabs>
 <Tab title="Score Service">
+
 ```yaml
 score_submissions_total:
   description: "Puntuaciones enviadas"
@@ -102,9 +120,12 @@ score_validation_failures:
 score_processing_duration:
   description: "Tiempo de procesamiento de puntuaciones"
   type: "histogram"
+
 ```
+
 </Tab>
 <Tab title="Ranking Service">
+
 ```yaml
 ranking_updates_total:
   description: "Actualizaciones de ranking"
@@ -119,7 +140,9 @@ leaderboard_requests_total:
   description: "Solicitudes de leaderboard"
   type: "counter"
   labels: ["game_id", "period"]
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -128,7 +151,9 @@ leaderboard_requests_total:
 ### Cluster EKS
 
 <Card title="Métricas de Nodos" icon="server">
+
 ```yaml
+
 # Métricas críticas de infraestructura
 node_cpu_utilization:
   description: "Uso de CPU por nodo"
@@ -149,22 +174,25 @@ pod_restart_count:
   description: "Reinicios de pods"
   threshold_warning: 3_restarts_per_hour
   threshold_critical: 5_restarts_per_hour
+
 ```
+
 </Card>
 
 ### Pods y Contenedores
 
 ```yaml
+
 # Métricas por servicio
 container_cpu_usage:
   labels: ["service", "pod", "namespace"]
-  
+
 container_memory_usage:
   labels: ["service", "pod", "namespace"]
 
 container_network_receive_bytes:
   description: "Bytes recibidos por contenedor"
-  
+
 container_network_transmit_bytes:
   description: "Bytes transmitidos por contenedor"
 
@@ -175,12 +203,13 @@ service_thresholds:
     cpu_critical: 400m
     memory_warning: 256Mi
     memory_critical: 512Mi
-  
+
   game-catalog:
     cpu_warning: 300m
     cpu_critical: 500m
     memory_warning: 512Mi
     memory_critical: 1Gi
+
 ```
 
 ## Base de Datos (PostgreSQL en RDS)
@@ -190,6 +219,7 @@ Las métricas de base de datos son críticas para el rendimiento del sistema. Mo
 </Warning>
 
 ```yaml
+
 # Métricas de RDS PostgreSQL
 rds_database_connections:
   description: "Conexiones activas a la base de datos"
@@ -211,6 +241,7 @@ rds_read_latency:
 rds_write_latency:
   threshold_warning: 200ms
   threshold_critical: 500ms
+
 ```
 
 ## CloudWatch Alarms Críticos
@@ -219,6 +250,7 @@ rds_write_latency:
 
 <Tabs>
 <Tab title="Infraestructura">
+
 ```json
 {
   "critical_alarms": [
@@ -251,9 +283,12 @@ rds_write_latency:
     }
   ]
 }
+
 ```
+
 </Tab>
 <Tab title="Aplicación">
+
 ```json
 {
   "application_alarms": [
@@ -283,7 +318,9 @@ rds_write_latency:
     }
   ]
 }
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -292,23 +329,24 @@ rds_write_latency:
 ### Configuración de CloudWatch Logs
 
 ```yaml
+
 # Configuración de log groups
 log_groups:
   - name: "/aws/eks/retrogame-cluster/cluster"
     retention_days: 7
-    
+
   - name: "/retrogame/auth-service"
     retention_days: 30
-    
+
   - name: "/retrogame/game-catalog"
     retention_days: 30
-    
+
   - name: "/retrogame/score-service"
     retention_days: 14
-    
+
   - name: "/retrogame/ranking-service"
     retention_days: 14
-    
+
   - name: "/retrogame/nginx-ingress"
     retention_days: 14
 
@@ -320,20 +358,21 @@ fluent_bit_config: |
       Parser            docker
       Tag               kube.*
       Refresh_Interval  5
-      
+
   [FILTER]
       Name                kubernetes
       Match               kube.*
       Kube_URL            https://kubernetes.default.svc:443
       Merge_Log           On
       Keep_Log            Off
-      
+
   [OUTPUT]
       Name                cloudwatch_logs
       Match               kube.*
       region              eu-west-1
       log_group_name      /aws/eks/retrogame-cluster/application
       auto_create_group   true
+
 ```
 
 ### Acceso a Logs con kubectl
@@ -343,6 +382,7 @@ Para acceder a los logs de los servicios en tiempo real, utiliza estos comandos 
 </Note>
 
 ```bash
+
 # Ver logs de un servicio específico
 kubectl logs -f deployment/auth-service -n retrogame
 
@@ -360,6 +400,7 @@ kubectl logs deployment/ranking-service -n retrogame | grep ERROR
 
 # Ver eventos del cluster
 kubectl get events --sort-by='.lastTimestamp' -n retrogame
+
 ```
 
 ## CloudWatch Insights
@@ -368,7 +409,9 @@ kubectl get events --sort-by='.lastTimestamp' -n retrogame
 
 <Tabs>
 <Tab title="Análisis de Errores">
+
 ```sql
+
 # Errores por servicio en las últimas 24 horas
 fields @timestamp, @message
 | filter @message like /ERROR/
@@ -382,10 +425,14 @@ fields @timestamp, @message
 | stats count() as error_count by error_message
 | sort error_count desc
 | limit 10
+
 ```
+
 </Tab>
 <Tab title="Rendimiento">
+
 ```sql
+
 # Análisis de latencia por endpoint
 fields @timestamp, @message
 | filter @message like /request_duration/
@@ -398,10 +445,14 @@ fields @timestamp
 | filter @message like /HTTP/
 | stats count() as requests by bin(1m)
 | sort @timestamp desc
+
 ```
+
 </Tab>
 <Tab title="Usuarios y Juegos">
+
 ```sql
+
 # Juegos más jugados
 fields @timestamp, @message
 | filter @message like /game_started/
@@ -415,7 +466,9 @@ fields @timestamp, @message
 | filter @message like /user_login/
 | stats count() as logins by bin(1h)
 | sort @timestamp desc
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -461,16 +514,23 @@ fields @timestamp, @message
     ]
   }
 }
+
 ```
 
 ### Dashboard de Infraestructura
 
 <Card title="Métricas de Infraestructura" icon="chart-bar">
+
 - **Uso de CPU y Memoria por nodo**
+
 - **Tráfico de red del cluster**
+
 - **Almacenamiento disponible**
+
 - **Estado de los pods**
+
 - **Métricas de RDS**
+
 - **Distribución de tráfico del Load Balancer**
 </Card>
 
@@ -484,7 +544,9 @@ Sigue estos procedimientos cuando recibas alertas críticas:
 
 <Tabs>
 <Tab title="Alta Tasa de Error 5xx">
+
 ```bash
+
 # 1. Verificar estado de los pods
 kubectl get pods -n retrogame
 
@@ -499,12 +561,17 @@ kubectl exec -it deployment/auth-service -n retrogame -- pg_isready -h $DB_HOST
 
 # 5. Si es necesario, hacer rollback
 kubectl rollout undo deployment/auth-service -n retrogame
+
 ```
+
 </Tab>
 <Tab title="Nodos Unhealthy">
+
 ```bash
+
 # 1. Verificar estado del cluster
 kubectl
 </Tab>
 </Tabs>
+
 ```

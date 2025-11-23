@@ -1,6 +1,7 @@
 ---
 title: 6.6. Monitoreo y Observabilidad
-description: Prometheus, Grafana, AlertManager, CloudWatch y logging centralizado para Retro Game Hub
+description: Prometheus, Grafana, AlertManager, CloudWatch y logging centralizado
+  para Retro Game Hub
 icon: chart-line
 ---
 
@@ -42,24 +43,25 @@ graph TD
     B --> C[Grafana Pod<br/>:3000]
     B --> D[Prometheus Pod<br/>:9090]
     B --> E[AlertManager Pod<br/>:9093]
-    
+
     D --> F[Service Discovery]
     F --> G[node-exporter<br/>Node Metrics]
     F --> H[kube-state-metrics<br/>K8s Metrics]
     F --> I[Application Pods<br/>/metrics endpoints]
-    
+
     J[CloudWatch Logs] --> K[Log Groups]
     K --> L[user-service logs]
     K --> M[game-service logs]
     K --> N[multiplayer-service logs]
-    
+
     C --> D
     E --> D
     E --> O[SNS Topics]
     O --> P[Email/Slack Alerts]
-    
+
     Q[CloudWatch Alarms] --> O
     I --> J
+
 ```
 
 ## Instalación con Helm
@@ -67,6 +69,7 @@ graph TD
 ### Prerrequisitos
 
 ```bash
+
 # Instalar Helm
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
@@ -74,6 +77,7 @@ curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
+
 ```
 
 ### Instalar kube-prometheus-stack
@@ -83,6 +87,7 @@ helm repo update
     ```bash
     kubectl create namespace monitoring
     ```
+
   </Step>
 
   <Step title="Crear values.yaml">
@@ -101,7 +106,7 @@ helm repo update
 
         retention: 15d
         retentionSize: "45GB"
-        
+
         resources:
           requests:
             memory: "2Gi"
@@ -139,7 +144,7 @@ helm repo update
         global:
           smtp_smarthost: 'localhost:587'
           smtp_from: 'alerts@retrogamecloud.com'
-        
+
         route:
           group_by: ['alertname']
           group_wait: 10s
@@ -153,6 +158,7 @@ helm repo update
               - to: 'ops-team@retrogamecloud.com'
                 subject: 'Retro Game Hub Alert: {{ .GroupLabels.alertname }}'
     ```
+
   </Step>
 
   <Step title="Instalar stack">
@@ -161,6 +167,7 @@ helm repo update
       --namespace monitoring \
       --values values-prometheus.yaml
     ```
+
   </Step>
 </Steps>
 
@@ -225,6 +232,7 @@ helm repo update
 ### Estructura de Log Groups
 
 ```bash
+
 # Crear log groups
 aws logs create-log-group --log-group-name /retro-game-hub/user-service
 aws logs create-log-group --log-group-name /retro-game-hub/game-service
@@ -235,6 +243,7 @@ aws logs create-log-group --log-group-name /retro-game-hub/nginx-ingress
 aws logs put-retention-policy \
   --log-group-name /retro-game-hub/user-service \
   --retention-in-days 30
+
 ```
 
 ### Fluent Bit Configuration
@@ -286,6 +295,7 @@ data:
         log_group_name      /retro-game-hub/game-service
         log_stream_prefix   pod/
         auto_create_group   true
+
 ```
 
 ## CloudWatch Alarms Críticos
@@ -307,6 +317,7 @@ data:
       --comparison-operator GreaterThanOrEqualToThreshold \
       --evaluation-periods 2
     ```
+
   </Tab>
 
   <Tab title="RDS Database">
@@ -324,6 +335,7 @@ data:
       --evaluation-periods 3 \
       --dimensions Name=DBInstanceIdentifier,Value=retro-game-db
     ```
+
   </Tab>
 
   <Tab title="Application Load Balancer">
@@ -340,12 +352,14 @@ data:
       --comparison-operator GreaterThanThreshold \
       --evaluation-periods 2
     ```
+
   </Tab>
 </Tabs>
 
 ### Alarms de Aplicación
 
 ```yaml
+
 # prometheus-alerts.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -392,6 +406,7 @@ data:
             annotations:
               summary: "Game service is down"
               description: "Game service has been down for more than 1 minute"
+
 ```
 
 ## Dashboards de Grafana
@@ -446,11 +461,13 @@ data:
     ]
   }
 }
+
 ```
 
 ### Dashboard por Servicio
 
 <CodeGroup>
+
 ```json User Service Dashboard
 {
   "dashboard": {
@@ -479,6 +496,7 @@ data:
     ]
   }
 }
+
 ```
 
 ```json Game Service Dashboard
@@ -509,7 +527,9 @@ data:
     ]
   }
 }
+
 ```
+
 </CodeGroup>
 
 ## Procedimientos de Acceso a Logs
