@@ -1,12 +1,12 @@
 ---
 title: 3.4. Servicio de Puntuaciones
-description: Gestión de puntuaciones y logros de jugadores
+description: Gestión de puntuaciones y logros de jugadores con sistema de rankings en tiempo real
 icon: trophy
 ---
 
 ## Descripción
 
-El servicio de puntuaciones permite a los jugadores guardar y actualizar sus mejores scores en cada juego. Solo guarda el score más alto por usuario y juego, proporcionando un sistema de rankings y logros personalizado.
+El servicio de puntuaciones permite a los jugadores guardar y actualizar sus mejores scores en cada juego. Solo guarda el score más alto por usuario y juego, proporcionando un sistema de rankings y logros personalizado con invalidación inteligente de cache.
 
 <CardGroup cols={3}>
   <Card title="JWT Protected" icon="lock">
@@ -37,31 +37,78 @@ El servicio de puntuaciones permite a los jugadores guardar y actualizar sus mej
 | **Dependencias** | Auth Service, Games Service |
 | **Cache** | Redis para rankings |
 
+## Flujo de Actualización de Puntuaciones
+
+El proceso de submit score involucra múltiples servicios y capas de cache para mantener rankings actualizados:
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant ScoreAPI as Score Service
+    participant DB as PostgreSQL
+    participant Cache as Redis Cache
+    participant Rankings as Ranking Engine
+
+    Client->>ScoreAPI: POST /api/scores
+    ScoreAPI->>DB: Verificar score actual
+    
+    alt Score es mejor
+        ScoreAPI->>DB: UPDATE score
+        ScoreAPI->>Cache: INVALIDATE user_scores:{userId}
+        ScoreAPI->>Cache: INVALIDATE game_leaderboard:{gameId}
+        ScoreAPI->>Rankings: Recalcular posición
+        Rankings->>Cache: SET new_rankings
+        ScoreAPI->>Client: Score actualizado
+    else Score no es mejor
+        ScoreAPI->>Client: Score no actualizado
+    end
+```
+
 ## Características Principales
 
 ### 🎯 Gestión de Puntuaciones
 
 - Almacenamiento del mejor score por usuario/juego
-
 - Validación automática contra scores existentes
-
 - Historial de mejoras de puntuaciones
 
 ### 🏆 Sistema de Rankings
 
 - Rankings globales por juego
-
 - Comparativas entre usuarios
-
 - Estadísticas de rendimiento
 
 ### 📊 Analytics de Jugador
 
 - Progress tracking individual
-
 - Métricas de mejora
-
 - Logros desbloqueados
+
+### ⚡ Cache Inteligente
+
+- Invalidación selectiva por usuario y juego
+- Rankings precalculados en Redis
+- TTL automático para rankings globales
+
+## Estrategia de Cache
+
+<CardGroup cols={2}>
+  <Card title="User Scores Cache" icon="user">
+    **Key Pattern:** `user_scores:{userId}`
+
+    **TTL:** 1 hora
+
+    **Invalidación:** Al actualizar score
+  </Card>
+
+  <Card title="Game Leaderboards" icon="trophy">
+    **Key Pattern:** `game_leaderboard:{gameId}`
+
+    **TTL:** 15 minutos
+
+    **Invalidación:** Al cambiar top rankings
+  </Card>
+</CardGroup>
 
 ## Endpoints
 
@@ -86,127 +133,60 @@ El servicio expone los siguientes endpoints principales:
     Rankings globales por juego
   </Card>
 
-  <Card title="Comparar Scores" icon="chart-bar" href="/api-reference/scores/compare-scores">
-    `GET /api/scores/compare/:userId1/:userId2`
+  <Card title="Comparar Scores" icon="balance-scale" href="/api-reference/scores/compare-scores">
+    `GET /api/scores/compare`
 
     Compara puntuaciones entre usuarios
   </Card>
 </CardGroup>
 
-## Ejemplo de Uso Básico
+## Proceso de Invalidación de Cache
 
-### Guardar Nueva Puntuación
+### Triggers de Invalidación
 
-<CodeGroup>
+<Steps>
+  <Step title="Submit de Nueva Puntuación">
+    Cuando un usuario envía un score, se verifica si supera su mejor marca actual
+  </Step>
 
-```bash Request
-curl -X POST http://api.retrogamecloud.com/api/scores \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "game": "doom",
-    "score": 125000
-  }'
+  <Step title="Validación de Mejora">
+    Si el nuevo score es mejor, se actualiza la base de datos PostgreSQL
+  </Step>
 
-```
+  <Step title="Cache de Usuario">
+    Se invalida `user_scores:{userId}` para refrescar las puntuaciones personales
+  </Step>
 
-```json Response 200 (Nueva puntuación)
-{
-  "message": "Puntuación guardada",
-  "score": 125000,
-  "isNewRecord": true,
-  "ranking": {
-    "position": 15,
-    "total": 247
-  }
-}
+  <Step title="Cache de Leaderboard">
+    Se invalida `game_leaderboard:{gameId}` si el score afecta el top ranking
+  </Step>
 
-```
+  <Step title="Recálculo de Posiciones">
+    El ranking engine recalcula las posiciones y actualiza el cache con nuevos datos
+  </Step>
+</Steps>
 
-```json Response 200 (Score menor)
-{
-  "message": "Puntuación existente es mayor",
-  "currentBest": 180000,
-  "submitted": 125000,
-  "isNewRecord": false
-}
+### Optimizaciones de Performance
 
-```
+- **Lazy Loading:** Rankings se recalculan solo cuando son solicitados
+- **Batch Updates:** Múltiples scores se procesan en lotes durante picos de tráfico
+- **Conditional Invalidation:** Solo se invalidan caches que realmente se ven afectados
 
-</CodeGroup>
-
-### Obtener Scores de Usuario
-
-<CodeGroup>
-
-```bash Request
-curl http://api.retrogamecloud.com/api/scores/user/123
-
-```
-
-```json Response 200
-[
-  {
-    "game_name": "DOOM",
-    "game_slug": "doom",
-    "score": 125000,
-    "ranking": 15,
-    "created_at": "2025-11-15T14:30:00.000Z",
-    "updated_at": "2025-11-18T10:15:00.000Z"
-  },
-  {
-    "game_name": "Quake",
-    "game_slug": "quake",
-    "score": 89500,
-    "ranking": 8,
-    "created_at": "2025-11-16T09:20:00.000Z",
-    "updated_at": "2025-11-16T09:20:00.000Z"
-  }
-]
-
-```
-
-</CodeGroup>
-
-## Lógica de Negocio
-
-### Validación de Puntuaciones
-
-- Solo se actualizan scores que superen el actual
-
-- Validación de integridad con datos del juego
-
-- Prevención de scores artificialmente altos
-
-### Sistema de Rankings
-
-- Actualización en tiempo real de posiciones
-
-- Cache de rankings frecuentes
-
-- Paginación para grandes datasets
-
-## Integración con Otros Servicios
+## Consideraciones de Escalabilidad
 
 <Warning>
-Este servicio requiere validación del token JWT (Auth Service) y verificación del juego existente (Games Service).
+Durante eventos con alto volumen de submits (torneos), el sistema implementa:
+
+- **Queue System:** Redis Bull para procesar scores en background
+- **Rate Limiting:** Máximo 10 submits por minuto por usuario
+- **Partial Cache Updates:** Solo se actualizan posiciones relevantes en rankings
 </Warning>
 
-<Note>
-Para detalles técnicos completos de cada endpoint, consulta la [Referencia de API de Scores](/api-reference/scores).
-</Note>
+## Monitoreo
 
-## Casos de Uso Comunes
+El servicio incluye métricas específicas para:
 
-1. **Guardado Post-Juego**: Automatizar el envío de puntuaciones al finalizar partidas
-2. **Leaderboards**: Mostrar rankings en interfaces de juego
-3. **Progreso Personal**: Tracking de mejoras individuales
-4. **Competencias**: Comparativas entre grupos de usuarios
-
-## Consideraciones de Rendimiento
-
-- Cache Redis para rankings frecuentemente consultados
-
-- Índices optimizados para consultas por usuario y juego
-
-- Batch updates para múltiples puntuaciones simultáneas
+- Cache hit ratio por tipo de consulta
+- Tiempo de invalidación de rankings
+- Frecuencia de actualizaciones de score por juego
+- Latencia de recálculos de posiciones

@@ -1,7 +1,6 @@
 ---
 title: 6.6. Monitoreo y Observabilidad
-description: Prometheus, Grafana, AlertManager, CloudWatch y logging centralizado
-  para Retro Game Hub
+description: Prometheus, Grafana, AlertManager, CloudWatch y logging centralizado para Retro Game Hub, incluyendo troubleshooting de Redis
 icon: chart-line
 ---
 
@@ -62,6 +61,8 @@ graph TD
     Q[CloudWatch Alarms] --> O
     I --> J
 
+    R[Redis Exporter] --> D
+    S[Redis Cluster] --> R
 ```
 
 ## Instalación con Helm
@@ -69,7 +70,6 @@ graph TD
 ### Prerrequisitos
 
 ```bash
-
 # Instalar Helm
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
@@ -77,7 +77,6 @@ curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
-
 ```
 
 ### Instalar kube-prometheus-stack
@@ -87,451 +86,497 @@ helm repo update
     ```bash
     kubectl create namespace monitoring
     ```
-
   </Step>
 
-  <Step title="Crear values.yaml">
+  <Step title="Configurar valores del stack">
     ```yaml
-    # values-prometheus.yaml
+    # values-prometheus-stack.yaml
     prometheus:
       prometheusSpec:
+        retention: 30d
         storageSpec:
           volumeClaimTemplate:
             spec:
-              accessModes: ["ReadWriteOnce"]
+              storageClassName: gp3
               resources:
                 requests:
                   storage: 50Gi
-              storageClassName: gp3
-
-        retention: 15d
-        retentionSize: "45GB"
-
-        resources:
-          requests:
-            memory: "2Gi"
-            cpu: "1000m"
-          limits:
-            memory: "4Gi"
-            cpu: "2000m"
-
-        serviceMonitorSelectorNilUsesHelmValues: false
-        podMonitorSelectorNilUsesHelmValues: false
 
     grafana:
-      adminPassword: "secure-password-here"
-      ingress:
+      adminPassword: "secure-password"
+      persistence:
         enabled: true
-        hosts:
-          - monitoring.retrogamecloud.com
-        tls:
-          - secretName: monitoring-tls
-            hosts:
-              - monitoring.retrogamecloud.com
-
-      datasources:
-        datasources.yaml:
-          apiVersion: 1
-          datasources:
-            - name: Prometheus
-              type: prometheus
-              url: http://prometheus-server
-              access: proxy
-              isDefault: true
-
+        size: 10Gi
+      
     alertmanager:
       config:
         global:
-          smtp_smarthost: 'localhost:587'
-          smtp_from: 'alerts@retrogamecloud.com'
-
+          slack_api_url: 'YOUR_SLACK_WEBHOOK_URL'
         route:
           group_by: ['alertname']
-          group_wait: 10s
-          group_interval: 10s
-          repeat_interval: 1h
           receiver: 'web.hook'
-
         receivers:
-          - name: 'web.hook'
-            email_configs:
-              - to: 'ops-team@retrogamecloud.com'
-                subject: 'Retro Game Hub Alert: {{ .GroupLabels.alertname }}'
+        - name: 'web.hook'
+          slack_configs:
+          - channel: '#alerts-retrogame'
+            title: 'Retro Game Hub Alert'
     ```
-
   </Step>
 
-  <Step title="Instalar stack">
+  <Step title="Instalar el stack">
     ```bash
     helm install prometheus-stack prometheus-community/kube-prometheus-stack \
       --namespace monitoring \
-      --values values-prometheus.yaml
+      --values values-prometheus-stack.yaml
     ```
-
   </Step>
 </Steps>
 
-## Métricas Clave por Servicio
-
-### User Service
-
-<AccordionGroup>
-  <Accordion title="Métricas de Negocio">
-    - **user_registrations_total**: Contador de registros de usuarios
-    - **user_logins_total**: Contador de inicios de sesión
-    - **active_users_gauge**: Usuarios activos en tiempo real
-    - **user_profile_updates_total**: Actualizaciones de perfil
-  </Accordion>
-
-  <Accordion title="Métricas Técnicas">
-    - **http_requests_duration_seconds**: Latencia de requests HTTP
-    - **http_requests_total**: Total de requests por endpoint
-    - **database_connections_active**: Conexiones activas a base de datos
-    - **jwt_token_validations_total**: Validaciones de tokens
-  </Accordion>
-</AccordionGroup>
-
-### Game Service
-
-<AccordionGroup>
-  <Accordion title="Métricas de Negocio">
-    - **games_played_total**: Contador de partidas iniciadas
-    - **games_completed_total**: Contador de partidas completadas
-    - **game_session_duration_seconds**: Duración de sesiones de juego
-    - **popular_games_ranking**: Ranking de juegos más jugados
-  </Accordion>
-
-  <Accordion title="Métricas Técnicas">
-    - **game_rom_loading_duration_seconds**: Tiempo de carga de ROMs
-    - **emulator_memory_usage_bytes**: Uso de memoria del emulador
-    - **save_state_operations_total**: Operaciones de guardado
-    - **game_crashes_total**: Crashes de emulador
-  </Accordion>
-</AccordionGroup>
-
-### Multiplayer Service
-
-<AccordionGroup>
-  <Accordion title="Métricas de Negocio">
-    - **multiplayer_rooms_active**: Salas activas
-    - **multiplayer_players_connected**: Jugadores conectados
-    - **multiplayer_matches_total**: Partidas multijugador
-    - **multiplayer_latency_p95**: Percentil 95 de latencia
-  </Accordion>
-
-  <Accordion title="Métricas Técnicas">
-    - **websocket_connections_active**: Conexiones WebSocket activas
-    - **message_queue_size**: Tamaño de cola de mensajes
-    - **sync_events_total**: Eventos de sincronización
-    - **connection_drops_total**: Desconexiones
-  </Accordion>
-</AccordionGroup>
-
-## Configuración de CloudWatch Logs
-
-### Estructura de Log Groups
-
-```bash
-
-# Crear log groups
-aws logs create-log-group --log-group-name /retro-game-hub/user-service
-aws logs create-log-group --log-group-name /retro-game-hub/game-service
-aws logs create-log-group --log-group-name /retro-game-hub/multiplayer-service
-aws logs create-log-group --log-group-name /retro-game-hub/nginx-ingress
-
-# Configurar retención
-aws logs put-retention-policy \
-  --log-group-name /retro-game-hub/user-service \
-  --retention-in-days 30
-
-```
-
-### Fluent Bit Configuration
+### Configurar Redis Exporter
 
 ```yaml
-apiVersion: v1
-kind: ConfigMap
+# redis-exporter.yaml
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: fluent-bit-config
-  namespace: amazon-cloudwatch
-data:
-  fluent-bit.conf: |
-    [SERVICE]
-        Flush                     5
-        Grace                     30
-        Log_Level                 info
-        Daemon                    off
-        Parsers_File              parsers.conf
-        HTTP_Server               On
-        HTTP_Listen               0.0.0.0
-        HTTP_Port                 2020
-
-    [INPUT]
-        Name                tail
-        Path                /var/log/containers/user-service*.log
-        multiline.parser    docker, cri
-        Tag                 user-service.*
-        Refresh_Interval    5
-
-    [INPUT]
-        Name                tail
-        Path                /var/log/containers/game-service*.log
-        multiline.parser    docker, cri
-        Tag                 game-service.*
-        Refresh_Interval    5
-
-    [OUTPUT]
-        Name                cloudwatch_logs
-        Match               user-service.*
-        region              us-east-1
-        log_group_name      /retro-game-hub/user-service
-        log_stream_prefix   pod/
-        auto_create_group   true
-
-    [OUTPUT]
-        Name                cloudwatch_logs
-        Match               game-service.*
-        region              us-east-1
-        log_group_name      /retro-game-hub/game-service
-        log_stream_prefix   pod/
-        auto_create_group   true
-
+  name: redis-exporter
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-exporter
+  template:
+    metadata:
+      labels:
+        app: redis-exporter
+    spec:
+      containers:
+      - name: redis-exporter
+        image: oliver006/redis_exporter:latest
+        env:
+        - name: REDIS_ADDR
+          value: "redis://redis-cluster:6379"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-auth
+              key: password
+        ports:
+        - containerPort: 9121
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-exporter
+  namespace: monitoring
+  labels:
+    app: redis-exporter
+spec:
+  ports:
+  - port: 9121
+    targetPort: 9121
+  selector:
+    app: redis-exporter
 ```
 
-## CloudWatch Alarms Críticos
+## Métricas Clave para Gaming
 
-### Alarms de Infraestructura
+### Métricas de Aplicación
 
 <Tabs>
-  <Tab title="EKS Cluster">
-    ```bash
-    # Nodos no saludables
-    aws cloudwatch put-metric-alarm \
-      --alarm-name "EKS-UnhealthyNodes" \
-      --alarm-description "EKS nodes unhealthy" \
-      --metric-name "cluster_unhealthy_nodes" \
-      --namespace "ContainerInsights" \
-      --statistic Sum \
-      --period 300 \
-      --threshold 1 \
-      --comparison-operator GreaterThanOrEqualToThreshold \
-      --evaluation-periods 2
+  <Tab title="Gaming Metrics">
+    ```yaml
+    # Métricas específicas de juegos
+    - active_game_sessions_total
+    - game_completion_rate
+    - player_score_distribution
+    - leaderboard_update_latency
+    - matchmaking_queue_time
     ```
-
   </Tab>
 
-  <Tab title="RDS Database">
-    ```bash
-    # Conexiones de base de datos
-    aws cloudwatch put-metric-alarm \
-      --alarm-name "RDS-HighConnectionCount" \
-      --alarm-description "RDS connection count high" \
-      --metric-name "DatabaseConnections" \
-      --namespace "AWS/RDS" \
-      --statistic Average \
-      --period 300 \
-      --threshold 80 \
-      --comparison-operator GreaterThanThreshold \
-      --evaluation-periods 3 \
-      --dimensions Name=DBInstanceIdentifier,Value=retro-game-db
+  <Tab title="Redis Metrics">
+    ```yaml
+    # Métricas de Redis para rankings
+    - redis_connected_clients
+    - redis_used_memory_bytes
+    - redis_keyspace_hits_total
+    - redis_keyspace_misses_total
+    - redis_commands_processed_total
+    - redis_evicted_keys_total
     ```
-
   </Tab>
 
-  <Tab title="Application Load Balancer">
-    ```bash
-    # Tasa de errores 5xx
-    aws cloudwatch put-metric-alarm \
-      --alarm-name "ALB-High5xxErrorRate" \
-      --alarm-description "High 5xx error rate" \
-      --metric-name "HTTPCode_Target_5XX_Count" \
-      --namespace "AWS/ApplicationELB" \
-      --statistic Sum \
-      --period 300 \
-      --threshold 10 \
-      --comparison-operator GreaterThanThreshold \
-      --evaluation-periods 2
+  <Tab title="Infrastructure Metrics">
+    ```yaml
+    # Métricas de infraestructura
+    - node_cpu_usage_percent
+    - node_memory_usage_percent
+    - pod_restart_count
+    - ingress_request_duration
+    - database_connection_pool_usage
     ```
-
   </Tab>
 </Tabs>
 
-### Alarms de Aplicación
-
-```yaml
-
-# prometheus-alerts.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: prometheus-alerts
-  namespace: monitoring
-data:
-  alerts.yml: |
-    groups:
-      - name: retro-game-hub.alerts
-        rules:
-          - alert: HighErrorRate
-            expr: rate(http_requests_total{code=~"5.."}[5m]) > 0.05
-            for: 5m
-            labels:
-              severity: critical
-            annotations:
-              summary: "High error rate detected"
-              description: "Error rate is above 5% for 5 minutes"
-
-          - alert: HighLatency
-            expr: histogram_quantile(0.95, http_request_duration_seconds) > 2
-            for: 10m
-            labels:
-              severity: warning
-            annotations:
-              summary: "High latency detected"
-              description: "95th percentile latency is above 2 seconds"
-
-          - alert: LowActiveUsers
-            expr: active_users_gauge < 10
-            for: 15m
-            labels:
-              severity: warning
-            annotations:
-              summary: "Low user activity"
-              description: "Active users below threshold"
-
-          - alert: GameServiceDown
-            expr: up{job="game-service"} == 0
-            for: 1m
-            labels:
-              severity: critical
-            annotations:
-              summary: "Game service is down"
-              description: "Game service has been down for more than 1 minute"
-
-```
-
 ## Dashboards de Grafana
 
-### Dashboard Principal
+### Dashboard de Gaming Overview
 
 ```json
 {
   "dashboard": {
-    "title": "Retro Game Hub - Overview",
+    "title": "Retro Game Hub - Gaming Overview",
     "panels": [
       {
-        "title": "Active Users",
+        "title": "Active Players",
         "type": "stat",
         "targets": [
           {
-            "expr": "active_users_gauge",
-            "legendFormat": "Active Users"
+            "expr": "sum(active_game_sessions_total)"
           }
         ]
       },
       {
-        "title": "Games Played (Last 24h)",
-        "type": "stat",
+        "title": "Game Completion Rate",
+        "type": "gauge",
         "targets": [
           {
-            "expr": "increase(games_played_total[24h])",
-            "legendFormat": "Games Played"
+            "expr": "rate(game_completion_rate[5m]) * 100"
           }
         ]
       },
       {
-        "title": "Request Rate",
+        "title": "Redis Rankings Performance",
         "type": "graph",
         "targets": [
           {
-            "expr": "rate(http_requests_total[5m])",
-            "legendFormat": "{{service}} - {{method}} {{endpoint}}"
-          }
-        ]
-      },
-      {
-        "title": "Error Rate",
-        "type": "graph",
-        "targets": [
-          {
-            "expr": "rate(http_requests_total{code=~'5..'}[5m]) / rate(http_requests_total[5m]) * 100",
-            "legendFormat": "Error Rate %"
+            "expr": "redis_commands_processed_total{cmd=\"zrevrange\"}"
           }
         ]
       }
     ]
   }
 }
-
 ```
 
-### Dashboard por Servicio
+### Dashboard de Redis Monitoring
 
-<CodeGroup>
-
-```json User Service Dashboard
+```json
 {
   "dashboard": {
-    "title": "User Service Metrics",
+    "title": "Redis Cluster - Rankings System",
     "panels": [
       {
-        "title": "User Registrations",
+        "title": "Memory Usage",
         "type": "graph",
         "targets": [
           {
-            "expr": "rate(user_registrations_total[1h])",
-            "legendFormat": "Registrations/hour"
+            "expr": "redis_used_memory_bytes / redis_config_maxmemory * 100"
           }
         ]
       },
       {
-        "title": "Login Success Rate",
+        "title": "Cache Hit Rate",
         "type": "stat",
         "targets": [
           {
-            "expr": "rate(user_logins_total{status='success'}[5m]) / rate(user_logins_total[5m]) * 100",
-            "legendFormat": "Success Rate %"
-          }
-        ]
-      }
-    ]
-  }
-}
-
-```
-
-```json Game Service Dashboard
-{
-  "dashboard": {
-    "title": "Game Service Metrics",
-    "panels": [
-      {
-        "title": "Most Popular Games",
-        "type": "table",
-        "targets": [
-          {
-            "expr": "topk(10, rate(games_played_total[24h]))",
-            "legendFormat": "{{game_name}}"
+            "expr": "redis_keyspace_hits_total / (redis_keyspace_hits_total + redis_keyspace_misses_total) * 100"
           }
         ]
       },
       {
-        "title": "Game Loading Time",
-        "type": "heatmap",
+        "title": "Evicted Keys",
+        "type": "graph",
         "targets": [
           {
-            "expr": "rate(game_rom_loading_duration_seconds_bucket[5m])",
-            "legendFormat": "Loading Time"
+            "expr": "rate(redis_evicted_keys_total[5m])"
           }
         ]
       }
     ]
   }
 }
-
 ```
 
-</CodeGroup>
+## Alertas Críticas
 
-## Procedimientos de Acceso a Logs
+### Alertas de Redis
 
-### Acceso
+```yaml
+# redis-alerts.yaml
+groups:
+- name: redis.rules
+  rules:
+  - alert: RedisDown
+    expr: redis_up == 0
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Redis instance is down"
+      description: "Redis instance {{ $labels.instance }} has been down for more than 5 minutes."
+
+  - alert: RedisMemoryHigh
+    expr: redis_used_memory_bytes / redis_config_maxmemory * 100 > 85
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Redis memory usage is high"
+      description: "Redis memory usage is above 85% on {{ $labels.instance }}"
+
+  - alert: RedisEvictionHigh
+    expr: rate(redis_evicted_keys_total[5m]) > 10
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High Redis key eviction rate"
+      description: "Redis is evicting keys at a high rate, rankings may be lost"
+
+  - alert: RedisCacheHitRateLow
+    expr: redis_keyspace_hits_total / (redis_keyspace_hits_total + redis_keyspace_misses_total) * 100 < 70
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Redis cache hit rate is low"
+      description: "Cache hit rate is below 70%, consider investigating cache strategy"
+```
+
+### Alertas de Gaming
+
+```yaml
+# gaming-alerts.yaml
+groups:
+- name: gaming.rules
+  rules:
+  - alert: HighGameSessionFailures
+    expr: rate(game_session_failures_total[5m]) > 0.1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High game session failure rate"
+
+  - alert: LeaderboardUpdateSlow
+    expr: leaderboard_update_latency > 2
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Leaderboard updates are slow"
+      description: "Leaderboard updates taking more than 2 seconds"
+
+  - alert: MatchmakingQueueTooLong
+    expr: matchmaking_queue_time > 30
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Matchmaking queue time too long"
+      description: "Players waiting more than 30 seconds for matches"
+```
+
+## Troubleshooting de Redis
+
+### Problema: Rankings Desactualizados
+
+**Síntomas**: Los rankings muestran datos antiguos incluso después de nuevos scores.
+
+**Diagnóstico**:
+
+<Steps>
+  <Step title="Verificar conexiones Redis">
+    ```bash
+    # Verificar conexiones activas
+    kubectl exec -it redis-0 -- redis-cli INFO clients
+    
+    # Revisar comandos de ranking recientes
+    kubectl exec -it redis-0 -- redis-cli MONITOR | grep -i "zadd\|zrevrange"
+    ```
+  </Step>
+
+  <Step title="Verificar cache eviction">
+    ```bash
+    # Revisar política de evicción
+    kubectl exec -it redis-0 -- redis-cli CONFIG GET maxmemory-policy
+    
+    # Verificar keys evictadas
+    kubectl exec -it redis-0 -- redis-cli INFO stats | grep evicted
+    ```
+  </Step>
+
+  <Step title="Verificar persistencia">
+    ```bash
+    # Verificar último save
+    kubectl exec -it redis-0 -- redis-cli LASTSAVE
+    
+    # Verificar configuración de persistencia
+    kubectl exec -it redis-0 -- redis-cli CONFIG GET save
+    kubectl exec -it redis-0 -- redis-cli CONFIG GET appendonly
+    ```
+  </Step>
+</Steps>
+
+**Soluciones Comunes**:
+
+<Tabs>
+  <Tab title="Memory Issues">
+    ```yaml
+    # Ajustar límites de memoria
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: redis-config
+    data:
+      redis.conf: |
+        maxmemory 2gb
+        maxmemory-policy allkeys-lru
+        # No evictar keys de rankings
+        maxmemory-samples 10
+    ```
+  </Tab>
+
+  <Tab title="Connection Limits">
+    ```yaml
+    # Incrementar límites de conexión
+    data:
+      redis.conf: |
+        maxclients 10000
+        tcp-keepalive 300
+        timeout 0
+    ```
+  </Tab>
+
+  <Tab title="Persistence Config">
+    ```yaml
+    # Configurar persistencia híbrida
+    data:
+      redis.conf: |
+        # RDB para snapshots
+        save 900 1
+        save 300 10
+        save 60 10000
+        
+        # AOF para durabilidad
+        appendonly yes
+        appendfsync everysec
+        no-appendfsync-on-rewrite no
+    ```
+  </Tab>
+</Tabs>
+
+### Problema: Conexiones Redis Agotadas
+
+**Síntomas**: Errores de "max number of clients reached" en logs.
+
+**Diagnóstico y Solución**:
+
+```bash
+# Verificar conexiones actuales
+kubectl exec -it redis-0 -- redis-cli INFO clients
+
+# Identificar clientes conectados
+kubectl exec -it redis-0 -- redis-cli CLIENT LIST
+
+# Configurar connection pooling en aplicación
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-redis-config
+data:
+  REDIS_POOL_SIZE: "20"
+  REDIS_MAX_CONNECTIONS: "100"
+  REDIS_CONNECTION_TIMEOUT: "5000"
+```
+
+### Problema: Cluster vs Standalone Decision
+
+**Para Rankings System**:
+
+<Tabs>
+  <Tab title="Standalone (Recomendado)">
+    ```yaml
+    # Mejor para rankings debido a:
+    # - Operaciones ZREVRANGE más eficientes
+    # - No hay redistribución de shards
+    # - Menor latencia para leaderboards globales
+    
+    apiVersion: apps/v1
+    kind: StatefulSet
+    metadata:
+      name: redis-standalone
+    spec:
+      serviceName: redis
+      replicas: 1
+      template:
+        spec:
+          containers:
+          - name: redis
+            image: redis:7-alpine
+            resources:
+              requests:
+                memory: "2Gi"
+                cpu: "1"
+              limits:
+                memory: "4Gi"
+                cpu: "2"
+    ```
+  </Tab>
+
+  <Tab title="Cluster (Para Escala)">
+    ```yaml
+    # Usar solo si >100k usuarios activos
+    # Considerar particionamiento por juego
+    
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: redis-cluster-config
+    data:
+      redis.conf: |
+        cluster-enabled yes
+        cluster-config-file nodes.conf
+        cluster-node-timeout 5000
+        # Partition rankings por game_id
+        cluster-require-full-coverage no
+    ```
+  </Tab>
+</Tabs>
+
+## CloudWatch Integration
+
+### Log Groups Configuration
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentbit-config
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         1
+        Log_Level     info
+        Daemon        off
+
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*retrogame*.log
+        Parser            docker
+        Tag               kube.*
+        Refresh_Interval  5
+
+    [OUTPUT]
+        Name                cloudwatch_logs
+        Match               kube.*
+        region              us-east-1
+        log_group_name      /aws/eks/retrogame-hub
+        log_stream_prefix   ${HOSTNAME}-
+        auto_create_group   true
+```
+
+### CloudWatch Al

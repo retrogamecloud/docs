@@ -1,12 +1,111 @@
 ---
 title: 6.1. Visión General de Infraestructura
-description: Infraestructura cloud AWS gestionada con Terraform
+description: Infraestructura cloud AWS gestionada con Terraform para alta disponibilidad y escalabilidad
 icon: file-lines
 ---
 
 ## Infraestructura como Código
 
-La infraestructura de Retro Game Hub está completamente gestionada con **Terraform**, asegurando despliegues reproducibles y versionados.
+La infraestructura de Retro Game Hub está completamente gestionada con **Terraform**, asegurando despliegues reproducibles y versionados en AWS.
+
+## Arquitectura de la Infraestructura
+
+<div className="mermaid">
+```mermaid
+graph TB
+    subgraph "Internet"
+        Users[👥 Usuarios]
+        GitHub[GitHub OAuth]
+    end
+    
+    subgraph "AWS Cloud"
+        subgraph "Route53 + CloudFront"
+            DNS[Route53<br/>retrogamehub.games]
+            CDN[CloudFront CDN<br/>Assets & Contenido]
+        end
+        
+        subgraph "VPC (10.0.0.0/16)"
+            subgraph "Public Subnets"
+                ALB[Application Load Balancer]
+                NAT1[NAT Gateway AZ-1]
+                NAT2[NAT Gateway AZ-2]
+                IGW[Internet Gateway]
+            end
+            
+            subgraph "Private Subnets - AZ1"
+                EKS1[EKS Worker Nodes]
+                RDS_PRIMARY[(RDS PostgreSQL<br/>Primary)]
+            end
+            
+            subgraph "Private Subnets - AZ2" 
+                EKS2[EKS Worker Nodes]
+                RDS_STANDBY[(RDS PostgreSQL<br/>Standby)]
+                REDIS[(ElastiCache Redis)]
+            end
+            
+            subgraph "EKS Control Plane"
+                CONTROL[EKS Managed Control Plane]
+                NGINX[Ingress NGINX]
+                OAUTH[OAuth2-Proxy]
+            end
+        end
+        
+        subgraph "Storage & Logs"
+            S3[S3 Buckets<br/>Logs & Artifacts]
+        end
+        
+        subgraph "Security & Access"
+            ACM[ACM Certificates]
+            IAM[IAM Roles & Policies]
+            SG[Security Groups]
+        end
+    end
+    
+    Users --> DNS
+    DNS --> CDN
+    CDN --> ALB
+    GitHub --> OAUTH
+    ALB --> NGINX
+    NGINX --> OAUTH
+    OAUTH --> EKS1
+    OAUTH --> EKS2
+    EKS1 --> RDS_PRIMARY
+    EKS2 --> RDS_PRIMARY
+    EKS1 --> REDIS
+    EKS2 --> REDIS
+    RDS_PRIMARY --> RDS_STANDBY
+    EKS1 --> S3
+    EKS2 --> S3
+    NAT1 --> IGW
+    NAT2 --> IGW
+    EKS1 --> NAT1
+    EKS2 --> NAT2
+    
+    classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef k8s fill:#326CE5,stroke:#fff,stroke-width:2px,color:#fff
+    classDef database fill:#336791,stroke:#fff,stroke-width:2px,color:#fff
+    classDef security fill:#DD344C,stroke:#fff,stroke-width:2px,color:#fff
+    
+    class DNS,CDN,ALB,NAT1,NAT2,IGW,S3,ACM,IAM aws
+    class CONTROL,EKS1,EKS2,NGINX,OAUTH k8s
+    class RDS_PRIMARY,RDS_STANDBY,REDIS database
+    class SG security
+```
+</div>
+
+## Componentes de Red y Seguridad
+
+### Red VPC
+- **CIDR:** `10.0.0.0/16`
+- **Subnets Públicas:** 2 AZ con NAT Gateways e Internet Gateway
+- **Subnets Privadas:** 2 AZ para workloads y bases de datos
+- **Multi-AZ:** Alta disponibilidad en `us-west-2a` y `us-west-2b`
+
+### Security Groups
+- **ALB-SG:** Puertos 80/443 desde internet
+- **EKS-SG:** Comunicación interna del cluster
+- **RDS-SG:** Puerto 5432 solo desde EKS nodes
+- **Redis-SG:** Puerto 6379 solo desde EKS nodes
 
 ## Servicios AWS Utilizados
 
@@ -15,13 +114,13 @@ La infraestructura de Retro Game Hub está completamente gestionada con **Terraf
     Cluster Kubernetes gestionado para orquestación de contenedores
   </Card>
   <Card title="VPC" icon="network-wired">
-    Red aislada con subnets públicas y privadas
+    Red aislada con subnets públicas y privadas multi-AZ
   </Card>
   <Card title="RDS" icon="database">
-    Base de datos PostgreSQL gestionada
+    PostgreSQL 14 con Multi-AZ y backups automáticos
   </Card>
   <Card title="ElastiCache" icon="bolt">
-    Redis gestionado para caché
+    Redis 7.x gestionado para caché y sesiones
   </Card>
   <Card title="ALB" icon="scale-balanced">
     Application Load Balancer con terminación SSL
@@ -39,200 +138,67 @@ La infraestructura de Retro Game Hub está completamente gestionada con **Terraf
     Certificados SSL/TLS automáticos
   </Card>
   <Card title="IAM" icon="shield">
-    Gestión de identidad y acceso
+    Gestión de identidad y acceso con roles específicos
   </Card>
   <Card title="Ingress NGINX" icon="route">
-    Routing con autenticación OAuth2
+    Routing interno con balanceo de carga
   </Card>
   <Card title="OAuth2-Proxy" icon="lock">
-    Autenticación GitHub para monitoreo
+    Autenticación GitHub para servicios de monitoreo
   </Card>
 </CardGroup>
 
-## Estructura de Terraform
-
-```
-
-terraform/eks_test/
-├── main.tf                  # Configuración del provider
-├── variables.tf             # Variables de entrada
-├── outputs.tf               # Valores de salida
-├── vpc.tf                   # VPC y redes
-├── eks.tf                   # Configuración del cluster EKS
-├── rds.tf                   # Base de datos PostgreSQL
-├── s3.tf                    # Buckets S3 y CloudFront
-├── route53.tf               # DNS y certificados SSL
-├── alb.tf                   # Application Load Balancer
-├── monitoring.tf            # Prometheus, Grafana, AlertManager
-├── oauth2_proxy.tf          # OAuth de GitHub para monitoreo
-├── kubernetes.tf            # Deployments de K8s
-├── kong.tf                  # Kong API Gateway
-└── terraform.tfvars         # Valores de variables (gitignored)
-
-```
-
-## Arquitectura de Red
-
-### Configuración de VPC
-
-- **CIDR**: `10.0.0.0/16`
-
-- **Zonas de Disponibilidad**: 3 (eu-west-1a, eu-west-1b, eu-west-1c)
-
-### Subnets
-
-<Tabs>
-  <Tab title="Subnets Públicas">
-    - `10.0.1.0/24` (eu-west-1a)
-    - `10.0.2.0/24` (eu-west-1b)
-    - `10.0.3.0/24` (eu-west-1c)
-
-    **Contiene**:
-    - Application Load Balancer
-    - NAT Gateway
-    - Internet Gateway
-  </Tab>
-
-  <Tab title="Subnets Privadas">
-    - `10.0.11.0/24` (eu-west-1a)
-    - `10.0.12.0/24` (eu-west-1b)
-    - `10.0.13.0/24` (eu-west-1c)
-
-    **Contiene**:
-    - Nodos worker de EKS
-    - Base de datos RDS
-    - Cluster Redis
-    - Pods de aplicación
-  </Tab>
-</Tabs>
-
-## Gestión de Estado
-
-<Info>
-El estado de Terraform se almacena remotamente en S3 con bloqueo DynamoDB para permitir colaboración en equipo.
-</Info>
-
-```hcl
-terraform {
-  backend "s3" {
-    bucket         = "retrogame-terraform-state"
-    key            = "eks-test/terraform.tfstate"
-    region         = "eu-west-1"
-    dynamodb_table = "terraform-lock"
-    encrypt        = true
-  }
-}
-
-```
-
-## Optimización de Costos
-
-### Costos Actuales (Estimados)
-
-- **Cluster EKS**: $72/mes (plano de control)
-
-- **Instancias EC2**: ~$30-60/mes (nodos t3.medium)
-
-- **RDS**: $15-25/mes (db.t3.micro)
-
-- **NAT Gateway**: $32/mes
-
-- **Transferencia de Datos**: Variable
-
-- **Total**: ~$135-160/mes
-
-<Warning>
-Las instancias t3.micro son insuficientes para cargas de trabajo de EKS. Mínimo recomendado: **t3.medium** (4GB RAM, 17 pods/nodo).
-</Warning>
-
-### Consideraciones de Free Tier
-
-- Plano de control EKS: **NO** cubierto por Free Tier ($72/mes inevitable)
-
-- Instancias t3.micro: Solo 750 horas/mes = 1 instancia gratis
-
-- RDS: 750 horas/mes db.t3.micro incluidas
-
-- S3: 5GB de almacenamiento estándar gratis
-
-- Transferencia de Datos: 100GB salida por mes gratis
-
-## Flujo de Despliegue
+## Flujo de Tráfico
 
 <Steps>
-  <Step title="Inicializar Terraform">
-    ```bash
-    cd terraform/eks_test
-    terraform init
-    ```
-
+  <Step title="DNS Resolution">
+    Route53 resuelve `retrogamehub.games` y subdominios
   </Step>
-
-  <Step title="Planificar Cambios">
-    ```bash
-    terraform plan
-    ```
-
+  <Step title="CDN Distribution">
+    CloudFront sirve contenido estático y cachea responses
   </Step>
-
-  <Step title="Aplicar Infraestructura">
-    ```bash
-    terraform apply
-    ```
-
+  <Step title="Load Balancing">
+    ALB distribuye tráfico entre AZ con health checks
   </Step>
-
-  <Step title="Configurar kubectl">
-    ```bash
-    aws eks update-kubeconfig --region eu-west-1 --name retrogame
-    ```
-
+  <Step title="Ingress Routing">
+    NGINX Ingress enruta requests a servicios específicos
   </Step>
-
-  <Step title="Verificar Despliegue">
-    ```bash
-    kubectl get nodes
-    kubectl get pods --all-namespaces
-    ```
-
+  <Step title="Authentication">
+    OAuth2-Proxy valida acceso para servicios protegidos
+  </Step>
+  <Step title="Application Processing">
+    Pods de Kubernetes procesan requests con acceso a RDS/Redis
   </Step>
 </Steps>
 
-## Recursos Clave
+## Estructura de Terraform
 
-<CardGroup cols={2}>
-  <Card title="Detalles del Cluster EKS" icon="dharmachakra" href="/infrastructure/eks-cluster">
-    Conoce la configuración de Kubernetes
-  </Card>
-  <Card title="Configuración de Red" icon="network-wired" href="/infrastructure/networking">
-    Entiende la VPC y security groups
-  </Card>
-  <Card title="CDN con CloudFront" icon="cloud" href="/infrastructure/cdn-cloudfront">
-    Distribución global de juegos y assets
-  </Card>
-  <Card title="Route53 y SSL" icon="certificate" href="/infrastructure/route53-ssl">
-    DNS personalizado y certificados HTTPS
-  </Card>
-  <Card title="OAuth2 Authentication" icon="lock" href="/infrastructure/oauth2-authentication">
-    Protección de herramientas con GitHub
-  </Card>
-  <Card title="Stack de Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
-    Prometheus, Grafana, y configuración OAuth
-  </Card>
-</CardGroup>
+```bash
+terraform/eks_test/
+├── main.tf                  # Configuración del provider AWS
+├── variables.tf             # Variables de entrada y configuración
+├── outputs.tf               # Valores de salida para otros módulos
+├── vpc.tf                   # VPC, subnets, IGW y NAT gateways
+├── eks.tf                   # Cluster EKS y node groups
+├── rds.tf                   # PostgreSQL Multi-AZ con backups
+├── elasticache.tf           # Redis cluster configuration
+├── s3.tf                    # Buckets S3 y CloudFront distribution
+├── route53.tf               # DNS records y health checks
+├── alb.tf                   # Application Load Balancer
+├── security-groups.tf       # Security groups y reglas
+├── iam.tf                   # Roles y policies IAM
+└── acm.tf                   # SSL certificates
+```
 
-## Próximos Pasos
+## Características de Alta Disponibilidad
 
-¿Listo para profundizar? Explora los componentes específicos de infraestructura:
+- **Multi-AZ Deployment:** Recursos distribuidos en 2 zonas de disponibilidad
+- **Auto Scaling:** EKS node groups con escalado automático
+- **Database Failover:** RDS Multi-AZ con failover automático
+- **Load Balancing:** ALB con health checks y distribución inteligente
+- **CDN Global:** CloudFront para baja latencia mundial
+- **Backup Automatizado:** RDS snapshots diarios y retención configurable
 
-- [Configuración del Cluster EKS](/infrastructure/eks-cluster)
-
-- [Networking y Seguridad](/infrastructure/networking)
-
-- [CDN con S3 y CloudFront](/infrastructure/cdn-cloudfront)
-
-- [Route53 y Certificados SSL](/infrastructure/route53-ssl)
-
-- [Autenticación OAuth2 con GitHub](/infrastructure/oauth2-authentication)
-
-- [Monitoreo y Observabilidad](/infrastructure/monitoring)
+<Note>
+  La infraestructura está diseñada para soportar fallos de componentes individuales sin interrumpir el servicio.
+</Note>
