@@ -1,6 +1,7 @@
 ---
 title: Testing y QA
-description: 'Estrategia completa de testing para RetroGameCloud: unitarios, integración, E2E y proceso de QA'
+description: 'Estrategia completa de testing para RetroGameCloud: unitarios, integración,
+  E2E y proceso de QA'
 icon: flask-vial
 ---
 
@@ -22,6 +23,7 @@ graph TD
     style B fill:#4ecdc4
     style C fill:#45b7d1
     style D fill:#96ceb4
+
 ```
 
 ## Tests Unitarios
@@ -58,6 +60,7 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
       }
     }
     ```
+
   </Tab>
 
   <Tab title="jest.config.js">
@@ -76,6 +79,7 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
       setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts']
     };
     ```
+
   </Tab>
 </Tabs>
 
@@ -103,7 +107,7 @@ describe('AuthService', () => {
       // Given
       const credentials = { email: 'test@example.com', password: 'password123' };
       const mockUser = { id: '1', email: 'test@example.com', hashedPassword: 'hashed' };
-      
+
       mockUserRepository.findByEmail.mockResolvedValue(mockUser);
       mockJWTService.generateToken.mockReturnValue('jwt-token');
 
@@ -116,6 +120,7 @@ describe('AuthService', () => {
     });
   });
 });
+
 ```
 
 ## Tests de Integración
@@ -160,6 +165,7 @@ describe('Authentication Integration', () => {
     });
   });
 });
+
 ```
 
 # Tests End-to-End
@@ -207,6 +213,7 @@ Newman ejecuta collections de Postman para validar la API de forma automatizada.
       },
     });
     ```
+
   </Tab>
 
   <Tab title="newman-config.json">
@@ -224,6 +231,7 @@ Newman ejecuta collections de Postman para validar la API de forma automatizada.
       "color": "on"
     }
     ```
+
   </Tab>
 </Tabs>
 
@@ -232,7 +240,8 @@ Newman ejecuta collections de Postman para validar la API de forma automatizada.
 ### E2E-001: Flujo Completo de Jugador
 
 <Callout type="info">
-**Test crítico para validar la experiencia completa del usuario**
+
+* *Test crítico para validar la experiencia completa del usuario**
 </Callout>
 
 ```typescript
@@ -246,7 +255,7 @@ test('E2E-001: Complete Player Journey', async ({ page }) => {
   await page.fill('[data-testid="password"]', 'SecurePass123!');
   await page.fill('[data-testid="username"]', 'RetroGamer2024');
   await page.click('[data-testid="register-button"]');
-  
+
   await expect(page.locator('[data-testid="success-message"]')).toBeVisible();
 
   // 2. Login y obtención de JWT
@@ -254,20 +263,20 @@ test('E2E-001: Complete Player Journey', async ({ page }) => {
   await page.fill('[data-testid="email"]', 'newplayer@test.com');
   await page.fill('[data-testid="password"]', 'SecurePass123!');
   await page.click('[data-testid="login-button"]');
-  
+
   await expect(page.locator('[data-testid="user-menu"]')).toBeVisible();
 
   // 3. Listar catálogo de juegos
   await page.goto('/games');
   await expect(page.locator('[data-testid="games-grid"]')).toBeVisible();
-  
+
   const gameCount = await page.locator('[data-testid="game-card"]').count();
   expect(gameCount).toBeGreaterThan(0);
 
   // 4. Cargar juego con js-dos
   await page.click('[data-testid="game-card"]:first-child');
   await expect(page.locator('[data-testid="dosbox-canvas"]')).toBeVisible();
-  
+
   // Wait for game to load
   await page.waitForSelector('[data-testid="game-loaded"]', { timeout: 30000 });
 
@@ -275,7 +284,7 @@ test('E2E-001: Complete Player Journey', async ({ page }) => {
   await page.click('[data-testid="submit-score"]');
   await page.fill('[data-testid="score-input"]', '15000');
   await page.click('[data-testid="save-score-button"]');
-  
+
   await expect(page.locator('[data-testid="score-saved"]')).toBeVisible();
 
   // 6. Verificar aparición en ranking
@@ -284,6 +293,7 @@ test('E2E-001: Complete Player Journey', async ({ page }) => {
   await expect(playerScore).toBeVisible();
   await expect(playerScore.locator('[data-testid="score"]')).toContainText('15000');
 });
+
 ```
 
 ### E2E-002: Flujo de Autenticación OAuth2
@@ -295,7 +305,7 @@ import { test, expect } from '@playwright/test';
 test('E2E-002: OAuth2 Authentication Flow', async ({ page, context }) => {
   // 1. Inicio de sesión con Google
   await page.goto('/login');
-  
+
   // Mock Google OAuth for testing
   await context.route('**/auth/google', route => {
     route.fulfill({
@@ -310,7 +320,7 @@ test('E2E-002: OAuth2 Authentication Flow', async ({ page, context }) => {
 
   // 2. Callback y generación de JWT
   await expect(page).toHaveURL(/.*\/dashboard/);
-  
+
   // Verify JWT token is stored
   const token = await page.evaluate(() => localStorage.getItem('auth_token'));
   expect(token).toBeTruthy();
@@ -318,15 +328,16 @@ test('E2E-002: OAuth2 Authentication Flow', async ({ page, context }) => {
   // 3. Acceso a recursos protegidos
   await page.goto('/profile');
   await expect(page.locator('[data-testid="user-profile"]')).toBeVisible();
-  
+
   // Verify API calls include JWT
   const [request] = await Promise.all([
     page.waitForRequest('**/api/user/profile'),
     page.reload()
   ]);
-  
+
   expect(request.headers().authorization).toContain('Bearer');
 });
+
 ```
 
 ### E2E-003: Validación de Rendimiento de Juegos
@@ -337,20 +348,20 @@ import { test, expect } from '@playwright/test';
 
 test('E2E-003: Game Performance Validation', async ({ page }) => {
   await page.goto('/games/pac-man');
-  
+
   // Start performance monitoring
   await page.coverage.startJSCoverage();
   const startTime = Date.now();
-  
+
   // Wait for game initialization
   await page.waitForSelector('[data-testid="dosbox-canvas"]');
   await page.waitForSelector('[data-testid="game-loaded"]', { timeout: 15000 });
-  
+
   const loadTime = Date.now() - startTime;
-  
+
   // Verify game loads within acceptable time
   expect(loadTime).toBeLessThan(10000); // 10 seconds max
-  
+
   // Check memory usage
   const metrics = await page.evaluate(() => {
     return {
@@ -358,9 +369,10 @@ test('E2E-003: Game Performance Validation', async ({ page }) => {
       timing: performance.timing.loadEventEnd - performance.timing.navigationStart
     };
   });
-  
+
   expect(metrics.memory).toBeLessThan(100 * 1024 * 1024); // Less than 100MB
 });
+
 ```
 
 ## Ejecución en CI
@@ -381,7 +393,7 @@ Los tests E2E se ejecutan en GitHub Actions contra un cluster efímero de Kubern
     jobs:
       e2e-tests:
         runs-on: ubuntu-latest
-        
+
         services:
           redis:
             image: redis:7
@@ -390,7 +402,7 @@ Los tests E2E se ejecutan en GitHub Actions contra un cluster efímero de Kubern
               --health-interval 10s
               --health-timeout 5s
               --health-retries 5
-          
+
           postgres:
             image: postgres:15
             env:
@@ -404,26 +416,26 @@ Los tests E2E se ejecutan en GitHub Actions contra un cluster efímero de Kubern
 
         steps:
           - uses: actions/checkout@v4
-          
+
           - name: Setup Node.js
             uses: actions/setup-node@v4
             with:
               node-version: '18'
               cache: 'npm'
-          
+
           - name: Install dependencies
             run: npm ci
-          
+
           - name: Setup test database
             run: |
               npm run db:migrate:test
               npm run db:seed:test
             env:
               DATABASE_URL: postgresql://postgres:postgres@localhost:5432/retrogame_test
-          
+
           - name: Install Playwright
             run: npx playwright install --with-deps
-          
+
           - name: Start application
             run: |
               npm run build
@@ -433,13 +445,13 @@ Los tests E2E se ejecutan en GitHub Actions contra un cluster efímero de Kubern
               NODE_ENV: test
               DATABASE_URL: postgresql://postgres:postgres@localhost:5432/retrogame_test
               REDIS_URL: redis://localhost:6379
-          
+
           - name: Run E2E tests
             run: npx playwright test
-          
+
           - name: Run API tests with Newman
             run: npx newman run ./postman/RetroGameCloud-API.json -e ./postman/environments/ci.json
-          
+
           - name: Upload test results
             uses: actions/upload-artifact@v4
             if: always()
@@ -450,12 +462,13 @@ Los tests E2E se ejecutan en GitHub Actions contra un cluster efímero de Kubern
                 test-results/
                 newman-results.xml
     ```
+
   </Tab>
 
   <Tab title="docker-compose.test.yml">
     ```yaml
     version: '3.8'
-    
+
     services:
       app-test:
         build:
@@ -472,7 +485,7 @@ Los tests E2E se ejecutan en GitHub Actions contra un cluster efímero de Kubern
           - redis-test
         volumes:
           - ./test-results:/app/test-results
-      
+
       db-test:
         image: postgres:15
         environment:
@@ -481,5 +494,6 @@ Los tests E2E se ejecutan en GitHub Actions contra un cluster efímero de Kubern
         ports:
           - "5432:5432"
     ```
+
   </Tab>
 </Tabs>

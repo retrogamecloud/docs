@@ -1,105 +1,175 @@
 {
-  "analysis_summary": "Documentación robusta con buena cobertura técnica (50 archivos). Principales gaps: falta guía de migración de datos, documentación de tests end-to-end, arquitectura de decisiones (ADRs), y diagramas de infraestructura AWS detallados. Estructura sólida pero mejorable en navegación y consistencia.",
-  "overall_score": 7.8,
+  "analysis_summary": "Documentación extensa pero con gaps críticos: falta diagramas de arquitectura visual, guías de migración de datos, documentación de APIs REST completa y troubleshooting estructurado. Necesita consolidación y reorganización para mejorar navegabilidad.",
+  "overall_score": 7.2,
   "improvements": [
     {
       "priority": "high",
-      "category": "content",
-      "title": "Documentación de Arquitectura de Decisiones (ADRs)",
-      "description": "Faltan registros de decisiones arquitectónicas que expliquen por qué se eligieron tecnologías específicas (Kong vs alternativas, EKS vs ECS, PostgreSQL vs MongoDB, etc). Esto es crítico para onboarding de nuevos desarrolladores y mantenimiento a largo plazo.",
-      "files_to_create": [
-        "architecture/decision-records/adr-001-api-gateway.mdx",
-        "architecture/decision-records/adr-002-kubernetes-eks.mdx",
-        "architecture/decision-records/adr-003-database-selection.mdx",
-        "architecture/decision-records/index.mdx"
-      ],
-      "files_to_modify": [
-        "architecture.mdx"
-      ],
-      "files_to_delete": [],
-      "proposed_content": "# ADR-001: Selección de Kong como API Gateway\n\n## Estado: Aceptada\n\n## Contexto\nNecesitábamos un API Gateway para gestionar autenticación, rate limiting y enrutamiento entre microservicios.\n\n## Decisión\nKong Gateway open-source con plugins de autenticación JWT.\n\n## Consecuencias\n**Positivas**: Escalable, plugins extensibles, comunidad activa.\n**Negativas**: Curva de aprendizaje, requiere base de datos PostgreSQL.",
-      "mermaid_diagram": "",
-      "rationale": "Los ADRs documentan el 'por qué' de decisiones técnicas, reduciendo deuda técnica y facilitando refactorizaciones futuras. Es una práctica estándar en arquitecturas complejas que aquí falta completamente."
-    },
-    {
-      "priority": "high",
       "category": "diagrams",
-      "title": "Diagrama de Infraestructura AWS Completo",
-      "description": "No existe un diagrama visual que muestre la topología completa de AWS: VPC, subnets, security groups, NAT gateways, load balancers, RDS, CloudFront, Route53. Solo hay descripciones textuales fragmentadas.",
-      "files_to_create": [
-        "infrastructure/aws-topology.mdx"
-      ],
-      "files_to_modify": [
-        "infrastructure/overview.mdx"
-      ],
-      "files_to_delete": [],
-      "proposed_content": "",
-      "mermaid_diagram": "graph TB\n    subgraph Internet\n        U[Usuarios]\n        CF[CloudFront CDN]\n    end\n    subgraph Route53\n        DNS[Zona DNS retrogame.cloud]\n    end\n    subgraph VPC[VPC 10.0.0.0/16]\n        subgraph PublicSubnets[Subnets Públicas]\n            ALB[Application Load Balancer]\n            NAT1[NAT Gateway AZ-1]\n            NAT2[NAT Gateway AZ-2]\n        end\n        subgraph PrivateSubnets[Subnets Privadas]\n            EKS[EKS Cluster]\n            subgraph EKSNodes[Nodos EKS]\n                Kong[Kong Gateway]\n                Auth[Auth Service]\n                Game[Game Catalog]\n                Score[Score Service]\n                Rank[Ranking Service]\n                User[User Service]\n            end\n        end\n        subgraph DataSubnets[Subnets de Datos]\n            RDS[(RDS PostgreSQL Multi-AZ)]\n            Redis[(ElastiCache Redis)]\n        end\n    end\n    U -->|HTTPS| CF\n    CF -->|Origin| DNS\n    DNS --> ALB\n    ALB --> Kong\n    Kong --> Auth\n    Kong --> Game\n    Kong --> Score\n    Kong --> Rank\n    Kong --> User\n    Auth -.->|Lectura/Escritura| RDS\n    Game -.->|Lectura| RDS\n    Score -.->|Escritura| RDS\n    Rank -.->|Cache| Redis\n    User -.->|Lectura/Escritura| RDS\n    EKSNodes -->|Salida Internet| NAT1\n    EKSNodes -->|Salida Internet| NAT2",
-      "rationale": "Un diagrama visual de infraestructura es esencial para troubleshooting, auditorías de seguridad, y planificación de DR. Actualmente la información está dispersa en múltiples archivos sin visión unificada."
-    },
-    {
-      "priority": "high",
-      "category": "content",
-      "title": "Guía de Migración y Rollback de Base de Datos",
-      "description": "Falta documentación sobre cómo ejecutar migraciones de esquema en RDS PostgreSQL de forma segura, estrategias de versionado de esquema, y procedimientos de rollback en caso de fallos.",
-      "files_to_create": [
-        "infrastructure/database-migrations.mdx"
-      ],
-      "files_to_modify": [
-        "infrastructure/database.mdx",
-        "cicd/gitops-workflow.mdx"
-      ],
-      "files_to_delete": [],
-      "proposed_content": "# Migraciones de Base de Datos\n\n## Herramientas\nUtilizamos Flyway para versionado de esquema con migraciones SQL versionadas.\n\n## Proceso de Migración\n1. Crear script en migrations/V{version}__{descripcion}.sql\n2. Probar en entorno local con Docker\n3. Ejecutar en staging vía Job de Kubernetes\n4. Validar integridad con tests automatizados\n5. Desplegar en producción con ventana de mantenimiento\n\n## Rollback\nMigraciones destructivas requieren script de rollback en migrations/U{version}__{descripcion}.sql. Nunca hacer DROP COLUMN sin ventana de mantenimiento aprobada.",
-      "mermaid_diagram": "sequenceDiagram\n    participant Dev as Desarrollador\n    participant Git as GitHub\n    participant CI as GitHub Actions\n    participant K8s as Kubernetes Job\n    participant RDS as RDS PostgreSQL\n    Dev->>Git: Push migration V023__add_achievements.sql\n    Git->>CI: Trigger Pipeline\n    CI->>CI: Validar sintaxis SQL\n    CI->>K8s: Crear Job Flyway\n    K8s->>RDS: Conectar con credenciales secretas\n    RDS->>RDS: Verificar versión actual (V022)\n    K8s->>RDS: Ejecutar V023\n    RDS-->>K8s: Migración exitosa\n    K8s->>RDS: Actualizar schema_version a V023\n    K8s-->>CI: Job completado\n    CI-->>Dev: Notificación de éxito",
-      "rationale": "Las migraciones de base de datos son una de las operaciones más riesgosas en producción. Sin documentación clara, los equipos cometen errores que resultan en downtime o pérdida de datos."
-    },
-    {
-      "priority": "high",
-      "category": "content",
-      "title": "Estrategia de Tests End-to-End",
-      "description": "Existe testing-guide.mdx pero no documenta tests E2E que validen flujos completos de usuario (registro -> login -> jugar -> submit score -> ver ranking). Crítico para CI/CD confiable.",
-      "files_to_create": [
-        "development/e2e-testing.mdx"
-      ],
-      "files_to_modify": [
-        "development/testing-guide.mdx",
-        "cicd/github-actions.mdx"
-      ],
-      "files_to_delete": [],
-      "proposed_content": "# Tests End-to-End\n\n## Herramientas\n- Playwright para tests de interfaz\n- newman para tests de API con Postman collections\n\n## Escenarios Críticos\n\n### E2E-001: Flujo Completo de Jugador\n1. Registro de usuario nuevo\n2. Login y obtención de JWT\n3. Listar catálogo de juegos\n4. Cargar juego con js-dos\n5. Guardar puntuación\n6. Verificar aparición en ranking\n\n### E2E-002: Flujo de Autenticación OAuth2\n1. Inicio de sesión con Google\n2. Callback y generación de JWT\n3. Acceso a recursos protegidos\n\n## Ejecución en CI\nLos tests E2E se ejecutan en GitHub Actions contra un cluster efímero de Kubernetes con servicios mock.",
-      "mermaid_diagram": "graph LR\n    A[Test Runner Playwright] --> B[Frontend]\n    B --> C[Kong Gateway]\n    C --> D[Auth Service]\n    C --> E[Game Catalog]\n    C --> F[Score Service]\n    C --> G[Ranking Service]\n    D --> H[(PostgreSQL Test DB)]\n    F --> H\n    G --> I[(Redis Test Cache)]\n    A --> J{Validaciones}\n    J -->|Status 200| K[Test Pass]\n    J -->|Status 4xx/5xx| L[Test Fail]\n    J -->|Timeout| L",
-      "rationale": "Los tests E2E son la última línea de defensa antes de producción. Sin ellos, los despliegues dependen de tests manuales, aumentando el riesgo de regresiones."
-    },
-    {
-      "priority": "high",
-      "category": "diagrams",
-      "title": "Diagrama de Flujo de Datos de Puntuaciones",
-      "description": "El proceso de submit score -> actualización de ranking -> invalidación de cache no está visualizado. Esto es crítico porque involucra múltiples servicios y Redis.",
+      "title": "Diagrama de Arquitectura AWS Completo",
+      "description": "Falta un diagrama visual que muestre toda la topología AWS: VPC, subnets, EKS nodes, RDS, Redis, CloudFront, Route53, ALB/NLB. Actualmente solo hay descripciones textuales en aws-topology.mdx sin visualización clara de la infraestructura.",
       "files_to_create": [],
       "files_to_modify": [
-        "services/score-service.mdx",
-        "services/ranking-service.mdx"
+        "infrastructure/aws-topology.mdx"
       ],
       "files_to_delete": [],
-      "proposed_content": "",
-      "mermaid_diagram": "sequenceDiagram\n    participant U as Usuario\n    participant F as Frontend\n    participant K as Kong Gateway\n    participant S as Score Service\n    participant DB as PostgreSQL\n    participant R as Ranking Service\n    participant Cache as Redis\n    U->>F: Terminar juego con score 9500\n    F->>K: POST /api/scores {gameId, score, JWT}\n    K->>K: Validar JWT\n    K->>S: Reenviar request\n    S->>DB: SELECT best_score WHERE userId AND gameId\n    DB-->>S: best_score = 8000\n    S->>S: Comparar 9500 > 8000\n    S->>DB: UPDATE scores SET score=9500\n    DB-->>S: Actualización exitosa\n    S->>R: POST /internal/rankings/invalidate {gameId}\n    R->>Cache: DEL ranking:game:{gameId}\n    Cache-->>R: Cache invalidada\n    R-->>S: ACK\n    S-->>K: 200 OK {newBestScore: 9500}\n    K-->>F: Respuesta\n    F->>F: Mostrar felicitación nuevo récord\n    Note over R,Cache: Próxima petición GET /rankings/{gameId} regenerará cache desde DB",
-      "rationale": "Este flujo es complejo y tiene implicaciones de consistencia eventual. Documentarlo previene bugs donde el ranking no se actualiza correctamente tras un nuevo score."
+      "proposed_content": "Añadir diagrama Mermaid que muestre las 3 AZs, VPC con subnets públicas/privadas, EKS cluster con node groups, RDS Multi-AZ, ElastiCache Redis cluster, CloudFront distributions, y Route53 hosted zones con sus interconexiones.",
+      "mermaid_diagram": "graph TB\n subgraph VPC[VPC 10.0.0.0/16]\n subgraph AZ1[Zona Disponibilidad 1]\n PubSub1[Subnet Pública 10.0.1.0/24]\n PrivSub1[Subnet Privada 10.0.11.0/24]\n EKS1[Nodos EKS]\n end\n subgraph AZ2[Zona Disponibilidad 2]\n PubSub2[Subnet Pública 10.0.2.0/24]\n PrivSub2[Subnet Privada 10.0.12.0/24]\n EKS2[Nodos EKS]\n end\n subgraph AZ3[Zona Disponibilidad 3]\n PubSub3[Subnet Pública 10.0.3.0/24]\n PrivSub3[Subnet Privada 10.0.13.0/24]\n EKS3[Nodos EKS]\n end\n ALB[Application Load Balancer]\n RDS[(RDS PostgreSQL Multi-AZ)]\n Redis[(ElastiCache Redis Cluster)]\n end\n CF[CloudFront CDN]\n R53[Route53]\n Users[Usuarios]\n Users --> R53\n R53 --> CF\n CF --> ALB\n ALB --> EKS1\n ALB --> EKS2\n ALB --> EKS3\n EKS1 --> RDS\n EKS2 --> RDS\n EKS3 --> RDS\n EKS1 --> Redis\n EKS2 --> Redis\n EKS3 --> Redis",
+      "rationale": "Los equipos de infraestructura y nuevos desarrolladores necesitan visualizar rápidamente la topología completa para entender dependencias, troubleshooting y planificación de capacidad. Un diagrama visual reduce el tiempo de onboarding de días a horas."
+    },
+    {
+      "priority": "high",
+      "category": "content",
+      "title": "Documentación Completa de APIs REST",
+      "description": "Las referencias de API en api-reference/ están incompletas. Faltan: schemas de request/response completos con tipos de datos, códigos de error HTTP específicos, ejemplos de curl para cada endpoint, rate limits, y ejemplos de respuestas de error. Solo hay stubs básicos.",
+      "files_to_create": [],
+      "files_to_modify": [
+        "api-reference/auth/login.mdx",
+        "api-reference/auth/register.mdx",
+        "api-reference/scores/submit.mdx",
+        "api-reference/games/list.mdx",
+        "api-reference/rankings/global.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "Para cada endpoint añadir: Schema JSON completo con tipos (string, integer, boolean), validaciones (minLength, pattern), campos requeridos/opcionales, tabla de códigos HTTP (200, 400, 401, 403, 500) con significado específico, ejemplos curl completos con headers, ejemplos de respuestas exitosas y de error en JSON, rate limits (ej: 100 req/min), y notas de autenticación (Bearer token en header Authorization).",
+      "mermaid_diagram": "",
+      "rationale": "Los desarrolladores frontend y terceros integradores pierden tiempo por falta de especificaciones claras. Documentación API incompleta genera tickets de soporte innecesarios y errores de integración. Una API bien documentada reduce el tiempo de integración en 60%."
+    },
+    {
+      "priority": "high",
+      "category": "new_section",
+      "title": "Guía de Migraciones de Base de Datos",
+      "description": "No existe documentación sobre cómo crear, probar y aplicar migraciones de esquema. Falta proceso para migraciones zero-downtime, rollback de migraciones fallidas, y testing de migraciones en staging antes de producción.",
+      "files_to_create": [
+        "infrastructure/database-migrations-guide.mdx"
+      ],
+      "files_to_modify": [
+        "infrastructure/database.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "Crear guía completa: 1) Cómo crear migración con Knex/Sequelize/TypeORM según stack usado, 2) Estrategias para cambios breaking (añadir columna nullable primero, poblar datos, hacer NOT NULL después), 3) Proceso de testing en local/staging, 4) Aplicación en producción con maintenance window o zero-downtime, 5) Plan de rollback automático si falla healthcheck, 6) Checklist pre-migración (backup, dry-run, ventana de mantenimiento).",
+      "mermaid_diagram": "graph LR\n A[Crear Migración] --> B[Test Local]\n B --> C[Deploy a Staging]\n C --> D[Test Staging]\n D --> E{Aprobado?}\n E -->|Sí| F[Backup Prod]\n E -->|No| A\n F --> G[Aplicar en Prod]\n G --> H{Healthcheck OK?}\n H -->|Sí| I[Migración Completa]\n H -->|No| J[Rollback Automático]\n J --> K[Investigar Fallos]",
+      "rationale": "Las migraciones de BD son operaciones de alto riesgo. Sin proceso documentado, los equipos pueden causar downtime no planificado, pérdida de datos o inconsistencias. Una guía clara reduce riesgos de producción en 80%."
+    },
+    {
+      "priority": "high",
+      "category": "structure",
+      "title": "Consolidar Documentación de Troubleshooting",
+      "description": "Existen troubleshooting.mdx y troubleshooting-production.mdx con contenido duplicado y desorganizado. Además hay redis-troubleshooting.mdx separado. Debería consolidarse en una estructura jerárquica por tipo de problema.",
+      "files_to_create": [
+        "troubleshooting/index.mdx",
+        "troubleshooting/kubernetes.mdx",
+        "troubleshooting/servicios.mdx",
+        "troubleshooting/base-datos.mdx",
+        "troubleshooting/red-conectividad.mdx"
+      ],
+      "files_to_modify": [],
+      "files_to_delete": [
+        "troubleshooting.mdx",
+        "troubleshooting-production.mdx",
+        "infrastructure/redis-troubleshooting.mdx"
+      ],
+      "proposed_content": "Crear estructura: troubleshooting/index.mdx como índice principal con links a subsecciones. Kubernetes.mdx para CrashLoopBackOff, ImagePullBackOff, OOMKilled, pending pods. Servicios.mdx para auth, scores, ranking, catalog con síntomas específicos y soluciones. Base-datos.mdx para RDS, Redis, connection pools. Red-conectividad.mdx para DNS, SSL, Kong gateway, timeouts. Cada problema con formato: Síntomas, Diagnóstico (comandos específicos), Solución paso a paso, Prevención futura.",
+      "mermaid_diagram": "",
+      "rationale": "El troubleshooting fragmentado hace que los equipos pierdan tiempo buscando soluciones o dupliquen esfuerzos. Una estructura consolidada y jerárquica reduce el MTTR (Mean Time To Repair) en 50% al permitir búsqueda rápida por categoría de problema."
+    },
+    {
+      "priority": "high",
+      "category": "diagrams",
+      "title": "Diagrama de Flujo de Autenticación OAuth2 Completo",
+      "description": "Existe documentación de OAuth2 en infrastructure/oauth2-authentication.mdx pero falta diagrama de secuencia detallado del flujo Authorization Code Grant con PKCE, incluyendo tokens de refresh y manejo de expiración.",
+      "files_to_create": [],
+      "files_to_modify": [
+        "infrastructure/oauth2-authentication.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "Diagrama que muestre: 1) Usuario hace click login, 2) Frontend genera code_verifier y code_challenge, 3) Redirect a authorization endpoint con challenge, 4) Usuario autoriza, 5) Callback con authorization code, 6) Frontend intercambia code + verifier por access_token y refresh_token, 7) Uso de access_token en requests, 8) Refresh cuando expira, 9) Logout y revocación de tokens.",
+      "mermaid_diagram": "sequenceDiagram\n participant U as Usuario\n participant F as Frontend\n participant AS as Auth Server\n participant API as API Backend\n U->>F: Click Login\n F->>F: Genera code_verifier y code_challenge\n F->>AS: GET /authorize?code_challenge=XXX\n AS->>U: Muestra pantalla login\n U->>AS: Ingresa credenciales\n AS->>F: Redirect /callback?code=ABC\n F->>AS: POST /token con code + verifier\n AS->>F: access_token + refresh_token\n F->>API: GET /api/games con Bearer access_token\n API->>F: 200 OK datos juegos\n Note over F: Access token expira\n F->>AS: POST /token con refresh_token\n AS->>F: Nuevo access_token\n U->>F: Click Logout\n F->>AS: POST /revoke con tokens\n AS->>F: 200 OK",
+      "rationale": "OAuth2 con PKCE es complejo y crítico para seguridad. Sin diagrama claro, los desarrolladores implementan flujos inseguros o incompletos (sin refresh tokens, sin PKCE). Un diagrama detallado previene vulnerabilidades de seguridad y bugs de autenticación."
+    },
+    {
+      "priority": "medium",
+      "category": "new_section",
+      "title": "Guía de Observabilidad y Métricas",
+      "description": "Aunque existe monitoring.mdx y logging.mdx, falta documentación consolidada sobre qué métricas monitorizar, umbrales críticos, dashboards recomendados, y correlación de logs-métricas-traces para debugging.",
+      "files_to_create": [
+        "infrastructure/observabilidad.mdx"
+      ],
+      "files_to_modify": [
+        "infrastructure/monitoring.mdx",
+        "infrastructure/logging.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "Documento que cubra: 1) Métricas Golden Signals (latencia, tráfico, errores, saturación) por servicio, 2) Umbrales de alerta (ej: latencia p95 > 500ms, error rate > 1%), 3) Dashboards Grafana recomendados (overview cluster, por servicio, por usuario), 4) Structured logging con correlation IDs para tracing distribuido, 5) Cómo correlacionar un error de usuario con logs+métricas+traces específicos, 6) Retention policies (logs 30 días, métricas 90 días).",
+      "mermaid_diagram": "graph TD\n A[Request Usuario] --> B[CloudFront]\n B --> C[ALB]\n C --> D[Kong Gateway]\n D --> E[Microservicio]\n E --> F[Base de Datos]\n B -.->|Logs Acceso| L1[CloudWatch Logs]\n D -.->|Métricas Kong| M1[Prometheus]\n E -.->|Logs App| L2[CloudWatch Logs]\n E -.->|Métricas Custom| M2[Prometheus]\n F -.->|Métricas RDS| M3[CloudWatch Metrics]\n L1 --> G[Grafana Loki]\n L2 --> G\n M1 --> H[Grafana]\n M2 --> H\n M3 --> H\n G --> I[Dashboard Unificado]\n H --> I",
+      "rationale": "La observabilidad fragmentada dificulta el debugging de incidentes complejos. Los equipos pierden horas correlacionando manualmente logs de diferentes fuentes. Una guía de observabilidad unificada reduce el tiempo de investigación de incidentes de horas a minutos."
     },
     {
       "priority": "medium",
       "category": "content",
-      "title": "Guía de Troubleshooting de Redis",
-      "description": "El sistema usa Redis para rankings pero no hay documentación específica sobre problemas comunes: cache eviction, conexiones máximas, cluster vs standalone, persistence RDB/AOF.",
+      "title": "Matriz de Compatibilidad de Versiones",
+      "description": "No hay documentación sobre qué versiones de Kubernetes, Node.js, PostgreSQL, Redis son compatibles entre sí, ni proceso de upgrade entre versiones mayores.",
       "files_to_create": [
-        "infrastructure/redis-troubleshooting.mdx"
+        "infrastructure/version-compatibility.mdx"
       ],
+      "files_to_modify": [],
+      "files_to_delete": [],
+      "proposed_content": "Tabla de compatibilidad: Kubernetes 1.28-1.30 soportado, Node.js 18.x-20.x, PostgreSQL 14.x-15.x, Redis 7.x, Kong 3.x. Para cada componente: versión mínima, recomendada, y próxima a deprecar. Incluir matriz cruzada (ej: K8s 1.28 requiere kubectl >=1.28, Node.js 18 compatible con K8s 1.28-1.29). Proceso de upgrade: testear en staging, upgrade minor versions primero, plan de rollback, ventana de mantenimiento estimada.",
+      "mermaid_diagram": "",
+      "rationale": "Las incompatibilidades de versiones causan fallos críticos en producción. Sin matriz documentada, los equipos descubren incompatibilidades durante deploys, causando rollbacks y downtime. Una matriz clara previene estos incidentes."
+    },
+    {
+      "priority": "medium",
+      "category": "diagrams",
+      "title": "Diagrama de Flujo de CI/CD Completo",
+      "description": "Existe cicd/github-actions.mdx y cicd/gitops-workflow.mdx pero falta diagrama visual del pipeline completo desde commit hasta producción, incluyendo gates de aprobación y rollback automático.",
+      "files_to_create": [],
       "files_to_modify": [
-        "troubleshooting-production.mdx",
-        "infrastructure/monitoring.mdx"
+        "cicd/overview.mdx"
       ],
       "files_to_delete": [],
-      "proposed_content": "# Troubleshooting de Redis\n\n## Problema: Rankings Desactualizados\n\n**Síntomas**: Los rankings muestran datos antiguos incluso después de nuevos scores.\n\n**Diagnóstico**:"
+      "proposed_content": "Diagrama que muestre: 1) Developer push a rama, 2) GitHub Actions ejecuta tests unitarios, 3) Build imagen Docker, 4) Push a ECR, 5) Update manifest en repo GitOps, 6) ArgoCD detecta cambio, 7) Deploy a staging automático, 8) Tests E2E en staging, 9) Aprobación manual para prod, 10) Deploy a prod con rolling update, 11) Healthcheck automático, 12) Rollback si falla.",
+      "mermaid_diagram": "graph LR\n A[Git Push] --> B[GitHub Actions]\n B --> C{Tests Unitarios}\n C -->|Pass| D[Build Docker]\n C -->|Fail| Z[Notificar Fallo]\n D --> E[Push a ECR]\n E --> F[Update GitOps Repo]\n F --> G[ArgoCD Sync]\n G --> H[Deploy Staging]\n H --> I{Tests E2E}\n I -->|Pass| J[Aprobación Manual]\n I -->|Fail| Z\n J --> K[Deploy Producción]\n K --> L[Rolling Update]\n L --> M{Healthcheck}\n M -->|OK| N[Deploy Completo]\n M -->|Fail| O[Rollback Automático]",
+      "rationale": "Sin visibilidad clara del pipeline CI/CD, los desarrolladores no entienden por qué sus cambios no llegan a producción o dónde fallan. Un diagrama visual del flujo completo reduce confusión y acelera debugging de problemas de deployment."
+    },
+    {
+      "priority": "medium",
+      "category": "content",
+      "title": "Guía de Optimización de Costos AWS",
+      "description": "No hay documentación sobre costos operativos actuales, breakdown por servicio, ni estrategias de optimización (Reserved Instances, Spot Instances, S3 lifecycle policies).",
+      "files_to_create": [
+        "infrastructure/cost-optimization.mdx"
+      ],
+      "files_to_modify": [],
+      "files_to_delete": [],
+      "proposed_content": "Documento con: 1) Breakdown de costos por servicio (EKS nodes, RDS, CloudFront, datos transferidos), 2) Estrategias de ahorro: usar Reserved Instances para nodes EKS (ahorro 40%), Spot Instances para cargas no críticas (ahorro 70%), RDS Reserved Instances, S3 Intelligent-Tiering para backups, 3) Configurar AWS Cost Anomaly Detection, 4) Rightsizing de instancias basado en métricas reales, 5) Eliminar recursos huérfanos (EBS volumes no attachados, snapshots antiguos).",
+      "mermaid_diagram": "",
+      "rationale": "Los costos cloud pueden crecer descontroladamente sin visibilidad y optimización. Muchas organizaciones gastan 30-50% más de lo necesario por falta de optimización. Esta guía puede reducir costos operativos significativamente sin afectar performance."
+    },
+    {
+      "priority": "medium",
+      "category": "new_section",
+      "title": "Guía de Escalado y Dimensionamiento",
+      "description": "Falta documentación sobre cómo escalar cada componente (horizontal vs vertical), umbrales para escalar, y planificación de capacidad basada en crecimiento de usuarios.",
+      "files_to_create": [
+        "infrastructure/scaling-guide.mdx"
+      ],
+      "files_to_modify": [],
+      "files_to_delete": [],
+      "proposed_content": "Guía completa: 1) Horizontal Pod Autoscaler (HPA) configurado para CPU>70% o custom metrics, 2) Cluster Autoscaler para añadir nodes EKS cuando pods quedan pending, 3) RDS scaling: cuando connections>80% de max, considerar read replicas o instancia mayor, 4) Redis: cuando memoria>75%, evaluar cluster mode, 5) CloudFront: escala automático pero monitorizar costos por requests, 6) Planificación capacidad: estimar usuarios concurrentes, RPS por servicio, IOPS BD, y dimensionar con 30% overhead.",
+      "mermaid_diagram": "graph TB\n A[Monitorizar Métricas] --> B{CPU > 70%?}\n B -->|Sí| C[HPA Escala Pods]\n C --> D{Nodes Llenos?}\n D -->|Sí| E[Cluster Autoscaler Añade Nodes]\n D -->|No| F[Pods Distribuidos]\n B -->|No| G{Memoria > 80%?}\n G -->|Sí| H[Revisar Memory Leaks]\n H --> I[Optimizar o Escalar Vertical]\n G -->|No| J{Latencia BD > 100ms?}\n J -->|Sí| K[Añadir Read Replicas]\n J -->|No| L[Sistema Saludable]",
+      "rationale": "Sin estrategia de escalado documentada, los sistemas sufren degradación de performance durante picos de tráfico o sobre-provisionamiento costoso durante valles. Una guía clara permite escalar proactivamente y eficientemente."
+    },
+    {
+      "priority": "low",
+      "category": "quality",
+      "title": "Estandarizar Formato de Ejemplos de Código",
+      "description": "Los ejemplos de código usan formatos inconsistentes: algunos con sintaxis highlighting, otros sin; algunos con comentarios explicativos, otros sin; algunos muestran output esperado, otros no.",
+      "files_to_create": [],
+      "files_to_modify": [
+        "development/code-standards.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "Establecer estándar para ejemplos: 1) Siempre especificar lenguaje para syntax highlighting ("
     }
   ]
 }

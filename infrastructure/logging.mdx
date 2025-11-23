@@ -1,29 +1,33 @@
 ---
 title: Monitorización y Observabilidad
 description: 'Documentación completa del stack de observabilidad de RetroGameCloud:
-  métricas, alertas, dashboards y logs'
+  métricas, alertas, dashboards, logs y distributed tracing'
 icon: chart-line
 ---
 
 # Monitorización y Observabilidad
 
-Esta documentación detalla el stack completo de observabilidad de RetroGameCloud, incluyendo métricas clave, configuración de alertas, dashboards y acceso centralizado a logs.
+Esta documentación detalla el stack completo de observabilidad de RetroGameCloud, incluyendo Golden Signals, umbrales críticos, dashboards recomendados y correlación de logs-métricas-traces para debugging efectivo.
 
 ## Arquitectura de Observabilidad
 
 <Note>
-Nuestro stack de observabilidad combina herramientas de AWS con soluciones open-source para proporcionar visibilidad completa de la plataforma.
+Nuestro stack de observabilidad combina herramientas de AWS con soluciones open-source para proporcionar visibilidad completa de la plataforma usando los principios de Golden Signals y distributed tracing.
 </Note>
 
 ```mermaid
 graph TB
     A[Microservicios] --> B[Prometheus]
     A --> C[CloudWatch Logs]
+    A --> J[Jaeger Traces]
     B --> D[Grafana]
     C --> E[CloudWatch Insights]
     F[AWS Resources] --> G[CloudWatch Metrics]
     G --> H[CloudWatch Alarms]
     H --> I[SNS Notifications]
+    J --> K[Correlation IDs]
+    K --> C
+    K --> B
 
     subgraph "Observabilidad"
         B
@@ -32,8 +36,9 @@ graph TB
         E
         G
         H
+        J
+        K
     end
-
 ```
 
 ## Stack de Tecnologías
@@ -43,525 +48,425 @@ graph TB
     - **Prometheus**: Recolección de métricas de aplicación
     - **Grafana**: Visualización y dashboards
     - **CloudWatch Metrics**: Métricas de infraestructura AWS
+    - **Custom Metrics**: Golden Signals por servicio
   </Tab>
   <Tab title="Logs">
     - **CloudWatch Logs**: Agregación centralizada
     - **Fluent Bit**: Envío de logs desde pods
     - **CloudWatch Insights**: Consultas y análisis
+    - **Structured Logging**: JSON con correlation IDs
   </Tab>
   <Tab title="Alertas">
     - **CloudWatch Alarms**: Alertas de infraestructura
     - **Grafana Alerts**: Alertas de aplicación
     - **SNS**: Notificaciones por email/Slack
+    - **PagerDuty**: Escalación de incidentes críticos
+  </Tab>
+  <Tab title="Tracing">
+    - **Jaeger**: Distributed tracing
+    - **OpenTelemetry**: Instrumentación estándar
+    - **Correlation IDs**: Trazabilidad cross-service
   </Tab>
 </Tabs>
 
-## Métricas por Servicio
+## Golden Signals por Servicio
 
 ### Servicio de Autenticación
 
 <Card title="auth-service" icon="shield">
 
-* *Métricas de Negocio:**
+**Golden Signals:**
 
-- `auth_login_requests_total`: Total de intentos de login
+**Latencia:**
+- `auth_request_duration_seconds`: Histograma de latencia de requests
+- `auth_token_generation_duration_seconds`: Tiempo de generación de tokens
+- `auth_db_query_duration_seconds`: Latencia de consultas a base de datos
 
-- `auth_login_success_rate`: Tasa de éxito de logins
+**Tráfico:**
+- `auth_requests_per_second`: Rate de requests por segundo
+- `auth_login_attempts_total`: Total de intentos de login
+- `auth_token_validations_total`: Validaciones de token
 
-- `auth_token_generation_duration`: Tiempo de generación de tokens
+**Errores:**
+- `auth_error_rate`: Porcentaje de errores (4xx/5xx)
+- `auth_failed_logins_total`: Logins fallidos
+- `auth_invalid_tokens_total`: Tokens inválidos
 
-- `auth_failed_attempts_total`: Intentos fallidos por usuario
+**Saturación:**
+- `auth_active_connections`: Conexiones activas
+- `auth_cpu_usage_percent`: Uso de CPU
+- `auth_memory_usage_percent`: Uso de memoria
 
-* *Umbrales Críticos:**
-
-- Tasa de éxito < 95%
-
+**Umbrales Críticos:**
 - Latencia p95 > 500ms
-
-- Intentos fallidos > 10/min por IP
-
-</Card>
-
-```yaml
-
-# Ejemplo de configuración Prometheus
-
-- name: auth_service_rules
-  rules:
-  - alert: AuthHighFailureRate
-    expr: (auth_login_requests_total{status="error"} / auth_login_requests_total) > 0.05
-    for: 5m
-    labels:
-      severity: critical
-    annotations:
-      summary: "Alta tasa de fallos en autenticación"
-
-```
-
-### Servicio de Usuario
-
-<Card title="user-service" icon="user">
-
-* *Métricas de Negocio:**
-
-- `user_registrations_total`: Nuevos registros
-
-- `user_profile_updates_total`: Actualizaciones de perfil
-
-- `user_active_sessions`: Sesiones activas
-
-- `user_api_request_duration`: Latencia de API
-
-* *Umbrales Críticos:**
-
-- Latencia p95 > 300ms
-
-- Tasa de error > 3%
-
-- Memoria > 80%
+- Error rate > 1%
+- CPU usage > 80%
+- Failed login rate > 5%
 
 </Card>
 
-### Catálogo de Juegos
+### Servicio de Juegos
 
-<Card title="game-catalog-service" icon="gamepad">
+<Card title="game-service" icon="gamepad">
 
-* *Métricas de Negocio:**
+**Golden Signals:**
 
-- `games_search_requests_total`: Búsquedas realizadas
+**Latencia:**
+- `game_session_start_duration_seconds`: Tiempo de inicio de sesión
+- `game_save_duration_seconds`: Tiempo de guardado
+- `game_load_duration_seconds`: Tiempo de carga de ROMs
 
-- `games_download_requests_total`: Descargas de ROMs
+**Tráfico:**
+- `game_sessions_active`: Sesiones activas concurrentes
+- `game_requests_per_second`: Rate de requests
+- `game_rom_downloads_total`: Descargas de ROMs
 
-- `games_most_played`: Juegos más jugados
+**Errores:**
+- `game_session_failures_total`: Fallos al iniciar sesión
+- `game_save_errors_total`: Errores de guardado
+- `game_emulation_crashes_total`: Crashes del emulador
 
-- `games_catalog_sync_duration`: Tiempo de sincronización
+**Saturación:**
+- `game_emulator_instances`: Instancias de emulador activas
+- `game_storage_usage_percent`: Uso de almacenamiento
+- `game_network_bandwidth_usage`: Uso de ancho de banda
 
-* *Umbrales Críticos:**
-
-- Tiempo de búsqueda > 1s
-
-- Fallos de descarga > 2%
-
-- Sincronización > 5min
-
-</Card>
-
-### Sistema de Puntuaciones
-
-<Card title="score-service" icon="trophy">
-
-* *Métricas de Negocio:**
-
-- `scores_submissions_total`: Puntuaciones enviadas
-
-- `scores_validation_duration`: Tiempo de validación
-
-- `scores_leaderboard_requests`: Consultas de ranking
-
-- `scores_personal_best_updates`: Nuevos records personales
-
-* *Umbrales Críticos:**
-
-- Validación > 200ms
-
-- Tasa de rechazo > 1%
-
-- Queue depth > 1000
+**Umbrales Críticos:**
+- Session start time p95 > 3s
+- Save failure rate > 0.5%
+- Active sessions > 1000
+- Emulation crashes > 0.1%
 
 </Card>
 
-### Sistema de Rankings
+### Servicio de Usuarios
 
-<Card title="ranking-service" icon="ranking-star">
+<Card title="user-service" icon="users">
 
-* *Métricas de Negocio:**
+**Golden Signals:**
 
-- `rankings_calculations_total`: Cálculos de ranking
+**Latencia:**
+- `user_profile_query_duration_seconds`: Consultas de perfil
+- `user_settings_update_duration_seconds`: Actualizaciones de configuración
 
-- `rankings_global_updates`: Actualizaciones globales
+**Tráfico:**
+- `user_profile_requests_per_second`: Requests de perfil
+- `user_active_sessions`: Sesiones de usuario activas
 
-- `rankings_cache_hit_ratio`: Ratio de cache hits
+**Errores:**
+- `user_profile_not_found_total`: Perfiles no encontrados
+- `user_update_failures_total`: Fallos de actualización
 
-- `rankings_query_duration`: Tiempo de consulta
+**Saturación:**
+- `user_db_connections`: Conexiones a DB
+- `user_cache_hit_rate`: Tasa de aciertos de caché
 
-* *Umbrales Críticos:**
-
-- Cache hit ratio < 90%
-
-- Cálculo > 30s
-
-- Queries > 500ms
+**Umbrales Críticos:**
+- Profile query p95 > 200ms
+- Update failure rate > 0.5%
+- Cache hit rate < 90%
 
 </Card>
 
-## Métricas de Infraestructura
+## Dashboards Grafana Recomendados
 
-### Clúster EKS
+### Dashboard de Overview del Cluster
 
-<Warning>
-Estas métricas son críticas para la estabilidad de la plataforma y requieren monitorización 24/7.
-</Warning>
+<Accordion>
+  <AccordionItem title="Métricas Incluidas">
+    ```yaml
+    panels:
+      - cluster_cpu_usage_percent
+      - cluster_memory_usage_percent
+      - cluster_network_io
+      - cluster_disk_io
+      - kubernetes_pods_running
+      - kubernetes_nodes_ready
+      - overall_request_rate
+      - overall_error_rate
+      - overall_latency_p95
+    
+    alerts:
+      - Cluster CPU > 75%
+      - Cluster Memory > 80%
+      - Nodes Not Ready > 0
+      - Overall Error Rate > 2%
+    ```
+  </AccordionItem>
+</Accordion>
 
-```yaml
+### Dashboard por Servicio
 
-# Métricas clave del clúster
-cluster_metrics:
-  nodes:
-    - node_cpu_utilization (umbral: 80%)
-    - node_memory_utilization (umbral: 85%)
-    - node_disk_utilization (umbral: 90%)
-    - node_ready_status
+<Accordion>
+  <AccordionItem title="Template Variables">
+    ```yaml
+    variables:
+      - service: [auth-service, game-service, user-service]
+      - environment: [production, staging, development]
+      - time_range: [5m, 15m, 1h, 6h, 24h]
+    
+    panels:
+      - Request Rate (por servicio)
+      - Error Rate (por servicio)
+      - Latency Distribution (P50, P95, P99)
+      - Active Connections
+      - Resource Usage (CPU, Memory)
+      - Top Errors (últimas 24h)
+    ```
+  </AccordionItem>
+</Accordion>
 
-  pods:
-    - pod_cpu_usage
-    - pod_memory_usage
-    - pod_restart_count (umbral: 5 restarts/hour)
-    - pod_ready_status
+### Dashboard de Business Metrics
 
-  network:
-    - ingress_requests_per_second
-    - ingress_response_time_p95 (umbral: 2s)
-    - network_errors_total
+<Accordion>
+  <AccordionItem title="KPIs de Negocio">
+    ```yaml
+    panels:
+      - Daily Active Users (DAU)
+      - Game Sessions per Hour
+      - User Retention Rate
+      - Popular Games Ranking
+      - Revenue Metrics
+      - Geographic Distribution
+      - Device/Browser Stats
+      - User Journey Funnel
+    ```
+  </AccordionItem>
+</Accordion>
 
-```
+## Structured Logging con Correlation IDs
 
-### Base de Datos (RDS PostgreSQL)
-
-```yaml
-database_metrics:
-  performance:
-    - db_connections_active (umbral: 80% del máximo)
-    - db_cpu_utilization (umbral: 70%)
-    - db_free_memory (mínimo: 20%)
-    - db_query_duration_p95 (umbral: 1s)
-
-  storage:
-    - db_free_storage_space (mínimo: 20%)
-    - db_iops_utilization (umbral: 80%)
-
-  availability:
-    - db_connection_failures
-    - db_deadlocks_total
-
-```
-
-### Kong API Gateway
-
-```yaml
-gateway_metrics:
-  traffic:
-    - kong_requests_per_second
-    - kong_response_time_p95 (umbral: 1s)
-    - kong_error_rate (umbral: 2%)
-
-  security:
-    - kong_oauth_token_validations
-    - kong_rate_limit_exceeded
-    - kong_blocked_requests
-
-```
-
-## Dashboards de Grafana
-
-### Dashboard Principal
-
-<Tabs>
-  <Tab title="Vista General">
-    - Health check global de servicios
-    - Tráfico total de la plataforma
-    - Usuarios activos en tiempo real
-    - Tasa de error agregada
-    - Latencia p95 por servicio
-  </Tab>
-  <Tab title="Microservicios">
-    - CPU/Memoria por servicio
-    - Request rate y latencia
-    - Métricas específicas de negocio
-    - Health checks individuales
-  </Tab>
-  <Tab title="Infraestructura">
-    - Estado del clúster EKS
-    - Métricas de base de datos
-    - Utilización de recursos AWS
-    - Costes por servicio
-  </Tab>
-  <Tab title="Negocio">
-    - Usuarios registrados/activos
-    - Juegos más populares
-    - Distribución de puntuaciones
-    - Tendencias de uso
-  </Tab>
-</Tabs>
-
-### Configuración de Dashboards
+### Formato de Log Estándar
 
 ```json
 {
-  "dashboard": {
-    "title": "RetroGameCloud - Overview",
-    "panels": [
-      {
-        "title": "Request Rate",
-        "type": "graph",
-        "targets": [
-          {
-            "expr": "sum(rate(http_requests_total[5m])) by (service)",
-            "legendFormat": "{{service}}"
-          }
-        ]
-      },
-      {
-        "title": "Error Rate",
-        "type": "singlestat",
-        "targets": [
-          {
-            "expr": "sum(rate(http_requests_total{status=~\"5.*\"}[5m])) / sum(rate(http_requests_total[5m]))"
-          }
-        ],
-        "thresholds": "0.01,0.05"
-      }
-    ]
+  "timestamp": "2024-01-15T10:30:00.123Z",
+  "level": "INFO",
+  "service": "auth-service",
+  "correlation_id": "req-abc123-def456",
+  "trace_id": "trace-789xyz",
+  "span_id": "span-456def",
+  "user_id": "user-12345",
+  "session_id": "sess-67890",
+  "message": "User login successful",
+  "context": {
+    "endpoint": "/api/v1/auth/login",
+    "method": "POST",
+    "ip": "192.168.1.100",
+    "user_agent": "Mozilla/5.0...",
+    "duration_ms": 245
+  },
+  "metadata": {
+    "version": "1.2.3",
+    "environment": "production",
+    "pod": "auth-service-7d8f9g-h2j3k"
   }
 }
-
 ```
 
-## Configuración de Alertas Críticas
-
-### CloudWatch Alarms
-
-<Card title="Alertas de RDS" icon="database">
-
-```yaml
-RDS_Alarms:
-  - name: "RDS-HighConnections"
-    metric: "DatabaseConnections"
-    threshold: 80
-    comparison: "GreaterThanThreshold"
-    evaluation_periods: 2
-    period: 300
-
-  - name: "RDS-HighCPU"
-    metric: "CPUUtilization"
-    threshold: 70
-    comparison: "GreaterThanThreshold"
-    evaluation_periods: 3
-    period: 300
-
-```
-
-</Card>
-
-<Card title="Alertas de EKS" icon="dharmachakra">
-
-```yaml
-EKS_Alarms:
-  - name: "EKS-NodeNotReady"
-    metric: "cluster_failed_node_count"
-    threshold: 1
-    comparison: "GreaterThanOrEqualToThreshold"
-    evaluation_periods: 1
-    period: 60
-
-  - name: "EKS-PodRestartHigh"
-    metric: "kube_pod_container_status_restarts_total"
-    threshold: 5
-    comparison: "GreaterThanThreshold"
-    evaluation_periods: 1
-    period: 300
-
-```
-
-</Card>
-
-### Alertas de Aplicación (Grafana)
-
-```yaml
-grafana_alerts:
-  - name: "High Error Rate"
-    condition: "sum(rate(http_requests_total{status=~\"5.*\"}[5m])) / sum(rate(http_requests_total[5m])) > 0.05"
-    for: "5m"
-    severity: "critical"
-
-  - name: "Service Down"
-    condition: "up{job=~\".*-service\"} == 0"
-    for: "30s"
-    severity: "critical"
-
-  - name: "High Response Time"
-    condition: "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2"
-    for: "10m"
-    severity: "warning"
-
-```
-
-## Acceso a Logs Centralizados
-
-### CloudWatch Logs
-
-<Note>
-Todos los logs de los microservicios se envían automáticamente a CloudWatch Logs mediante Fluent Bit.
-</Note>
-
-* *Grupos de Logs por Servicio:**
-
-- `/aws/eks/retrogame/auth-service`
-
-- `/aws/eks/retrogame/user-service`
-
-- `/aws/eks/retrogame/game-catalog-service`
-
-- `/aws/eks/retrogame/score-service`
-
-- `/aws/eks/retrogame/ranking-service`
-
-### Acceso mediante kubectl
-
-```bash
-
-# Ver logs en tiempo real de un pod específico
-kubectl logs -f deployment/auth-service -n retrogame
-
-# Ver logs de todos los pods de un servicio
-kubectl logs -f -l app=auth-service -n retrogame --max-log-requests=10
-
-# Ver logs con contexto temporal
-kubectl logs --since=1h deployment/game-catalog-service -n retrogame
-
-# Logs de eventos del clúster
-kubectl get events --sort-by=.metadata.creationTimestamp -n retrogame
-
-```
-
-### CloudWatch Insights - Consultas Útiles
+### Correlation ID Strategy
 
 <Tabs>
-  <Tab title="Errores por Servicio">
-
-```sql
-fields @timestamp, @message, service
-| filter @message like /ERROR/
-| stats count() by service
-| sort count desc
-
-```
-
+  <Tab title="Generación">
+    ```javascript
+    // Generación de Correlation ID
+    const correlationId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Headers HTTP
+    const headers = {
+      'X-Correlation-ID': correlationId,
+      'X-Request-ID': correlationId,
+      'X-Trace-ID': traceId
+    };
+    ```
   </Tab>
-  <Tab title="Requests Lentos">
-
-```sql
-fields @timestamp, @message, response_time
-| filter response_time > 1000
-| sort @timestamp desc
-| limit 100
-
-```
-
+  <Tab title="Propagación">
+    ```javascript
+    // Middleware para propagar correlation IDs
+    app.use((req, res, next) => {
+      req.correlationId = req.headers['x-correlation-id'] || generateCorrelationId();
+      res.setHeader('X-Correlation-ID', req.correlationId);
+      
+      // Añadir a contexto de logging
+      req.logContext = {
+        correlationId: req.correlationId,
+        service: 'auth-service',
+        endpoint: req.path,
+        method: req.method
+      };
+      
+      next();
+    });
+    ```
   </Tab>
-  <Tab title="Autenticación Fallida">
-
-```sql
-fields @timestamp, @message, user_id, ip_address
-| filter @message like /authentication failed/
-| stats count() by ip_address
-| sort count desc
-
-```
-
-  </Tab>
-  <Tab title="Análisis de Patrones">
-
-```sql
-fields @timestamp, @message
-| filter @message like /game_download/
-| parse @message "game_id=* user_id=* duration=*" as game_id, user_id, duration
-| stats avg(duration), count() by game_id
-| sort count desc
-
-```
-
+  <Tab title="Consulta">
+    ```bash
+    # CloudWatch Insights query
+    fields @timestamp, level, message, context
+    | filter correlation_id = "req-abc123-def456"
+    | sort @timestamp desc
+    | limit 100
+    ```
   </Tab>
 </Tabs>
 
-## Procedimientos de Troubleshooting
+## Correlación para Debugging
 
-### Flujo de Investigación de Incidentes
+### Flujo de Debugging de Errores
 
-```mermaid
-flowchart TD
-    A[Alerta Recibida] --> B{Tipo de Alerta?}
+<Steps>
+  <Step title="Identificar el Error">
+    1. Alerta recibida por Grafana/CloudWatch
+    2. Identificar correlation_id del error
+    3. Obtener trace_id asociado
+  </Step>
+  <Step title="Análisis de Logs">
+    ```bash
+    # Buscar todos los logs relacionados
+    aws logs start-query \
+      --log-group-name "/aws/eks/retrogame/auth-service" \
+      --start-time 1705312200 \
+      --end-time 1705315800 \
+      --query-string 'fields @timestamp, @message | filter correlation_id = "req-abc123-def456"'
+    ```
+  </Step>
+  <Step title="Análisis de Métricas">
+    ```promql
+    # Métricas durante el período del error
+    increase(auth_error_rate[5m]) # Incremento de errores
+    histogram_quantile(0.95, auth_request_duration_seconds) # Latencia
+    auth_active_connections # Carga del sistema
+    ```
+  </Step>
+  <Step title="Análisis de Traces">
+    - Abrir Jaeger UI
+    - Buscar por trace_id
+    - Analizar spans y dependencias
+    - Identificar el servicio que falló
+  </Step>
+</Steps>
 
-    B -->|Infraestructura| C[Revisar CloudWatch]
-    B -->|Aplicación| D[Revisar Grafana]
+### Queries de Debugging Comunes
 
-    C --> E[Verificar Métricas AWS]
-    D --> F[Verificar Métricas Custom]
+<CodeGroup>
+  <CodeBlock title="Error Rate por Endpoint" language="promql">
+    ```promql
+    # Error rate por endpoint en los últimos 5 minutos
+    rate(http_requests_total{status=~"5.."}[5m]) / 
+    rate(http_requests_total[5m]) * 100
+    ```
+  </CodeBlock>
+  <CodeBlock title="Slow Queries" language="sql">
+    ```sql
+    -- CloudWatch Insights: Queries lentas
+    fields @timestamp, duration_ms, endpoint, correlation_id
+    | filter duration_ms > 1000
+    | sort @timestamp desc
+    | limit 20
+    ```
+  </CodeBlock>
+  <CodeBlock title="Error Correlation" language="sql">
+    ```sql
+    -- Correlación de errores por usuario
+    fields @timestamp, user_id, message, correlation_id
+    | filter level = "ERROR"
+    | stats count() by user_id
+    | sort count() desc
+    ```
+  </CodeBlock>
+</CodeGroup>
 
-    E --> G[Analizar Logs CloudWatch]
-    F --> G
+## Retention Policies
 
-    G --> H{¿Patrón Identificado?}
-    H -->|Sí| I[Aplicar Solución]
-    H -->|No| J[Escalar a Equipo Senior]
+### Configuración de Retención
 
-    I --> K[Verificar Resolución]
-    K --> L[Documentar Incident]
+<Card title="Políticas de Retención" icon="clock">
 
-```
+**Logs:**
+- Production: 30 días
+- Staging: 14 días  
+- Development: 7 días
+- Critical Errors: 90 días (exportados a S3)
 
-### Comandos de Diagnóstico Rápido
+**Métricas:**
+- High Resolution (1s): 3 horas
+- Standard (1m): 90 días
+- Aggregated (1h): 1 año
+- Business KPIs: 3 años
 
-<Warning>
-Estos comandos deben ejecutarse desde una terminal con acceso al clúster EKS y permisos adecuados.
-</Warning>
+**Traces:**
+- Production: 7 días
+- Staging: 3 días
+- Sample Rate: 10% (100% para errores)
 
+**Configuración CloudWatch:**
 ```bash
-#!/bin/bash
+# Configurar retención de logs
+aws logs put-retention-policy \
+  --log-group-name "/aws/eks/retrogame/auth-service" \
+  --retention-in-days 30
 
-# Script de diagnóstico rápido
-
-echo "=== Estado General del Clúster ==="
-kubectl get nodes
-kubectl get pods -n retrogame --show-labels
-
-echo "=== Top Pods por CPU ==="
-kubectl top pods -n retrogame --sort-by=cpu
-
-echo "=== Top Pods por Memoria ==="
-kubectl top pods -n retrogame --sort-by=memory
-
-echo "=== Eventos Recientes ==="
-kubectl get events --sort-by=.metadata.creationTimestamp -n retrogame | tail -10
-
-echo "=== Estado de Servicios ==="
-kubectl get svc -n retrogame
-kubectl get ingress -n retrogame
-
-echo "=== Verificación de Conectividad BD ==="
-kubectl exec -it deployment/auth-service -n retrogame -- pg_isready -h $DB_HOST -p $DB_PORT
-
+# Configurar exportación a S3 para archivado
+aws logs create-export-task \
+  --log-group-name "/aws/eks/retrogame/auth-service" \
+  --from 1704067200 \
+  --to 1704153600 \
+  --destination "retrogame-logs-archive"
 ```
-
-## Métricas SLA y KPIs
-
-### Indicadores Clave de Rendimiento
-
-<Card title="SLA Objetivos" icon="target">
-
-- **Disponibilidad**: 99.9% uptime
-
-- **Latencia**: p95 < 500ms para APIs críticas
-
-- **Tasa de Error**: < 0.1% para flujos principales
-
-- **Tiempo de Recuperación**: < 5 minutos para incidentes críticos
 
 </Card>
 
-### Dashboard de SLA
+## Alerting Strategy
+
+### Niveles de Severidad
+
+<Tabs>
+  <Tab title="Critical (P0)">
+    - Service Down (> 50% error rate)
+    - Database Unavailable
+    - Authentication System Down
+    - Payment Processing Failed
+    
+    **Escalación:** Inmediata PagerDuty
+  </Tab>
+  <Tab title="High (P1)">
+    - High Error Rate (> 5%)
+    - High Latency (p95 > 2s)
+    - Resource Exhaustion (> 90%)
+    
+    **Escalación:** Slack + Email
+  </Tab>
+  <Tab title="Medium (P2)">
+    - Moderate Error Rate (> 1%)
+    - Elevated Latency (p95 > 1s)
+    - Resource Warning (> 80%)
+    
+    **Escalación:** Slack
+  </Tab>
+  <Tab title="Low (P3)">
+    - Performance Degradation
+    - Capacity Planning Warnings
+    - Non-Critical Failures
+    
+    **Escalación:** Email daily digest
+  </Tab>
+</Tabs>
+
+### Configuración de Alertas
 
 ```yaml
-sla_metrics:
-  availability:
-
+# Grafana Alert Rules
+groups:
+  - name: auth-service-alerts
+    rules:
+      - alert: AuthServiceHighErrorRate
+        expr: rate(http_requests_total{service="auth-service",status=~"5.."}[5m]) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+          service: auth-service
+        annotations:
+          summary: "High error rate in auth service"
+          description: "Error rate is {{ $value }}% for the last 5 minutes"
+          correlation_query: 'fields @timestamp, @message | filter service = "auth-service" and level = "
 ```

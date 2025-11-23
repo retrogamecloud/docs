@@ -1,15 +1,15 @@
 # 📋 Reorganización de Estructura de Documentación
 
-**Fecha**: 2025-11-23 16:24:53  
+**Fecha**: 2025-11-23 17:08:06  
 **Generado por**: Claude Sonnet 4.5
 
 ## 📊 Resumen de Cambios
 
-Se ha reorganizado la estructura para seguir un flujo lógico más intuitivo. En la pestaña Documentación se mejoró la nomenclatura de grupos (Backend → Microservicios Backend, Infraestructura → Infraestructura AWS, Despliegue y CI/CD → CI/CD y GitOps, Desarrollo Local → Entorno de Desarrollo). En Referencia API se aplicó una nomenclatura más consistente (Visión General → Introducción, nombres de grupos usando 'Servicio de' para homogeneidad). Se eliminó la redundancia 'Catálogo de Juegos' simplificándolo a 'Catálogo'. Se reorganizó el último grupo de Frontend antes de Infraestructura para mantener coherencia conceptual (capas de aplicación antes de infraestructura).
+Se ha reorganizado la estructura en 8 grupos consecutivos por tab, eliminando la nomenclatura '1. Primeros Pasos', '2. Arquitectura' por nombres más directos. Se consolidó 'Entorno de Desarrollo' bajo 'Desarrollo Local' (grupo 3) para tener toda la información de desarrollo junta. Se renombró 'CI/CD y GitOps' a 'Despliegue y GitOps' para mayor claridad. En 'Referencia API' se simplificó eliminando redundancias: el grupo de 'API Gateway' (Kong) se fusionó con 'Visión General' ya que es parte de la arquitectura general del backend. Los grupos ahora van del 1 al 8 de forma consecutiva en ambos tabs.
 
 ## 🎯 Justificación
 
-La reorganización mejora la experiencia del usuario siguiendo estos principios: (1) Nomenclatura consistente y profesional en todos los grupos; (2) Flujo conceptual claro de arriba hacia abajo (introducción → aplicación → servicios → infraestructura); (3) Eliminación de redundancias en nombres; (4) Agrupación semántica mejorada manteniendo la numeración consecutiva; (5) Mayor claridad en la distinción entre documentación conceptual y referencia técnica detallada. La estructura facilita que usuarios nuevos encuentren rápidamente la información de inicio, mientras que desarrolladores experimentados pueden acceder directamente a referencias técnicas específicas.
+La nueva estructura sigue un flujo más natural y pedagógico: comienza con introducción y conceptos (grupos 1-2), continúa con el proceso de desarrollo (grupo 3), luego detalla la implementación por capas (frontend en 4, backend en 5), seguridad transversal (grupo 6), infraestructura (grupo 7) y finaliza con despliegue (grupo 8). Esta organización permite a desarrolladores nuevos seguir un camino lógico de aprendizaje, mientras que usuarios avanzados pueden acceder directamente a secciones específicas. En 'Referencia API' se consolida información relacionada: Kong está con la visión general del backend porque es parte integral de cómo funciona la arquitectura API. Se eliminan redundancias y se mantiene una numeración limpia y consecutiva.
 
 ---
 

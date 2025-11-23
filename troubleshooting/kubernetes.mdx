@@ -1,0 +1,494 @@
+---
+title: "8.5. Troubleshooting"
+description: "Guía completa de resolución de problemas en RetroGameCloud con diagnósticos específicos y soluciones paso a paso"
+icon: "bug"
+---
+
+# 8.5. Troubleshooting
+
+Esta guía proporciona soluciones sistemáticas para los problemas más comunes en RetroGameCloud, organizadas por categorías con diagnósticos específicos y procedimientos de resolución.
+
+<Note>
+Para problemas críticos en producción, sigue siempre el protocolo de escalación definido en tu organización antes de aplicar cambios.
+</Note>
+
+## Estructura de Resolución de Problemas
+
+Cada problema sigue esta metodología:
+
+1. **Síntomas**: Cómo identificar el problema
+2. **Diagnóstico**: Comandos y herramientas para investigar
+3. **Solución**: Pasos específicos para resolver
+4. **Prevención**: Medidas para evitar recurrencias
+
+---
+
+## Kubernetes
+
+### Pod en CrashLoopBackOff
+
+<Tabs>
+<Tab title="Síntomas">
+```bash
+# El pod se reinicia continuamente
+kubectl get pods
+NAME                    READY   STATUS             RESTARTS   AGE
+auth-service-abc123     0/1     CrashLoopBackOff   5          10m
+```
+</Tab>
+<Tab title="Diagnóstico">
+```bash
+# Revisar logs del contenedor
+kubectl logs auth-service-abc123 --previous
+
+# Revisar eventos del pod
+kubectl describe pod auth-service-abc123
+
+# Verificar configuración del deployment
+kubectl describe deployment auth-service
+
+# Comprobar recursos disponibles
+kubectl top nodes
+kubectl describe node <node-name>
+```
+</Tab>
+<Tab title="Solución">
+```bash
+# 1. Identificar la causa raíz desde los logs
+kubectl logs auth-service-abc123 --previous | tail -50
+
+# 2. Si es problema de configuración
+kubectl edit deployment auth-service
+
+# 3. Si es problema de recursos
+kubectl patch deployment auth-service -p='{"spec":{"template":{"spec":{"containers":[{"name":"auth-service","resources":{"requests":{"memory":"256Mi","cpu":"100m"},"limits":{"memory":"512Mi","cpu":"500m"}}}]}}}}'
+
+# 4. Si es problema de variables de entorno
+kubectl edit configmap auth-config
+kubectl edit secret auth-secrets
+
+# 5. Reiniciar deployment
+kubectl rollout restart deployment auth-service
+```
+</Tab>
+<Tab title="Prevención">
+- Implementar health checks apropiados
+- Configurar resource limits y requests
+- Usar init containers para dependencias
+- Validar configuración en staging primero
+
+```yaml
+# Ejemplo de health checks
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 5
+```
+</Tab>
+</Tabs>
+
+### Pod en ImagePullBackOff
+
+<Tabs>
+<Tab title="Síntomas">
+```bash
+kubectl get pods
+NAME                    READY   STATUS             RESTARTS   AGE
+game-catalog-xyz789     0/1     ImagePullBackOff   0          5m
+```
+</Tab>
+<Tab title="Diagnóstico">
+```bash
+# Revisar eventos del pod
+kubectl describe pod game-catalog-xyz789
+
+# Verificar imagen especificada
+kubectl get deployment game-catalog -o yaml | grep image
+
+# Comprobar secretos de registry
+kubectl get secrets | grep regcred
+kubectl describe secret regcred
+
+# Verificar connectivity a registry
+kubectl run debug --image=busybox -it --rm -- nslookup <registry-url>
+```
+</Tab>
+<Tab title="Solución">
+```bash
+# 1. Verificar que la imagen existe
+docker pull <registry>/<image>:<tag>
+
+# 2. Actualizar credenciales del registry si es necesario
+kubectl delete secret regcred
+kubectl create secret docker-registry regcred \
+  --docker-server=<registry-url> \
+  --docker-username=<username> \
+  --docker-password=<password> \
+  --docker-email=<email>
+
+# 3. Si la imagen no existe, actualizar deployment
+kubectl set image deployment/game-catalog game-catalog=<correct-image>
+
+# 4. Si hay problemas de conectividad, verificar network policies
+kubectl get networkpolicies
+```
+</Tab>
+<Tab title="Prevención">
+- Usar image pull policies apropiadas
+- Mantener credenciales actualizadas
+- Implementar image scanning en CI/CD
+- Usar image digest en lugar de tags para producción
+
+```yaml
+spec:
+  containers:
+  - name: game-catalog
+    image: registry.example.com/game-catalog@sha256:abc123...
+    imagePullPolicy: Always
+  imagePullSecrets:
+  - name: regcred
+```
+</Tab>
+</Tabs>
+
+### Pod OOMKilled
+
+<Tabs>
+<Tab title="Síntomas">
+```bash
+kubectl get pods
+NAME                    READY   STATUS      RESTARTS   AGE
+score-service-def456    0/1     OOMKilled   3          15m
+
+# En los logs
+kubectl logs score-service-def456 --previous
+# Logs terminan abruptamente sin mensaje de cierre
+```
+</Tab>
+<Tab title="Diagnóstico">
+```bash
+# Revisar límites de memoria
+kubectl describe pod score-service-def456 | grep -A 10 "Limits:"
+
+# Ver métricas de uso de memoria
+kubectl top pod score-service-def456
+
+# Revisar eventos
+kubectl describe pod score-service-def456 | grep -A 10 "Events:"
+
+# Comprobar métricas históricas si Prometheus está disponible
+curl -G 'http://prometheus:9090/api/v1/query' \
+  --data-urlencode 'query=container_memory_usage_bytes{pod="score-service-def456"}'
+```
+</Tab>
+<Tab title="Solución">
+```bash
+# 1. Aumentar límite de memoria temporalmente
+kubectl patch deployment score-service -p='{"spec":{"template":{"spec":{"containers":[{"name":"score-service","resources":{"limits":{"memory":"1Gi"}}}]}}}}'
+
+# 2. Reiniciar el deployment
+kubectl rollout restart deployment score-service
+
+# 3. Monitorizar el nuevo uso
+kubectl top pod -l app=score-service --watch
+
+# 4. Si el problema persiste, investigar memory leaks
+kubectl exec -it <new-pod-name> -- /bin/bash
+# Dentro del pod, usar herramientas como:
+# - ps aux para ver procesos
+# - free -h para memoria disponible
+# - cat /proc/meminfo para detalles
+```
+</Tab>
+<Tab title="Prevención">
+- Configurar resource requests y limits apropiados
+- Implementar monitoreo proactivo de memoria
+- Realizar profiling de aplicaciones
+- Establecer alertas para uso elevado de memoria
+
+```yaml
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+```
+</Tab>
+</Tabs>
+
+### Pods en Pending
+
+<Tabs>
+<Tab title="Síntomas">
+```bash
+kubectl get pods
+NAME                    READY   STATUS    RESTARTS   AGE
+ranking-service-ghi123  0/1     Pending   0          10m
+```
+</Tab>
+<Tab title="Diagnóstico">
+```bash
+# Revisar eventos del pod
+kubectl describe pod ranking-service-ghi123
+
+# Verificar recursos del cluster
+kubectl top nodes
+kubectl describe nodes
+
+# Comprobar scheduling constraints
+kubectl get pod ranking-service-ghi123 -o yaml | grep -A 20 "spec:"
+
+# Verificar persistent volumes si aplica
+kubectl get pv,pvc
+```
+</Tab>
+<Tab title="Solución">
+```bash
+# Caso 1: Insufficient resources
+# Escalar cluster o reducir resource requests
+
+# Caso 2: Node selector/affinity issues
+kubectl patch deployment ranking-service -p='{"spec":{"template":{"spec":{"nodeSelector":null}}}}'
+
+# Caso 3: Taints en nodos
+kubectl describe node <node-name> | grep Taints
+kubectl taint node <node-name> <taint-key>-
+
+# Caso 4: PVC issues
+kubectl describe pvc <pvc-name>
+# Verificar storage class y provisioner
+kubectl get storageclass
+```
+</Tab>
+<Tab title="Prevención">
+- Monitorear capacidad del cluster
+- Usar cluster autoscaler
+- Configurar pod disruption budgets
+- Revisar scheduling policies regularmente
+
+```yaml
+# Pod Disruption Budget ejemplo
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ranking-service-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ranking-service
+```
+</Tab>
+</Tabs>
+
+---
+
+## Servicios
+
+### Servicio de Autenticación
+
+<Tabs>
+<Tab title="Síntomas">
+- Errores 401/403 inesperados
+- Tokens JWT inválidos
+- Timeouts en login
+- Usuarios no pueden acceder después de login exitoso
+</Tab>
+<Tab title="Diagnóstico">
+```bash
+# Verificar estado del servicio auth
+kubectl get pods -l app=auth-service
+kubectl logs -l app=auth-service --tail=100
+
+# Probar endpoint de health
+kubectl port-forward svc/auth-service 8080:8080 &
+curl http://localhost:8080/health
+
+# Verificar base de datos
+kubectl exec -it <postgres-pod> -- psql -U postgres -d retrogamecloud
+# \dt para ver tablas
+# SELECT * FROM users LIMIT 5;
+
+# Comprobar configuración JWT
+kubectl describe secret auth-jwt-secret
+kubectl get configmap auth-config -o yaml
+```
+</Tab>
+<Tab title="Solución">
+```bash
+# 1. Reiniciar servicio auth
+kubectl rollout restart deployment auth-service
+
+# 2. Si hay problemas de base de datos
+kubectl exec -it <postgres-pod> -- psql -U postgres -d retrogamecloud
+# Verificar conexiones: SELECT * FROM pg_stat_activity;
+
+# 3. Regenerar secreto JWT si es necesario
+kubectl delete secret auth-jwt-secret
+kubectl create secret generic auth-jwt-secret \
+  --from-literal=jwt-secret=$(openssl rand -base64 32)
+
+# 4. Verificar variables de entorno
+kubectl describe pod <auth-pod> | grep -A 20 "Environment:"
+
+# 5. Escalar horizontalmente si hay carga
+kubectl scale deployment auth-service --replicas=3
+```
+</Tab>
+<Tab title="Prevención">
+- Implementar circuit breakers
+- Configurar rate limiting
+- Monitorear latencia de auth
+- Usar connection pooling para DB
+- Implementar health checks robustos
+
+```yaml
+# Ejemplo de configuración de health check
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+    httpHeaders:
+    - name: X-Health-Check
+      value: liveness
+  initialDelaySeconds: 30
+  timeoutSeconds: 5
+```
+</Tab>
+</Tabs>
+
+### Servicio de Scores
+
+<Tabs>
+<Tab title="Síntomas">
+- Scores no se guardan
+- Leaderboards no actualizan
+- Errores 500 al enviar puntuaciones
+- Latencia alta en consultas de ranking
+</Tab>
+<Tab title="Diagnóstico">
+```bash
+# Verificar servicio de scores
+kubectl get pods -l app=score-service
+kubectl logs -l app=score-service | grep ERROR
+
+# Probar endpoints
+kubectl port-forward svc/score-service 8081:8080 &
+curl -H "Authorization: Bearer <token>" http://localhost:8081/api/scores
+
+# Verificar Redis (si se usa para caching)
+kubectl exec -it <redis-pod> -- redis-cli
+# INFO memory
+# KEYS score:*
+# GET score:user:123:game:456
+
+# Comprobar base de datos
+kubectl exec -it <postgres-pod> -- psql -U postgres -d retrogamecloud
+# SELECT COUNT(*) FROM scores;
+# SELECT * FROM scores ORDER BY created_at DESC LIMIT 10;
+```
+</Tab>
+<Tab title="Solución">
+```bash
+# 1. Limpiar cache si está corrupto
+kubectl exec -it <redis-pod> -- redis-cli FLUSHDB
+
+# 2. Reiniciar servicio
+kubectl rollout restart deployment score-service
+
+# 3. Si hay problemas de performance con DB
+kubectl exec -it <postgres-pod> -- psql -U postgres -d retrogamecloud
+# REINDEX TABLE scores;
+# VACUUM ANALYZE scores;
+
+# 4. Escalar servicio si hay alta carga
+kubectl scale deployment score-service --replicas=5
+
+# 5. Verificar índices de base de datos
+# SELECT * FROM pg_indexes WHERE tablename = 'scores';
+```
+</Tab>
+<Tab title="Prevención">
+- Implementar caching eficiente
+- Crear índices apropiados en DB
+- Usar batch processing para scores
+- Monitorear métricas de performance
+- Implementar backup automático de scores
+
+```sql
+-- Índices recomendados para tabla scores
+CREATE INDEX idx_scores_user_id ON scores(user_id);
+CREATE INDEX idx_scores_game_id ON scores(game_id);
+CREATE INDEX idx_scores_created_at ON scores(created_at DESC);
+CREATE INDEX idx_scores_game_score ON scores(game_id, score DESC);
+```
+</Tab>
+</Tabs>
+
+### Servicio de Ranking
+
+<Tabs>
+<Tab title="Síntomas">
+- Rankings desactualizados
+- Timeouts en consultas de leaderboard
+- Inconsistencias entre scores y rankings
+- Memoria alta en el servicio
+</Tab>
+<Tab title="Diagnóstico">
+```bash
+# Verificar servicio ranking
+kubectl top pod -l app=ranking-service
+kubectl logs -l app=ranking-service --tail=50
+
+# Probar endpoints
+kubectl port-forward svc/ranking-service 8082:8080 &
+curl http://localhost:8082/api/ranking/game/123
+
+# Verificar cache Redis
+kubectl exec -it <redis-pod> -- redis-cli
+# KEYS ranking:*
+# ZREVRANGE ranking:game:123 0 10 WITHSCORES
+
+# Monitorizar queries de base de datos
+kubectl exec -it <postgres-pod> -- psql -U postgres -d retrogamecloud
+# SELECT query, calls, total_time FROM pg_stat_statements 
+# WHERE query LIKE '%ranking%' ORDER BY total_time DESC;
+```
+</Tab>
+<Tab title="Solución">
+```bash
+# 1. Forzar recálculo de rankings
+kubectl exec -it <ranking-pod> -- curl -X POST http://localhost:8080/admin/recalculate
+
+# 2. Limpiar cache específico
+kubectl exec -it <redis-pod> -- redis-cli
+# DEL ranking:game:123
+# DEL ranking:global
+
+# 3. Optimizar queries si hay problemas de performance
+kubectl exec -it <postgres-pod> -- psql -U postgres -d retrogamecloud
+# EXPLAIN ANALYZE SELECT * FROM scores WHERE game_id = 123 ORDER BY score DESC LIMIT 100;
+
+# 4. Reiniciar servicio si hay memory leaks
+kubectl rollout restart deployment ranking-service
+
+# 5. Ajustar recursos si es necesario
+kubectl patch deployment ranking-service -p='{"spec":{"template":{"spec":{"containers":[{"name":"ranking-service","resources":{"limits":{"memory":"2Gi","cpu":"1000m"}}}]}}}}'
+```
+</Tab>
+<Tab title="Prevención">
+- Implementar jobs de recálculo periódico
+- Usar materialized views para rankings
+- Configurar TTL apropiado en
+</Tab>
+</Tabs>

@@ -1,349 +1,321 @@
 ---
-title: "6.2. Topología de Infraestructura AWS"
-description: "Topología completa de la infraestructura AWS para RetroGameCloud incluyendo VPC, subnets, security groups y servicios"
-icon: "diagram-project"
+title: 6.2. Topología de Infraestructura AWS
+description: Topología completa de la infraestructura AWS para RetroGameCloud incluyendo VPC, subnets, security groups y servicios distribuidos en múltiples AZ
+icon: diagram-project
 ---
 
-# Diagrama de Infraestructura AWS Completo
+# Topología de Infraestructura AWS
 
-Esta página documenta la arquitectura completa de AWS para la plataforma RetroGameCloud, mostrando todos los componentes de infraestructura y sus interconexiones.
+Esta página documenta la arquitectura completa de AWS para la plataforma RetroGameCloud, mostrando todos los componentes de infraestructura distribuidos en múltiples zonas de disponibilidad y sus interconexiones.
 
-## Diagrama de Arquitectura General
+## Diagrama de Topología Completa
 
 ```mermaid
 graph TB
-    subgraph Internet
-        U[Usuarios]
-        CF[CloudFront CDN]
+    subgraph Internet[Internet]
+        U[Usuarios Globales]
+        API_EXT[APIs Externas]
     end
-    
-    subgraph Route53[Route53 DNS]
-        DNS[Zona DNS retrogame.cloud]
+
+    subgraph Route53[Route 53]
+        DNS_MAIN[retrogame.cloud]
+        DNS_API[api.retrogame.cloud] 
+        DNS_CDN[cdn.retrogame.cloud]
     end
-    
-    subgraph VPC[VPC 10.0.0.0/16]
-        subgraph PublicSubnets[Subnets Públicas]
-            ALB[Application Load Balancer]
-            NAT1[NAT Gateway AZ-1a]
-            NAT2[NAT Gateway AZ-1b]
-        end
-        
-        subgraph PrivateSubnets[Subnets Privadas]
-            EKS[EKS Cluster]
-            subgraph EKSNodes[Nodos EKS]
-                Kong[Kong Gateway]
-                Auth[Auth Service]
-                Game[Game Catalog]
-                Score[Score Service]
-                Rank[Ranking Service]
-                User[User Service]
-                Frontend[Frontend React]
+
+    subgraph CloudFront[CloudFront Global]
+        CF_WEB[Web Distribution]
+        CF_API[API Distribution]
+        CF_ASSETS[Assets Distribution]
+    end
+
+    subgraph Region[us-east-1 Virginia]
+        subgraph VPC[VPC 10.0.0.0/16]
+            
+            subgraph AZ1[Availability Zone 1a]
+                subgraph PUB1[Public Subnet 10.0.1.0/24]
+                    ALB1[ALB Primary]
+                    NAT1[NAT Gateway 1]
+                end
+                subgraph PRIV1[Private Subnet 10.0.11.0/24]
+                    EKS1[EKS Node Group 1]
+                    subgraph PODS1[Pods AZ-1a]
+                        KONG1[Kong Gateway]
+                        AUTH1[Auth Service]
+                        GAME1[Game Service]
+                    end
+                end
+                subgraph DATA1[Data Subnet 10.0.21.0/24]
+                    RDS1[(RDS Primary)]
+                    REDIS1[(Redis Primary)]
+                end
             end
-        end
-        
-        subgraph DataSubnets[Subnets de Datos]
-            RDS[(RDS PostgreSQL Multi-AZ)]
-            Redis[(ElastiCache Redis)]
-        end
-        
-        subgraph S3Bucket[Almacenamiento]
-            S3[S3 Buckets]
+
+            subgraph AZ2[Availability Zone 1b] 
+                subgraph PUB2[Public Subnet 10.0.2.0/24]
+                    ALB2[ALB Secondary]
+                    NAT2[NAT Gateway 2]
+                end
+                subgraph PRIV2[Private Subnet 10.0.12.0/24]
+                    EKS2[EKS Node Group 2]
+                    subgraph PODS2[Pods AZ-1b]
+                        KONG2[Kong Gateway]
+                        SCORE1[Score Service]
+                        RANK1[Ranking Service]
+                    end
+                end
+                subgraph DATA2[Data Subnet 10.0.22.0/24]
+                    RDS2[(RDS Standby)]
+                    REDIS2[(Redis Replica)]
+                end
+            end
+
+            subgraph AZ3[Availability Zone 1c]
+                subgraph PUB3[Public Subnet 10.0.3.0/24]
+                    NAT3[NAT Gateway 3]
+                end
+                subgraph PRIV3[Private Subnet 10.0.13.0/24]
+                    EKS3[EKS Node Group 3]
+                    subgraph PODS3[Pods AZ-1c]
+                        USER1[User Service]
+                        FRONTEND1[Frontend Apps]
+                    end
+                end
+                subgraph DATA3[Data Subnet 10.0.23.0/24]
+                    REDIS3[(Redis Replica)]
+                end
+            end
+
+            subgraph Storage[Almacenamiento]
+                S3_ASSETS[S3 Assets Bucket]
+                S3_BACKUPS[S3 Backups Bucket]
+                S3_LOGS[S3 Logs Bucket]
+            end
+
+            IGW[Internet Gateway]
         end
     end
-    
-    U -->|HTTPS| CF
-    CF -->|Origin| DNS
-    DNS --> ALB
-    ALB --> Kong
-    Kong --> Frontend
-    Kong --> Auth
-    Kong --> Game
-    Kong --> Score
-    Kong --> Rank
-    Kong --> User
-    
-    Auth -.->|Read/Write| RDS
-    Game -.->|Read| RDS
-    Score -.->|Write| RDS
-    Rank -.->|Cache| Redis
-    User -.->|Read/Write| RDS
-    Frontend -.->|Assets| S3
-    
-    EKSNodes -->|Internet Egress| NAT1
-    EKSNodes -->|Internet Egress| NAT2
+
+    %% Conexiones externas
+    U -->|HTTPS Global| CF_WEB
+    U -->|API Calls| CF_API
+    CF_WEB -->|Origin| DNS_MAIN
+    CF_API -->|Origin| DNS_API
+    CF_ASSETS -->|Origin| DNS_CDN
+
+    %% DNS Resolution
+    DNS_MAIN --> ALB1
+    DNS_API --> ALB1
+    DNS_CDN --> S3_ASSETS
+
+    %% Load Balancer Distribution
+    ALB1 -.->|Health Check| ALB2
+    ALB1 --> KONG1
+    ALB1 --> KONG2
+    ALB2 --> KONG1
+    ALB2 --> KONG2
+
+    %% Service Mesh
+    KONG1 --> AUTH1
+    KONG1 --> GAME1
+    KONG2 --> SCORE1
+    KONG2 --> RANK1
+    KONG1 --> USER1
+    KONG2 --> FRONTEND1
+
+    %% Database Connections
+    AUTH1 -.->|Read/Write| RDS1
+    GAME1 -.->|Read| RDS1
+    SCORE1 -.->|Write| RDS1
+    USER1 -.->|Read/Write| RDS1
+    RDS1 -.->|Sync| RDS2
+
+    %% Cache Connections
+    RANK1 -.->|Cache| REDIS1
+    AUTH1 -.->|Session| REDIS1
+    REDIS1 -.->|Replication| REDIS2
+    REDIS1 -.->|Replication| REDIS3
+
+    %% Storage Connections
+    FRONTEND1 -.->|Assets| S3_ASSETS
+    GAME1 -.->|Game Files| S3_ASSETS
+    RDS1 -.->|Backups| S3_BACKUPS
+
+    %% Internet Access
+    EKS1 --> NAT1
+    EKS2 --> NAT2
+    EKS3 --> NAT3
+    NAT1 --> IGW
+    NAT2 --> IGW
+    NAT3 --> IGW
+    ALB1 --> IGW
+    ALB2 --> IGW
+
+    %% External APIs
+    AUTH1 -.->|External Auth| API_EXT
 ```
 
-## Componentes de la Infraestructura
+## Detalles de Configuración por Zona
 
 <Tabs>
-<Tab title="Servicios Públicos">
-### CloudFront CDN
-- **Propósito**: Distribución global de contenido
-- **Configuración**: Edge locations en Europa y América
-- **Caché**: Assets estáticos y API responses con TTL optimizado
+<Tab title="Availability Zone 1a">
 
-### Route53 DNS
-- **Zona**: retrogame.cloud
-- **Registros**:
-  - A: api.retrogame.cloud → ALB
-  - CNAME: www.retrogame.cloud → CloudFront
-  - A: retrogame.cloud → CloudFront
+### Zona de Disponibilidad us-east-1a
+
+**Subnets:**
+- **Pública**: `10.0.1.0/24` - ALB principal y NAT Gateway
+- **Privada**: `10.0.11.0/24` - Nodos EKS principales
+- **Datos**: `10.0.21.0/24` - RDS primario y Redis master
+
+**Servicios Críticos:**
+- Application Load Balancer primario
+- Kong Gateway (instancia principal)
+- Auth Service (servicio crítico)
+- Game Catalog Service
+- RDS PostgreSQL (instancia primaria)
+- ElastiCache Redis (nodo master)
+
+**Características:**
+- Alta disponibilidad para servicios críticos
+- Conexión directa con CloudFront
+- Backup automático a AZ secundarias
+
 </Tab>
-<Tab title="Red VPC">
-### VPC Principal
-- **CIDR**: 10.0.0.0/16
-- **Región**: eu-west-1 (Irlanda)
-- **Zonas de Disponibilidad**: eu-west-1a, eu-west-1b
+<Tab title="Availability Zone 1b">
 
-### Subnets Públicas
-- **Public-1a**: 10.0.1.0/24
-- **Public-1b**: 10.0.2.0/24
-- **Componentes**: ALB, NAT Gateways
+### Zona de Disponibilidad us-east-1b
 
-### Subnets Privadas
-- **Private-1a**: 10.0.10.0/24
-- **Private-1b**: 10.0.20.0/24
-- **Componentes**: Nodos EKS, Kong Gateway
+**Subnets:**
+- **Pública**: `10.0.2.0/24` - ALB secundario y NAT Gateway
+- **Privada**: `10.0.12.0/24` - Nodos EKS para servicios específicos
+- **Datos**: `10.0.22.0/24` - RDS standby y Redis replica
 
-### Subnets de Datos
-- **Data-1a**: 10.0.100.0/24
-- **Data-1b**: 10.0.200.0/24
-- **Componentes**: RDS, ElastiCache
+**Servicios Distribuidos:**
+- Application Load Balancer secundario
+- Kong Gateway (instancia secundaria)
+- Score Service (escritura intensiva)
+- Ranking Service (lectura intensiva)
+- RDS PostgreSQL (standby automático)
+- ElastiCache Redis (réplica de lectura)
+
+**Características:**
+- Failover automático para RDS
+- Distribución de carga para servicios Kong
+- Optimizada para operaciones de scoring
+
 </Tab>
-<Tab title="Compute EKS">
-### EKS Cluster
-- **Versión**: 1.28
-- **Nodos**: t3.medium (2-10 instancias)
-- **Networking**: AWS VPC CNI
+<Tab title="Availability Zone 1c">
 
-### Microservicios Desplegados
-- **Kong Gateway**: Proxy y autenticación
-- **Auth Service**: JWT y OAuth2
-- **User Service**: Gestión de usuarios
-- **Game Catalog**: Catálogo de juegos retro
-- **Score Service**: Puntuaciones y records
-- **Ranking Service**: Rankings y leaderboards
-- **Frontend**: React con JS-DOS emulator
+### Zona de Disponibilidad us-east-1c
+
+**Subnets:**
+- **Pública**: `10.0.3.0/24` - NAT Gateway únicamente
+- **Privada**: `10.0.13.0/24` - Nodos EKS para aplicaciones frontend
+- **Datos**: `10.0.23.0/24` - Redis replica adicional
+
+**Servicios Especializados:**
+- User Service (gestión de usuarios)
+- Frontend Applications (React apps)
+- ElastiCache Redis (réplica adicional)
+
+**Características:**
+- Optimizada para aplicaciones frontend
+- Réplica adicional de cache para redundancia
+- Menor latencia para servicios de usuario
+
+</Tab>
+<Tab title="Servicios Globales">
+
+### Servicios AWS Globales
+
+**CloudFront Distributions:**
+- **Web**: Distribución global para aplicaciones web
+- **API**: Aceleración global para APIs
+- **Assets**: CDN para archivos estáticos y juegos
+
+**Route 53 Hosted Zones:**
+- `retrogame.cloud` - Dominio principal
+- `api.retrogame.cloud` - Subdominio para APIs
+- `cdn.retrogame.cloud` - Subdominio para CDN
+
+**S3 Buckets:**
+- **Assets**: Archivos estáticos y ROMs de juegos
+- **Backups**: Respaldos automáticos de bases de datos
+- **Logs**: Logs centralizados de aplicaciones
+
 </Tab>
 </Tabs>
 
-## Security Groups Detallados
-
-<Note>
-Los security groups actúan como firewalls virtuales controlando el tráfico entrante y saliente de cada componente.
-</Note>
-
-### SG-ALB (Application Load Balancer)
-```yaml
-Inbound Rules:
-  - Port 443 (HTTPS): 0.0.0.0/0
-  - Port 80 (HTTP): 0.0.0.0/0 → Redirect to 443
-
-Outbound Rules:
-  - Port 8000: → SG-Kong (Kong Gateway)
-  - Port 3000: → SG-EKS-Nodes (Frontend)
-```
-
-### SG-EKS-Nodes (Nodos Kubernetes)
-```yaml
-Inbound Rules:
-  - Port 8000: SG-ALB → Kong Gateway
-  - Port 3000: SG-ALB → Frontend React
-  - Port 8080-8090: SG-Kong → Microservices
-  - All traffic: SG-EKS-Control-Plane
-
-Outbound Rules:
-  - Port 5432: → SG-RDS (PostgreSQL)
-  - Port 6379: → SG-Redis (ElastiCache)
-  - Port 443: → 0.0.0.0/0 (Internet via NAT)
-```
-
-### SG-RDS (Base de Datos)
-```yaml
-Inbound Rules:
-  - Port 5432: SG-EKS-Nodes → PostgreSQL
-
-Outbound Rules:
-  - None (Database no necesita salida)
-```
-
-### SG-Redis (Caché)
-```yaml
-Inbound Rules:
-  - Port 6379: SG-EKS-Nodes → Redis
-
-Outbound Rules:
-  - None (Cache no necesita salida)
-```
-
-## Diagrama de Security Groups
+## Diagrama de Conectividad de Red
 
 ```mermaid
 graph LR
-    subgraph Internet
-        Users[Usuarios]
+    subgraph Security[Security Groups]
+        SG_ALB[ALB Security Group<br/>Port 80,443 from 0.0.0.0/0]
+        SG_EKS[EKS Security Group<br/>Port 8000-8080 from ALB]
+        SG_RDS[RDS Security Group<br/>Port 5432 from EKS]
+        SG_REDIS[Redis Security Group<br/>Port 6379 from EKS]
     end
-    
-    subgraph PublicLayer[Capa Pública]
-        ALB[ALB<br/>SG-ALB]
+
+    subgraph Network[Network Flow]
+        ALB_FLOW[Internet → ALB → Kong → Services]
+        DB_FLOW[Services → RDS/Redis]
+        EGRESS[Services → NAT → Internet]
     end
-    
-    subgraph PrivateLayer[Capa Privada]
-        Kong[Kong<br/>SG-EKS-Nodes]
-        Services[Microservices<br/>SG-EKS-Nodes]
+
+    subgraph Monitoring[Monitoring & Logging]
+        CW[CloudWatch Logs]
+        CW_METRICS[CloudWatch Metrics]
+        XR[X-Ray Tracing]
     end
+
+    SG_ALB --> ALB_FLOW
+    SG_EKS --> ALB_FLOW
+    SG_RDS --> DB_FLOW
+    SG_REDIS --> DB_FLOW
     
-    subgraph DataLayer[Capa de Datos]
-        RDS[PostgreSQL<br/>SG-RDS]
-        Redis[Redis<br/>SG-Redis]
-    end
-    
-    Users -->|443/80| ALB
-    ALB -->|8000| Kong
-    ALB -->|3000| Services
-    Kong -->|8080-8090| Services
-    Services -->|5432| RDS
-    Services -->|6379| Redis
+    ALB_FLOW --> CW
+    DB_FLOW --> CW_METRICS
+    EGRESS --> XR
 ```
 
-## Configuración de Networking
+## Configuración de Alta Disponibilidad
 
-<Warning>
-Las tablas de rutas son críticas para el correcto funcionamiento del tráfico entre subnets.
-</Warning>
+### Estrategia Multi-AZ
 
-### Tabla de Rutas - Subnets Públicas
-| Destino | Target | Propósito |
-|---------|--------|-----------|
-| 10.0.0.0/16 | Local | Tráfico interno VPC |
-| 0.0.0.0/0 | Internet Gateway | Acceso público |
+1. **Load Balancers**: ALB en múltiples AZ con health checks
+2. **EKS Cluster**: Node groups distribuidos en 3 AZ
+3. **RDS**: Multi-AZ con failover automático
+4. **ElastiCache**: Cluster mode con réplicas cross-AZ
+5. **NAT Gateways**: Uno por AZ para redundancia
 
-### Tabla de Rutas - Subnets Privadas
-| Destino | Target | Propósito |
-|---------|--------|-----------|
-| 10.0.0.0/16 | Local | Tráfico interno VPC |
-| 0.0.0.0/0 | NAT Gateway | Salida a Internet |
+### Puntos de Falla y Recuperación
 
-### Tabla de Rutas - Subnets de Datos
-| Destino | Target | Propósito |
-|---------|--------|-----------|
-| 10.0.0.0/16 | Local | Solo tráfico interno |
+- **Zona completa**: Tráfico redirigido automáticamente
+- **Base de datos**: Failover RDS < 60 segundos
+- **Cache**: Redis cluster mantiene disponibilidad
+- **Aplicaciones**: EKS reschedule automático de pods
 
-## Alta Disponibilidad y Resiliencia
+### Métricas de Disponibilidad
 
-<Tabs>
-<Tab title="Multi-AZ Deployment">
-### Distribución por Zona
-**Zona eu-west-1a:**
-- Public Subnet: 10.0.1.0/24
-- Private Subnet: 10.0.10.0/24
-- Data Subnet: 10.0.100.0/24
-- NAT Gateway 1
-- RDS Primary Instance
+- **Objetivo SLA**: 99.9% uptime
+- **RTO**: Recovery Time Objective < 5 minutos
+- **RPO**: Recovery Point Objective < 1 minuto
 
-**Zona eu-west-1b:**
-- Public Subnet: 10.0.2.0/24
-- Private Subnet: 10.0.20.0/24
-- Data Subnet: 10.0.200.0/24
-- NAT Gateway 2
-- RDS Standby Instance
-</Tab>
-<Tab title="Load Balancing">
-### Application Load Balancer
-```yaml
-Configuración:
-  - Scheme: Internet-facing
-  - IP Address Type: IPv4
-  - Listeners:
-    - Port 443: SSL Termination
-    - Port 80: Redirect to 443
-  
-Target Groups:
-  - kong-gateway: Port 8000
-  - frontend-react: Port 3000
-  
-Health Checks:
-  - Path: /health
-  - Interval: 30 segundos
-  - Timeout: 5 segundos
-```
-</Tab>
-<Tab title="Auto Scaling">
-### EKS Node Groups
-```yaml
-Auto Scaling Configuration:
-  - Min Size: 2 nodes
-  - Max Size: 10 nodes
-  - Desired: 3 nodes
-  
-Scaling Policies:
-  - Scale Out: CPU > 70% durante 5 min
-  - Scale In: CPU < 30% durante 10 min
-  
-Instance Types:
-  - Primary: t3.medium
-  - Backup: t3.large, m5.large
-```
-</Tab>
-</Tabs>
+## Consideraciones de Seguridad
 
-## Monitoreo de Red
+### Network Security
 
-### CloudWatch Metrics Clave
+- VPC con subnets aisladas por función
+- Security Groups con principio de menor privilegio
+- NACLs como capa adicional de seguridad
+- VPC Flow Logs habilitados
 
-<Card title="Métricas de ALB" icon="chart-line">
-- **RequestCount**: Número de peticiones por minuto
-- **TargetResponseTime**: Latencia promedio
-- **HTTPCode_Target_2XX_Count**: Respuestas exitosas
-- **UnHealthyHostCount**: Instancias no saludables
-</Card>
+### Data Security
 
-<Card title="Métricas de VPC" icon="network-wired">
-- **NetworkIn/Out**: Tráfico de red por instancia
-- **NetworkPacketsIn/Out**: Paquetes procesados
-- **NAT Gateway**: Bytes procesados y conexiones activas
-</Card>
+- Encryption en tránsito (TLS 1.3)
+- Encryption en reposo (KMS)
+- Secrets Manager para credenciales
+- IAM roles con políticas específicas
 
-### Alarmas Configuradas
-```yaml
-ALB-HighLatency:
-  Metric: TargetResponseTime
-  Threshold: > 2 segundos
-  Action: SNS Notification
-
-NAT-HighUtilization:
-  Metric: BytesOutToDestination
-  Threshold: > 1 GB/hora
-  Action: Scale EKS Nodes
-
-RDS-ConnectionCount:
-  Metric: DatabaseConnections
-  Threshold: > 80% of max
-  Action: Alert DevOps Team
-```
-
-## Costos de Infraestructura
-
-| Componente | Tipo | Coste Mensual (€) |
-|------------|------|-------------------|
-| EKS Cluster | Control Plane | 73 |
-| EC2 Instances | t3.medium x3 | 95 |
-| RDS PostgreSQL | db.t3.micro Multi-AZ | 35 |
-| ElastiCache Redis | cache.t3.micro | 18 |
-| Application Load Balancer | Standard | 23 |
-| NAT Gateways | 2 instancias | 46 |
-| CloudFront | CDN | 15 |
-| Route53 | Hosted Zone | 0.5 |
-| **Total Estimado** |  | **≈ 305€/mes** |
-
-<Note>
-Los costes son estimaciones basadas en la región eu-west-1. El coste real puede variar según el uso y tráfico.
-</Note>
-
-## Próximos Pasos
-
-1. **Implementar VPC Endpoints** para servicios AWS (S3, ECR)
-2. **Configurar AWS WAF** en CloudFront y ALB
-3. **Establecer VPC Flow Logs** para auditoría de red
-4. **Implementar AWS Config** para compliance
-5. **Configurar Cross-Region Backup** para disaster recovery
+Esta topología garantiza alta disponibilidad, escalabilidad y seguridad para la plataforma RetroGameCloud, con distribución inteligente de servicios y redundancia en todos los niveles críticos.

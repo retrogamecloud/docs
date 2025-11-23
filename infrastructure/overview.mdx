@@ -1,6 +1,7 @@
 ---
 title: 6.1. Visión General de Infraestructura
-description: Infraestructura cloud AWS gestionada con Terraform para alta disponibilidad y escalabilidad
+description: Infraestructura cloud AWS gestionada con Terraform para alta disponibilidad
+  y escalabilidad
 icon: file-lines
 ---
 
@@ -11,19 +12,20 @@ La infraestructura de Retro Game Hub está completamente gestionada con **Terraf
 ## Arquitectura de la Infraestructura
 
 <div className="mermaid">
+
 ```mermaid
 graph TB
     subgraph "Internet"
         Users[👥 Usuarios]
         GitHub[GitHub OAuth]
     end
-    
+
     subgraph "AWS Cloud"
         subgraph "Route53 + CloudFront"
             DNS[Route53<br/>retrogamehub.games]
             CDN[CloudFront CDN<br/>Assets & Contenido]
         end
-        
+
         subgraph "VPC (10.0.0.0/16)"
             subgraph "Public Subnets"
                 ALB[Application Load Balancer]
@@ -31,36 +33,36 @@ graph TB
                 NAT2[NAT Gateway AZ-2]
                 IGW[Internet Gateway]
             end
-            
+
             subgraph "Private Subnets - AZ1"
                 EKS1[EKS Worker Nodes]
                 RDS_PRIMARY[(RDS PostgreSQL<br/>Primary)]
             end
-            
-            subgraph "Private Subnets - AZ2" 
+
+            subgraph "Private Subnets - AZ2"
                 EKS2[EKS Worker Nodes]
                 RDS_STANDBY[(RDS PostgreSQL<br/>Standby)]
                 REDIS[(ElastiCache Redis)]
             end
-            
+
             subgraph "EKS Control Plane"
                 CONTROL[EKS Managed Control Plane]
                 NGINX[Ingress NGINX]
                 OAUTH[OAuth2-Proxy]
             end
         end
-        
+
         subgraph "Storage & Logs"
             S3[S3 Buckets<br/>Logs & Artifacts]
         end
-        
+
         subgraph "Security & Access"
             ACM[ACM Certificates]
             IAM[IAM Roles & Policies]
             SG[Security Groups]
         end
     end
-    
+
     Users --> DNS
     DNS --> CDN
     CDN --> ALB
@@ -80,31 +82,41 @@ graph TB
     NAT2 --> IGW
     EKS1 --> NAT1
     EKS2 --> NAT2
-    
+
     classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff
     classDef k8s fill:#326CE5,stroke:#fff,stroke-width:2px,color:#fff
     classDef database fill:#336791,stroke:#fff,stroke-width:2px,color:#fff
     classDef security fill:#DD344C,stroke:#fff,stroke-width:2px,color:#fff
-    
+
     class DNS,CDN,ALB,NAT1,NAT2,IGW,S3,ACM,IAM aws
     class CONTROL,EKS1,EKS2,NGINX,OAUTH k8s
     class RDS_PRIMARY,RDS_STANDBY,REDIS database
     class SG security
+
 ```
+
 </div>
 
 ## Componentes de Red y Seguridad
 
 ### Red VPC
+
 - **CIDR:** `10.0.0.0/16`
+
 - **Subnets Públicas:** 2 AZ con NAT Gateways e Internet Gateway
+
 - **Subnets Privadas:** 2 AZ para workloads y bases de datos
+
 - **Multi-AZ:** Alta disponibilidad en `us-west-2a` y `us-west-2b`
 
 ### Security Groups
+
 - **ALB-SG:** Puertos 80/443 desde internet
+
 - **EKS-SG:** Comunicación interna del cluster
+
 - **RDS-SG:** Puerto 5432 solo desde EKS nodes
+
 - **Redis-SG:** Puerto 6379 solo desde EKS nodes
 
 ## Servicios AWS Utilizados
@@ -188,15 +200,21 @@ terraform/eks_test/
 ├── security-groups.tf       # Security groups y reglas
 ├── iam.tf                   # Roles y policies IAM
 └── acm.tf                   # SSL certificates
+
 ```
 
 ## Características de Alta Disponibilidad
 
 - **Multi-AZ Deployment:** Recursos distribuidos en 2 zonas de disponibilidad
+
 - **Auto Scaling:** EKS node groups con escalado automático
+
 - **Database Failover:** RDS Multi-AZ con failover automático
+
 - **Load Balancing:** ALB con health checks y distribución inteligente
+
 - **CDN Global:** CloudFront para baja latencia mundial
+
 - **Backup Automatizado:** RDS snapshots diarios y retención configurable
 
 <Note>

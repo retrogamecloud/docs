@@ -1,7 +1,8 @@
 ---
-title: "8.2. Tests End-to-End"
-description: "Estrategia completa de testing E2E para validar flujos críticos de usuario en RetroGameCloud"
-icon: "play"
+title: 8.2. Tests End-to-End
+description: Estrategia completa de testing E2E para validar flujos críticos de usuario
+  en RetroGameCloud
+icon: play
 ---
 
 # Tests End-to-End
@@ -16,27 +17,40 @@ Los tests E2E son ejecutados automáticamente en cada pull request y deployment,
 
 <Tabs>
 <Tab title="Playwright">
-**Playwright** es nuestra herramienta principal para tests de interfaz de usuario:
+
+* *Playwright** es nuestra herramienta principal para tests de interfaz de usuario:
+
 - Tests en múltiples navegadores (Chrome, Firefox, Safari)
+
 - Paralelización automática
+
 - Screenshots y videos en caso de fallos
+
 - API robusta para interacciones complejas
 
 ```bash
 npm install @playwright/test
 npx playwright install
+
 ```
+
 </Tab>
 <Tab title="Newman">
-**Newman** ejecuta nuestras colecciones de Postman para validar APIs:
+
+* *Newman** ejecuta nuestras colecciones de Postman para validar APIs:
+
 - Validación de contratos de API
+
 - Tests de integración entre servicios
+
 - Verificación de flujos OAuth2
 
 ```bash
 npm install -g newman
 newman run postman-collection.json -e environment.json
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -65,7 +79,7 @@ Este test valida el ciclo completo desde el registro hasta la aparición en el r
    await page.fill('[data-testid="email"]', 'test@example.com');
    await page.fill('[data-testid="password"]', 'SecurePass123!');
    await page.click('[data-testid="login-button"]');
-   
+
    // Verificar token en localStorage
    const token = await page.evaluate(() => localStorage.getItem('jwt'));
    expect(token).toBeTruthy();
@@ -109,6 +123,7 @@ Este test requiere configuración especial de Google OAuth2 para entornos de tes
 
 <Tabs>
 <Tab title="Google OAuth2">
+
 ```javascript
 // playwright.config.js
 module.exports = {
@@ -128,9 +143,12 @@ module.exports = {
     }
   ]
 };
+
 ```
+
 </Tab>
 <Tab title="Mock OAuth Response">
+
 ```javascript
 // Mock de respuesta OAuth2 para tests
 await page.route('**/auth/google/callback*', route => {
@@ -147,7 +165,9 @@ await page.route('**/auth/google/callback*', route => {
     })
   });
 });
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -157,7 +177,7 @@ await page.route('**/auth/google/callback*', route => {
    ```javascript
    await page.goto('/login');
    await page.click('[data-testid="google-login"]');
-   
+
    // Manejar popup de OAuth2
    const [popup] = await Promise.all([
      page.waitForEvent('popup'),
@@ -169,7 +189,7 @@ await page.route('**/auth/google/callback*', route => {
    ```javascript
    await popup.waitForURL('**/auth/google/callback*');
    await popup.close();
-   
+
    // Verificar redirección y token
    await expect(page).toHaveURL('/dashboard');
    const token = await page.evaluate(() => localStorage.getItem('jwt'));
@@ -195,10 +215,11 @@ graph LR
     D --> E[Run Newman Tests]
     E --> F[Generate Reports]
     F --> G[Cleanup Cluster]
-    
+
     style A fill:#2188ff
     style F fill:#28a745
     style G fill:#6f42c1
+
 ```
 
 ### Configuración de GitHub Actions
@@ -214,35 +235,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup Kubernetes
         uses: helm/kind-action@v1.4.0
         with:
           cluster_name: retrogame-test
-          
+
       - name: Deploy Test Environment
         run: |
           kubectl apply -f k8s/test/
           kubectl wait --for=condition=ready pod -l app=test-backend --timeout=300s
-          
+
       - name: Install Dependencies
         run: |
           npm ci
           npx playwright install --with-deps
-          
+
       - name: Run Playwright Tests
         run: |
           npx playwright test
         env:
           TEST_BASE_URL: http://localhost:3000
-          
+
       - name: Run Newman Tests
         run: |
           newman run tests/postman/api-tests.json \
             -e tests/postman/test-environment.json \
             --reporters cli,junit \
             --reporter-junit-export newman-results.xml
-            
+
       - name: Upload Test Results
         uses: actions/upload-artifact@v3
         if: always()
@@ -251,6 +272,7 @@ jobs:
           path: |
             test-results/
             newman-results.xml
+
 ```
 
 ## Arquitectura de Testing
@@ -264,27 +286,28 @@ graph TB
         C --> E[Game Catalog Mock]
         C --> F[Score Service Mock]
         C --> G[Ranking Service Mock]
-        
+
         D --> H[(PostgreSQL Test DB)]
         F --> H
         G --> I[(Redis Test Cache)]
     end
-    
+
     subgraph "Validaciones"
         A --> J{Status Codes}
         A --> K{UI Elements}
         A --> L{Data Persistence}
     end
-    
+
     J -->|200 OK| M[✅ Test Pass]
     J -->|4xx/5xx| N[❌ Test Fail]
     K -->|Element Found| M
     K -->|Element Missing| N
     L -->|Data Correct| M
     L -->|Data Invalid| N
-    
+
     style M fill:#28a745
     style N fill:#dc3545
+
 ```
 
 ## Escenarios de Testing Avanzados
@@ -301,18 +324,19 @@ test('should handle service failures gracefully', async ({ page }) => {
   await page.route('**/api/scores*', route => {
     route.abort('failed');
   });
-  
+
   await page.goto('/games/pac-man');
   await page.evaluate(() => window.submitScore(2000));
-  
+
   // Verificar mensaje de error amigable
   await expect(page.locator('[data-testid="error-message"]'))
     .toContainText('Error temporal. Reintentando...');
-  
+
   // Restaurar servicio y verificar retry
   await page.unroute('**/api/scores*');
   await page.waitForSelector('[data-testid="score-saved"]');
 });
+
 ```
 
 ### E2E-004: Tests de Performance
@@ -320,13 +344,13 @@ test('should handle service failures gracefully', async ({ page }) => {
 ```javascript
 test('should load games catalog within performance budget', async ({ page }) => {
   const startTime = Date.now();
-  
+
   await page.goto('/games');
   await page.waitForSelector('[data-testid="game-card"]');
-  
+
   const loadTime = Date.now() - startTime;
   expect(loadTime).toBeLessThan(3000); // 3 segundos máximo
-  
+
   // Verificar Core Web Vitals
   const metrics = await page.evaluate(() => {
     return new Promise(resolve => {
@@ -335,9 +359,10 @@ test('should load games catalog within performance budget', async ({ page }) => 
       }).observe({ entryTypes: ['largest-contentful-paint'] });
     });
   });
-  
+
   expect(metrics[0].startTime).toBeLessThan(2500); // LCP < 2.5s
 });
+
 ```
 
 ## Informes y Monitorización
@@ -357,6 +382,7 @@ module.exports = {
     video: 'retain-on-failure'
   }
 };
+
 ```
 
 ### Métricas de Testing
@@ -366,8 +392,11 @@ Las métricas de testing se envían automáticamente a Grafana para monitorizaci
 </Note>
 
 - **Tiempo de ejecución de tests**: < 15 minutos
+
 - **Tasa de éxito**: > 95%
+
 - **Cobertura de flujos críticos**: 100%
+
 - **Tiempo de feedback**: < 5 minutos después del commit
 
 ## Mantenimiento y Mejores Prácticas
@@ -395,6 +424,7 @@ export const TEST_GAMES = {
     expectedLoadTime: 5000
   }
 };
+
 ```
 
 ### Limpieza de Datos
@@ -409,11 +439,12 @@ export async function cleanupTestData() {
       'Content-Type': 'application/json'
     }
   });
-  
+
   if (!response.ok) {
     throw new Error('Failed to cleanup test data');
   }
 }
+
 ```
 
 <Warning>
@@ -431,6 +462,7 @@ test.setTimeout(60000);
 await page.waitForSelector('[data-testid="js-dos-canvas"]', {
   timeout: 30000
 });
+
 ```
 
 ### Flakiness en Tests OAuth2
@@ -443,6 +475,7 @@ test.describe.configure({ retries: 2 });
 await expect(page.locator('[data-testid="oauth-success"]')).toBeVisible({
   timeout: 10000
 });
+
 ```
 
 Los tests End-to-End son fundamentales para mantener la confianza en RetroGameCloud. Esta estrategia asegura que todos los flujos críticos funcionen correctamente en cada deployment.

@@ -1,0 +1,548 @@
+---
+title: "8.5. Troubleshooting"
+description: "Guía completa para diagnosticar y resolver problemas en RetroGameCloud"
+icon: "wrench"
+---
+
+# 8.5. Troubleshooting
+
+Esta guía proporciona soluciones estructuradas para los problemas más comunes en RetroGameCloud, organizadas por categorías para facilitar el diagnóstico y resolución.
+
+<Note>
+Cada sección incluye síntomas específicos, comandos de diagnóstico, soluciones paso a paso y medidas de prevención.
+</Note>
+
+## Navegación Rápida
+
+<Tabs>
+<Tab title="Kubernetes">
+- [CrashLoopBackOff](#crashloopbackoff)
+- [ImagePullBackOff](#imagepullbackoff)
+- [OOMKilled](#oomkilled)
+- [Pods Pendientes](#pods-pendientes)
+</Tab>
+<Tab title="Servicios">
+- [Servicio Auth](#servicio-auth)
+- [Servicio Scores](#servicio-scores)
+- [Servicio Ranking](#servicio-ranking)
+- [Servicio Catalog](#servicio-catalog)
+</Tab>
+<Tab title="Base de Datos">
+- [PostgreSQL/RDS](#postgresql-rds)
+- [Redis](#redis)
+- [Connection Pools](#connection-pools)
+</Tab>
+<Tab title="Red y Conectividad">
+- [DNS](#dns)
+- [SSL/TLS](#ssl-tls)
+- [Kong Gateway](#kong-gateway)
+- [Timeouts](#timeouts)
+</Tab>
+</Tabs>
+
+## Problemas de Kubernetes
+
+### CrashLoopBackOff
+
+**Síntomas:**
+- Pod reinicia constantemente
+- Estado `CrashLoopBackOff` en `kubectl get pods`
+- Aplicación no responde
+
+**Diagnóstico:**
+
+```bash
+# Verificar estado del pod
+kubectl get pods -n retro-game-cloud
+
+# Ver eventos del pod
+kubectl describe pod <pod-name> -n retro-game-cloud
+
+# Revisar logs actuales
+kubectl logs <pod-name> -n retro-game-cloud
+
+# Ver logs del contenedor anterior
+kubectl logs <pod-name> -n retro-game-cloud --previous
+```
+
+**Solución:**
+
+<Tabs>
+<Tab title="Error de Configuración">
+1. Revisar variables de entorno:
+```bash
+kubectl get deployment <deployment-name> -o yaml | grep -A 10 env:
+```
+
+2. Verificar ConfigMaps y Secrets:
+```bash
+kubectl get configmap -n retro-game-cloud
+kubectl get secret -n retro-game-cloud
+```
+
+3. Corregir configuración y redeplegar:
+```bash
+kubectl rollout restart deployment/<deployment-name> -n retro-game-cloud
+```
+</Tab>
+<Tab title="Dependencias Externas">
+1. Verificar conectividad a base de datos:
+```bash
+kubectl run debug-pod --image=postgres:13 --rm -it -- psql -h $DB_HOST -U $DB_USER -d $DB_NAME
+```
+
+2. Comprobar Redis:
+```bash
+kubectl run debug-redis --image=redis:alpine --rm -it -- redis-cli -h $REDIS_HOST ping
+```
+
+3. Ajustar tiempos de inicio:
+```yaml
+livenessProbe:
+  initialDelaySeconds: 60
+  periodSeconds: 10
+readinessProbe:
+  initialDelaySeconds: 30
+  periodSeconds: 5
+```
+</Tab>
+</Tabs>
+
+**Prevención:**
+- Implementar health checks robustos
+- Configurar probes con delays apropiados
+- Usar init containers para dependencias
+
+### ImagePullBackOff
+
+**Síntomas:**
+- Pod no puede descargar imagen
+- Estado `ImagePullBackOff` o `ErrImagePull`
+- Mensajes de error de autenticación
+
+**Diagnóstico:**
+
+```bash
+# Verificar eventos del pod
+kubectl describe pod <pod-name> -n retro-game-cloud
+
+# Comprobar imagen especificada
+kubectl get deployment <deployment-name> -o jsonpath='{.spec.template.spec.containers[0].image}'
+
+# Verificar secrets de registry
+kubectl get secret regcred -o yaml
+```
+
+**Solución:**
+
+<Tabs>
+<Tab title="Imagen No Existe">
+1. Verificar tag de imagen:
+```bash
+# Listar tags disponibles en ECR
+aws ecr list-images --repository-name retro-game-cloud/<service-name>
+```
+
+2. Actualizar deployment:
+```bash
+kubectl set image deployment/<deployment-name> <container-name>=<correct-image> -n retro-game-cloud
+```
+</Tab>
+<Tab title="Problemas de Autenticación">
+1. Regenerar token de ECR:
+```bash
+aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin <ecr-url>
+```
+
+2. Actualizar secret:
+```bash
+kubectl delete secret regcred -n retro-game-cloud
+kubectl create secret docker-registry regcred \
+  --docker-server=<ecr-url> \
+  --docker-username=AWS \
+  --docker-password=$(aws ecr get-login-password --region eu-west-1) \
+  -n retro-game-cloud
+```
+</Tab>
+</Tabs>
+
+**Prevención:**
+- Automatizar rotación de tokens ECR
+- Usar IAM roles para service accounts
+- Validar imágenes en CI/CD
+
+### OOMKilled
+
+**Síntomas:**
+- Pod termina inesperadamente
+- Código de salida 137
+- Mensaje "OOMKilled" en eventos
+
+**Diagnóstico:**
+
+```bash
+# Ver uso de memoria actual
+kubectl top pods -n retro-game-cloud
+
+# Revisar límites de recursos
+kubectl describe pod <pod-name> -n retro-game-cloud | grep -A 5 "Limits\|Requests"
+
+# Verificar métricas históricas
+kubectl get --raw /api/v1/nodes/<node-name>/proxy/stats/summary
+```
+
+**Solución:**
+
+1. **Aumentar límites de memoria:**
+```yaml
+resources:
+  requests:
+    memory: "512Mi"
+  limits:
+    memory: "1Gi"
+```
+
+2. **Optimizar aplicación:**
+```bash
+# Analizar heap dumps (Java)
+kubectl exec <pod-name> -- jcmd <pid> GC.run_finalization
+kubectl exec <pod-name> -- jmap -dump:format=b,file=/tmp/heap.hprof <pid>
+
+# Monitorear garbage collection
+kubectl exec <pod-name> -- jstat -gc <pid> 5s
+```
+
+3. **Aplicar cambios:**
+```bash
+kubectl apply -f deployment.yaml
+kubectl rollout status deployment/<deployment-name> -n retro-game-cloud
+```
+
+**Prevención:**
+- Configurar alertas de uso de memoria
+- Implementar profiling continuo
+- Usar horizontal pod autoscaler
+
+### Pods Pendientes
+
+**Síntomas:**
+- Pod en estado `Pending`
+- No se asigna a ningún nodo
+- Aplicación no despliega
+
+**Diagnóstico:**
+
+```bash
+# Ver razón de pending
+kubectl describe pod <pod-name> -n retro-game-cloud
+
+# Verificar recursos del cluster
+kubectl describe nodes
+
+# Comprobar taints y tolerations
+kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
+```
+
+**Solución:**
+
+<Tabs>
+<Tab title="Recursos Insuficientes">
+1. Verificar capacity del cluster:
+```bash
+kubectl describe nodes | grep -A 5 "Allocated resources"
+```
+
+2. Escalar cluster:
+```bash
+# Para EKS managed node groups
+aws eks update-nodegroup-config \
+  --cluster-name retro-game-cloud \
+  --nodegroup-name workers \
+  --scaling-config minSize=2,maxSize=6,desiredSize=4
+```
+
+3. Reducir requests de recursos:
+```yaml
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+```
+</Tab>
+<Tab title="Node Selectors">
+1. Verificar labels de nodos:
+```bash
+kubectl get nodes --show-labels
+```
+
+2. Corregir nodeSelector:
+```yaml
+nodeSelector:
+  kubernetes.io/arch: amd64
+  node.kubernetes.io/instance-type: t3.medium
+```
+
+3. Usar node affinity si es necesario:
+```yaml
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/arch
+          operator: In
+          values:
+          - amd64
+```
+</Tab>
+</Tabs>
+
+**Prevención:**
+- Configurar cluster autoscaler
+- Monitorear uso de recursos
+- Definir resource quotas
+
+## Problemas de Servicios
+
+### Servicio Auth
+
+**Síntomas:**
+- Fallos de autenticación 401/403
+- Tokens JWT inválidos
+- Timeouts en login
+
+**Diagnóstico:**
+
+```bash
+# Verificar salud del servicio
+kubectl get pods -l app=auth-service -n retro-game-cloud
+kubectl logs -l app=auth-service -n retro-game-cloud --tail=50
+
+# Probar endpoint de salud
+kubectl port-forward svc/auth-service 8080:8080 -n retro-game-cloud &
+curl http://localhost:8080/health
+
+# Verificar configuración OAuth2
+kubectl get secret auth-oauth-config -o yaml -n retro-game-cloud
+```
+
+**Solución:**
+
+<Tabs>
+<Tab title="Problema de JWT">
+1. Verificar clave secreta:
+```bash
+kubectl get secret jwt-secret -o jsonpath='{.data.key}' | base64 -d
+```
+
+2. Regenerar clave si es necesario:
+```bash
+kubectl create secret generic jwt-secret \
+  --from-literal=key=$(openssl rand -base64 32) \
+  -n retro-game-cloud --dry-run=client -o yaml | kubectl apply -f -
+```
+
+3. Reiniciar servicio:
+```bash
+kubectl rollout restart deployment/auth-service -n retro-game-cloud
+```
+</Tab>
+<Tab title="Base de Datos">
+1. Probar conexión:
+```bash
+kubectl run debug-db --image=postgres:13 --rm -it -- \
+  psql -h $DB_HOST -U $DB_USER -d auth_db -c "SELECT version();"
+```
+
+2. Verificar migraciones:
+```bash
+kubectl exec -it deployment/auth-service -n retro-game-cloud -- \
+  npm run db:status
+```
+
+3. Ejecutar migraciones si es necesario:
+```bash
+kubectl exec -it deployment/auth-service -n retro-game-cloud -- \
+  npm run db:migrate
+```
+</Tab>
+</Tabs>
+
+**Prevención:**
+- Implementar circuit breakers
+- Configurar retry policies
+- Monitorear métricas de autenticación
+
+### Servicio Scores
+
+**Síntomas:**
+- Puntuaciones no se guardan
+- Errores 500 al consultar scores
+- Lentitud en rankings
+
+**Diagnóstico:**
+
+```bash
+# Verificar logs del servicio
+kubectl logs -l app=scores-service -n retro-game-cloud --tail=100
+
+# Comprobar conexión a Redis
+kubectl exec -it deployment/scores-service -n retro-game-cloud -- \
+  redis-cli -h redis-service ping
+
+# Verificar métricas
+curl -s http://localhost:8080/metrics | grep score_
+```
+
+**Solución:**
+
+1. **Problema de Redis:**
+```bash
+# Reiniciar Redis si es necesario
+kubectl rollout restart deployment/redis -n retro-game-cloud
+
+# Verificar persistencia
+kubectl exec -it deployment/redis -n retro-game-cloud -- \
+  redis-cli LASTSAVE
+```
+
+2. **Cache warming:**
+```bash
+# Popular cache de rankings
+kubectl exec -it deployment/scores-service -n retro-game-cloud -- \
+  npm run cache:warm
+```
+
+3. **Optimización de consultas:**
+```javascript
+// Implementar paginación
+const scores = await Score.find()
+  .sort({ points: -1 })
+  .limit(100)
+  .skip(page * 100);
+```
+
+**Prevención:**
+- Configurar TTL apropiado en cache
+- Implementar índices de base de datos
+- Monitorear latencia de consultas
+
+### Servicio Ranking
+
+**Síntomas:**
+- Rankings desactualizados
+- Cálculos incorrectos
+- Alta latencia en consultas
+
+**Diagnóstico:**
+
+```bash
+# Verificar jobs de cálculo
+kubectl get jobs -n retro-game-cloud | grep ranking
+
+# Revisar logs de processing
+kubectl logs -l app=ranking-service -n retro-game-cloud | grep -i error
+
+# Comprobar cola de mensajes
+kubectl exec -it deployment/ranking-service -n retro-game-cloud -- \
+  npm run queue:status
+```
+
+**Solución:**
+
+1. **Recalcular rankings:**
+```bash
+kubectl create job ranking-recalc --from=cronjob/ranking-calculator -n retro-game-cloud
+```
+
+2. **Limpiar cola bloqueada:**
+```bash
+kubectl exec -it deployment/redis -n retro-game-cloud -- \
+  redis-cli FLUSHDB 1
+```
+
+3. **Optimizar algoritmo:**
+```javascript
+// Usar batch processing
+const batchSize = 1000;
+for (let i = 0; i < totalPlayers; i += batchSize) {
+  await processRankingBatch(i, batchSize);
+}
+```
+
+**Prevención:**
+- Implementar procesamiento incremental
+- Configurar dead letter queues
+- Monitorear tiempo de procesamiento
+
+### Servicio Catalog
+
+**Síntomas:**
+- Juegos no cargan
+- Errores de S3
+- Metadatos faltantes
+
+**Diagnóstico:**
+
+```bash
+# Verificar acceso a S3
+kubectl exec -it deployment/catalog-service -n retro-game-cloud -- \
+  aws s3 ls s3://retro-games-bucket/
+
+# Comprobar CDN
+curl -I https://d1234567890.cloudfront.net/games/pacman.zip
+
+# Revisar índice de búsqueda
+kubectl exec -it deployment/catalog-service -n retro-game-cloud -- \
+  npm run search:status
+```
+
+**Solución:**
+
+<Tabs>
+<Tab title="Problema S3/CloudFront">
+1. Verificar permisos IAM:
+```bash
+aws iam get-role-policy --role-name EKSServiceRole --policy-name S3Access
+```
+
+2. Invalidar cache de CloudFront:
+```bash
+aws cloudfront create-invalidation \
+  --distribution-id E1234567890 \
+  --paths "/*"
+```
+
+3. Comprobar CORS:
+```json
+{
+  "CORSRules": [{
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedOrigins": ["https://retrogamecloud.com"],
+    "AllowedHeaders": ["*"]
+  }]
+}
+```
+</Tab>
+<Tab title="Búsqueda/Indexing">
+1. Reindexar catálogo:
+```bash
+kubectl exec -it deployment/catalog-service -n retro-game-cloud -- \
+  npm run search:reindex
+```
+
+2. Verificar Elasticsearch:
+```bash
+curl -X GET "elasticsearch:9200/_cluster/health"
+```
+
+3. Reconstruir metadatos:
+```bash
+kubectl create job catalog-rebuild --from=cronjob/catalog-indexer -n retro-game-cloud
+```
+</Tab>
+</Tabs>
+
+**Prevención:**
+- Configurar health checks para S3
+-
