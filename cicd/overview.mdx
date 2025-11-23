@@ -1,5 +1,5 @@
 ---
-title: 7.1. Visión General de CI/CD
+title: 6.1. Visión General de CI/CD
 description: Pipeline completo de integración y despliegue continuo con GitHub Actions,
   Docker, ECR y ArgoCD con gates de aprobación y rollback automático
 icon: rocket
@@ -64,218 +64,210 @@ graph TB
 
         M --> N{🤖 Auto-merge?}
         N -->|No| P[👀 Manual Review]
-        N -->|Yes| O[🔀 Auto-merge PR]
-        P --> O
-        O --> Q[📦 Config Repo Updated]
+        P --> P1[✅ Approve & Merge]
+        N -->|Yes| P1
+        P1 --> Q[📁 Config Repo Updated]
     end
 
-    subgraph STAGING["🧪 STAGING DEPLOYMENT"]
-        Q --> R[🔄 ArgoCD Detects Change]
-        R --> S[🚀 Deploy to Staging]
-        S --> T[⚡ Rolling Update]
-        T --> U[🏥 Health Check]
-        U --> V{💚 Staging Healthy?}
-        
-        V -->|❌ Fail| ROLLBACK_STG[⏪ Rollback Staging]
-        V -->|✅ Success| W[🎯 E2E Tests]
-        
-        W --> X{🧪 E2E Pass?}
-        X -->|❌ Fail| ROLLBACK_STG
-        X -->|✅ Success| Y[✅ Staging Validated]
+    subgraph CD["🚀 CONTINUOUS DEPLOYMENT - ArgoCD"]
+        Q --> R[🔍 ArgoCD Detects Changes]
+        R --> S[📥 Sync Application]
+        S --> T[🔄 Rolling Update]
+        T --> U[🏥 Health Checks]
+
+        U --> V{💚 Healthy?}
+        V -->|❌ Fail| W[⏪ Automatic Rollback]
+        V -->|✅ Success| X[✅ Deployment Complete]
+
+        W --> W1[📧 Alert Operators]
+        X --> X1[📊 Update Metrics]
     end
 
-    subgraph APPROVAL["👥 APPROVAL GATE"]
-        Y --> Z{🛡️ Manual Approval<br/>Required?}
-        Z -->|No - Hotfix| AA[🚨 Auto-promote]
-        Z -->|Yes| BB[👨‍💼 Approval Request]
-        BB --> CC{✅ Approved?}
-        CC -->|❌ Rejected| END1[⛔ Deployment Stopped]
-        CC -->|✅ Approved| AA
-    end
-
-    subgraph PROD["🌟 PRODUCTION DEPLOYMENT"]
-        AA --> DD[🎯 ArgoCD Sync to Prod]
-        DD --> EE[🚀 Rolling Update Prod]
-        EE --> FF[🏥 Health Check Prod]
-        FF --> GG{💚 Production Healthy?}
-        
-        GG -->|❌ Fail| HH[🚨 Auto Rollback Prod]
-        GG -->|✅ Success| II[📊 Post-deploy Monitoring]
-        
-        HH --> JJ[🔔 Alert Team]
-        II --> KK{📈 Metrics OK?}
-        KK -->|❌ Degraded| HH
-        KK -->|✅ Success| LL[✅ Deployment Complete]
-    end
-
-    subgraph MONITORING["📊 CONTINUOUS MONITORING"]
-        LL --> MM[📈 Application Metrics]
-        MM --> NN[🏥 Health Checks]
-        NN --> OO[📋 Log Aggregation]
-        OO --> PP{🚨 Issues Detected?}
-        PP -->|Yes| QQ[🔔 Alert & Consider Rollback]
-        PP -->|No| RR[✅ Stable Production]
+    subgraph MONITOR["📊 MONITORING"]
+        X1 --> Y[📈 Prometheus Metrics]
+        Y --> Z[📊 Grafana Dashboard]
+        Z --> Z1[🔔 Slack Notifications]
     end
 
     style STOP fill:#ff6b6b
-    style ROLLBACK_STG fill:#ffa726
-    style HH fill:#ffa726
-    style END1 fill:#ff6b6b
-    style LL fill:#4caf50
-    style RR fill:#4caf50
+    style X fill:#51cf66
+    style W fill:#ffd43b
+    style D fill:#74c0fc
+    style V fill:#74c0fc
+    style N fill:#74c0fc
 ```
 
-## Etapas Detalladas del Pipeline
+## Componentes del Pipeline
 
 ### 1. Continuous Integration (CI)
 
-<Steps>
-  <Step title="Code Quality & Testing">
-    - **Lint & Format**: ESLint, Prettier para frontend; gofmt, golint para backend
-    - **Unit Tests**: Jest para React, Go test para APIs
-    - **Integration Tests**: Testcontainers para bases de datos
-    - **Security Scan**: SonarQube, Snyk para vulnerabilidades
-  </Step>
-
-  <Step title="Build & Package">
-    - **Multi-stage Docker Build**: Optimización de capas e imagen final mínima
-    - **Security Scanning**: Trivy para escaneo de vulnerabilidades en imagen
-    - **Registry Push**: AWS ECR con tags semánticos y SHA commits
-  </Step>
-</Steps>
-
-### 2. GitOps Workflow
-
-<Steps>
-  <Step title="Manifest Update">
-    - Actualización automática de manifiestos Kubernetes
-    - Validación con Kustomize y Kubeval
-    - Creación de PR al repositorio de configuración
-  </Step>
-
-  <Step title="Review Process">
-    - Auto-merge para hotfixes y patches menores
-    - Review manual para cambios mayores
-    - Validación de configuración antes del merge
-  </Step>
-</Steps>
-
-### 3. Deployment Stages
-
-<Steps>
-  <Step title="Staging Deployment">
-    - **Automático**: ArgoCD detecta cambios y despliega
-    - **Rolling Update**: Zero-downtime deployment
-    - **E2E Testing**: Cypress para testing completo
-    - **Rollback Automático**: Si health checks fallan
-  </Step>
-
-  <Step title="Approval Gate">
-    - Configuración por tipo de cambio (major/minor/patch)
-    - Notificaciones a equipos de aprobación
-    - Bypass automático para hotfixes críticos
-  </Step>
-
-  <Step title="Production Deployment">
-    - **Rolling Update**: Actualización gradual de pods
-    - **Health Checks**: Readiness y liveness probes
-    - **Circuit Breaker**: Parada automática si falla
-    - **Auto Rollback**: Retorno a versión anterior estable
-  </Step>
-</Steps>
-
-### 4. Monitoring & Observability
-
-<Tabs>
-  <Tab title="Health Monitoring">
-    ```yaml
-    # Health check configuration
-    readinessProbe:
-      httpGet:
-        path: /health/ready
-        port: 8080
-      initialDelaySeconds: 10
-      periodSeconds: 5
-      timeoutSeconds: 3
-      successThreshold: 1
-      failureThreshold: 3
-
-    livenessProbe:
-      httpGet:
-        path: /health/live
-        port: 8080
-      initialDelaySeconds: 30
-      periodSeconds: 10
-      timeoutSeconds: 5
-      failureThreshold: 3
-    ```
-  </Tab>
-
-  <Tab title="Rollback Strategy">
-    ```bash
-    # Automatic rollback triggers
-    - Health check failures > 3 consecutive
-    - Error rate > 5% for 2 minutes
-    - Response time > 2s for 5 minutes
-    - Critical alerts from monitoring
-
-    # Rollback execution
-    kubectl rollout undo deployment/retro-game-hub
-    argocd app sync retro-game-hub --revision previous
-    ```
-  </Tab>
-
-  <Tab title="Notification Channels">
-    ```yaml
-    # Alert configuration
-    notifications:
-      - trigger: deployment.failed
-        channels: [slack, email, pagerduty]
-      - trigger: rollback.executed
-        channels: [slack, email]
-      - trigger: approval.required
-        channels: [slack, email]
-    ```
-  </Tab>
-</Tabs>
-
-## Configuración de Gates y Políticas
-
 <CardGroup cols={2}>
-  <Card title="Approval Policies" icon="shield-check">
-    **Major Changes (v1.0.0 → v2.0.0)**
-    - Require manual approval
-    - Security team review
-    - Stakeholder sign-off
-
-    **Minor Changes (v1.0.0 → v1.1.0)**
-    - Team lead approval
-    - Automated after 2 hours
-
-    **Patches (v1.0.0 → v1.0.1)**
-    - Auto-approve if tests pass
-    - Immediate deployment
+  <Card title="GitHub Actions" icon="github">
+    **Automatización completa**
+    - Triggers automáticos
+    - Workflows paralelos
+    - Caché inteligente
+    - Secrets management
   </Card>
 
-  <Card title="Rollback Triggers" icon="arrow-rotate-left">
-    **Automatic Rollback**
-    - Health check failures
-    - Error rate spikes
-    - Performance degradation
-    - Critical security alerts
-
-    **Manual Rollback**
-    - Business decision
-    - User feedback
-    - Feature flag disable
+  <Card title="Quality Gates" icon="shield-check">
+    **Control de calidad**
+    - Tests unitarios e integración
+    - Code coverage > 80%
+    - Security scanning
+    - Performance tests
   </Card>
 </CardGroup>
 
-## Métricas y SLOs
+### 2. Container Registry
 
-El pipeline mantiene los siguientes Service Level Objectives:
+<CardGroup cols={2}>
+  <Card title="AWS ECR" icon="docker">
+    **Registry seguro**
+    - Image vulnerability scanning
+    - Lifecycle policies
+    - Cross-region replication
+    - IAM integration
+  </Card>
 
-- **Lead Time**: < 30 minutos desde commit hasta staging
-- **Deployment Frequency**: Múltiples despliegues por día
-- **MTTR (Mean Time To Recovery)**: < 15 minutos con rollback automático
-- **Change Failure Rate**: < 5% con gates de calidad
+  <Card title="Multi-tagging" icon="tags">
+    **Versionado inteligente**
+    - Semantic versioning
+    - SHA-based tags
+    - Environment tags
+    - Latest promotion
+  </Card>
+</CardGroup>
+
+### 3. GitOps Deployment
+
+<CardGroup cols={2}>
+  <Card title="ArgoCD" icon="arrows-rotate">
+    **GitOps nativo**
+    - Declarative deployments
+    - Automatic sync
+    - Drift detection
+    - Multi-cluster support
+  </Card>
+
+  <Card title="Kustomize" icon="puzzle-piece">
+    **Configuration management**
+    - Environment overlays
+    - Secret management
+    - Resource patching
+    - Composition patterns
+  </Card>
+</CardGroup>
+
+## Estrategias de Despliegue
+
+### Rolling Updates
+- **Zero downtime**: Actualizaciones sin interrupciones
+- **Gradual rollout**: Pods se actualizan gradualmente
+- **Health checks**: Verificación continua de salud
+- **Automatic rollback**: Reversión automática en fallos
+
+### Blue/Green Deployment
+- **Parallel environments**: Dos versiones ejecutándose
+- **Traffic switching**: Cambio instantáneo de tráfico
+- **Risk mitigation**: Rollback inmediato disponible
+- **Resource efficiency**: Optimización de recursos
+
+### Canary Releases
+- **Progressive exposure**: Exposición gradual del tráfico
+- **A/B testing**: Comparación de versiones
+- **Metrics-driven**: Decisiones basadas en métricas
+- **Automated promotion**: Promoción automática exitosa
+
+## Gates de Aprobación
+
+### Automated Gates
+```yaml
+quality_gates:
+  unit_tests:
+    coverage: "> 80%"
+    status: "required"
+  
+  integration_tests:
+    status: "required"
+    timeout: "10m"
+  
+  security_scan:
+    severity: "high"
+    action: "block"
+  
+  performance:
+    response_time: "< 500ms"
+    error_rate: "< 1%"
+```
+
+### Manual Gates
+```yaml
+approval_gates:
+  staging_deploy:
+    reviewers: ["team-lead", "devops"]
+    timeout: "24h"
+  
+  production_deploy:
+    reviewers: ["tech-lead", "product-owner"]
+    timeout: "48h"
+    require_all: true
+```
+
+## Rollback Automático
+
+### Trigger Conditions
+- **Health check failures**: Pods no pasan health checks
+- **Error rate spike**: Tasa de errores > threshold
+- **Performance degradation**: Latencia > SLA
+- **Resource exhaustion**: CPU/Memory limits
+
+### Rollback Process
+1. **Detect failure**: Monitoring detecta anomalías
+2. **Trigger rollback**: Proceso automático iniciado
+3. **Revert deployment**: Vuelta a versión anterior
+4. **Verify health**: Confirmación de estabilidad
+5. **Alert team**: Notificación a equipo
+
+## Métricas y Observabilidad
+
+<CardGroup cols={3}>
+  <Card title="Deployment Metrics" icon="chart-line">
+    - Deployment frequency
+    - Lead time
+    - MTTR (Mean Time to Recovery)
+    - Change failure rate
+  </Card>
+
+  <Card title="Pipeline Health" icon="heart-pulse">
+    - Build success rate
+    - Test execution time
+    - Quality gate pass rate
+    - Security scan results
+  </Card>
+
+  <Card title="Business Impact" icon="chart-bar">
+    - Feature adoption
+    - User satisfaction
+    - Performance impact
+    - Rollback frequency
+  </Card>
+</CardGroup>
+
+## Beneficios del Pipeline
+
+### Para Desarrolladores
+- **Fast feedback**: Retroalimentación rápida en cambios
+- **Reduced toil**: Menos tareas manuales repetitivas
+- **Confidence**: Despliegues seguros y confiables
+- **Focus**: Más tiempo en desarrollo de features
+
+### Para el Negocio
+- **Faster TTM**: Tiempo al mercado reducido
+- **Quality**: Mayor calidad y estabilidad
+- **Risk reduction**: Menor riesgo en deployments
+- **Compliance**: Trazabilidad y auditabilidad
+
+<Note>
+El pipeline está diseñado para ser **self-healing** y **resilient**, con múltiples capas de verificación y mecanismos de recuperación automática que garantizan la estabilidad del sistema en producción.
+</Note>

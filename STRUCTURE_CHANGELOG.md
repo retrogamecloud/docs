@@ -1,15 +1,15 @@
 # 📋 Reorganización de Estructura de Documentación
 
-**Fecha**: 2025-11-23 17:08:06  
+**Fecha**: 2025-11-23 18:23:04  
 **Generado por**: Claude Sonnet 4.5
 
 ## 📊 Resumen de Cambios
 
-Se ha reorganizado la estructura en 8 grupos consecutivos por tab, eliminando la nomenclatura '1. Primeros Pasos', '2. Arquitectura' por nombres más directos. Se consolidó 'Entorno de Desarrollo' bajo 'Desarrollo Local' (grupo 3) para tener toda la información de desarrollo junta. Se renombró 'CI/CD y GitOps' a 'Despliegue y GitOps' para mayor claridad. En 'Referencia API' se simplificó eliminando redundancias: el grupo de 'API Gateway' (Kong) se fusionó con 'Visión General' ya que es parte de la arquitectura general del backend. Los grupos ahora van del 1 al 8 de forma consecutiva en ambos tabs.
+Se ha reorganizado la documentación separando servicios AWS gestionados (CloudFront, Route53) en un grupo independiente, consolidado puntuaciones y rankings en un único grupo en la API, mejorado las descripciones para mayor claridad, y establecido una numeración consecutiva clara del 1 al 9 en Documentación y del 1 al 7 en Referencia API. Se mantiene el flujo lógico desde conceptos básicos hasta implementación avanzada.
 
 ## 🎯 Justificación
 
-La nueva estructura sigue un flujo más natural y pedagógico: comienza con introducción y conceptos (grupos 1-2), continúa con el proceso de desarrollo (grupo 3), luego detalla la implementación por capas (frontend en 4, backend en 5), seguridad transversal (grupo 6), infraestructura (grupo 7) y finaliza con despliegue (grupo 8). Esta organización permite a desarrolladores nuevos seguir un camino lógico de aprendizaje, mientras que usuarios avanzados pueden acceder directamente a secciones específicas. En 'Referencia API' se consolida información relacionada: Kong está con la visión general del backend porque es parte integral de cómo funciona la arquitectura API. Se eliminan redundancias y se mantiene una numeración limpia y consecutiva.
+La reorganización mejora la navegabilidad separando conceptos por nivel de complejidad y ámbito funcional. Se ha creado un grupo específico para servicios gestionados de AWS (grupo 8) porque CloudFront y Route53 tienen un propósito diferente al resto de infraestructura (son servicios de red/distribución vs infraestructura de computación). En la API, consolidar puntuaciones y rankings tiene sentido porque están funcionalmente relacionados y evita fragmentación excesiva. Las descripciones se han ampliado para dar contexto específico de cada tecnología mencionada (OAuth2, JWT, Redux, Terraform), facilitando que usuarios nuevos comprendan qué encontrarán sin navegar primero.
 
 ---
 

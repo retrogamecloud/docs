@@ -1,13 +1,12 @@
 ---
 title: Seguridad y Gestión de Secretos
-description: Guía completa para la gestión segura de secretos, políticas de seguridad
-  y mejores prácticas en RetroGameCloud
+description: Guía completa para la gestión segura de secretos, políticas de seguridad, OWASP Top 10 y mejores prácticas en RetroGameCloud
 icon: shield-check
 ---
 
 # Seguridad y Gestión de Secretos
 
-Esta guía detalla las políticas de seguridad, gestión de secretos y mejores prácticas implementadas en RetroGameCloud para garantizar la protección de datos y sistemas.
+Esta guía detalla las políticas de seguridad, gestión de secretos, implementación de OWASP Top 10 y mejores prácticas implementadas en RetroGameCloud para garantizar la protección de datos y sistemas.
 
 ## Arquitectura de Seguridad
 
@@ -16,6 +15,7 @@ graph TB
     subgraph "Internet"
         U[Usuario]
         CDN[CloudFront CDN]
+        ATTACKER[Amenazas Externas]
     end
 
     subgraph "AWS Cloud"
@@ -43,6 +43,14 @@ graph TB
             PS[Parameter Store]
             WAF[AWS WAF]
             SG[Security Groups]
+            GUARD[GuardDuty]
+            CT[CloudTrail]
+            CW[CloudWatch]
+        end
+
+        subgraph "Identity & Access"
+            IAM[IAM Roles/Policies]
+            COGNITO[Cognito User Pool]
         end
 
         S3[S3 Buckets]
@@ -57,6 +65,11 @@ graph TB
     API --> GAME
     API --> SCORE
     API --> RANK
+
+    ATTACKER -.-> WAF
+    WAF -.-> GUARD
+    GUARD -.-> CT
+    CT -.-> CW
 
     AUTH -.-> SM
     USER -.-> SM
@@ -75,7 +88,368 @@ graph TB
     RANK --> REDIS
 
     GAME --> S3
+    AUTH --> COGNITO
+    ALL --> IAM
 
+    style ATTACKER fill:#ff6b6b
+    style WAF fill:#51cf66
+    style SM fill:#ffd43b
+    style IAM fill:#339af0
+```
+
+## OWASP Top 10 - Implementación de Mitigaciones
+
+### A01:2021 – Broken Access Control
+
+<Warning>
+El control de acceso roto es la vulnerabilidad #1 según OWASP. Implementamos múltiples capas de protección.
+</Warning>
+
+#### Implementación de Controles
+
+```typescript
+// middleware/rbac.ts
+import { Request, Response, NextFunction } from 'express';
+import { JwtService } from '../services/jwt.service';
+import { UserRole } from '../types/user.types';
+
+export class RBACMiddleware {
+  constructor(private jwtService: JwtService) {}
+
+  // Control de acceso basado en roles
+  requireRole(allowedRoles: UserRole[]) {
+    return async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const token = this.extractToken(req);
+        const payload = await this.jwtService.verify(token);
+        
+        // Verificar rol de usuario
+        if (!allowedRoles.includes(payload.role)) {
+          return res.status(403).json({
+            error: 'INSUFFICIENT_PERMISSIONS',
+            message: 'Access denied'
+          });
+        }
+
+        // Verificar propiedad de recursos
+        if (req.params.userId && payload.sub !== req.params.userId) {
+          const hasAdminRole = payload.role === UserRole.ADMIN;
+          if (!hasAdminRole) {
+            return res.status(403).json({
+              error: 'RESOURCE_ACCESS_DENIED',
+              message: 'Cannot access other user resources'
+            });
+          }
+        }
+
+        req.user = payload;
+        next();
+      } catch (error) {
+        res.status(401).json({
+          error: 'INVALID_TOKEN',
+          message: 'Authentication failed'
+        });
+      }
+    };
+  }
+
+  private extractToken(req: Request): string {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      throw new Error('No token provided');
+    }
+    return authHeader.substring(7);
+  }
+}
+```
+
+#### Políticas de Acceso a Recursos
+
+```yaml
+# k8s/rbac-policies.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: retrogame-prod
+  name: service-account-role
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+  resourceNames: ["db-credentials", "jwt-secrets"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: service-account-binding
+  namespace: retrogame-prod
+subjects:
+- kind: ServiceAccount
+  name: retrogame-service-account
+  namespace: retrogame-prod
+roleRef:
+  kind: Role
+  name: service-account-role
+  apiGroup: rbac.authorization.k8s.io
+```
+
+### A02:2021 – Cryptographic Failures
+
+#### Implementación de Cifrado
+
+```typescript
+// services/encryption.service.ts
+import { createCipher, createDecipher, randomBytes, scrypt } from 'crypto';
+import { promisify } from 'util';
+
+export class EncryptionService {
+  private readonly algorithm = 'aes-256-gcm';
+  private readonly keyLength = 32;
+
+  async encryptSensitiveData(data: string, password: string): Promise<string> {
+    const salt = randomBytes(16);
+    const iv = randomBytes(16);
+    
+    // Derivar clave usando scrypt
+    const key = await promisify(scrypt)(password, salt, this.keyLength) as Buffer;
+    
+    const cipher = createCipher(this.algorithm, key);
+    cipher.setAAD(salt); // Datos adicionales autenticados
+    
+    let encrypted = cipher.update(data, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    
+    const authTag = cipher.getAuthTag();
+    
+    // Combinar salt, iv, authTag y datos cifrados
+    return salt.toString('hex') + ':' + 
+           iv.toString('hex') + ':' + 
+           authTag.toString('hex') + ':' + 
+           encrypted;
+  }
+
+  // Validación de contraseñas seguras
+  validatePasswordStrength(password: string): boolean {
+    const minLength = 12;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    
+    return password.length >= minLength && 
+           hasUpperCase && 
+           hasLowerCase && 
+           hasNumbers && 
+           hasSpecialChar;
+  }
+}
+```
+
+### A03:2021 – Injection
+
+#### Prevención de Inyección SQL
+
+```typescript
+// repositories/user.repository.ts
+import { Pool } from 'pg';
+import { User, CreateUserDto } from '../types/user.types';
+
+export class UserRepository {
+  constructor(private db: Pool) {}
+
+  // Uso de consultas parametrizadas
+  async findById(id: string): Promise<User | null> {
+    const query = `
+      SELECT id, email, username, role, created_at, updated_at 
+      FROM users 
+      WHERE id = $1 AND deleted_at IS NULL
+    `;
+    
+    const result = await this.db.query(query, [id]);
+    return result.rows[0] || null;
+  }
+
+  async create(userData: CreateUserDto): Promise<User> {
+    const query = `
+      INSERT INTO users (id, email, username, password_hash, role)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, email, username, role, created_at
+    `;
+    
+    const values = [
+      userData.id,
+      userData.email,
+      userData.username,
+      userData.passwordHash,
+      userData.role
+    ];
+    
+    const result = await this.db.query(query, values);
+    return result.rows[0];
+  }
+
+  // Validación y sanitización de entrada
+  async searchUsers(searchTerm: string, limit: number = 10): Promise<User[]> {
+    // Sanitizar entrada
+    const sanitizedTerm = searchTerm.replace(/[%_]/g, '\\$&');
+    
+    const query = `
+      SELECT id, email, username, role 
+      FROM users 
+      WHERE (username ILIKE $1 OR email ILIKE $1) 
+        AND deleted_at IS NULL
+      LIMIT $2
+    `;
+    
+    const result = await this.db.query(query, [`%${sanitizedTerm}%`, limit]);
+    return result.rows;
+  }
+}
+```
+
+### A04:2021 – Insecure Design
+
+#### Implementación de Rate Limiting
+
+```typescript
+// middleware/rate-limiting.ts
+import rateLimit from 'express-rate-limit';
+import RedisStore from 'rate-limit-redis';
+import Redis from 'ioredis';
+
+const redis = new Redis(process.env.REDIS_URL);
+
+export const createRateLimit = (options: {
+  windowMs: number;
+  max: number;
+  message: string;
+  skipSuccessfulRequests?: boolean;
+}) => {
+  return rateLimit({
+    store: new RedisStore({
+      sendCommand: (...args: string[]) => redis.call(...args),
+    }),
+    windowMs: options.windowMs,
+    max: options.max,
+    message: {
+      error: 'RATE_LIMIT_EXCEEDED',
+      message: options.message,
+    },
+    skipSuccessfulRequests: options.skipSuccessfulRequests || false,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+};
+
+// Rate limits específicos por endpoint
+export const authRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // 5 intentos de login por IP
+  message: 'Too many authentication attempts',
+  skipSuccessfulRequests: true,
+});
+
+export const apiRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // 100 requests por IP
+  message: 'Too many API requests',
+});
+```
+
+### A05:2021 – Security Misconfiguration
+
+#### Configuración Segura de Headers
+
+```typescript
+// middleware/security-headers.ts
+import helmet from 'helmet';
+import { Application } from 'express';
+
+export const configureSecurityHeaders = (app: Application) => {
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "https:"],
+        scriptSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true
+    },
+    noSniff: true,
+    frameguard: { action: 'deny' },
+    xssFilter: true,
+  }));
+
+  // Headers adicionales de seguridad
+  app.use((req, res, next) => {
+    res.setHeader('X-API-Version', '1.0');
+    res.setHeader('Cache-Control', 'no-store');
+    res.removeHeader('X-Powered-By');
+    next();
+  });
+};
+```
+
+### A06:2021 – Vulnerable and Outdated Components
+
+#### Monitoreo de Vulnerabilidades
+
+```yaml
+# .github/workflows/security-scan.yml
+name: Security Vulnerability Scan
+on:
+  schedule:
+    - cron: '0 2 * * *' # Diario a las 2 AM
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  vulnerability-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run npm audit
+        run: npm audit --audit-level high
+        
+      - name: Run Snyk test
+        run: |
+          npm install -g snyk
+          snyk auth ${{ secrets.SNYK_TOKEN }}
+          snyk test --severity-threshold=high
+          
+      - name: Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
 ```
 
 ## Gestión de Secretos
@@ -89,474 +463,57 @@ AWS Secrets Manager se utiliza para almacenar secretos críticos como credencial
 #### Configuración de Secretos
 
 ```yaml
-
 # secrets-manager-setup.yml
 apiVersion: external-secrets.io/v1beta1
 kind: SecretStore
 metadata:
-  name: retrogame-secrets
-  namespace: retrogame-cloud
+  name: aws-secrets-store
+  namespace: retrogame-prod
 spec:
   provider:
     aws:
       service: SecretsManager
-      region: eu-west-1
+      region: us-east-1
       auth:
-        jwt:
-          serviceAccountRef:
-            name: external-secrets-sa
-
-- --
+        secretRef:
+          accessKeyID:
+            name: aws-credentials
+            key: access-key-id
+          secretAccessKey:
+            name: aws-credentials
+            key: secret-access-key
+---
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
   name: database-credentials
-  namespace: retrogame-cloud
+  namespace: retrogame-prod
 spec:
   refreshInterval: 1h
   secretStoreRef:
-    name: retrogame-secrets
+    name: aws-secrets-store
     kind: SecretStore
   target:
-    name: db-secret
+    name: db-credentials
     creationPolicy: Owner
   data:
   - secretKey: username
     remoteRef:
-      key: retrogame/database
+      key: retrogame/database/credentials
       property: username
   - secretKey: password
     remoteRef:
-      key: retrogame/database
+      key: retrogame/database/credentials
       property: password
-
+  - secretKey: host
+    remoteRef:
+      key: retrogame/database/credentials
+      property: host
 ```
 
-#### Estructura de Secretos
-
-<Tabs>
-<Tab title="Base de Datos">
-
-```json
-{
-  "retrogame/database": {
-    "username": "retrogame_user",
-    "password": "generated-secure-password",
-    "host": "retrogame-db.cluster-xxx.eu-west-1.rds.amazonaws.com",
-    "port": 5432,
-    "dbname": "retrogame"
-  }
-}
-
-```
-
-</Tab>
-<Tab title="JWT Secrets">
-
-```json
-{
-  "retrogame/jwt": {
-    "access_secret": "base64-encoded-access-secret",
-    "refresh_secret": "base64-encoded-refresh-secret",
-    "issuer": "retrogame-cloud",
-    "audience": "retrogame-api"
-  }
-}
-
-```
-
-</Tab>
-<Tab title="OAuth2">
-
-```json
-{
-  "retrogame/oauth2": {
-    "google_client_id": "xxx.apps.googleusercontent.com",
-    "google_client_secret": "GOCSPX-xxx",
-    "github_client_id": "Iv1.xxx",
-    "github_client_secret": "xxx",
-    "discord_client_id": "xxx",
-    "discord_client_secret": "xxx"
-  }
-}
-
-```
-
-</Tab>
-</Tabs>
-
-### AWS Systems Manager Parameter Store
-
-Para configuraciones no sensibles pero importantes:
-
-```bash
-
-# Configurar parámetros del sistema
-aws ssm put-parameter \
-    --name "/retrogame/config/jwt-expiry" \
-    --value "3600" \
-    --type "String" \
-    --description "JWT access token expiry in seconds"
-
-aws ssm put-parameter \
-    --name "/retrogame/config/session-timeout" \
-    --value "7200" \
-    --type "String" \
-    --description "User session timeout in seconds"
-
-aws ssm put-parameter \
-    --name "/retrogame/config/max-game-sessions" \
-    --value "10" \
-    --type "String" \
-    --description "Maximum concurrent game sessions per user"
-
-```
-
-## Rotación de Secretos
-
-### Rotación Automática de Credenciales de Base de Datos
-
-```python
-
-# lambda-rotation-function.py
-import boto3
-import json
-import logging
-
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-def lambda_handler(event, context):
-    """
-    Función Lambda para rotación automática de credenciales RDS
-    """
-    secrets_client = boto3.client('secretsmanager')
-    rds_client = boto3.client('rds')
-
-    secret_arn = event['Step']
-    token = event['ClientRequestToken']
-    step = event['Step']
-
-    if step == "createSecret":
-        create_secret(secrets_client, secret_arn, token)
-    elif step == "setSecret":
-        set_secret(secrets_client, rds_client, secret_arn, token)
-    elif step == "testSecret":
-        test_secret(secrets_client, secret_arn, token)
-    elif step == "finishSecret":
-        finish_secret(secrets_client, secret_arn, token)
-
-    return {"statusCode": 200}
-
-def create_secret(secrets_client, secret_arn, token):
-    """Crear nueva versión del secreto"""
-    try:
-        current_secret = secrets_client.get_secret_value(
-            SecretId=secret_arn,
-            VersionStage="AWSCURRENT"
-        )
-
-        # Generar nueva contraseña
-        new_password = secrets_client.get_random_password(
-            PasswordLength=32,
-            ExcludeCharacters='"@/\\'
-        )['RandomPassword']
-
-        # Actualizar secreto con nueva contraseña
-        new_secret = json.loads(current_secret['SecretString'])
-        new_secret['password'] = new_password
-
-        secrets_client.put_secret_value(
-            SecretId=secret_arn,
-            VersionId=token,
-            SecretString=json.dumps(new_secret),
-            VersionStages=['AWSPENDING']
-        )
-
-        logger.info("Nuevo secreto creado con éxito")
-
-    except Exception as e:
-        logger.error(f"Error creando secreto: {str(e)}")
-        raise e
-
-```
-
-### Rotación de JWT Secrets
-
-```yaml
-
-# jwt-rotation-cronjob.yml
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: jwt-rotation
-  namespace: retrogame-cloud
-spec:
-  schedule: "0 2 1 * *"  # Primer día de cada mes a las 2:00 AM
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          serviceAccountName: jwt-rotation-sa
-          containers:
-          - name: jwt-rotator
-            image: retrogame/jwt-rotator:latest
-            env:
-            - name: AWS_REGION
-              value: eu-west-1
-            - name: SECRET_NAME
-              value: retrogame/jwt
-            command:
-            - /bin/sh
-            - -c
-            - |
-              # Generar nuevos secretos JWT
-              NEW_ACCESS_SECRET=$(openssl rand -base64 64)
-              NEW_REFRESH_SECRET=$(openssl rand -base64 64)
-
-              # Actualizar en Secrets Manager
-              aws secretsmanager update-secret \
-                --secret-id $SECRET_NAME \
-                --secret-string "{
-                  \"access_secret\": \"$NEW_ACCESS_SECRET\",
-                  \"refresh_secret\": \"$NEW_REFRESH_SECRET\",
-                  \"issuer\": \"retrogame-cloud\",
-                  \"audience\": \"retrogame-api\"
-                }"
-
-              # Reiniciar servicios para aplicar nuevos secretos
-              kubectl rollout restart deployment/auth-service
-              kubectl rollout restart deployment/user-service
-          restartPolicy: OnFailure
-
-```
-
-## Políticas de Seguridad IAM
-
-### Roles para Servicios
-
-<Warning>
-Aplicar el principio de menor privilegio. Cada servicio debe tener acceso únicamente a los recursos que necesita.
-</Warning>
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "SecretsManagerAccess",
-      "Effect": "Allow",
-      "Action": [
-        "secretsmanager:GetSecretValue",
-        "secretsmanager:DescribeSecret"
-      ],
-      "Resource": [
-        "arn:aws:secretsmanager:eu-west-1:*:secret:retrogame/database*",
-        "arn:aws:secretsmanager:eu-west-1:*:secret:retrogame/jwt*"
-      ]
-    },
-    {
-      "Sid": "ParameterStoreAccess",
-      "Effect": "Allow",
-      "Action": [
-        "ssm:GetParameter",
-        "ssm:GetParameters",
-        "ssm:GetParametersByPath"
-      ],
-      "Resource": "arn:aws:ssm:eu-west-1:*:parameter/retrogame/*"
-    },
-    {
-      "Sid": "S3GameAssetsAccess",
-      "Effect": "Allow",
-      "Action": [
-        "s3:GetObject",
-        "s3:PutObject"
-      ],
-      "Resource": "arn:aws:s3:::retrogame-assets/*"
-    }
-  ]
-}
-
-```
-
-### Service Account para Kubernetes
-
-```yaml
-
-# service-account.yml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: retrogame-service-account
-  namespace: retrogame-cloud
-  annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT-ID:role/RetroGameServiceRole
-
-- --
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: retrogame-role
-  namespace: retrogame-cloud
-rules:
-
-- apiGroups: [""]
-  resources: ["secrets", "configmaps"]
-  verbs: ["get", "list"]
-
-- apiGroups: ["apps"]
-  resources: ["deployments"]
-  verbs: ["get", "list", "patch"]
-
-- --
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: retrogame-binding
-  namespace: retrogame-cloud
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: retrogame-role
-subjects:
-
-- kind: ServiceAccount
-  name: retrogame-service-account
-  namespace: retrogame-cloud
-
-```
-
-## Seguridad de Red
-
-### Security Groups
-
-```json
-{
-  "SecurityGroups": [
-    {
-      "GroupName": "retrogame-alb-sg",
-      "Description": "Security group for Application Load Balancer",
-      "InboundRules": [
-        {
-          "IpProtocol": "tcp",
-          "FromPort": 80,
-          "ToPort": 80,
-          "CidrIp": "0.0.0.0/0"
-        },
-        {
-          "IpProtocol": "tcp",
-          "FromPort": 443,
-          "ToPort": 443,
-          "CidrIp": "0.0.0.0/0"
-        }
-      ]
-    },
-    {
-      "GroupName": "retrogame-eks-sg",
-      "Description": "Security group for EKS nodes",
-      "InboundRules": [
-        {
-          "IpProtocol": "tcp",
-          "FromPort": 30000,
-          "ToPort": 32767,
-          "SourceSecurityGroupId": "sg-alb-xxx"
-        },
-        {
-          "IpProtocol": "tcp",
-          "FromPort": 443,
-          "ToPort": 443,
-          "SourceSecurityGroupId": "sg-alb-xxx"
-        }
-      ]
-    },
-    {
-      "GroupName": "retrogame-rds-sg",
-      "Description": "Security group for RDS PostgreSQL",
-      "InboundRules": [
-        {
-          "IpProtocol": "tcp",
-          "FromPort": 5432,
-          "ToPort": 5432,
-          "SourceSecurityGroupId": "sg-eks-xxx"
-        }
-      ]
-    }
-  ]
-}
-
-```
-
-### Network ACLs
-
-```json
-{
-  "NetworkAcls": [
-    {
-      "NetworkAclId": "acl-retrogame-private",
-      "Entries": [
-        {
-          "RuleNumber": 100,
-          "Protocol": "6",
-          "RuleAction": "allow",
-          "PortRange": {
-            "From": 5432,
-            "To": 5432
-          },
-          "CidrBlock": "10.0.0.0/8"
-        },
-        {
-          "RuleNumber": 110,
-          "Protocol": "6",
-          "RuleAction": "allow",
-          "PortRange": {
-            "From": 6379,
-            "To": 6379
-          },
-          "CidrBlock": "10.0.0.0/8"
-        },
-        {
-          "RuleNumber": 900,
-          "Protocol": "-1",
-          "RuleAction": "deny",
-          "CidrBlock": "0.0.0.0/0"
-        }
-      ]
-    }
-  ]
-}
-
-```
-
-## Cifrado
-
-### Cifrado en Tránsito
-
-<Card title="TLS/SSL Configuración" icon="lock">
-Todos los servicios utilizan TLS 1.2 o superior para comunicaciones.
-</Card>
-
-```yaml
-
-# nginx-tls-config.yml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-tls-config
-data:
-  nginx.conf: |
-    upstream backend {
-        server auth-service:8080;
-        server user-service:8080;
-        server game-catalog:8080;
-    }
-
-    server {
-        listen 443 ssl http2;
-        server_name api.retrogamecloud.com;
-
-        ssl_certificate /etc/ssl/certs/retrogame.crt;
-        ssl_certificate_key /etc/ssl/private/retrogame.key;
-        ssl_protocols TLSv1.2 TLSv1.3;
-        ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RS
-
+#### Rotación Automática de Secretos
+
+```typescript
+// services/secret-rotation.service.ts
+import { SecretsManagerClient, UpdateSecretCommand } from '@aws-sdk
 ```

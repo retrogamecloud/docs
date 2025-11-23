@@ -1,6 +1,8 @@
 ---
 title: 6.7. Monitoreo y Observabilidad
-description: Stack completo de observabilidad con Prometheus, Grafana, AlertManager y CloudWatch. Golden Signals, correlación de trazas y debugging distribuido para Retro Game Hub
+description: Stack completo de observabilidad con Prometheus, Grafana, AlertManager
+  y CloudWatch. Golden Signals, correlación de trazas y debugging distribuido para
+  Retro Game Hub
 icon: chart-line
 ---
 
@@ -71,6 +73,7 @@ graph TD
     V --> T
 
     style V fill:#f9f,stroke:#333,stroke-width:2px
+
 ```
 
 ## Golden Signals por Servicio
@@ -80,40 +83,46 @@ graph TD
 <CodeGroup>
 
 ```yaml user-service
+
 # User Service - Latency SLIs
 http_request_duration_seconds:
   p95_threshold: 200ms    # Crítico: > 500ms
   p99_threshold: 500ms    # Crítico: > 1s
-  
+
 login_duration_seconds:
   p95_threshold: 300ms    # Crítico: > 800ms
-  
+
 jwt_validation_duration:
   p95_threshold: 50ms     # Crítico: > 100ms
+
 ```
 
 ```yaml game-service
-# Game Service - Latency SLIs  
+
+# Game Service - Latency SLIs
 game_search_duration_seconds:
   p95_threshold: 150ms    # Crítico: > 400ms
-  
+
 game_metadata_fetch_duration:
   p95_threshold: 100ms    # Crítico: > 250ms
-  
+
 save_state_duration_seconds:
   p95_threshold: 200ms    # Crítico: > 600ms
+
 ```
 
 ```yaml multiplayer-service
+
 # Multiplayer Service - Latency SLIs
 websocket_message_latency:
   p95_threshold: 50ms     # Crítico: > 100ms
-  
+
 room_join_duration:
   p95_threshold: 300ms    # Crítico: > 800ms
-  
+
 game_sync_latency:
   p95_threshold: 30ms     # Crítico: > 80ms
+
 ```
 
 </CodeGroup>
@@ -123,6 +132,7 @@ game_sync_latency:
 <CodeGroup>
 
 ```yaml requests-per-second
+
 # Tráfico - RPS por servicio
 user_service_rps:
   normal: 50-200 RPS
@@ -130,7 +140,7 @@ user_service_rps:
   alert_threshold: > 1500 RPS
 
 game_service_rps:
-  normal: 100-400 RPS  
+  normal: 100-400 RPS
   peak: 1000-2000 RPS
   alert_threshold: > 3000 RPS
 
@@ -138,9 +148,11 @@ multiplayer_active_connections:
   normal: 200-800 connections
   peak: 2000-4000 connections
   alert_threshold: > 5000 connections
+
 ```
 
 ```yaml business-metrics
+
 # Métricas de Negocio
 concurrent_games:
   normal: 50-200 games
@@ -154,6 +166,7 @@ daily_active_users:
 room_utilization:
   target: 60-80%
   alert_threshold: > 90%
+
 ```
 
 </CodeGroup>
@@ -163,6 +176,7 @@ room_utilization:
 <CodeGroup>
 
 ```yaml error-rates
+
 # Error Rate SLIs - Por servicio
 http_error_rate:
   target: < 0.1% (99.9% success)
@@ -178,9 +192,11 @@ game_load_error_rate:
   target: < 0.1%
   warning: > 0.3%
   critical: > 1%
+
 ```
 
 ```yaml redis-errors
+
 # Redis/Cache Errors
 redis_connection_errors:
   warning: > 5 errors/min
@@ -194,6 +210,7 @@ cache_miss_rate:
 session_timeout_rate:
   warning: > 2%
   critical: > 5%
+
 ```
 
 </CodeGroup>
@@ -203,6 +220,7 @@ session_timeout_rate:
 <CodeGroup>
 
 ```yaml resource-saturation
+
 # Saturación de Recursos
 cpu_utilization:
   target: 50-70%
@@ -217,9 +235,11 @@ memory_utilization:
 pod_cpu_throttling:
   warning: > 5%
   critical: > 15%
+
 ```
 
 ```yaml storage-saturation
+
 # Almacenamiento y I/O
 disk_utilization:
   warning: > 80%
@@ -232,6 +252,7 @@ redis_memory_usage:
 connection_pool_usage:
   warning: > 80%
   critical: > 95%
+
 ```
 
 </CodeGroup>
@@ -241,6 +262,7 @@ connection_pool_usage:
 ### 1. Overview Dashboard - Cluster Health
 
 <Frame>
+
 ```json
 {
   "dashboard": {
@@ -273,7 +295,9 @@ connection_pool_usage:
     ]
   }
 }
+
 ```
+
 </Frame>
 
 ### 2. Service-Specific Dashboard
@@ -309,11 +333,12 @@ connection_pool_usage:
     }
   ]
 }
+
 ```
 
 ```json multiplayer-dashboard
 {
-  "title": "Multiplayer Service - Real-time Metrics", 
+  "title": "Multiplayer Service - Real-time Metrics",
   "panels": [
     {
       "title": "WebSocket Performance",
@@ -333,6 +358,7 @@ connection_pool_usage:
     }
   ]
 }
+
 ```
 
 </CodeGroup>
@@ -347,7 +373,7 @@ connection_pool_usage:
       "title": "User Flow Funnel",
       "targets": [
         "rate(page_visits_total{page=\"landing\"}[5m])",
-        "rate(user_registrations_total[5m])", 
+        "rate(user_registrations_total[5m])",
         "rate(game_launches_total[5m])",
         "rate(multiplayer_joins_total[5m])"
       ]
@@ -362,6 +388,7 @@ connection_pool_usage:
     }
   ]
 }
+
 ```
 
 ## Logging Estructurado y Correlation IDs
@@ -411,16 +438,17 @@ const correlationMiddleware = (req, res, next) => {
 };
 
 module.exports = { logger, correlationMiddleware };
+
 ```
 
-```javascript game-service-logging  
+```javascript game-service-logging
 // game-service/src/middleware/logging.js
 const { logger } = require('../utils/logger');
 
 const logGameOperation = (operation) => {
   return (req, res, next) => {
     const startTime = Date.now();
-    
+
     logger.info({
       correlationId: req.correlationId,
       userId: req.user?.id,
@@ -434,7 +462,7 @@ const logGameOperation = (operation) => {
 
     res.on('finish', () => {
       const duration = Date.now() - startTime;
-      
+
       logger.info({
         correlationId: req.correlationId,
         userId: req.user?.id,
@@ -453,6 +481,7 @@ const logGameOperation = (operation) => {
 };
 
 module.exports = { logGameOperation };
+
 ```
 
 ```javascript multiplayer-logging
@@ -502,6 +531,7 @@ class SocketLogger {
 }
 
 module.exports = { SocketLogger };
+
 ```
 
 </CodeGroup>
@@ -515,21 +545,23 @@ module.exports = { SocketLogger };
     ```bash
     # Usuario reporta: "No puedo unirme a partidas multijugador"
     # Correlation ID del error: corr-123e4567-e89b-12d3-a456-426614174000
-    
+
     # Buscar en CloudWatch Logs
     aws logs filter-log-events \
       --log-group-name "/retrogamehub/multiplayer-service" \
       --filter-pattern "corr-123e4567-e89b-12d3-a456-426614174000"
     ```
+
   </Step>
 
   <Step title="2. Análisis de Métricas Correlacionadas">
     ```promql
     # Verificar métricas en el momento del error
     # Timestamp del error: 2024-01-15T14:30:00Z
-    
+
     # Latencia de conexión WebSocket
     histogram_quantile
 </Steps>
 </Step>
+
 ```

@@ -39,6 +39,7 @@ graph TB
         J
         K
     end
+
 ```
 
 ## Stack de Tecnologías
@@ -75,32 +76,48 @@ graph TB
 
 <Card title="auth-service" icon="shield">
 
-**Golden Signals:**
+* *Golden Signals:**
 
-**Latencia:**
+* *Latencia:**
+
 - `auth_request_duration_seconds`: Histograma de latencia de requests
+
 - `auth_token_generation_duration_seconds`: Tiempo de generación de tokens
+
 - `auth_db_query_duration_seconds`: Latencia de consultas a base de datos
 
-**Tráfico:**
+* *Tráfico:**
+
 - `auth_requests_per_second`: Rate de requests por segundo
+
 - `auth_login_attempts_total`: Total de intentos de login
+
 - `auth_token_validations_total`: Validaciones de token
 
-**Errores:**
+* *Errores:**
+
 - `auth_error_rate`: Porcentaje de errores (4xx/5xx)
+
 - `auth_failed_logins_total`: Logins fallidos
+
 - `auth_invalid_tokens_total`: Tokens inválidos
 
-**Saturación:**
+* *Saturación:**
+
 - `auth_active_connections`: Conexiones activas
+
 - `auth_cpu_usage_percent`: Uso de CPU
+
 - `auth_memory_usage_percent`: Uso de memoria
 
-**Umbrales Críticos:**
+* *Umbrales Críticos:**
+
 - Latencia p95 > 500ms
+
 - Error rate > 1%
+
 - CPU usage > 80%
+
 - Failed login rate > 5%
 
 </Card>
@@ -109,32 +126,48 @@ graph TB
 
 <Card title="game-service" icon="gamepad">
 
-**Golden Signals:**
+* *Golden Signals:**
 
-**Latencia:**
+* *Latencia:**
+
 - `game_session_start_duration_seconds`: Tiempo de inicio de sesión
+
 - `game_save_duration_seconds`: Tiempo de guardado
+
 - `game_load_duration_seconds`: Tiempo de carga de ROMs
 
-**Tráfico:**
+* *Tráfico:**
+
 - `game_sessions_active`: Sesiones activas concurrentes
+
 - `game_requests_per_second`: Rate de requests
+
 - `game_rom_downloads_total`: Descargas de ROMs
 
-**Errores:**
+* *Errores:**
+
 - `game_session_failures_total`: Fallos al iniciar sesión
+
 - `game_save_errors_total`: Errores de guardado
+
 - `game_emulation_crashes_total`: Crashes del emulador
 
-**Saturación:**
+* *Saturación:**
+
 - `game_emulator_instances`: Instancias de emulador activas
+
 - `game_storage_usage_percent`: Uso de almacenamiento
+
 - `game_network_bandwidth_usage`: Uso de ancho de banda
 
-**Umbrales Críticos:**
+* *Umbrales Críticos:**
+
 - Session start time p95 > 3s
+
 - Save failure rate > 0.5%
+
 - Active sessions > 1000
+
 - Emulation crashes > 0.1%
 
 </Card>
@@ -143,27 +176,38 @@ graph TB
 
 <Card title="user-service" icon="users">
 
-**Golden Signals:**
+* *Golden Signals:**
 
-**Latencia:**
+* *Latencia:**
+
 - `user_profile_query_duration_seconds`: Consultas de perfil
+
 - `user_settings_update_duration_seconds`: Actualizaciones de configuración
 
-**Tráfico:**
+* *Tráfico:**
+
 - `user_profile_requests_per_second`: Requests de perfil
+
 - `user_active_sessions`: Sesiones de usuario activas
 
-**Errores:**
+* *Errores:**
+
 - `user_profile_not_found_total`: Perfiles no encontrados
+
 - `user_update_failures_total`: Fallos de actualización
 
-**Saturación:**
+* *Saturación:**
+
 - `user_db_connections`: Conexiones a DB
+
 - `user_cache_hit_rate`: Tasa de aciertos de caché
 
-**Umbrales Críticos:**
+* *Umbrales Críticos:**
+
 - Profile query p95 > 200ms
+
 - Update failure rate > 0.5%
+
 - Cache hit rate < 90%
 
 </Card>
@@ -185,13 +229,14 @@ graph TB
       - overall_request_rate
       - overall_error_rate
       - overall_latency_p95
-    
+
     alerts:
       - Cluster CPU > 75%
       - Cluster Memory > 80%
       - Nodes Not Ready > 0
       - Overall Error Rate > 2%
     ```
+
   </AccordionItem>
 </Accordion>
 
@@ -204,7 +249,7 @@ graph TB
       - service: [auth-service, game-service, user-service]
       - environment: [production, staging, development]
       - time_range: [5m, 15m, 1h, 6h, 24h]
-    
+
     panels:
       - Request Rate (por servicio)
       - Error Rate (por servicio)
@@ -213,6 +258,7 @@ graph TB
       - Resource Usage (CPU, Memory)
       - Top Errors (últimas 24h)
     ```
+
   </AccordionItem>
 </Accordion>
 
@@ -231,6 +277,7 @@ graph TB
       - Device/Browser Stats
       - User Journey Funnel
     ```
+
   </AccordionItem>
 </Accordion>
 
@@ -262,6 +309,7 @@ graph TB
     "pod": "auth-service-7d8f9g-h2j3k"
   }
 }
+
 ```
 
 ### Correlation ID Strategy
@@ -271,7 +319,7 @@ graph TB
     ```javascript
     // Generación de Correlation ID
     const correlationId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+
     // Headers HTTP
     const headers = {
       'X-Correlation-ID': correlationId,
@@ -279,6 +327,7 @@ graph TB
       'X-Trace-ID': traceId
     };
     ```
+
   </Tab>
   <Tab title="Propagación">
     ```javascript
@@ -286,7 +335,7 @@ graph TB
     app.use((req, res, next) => {
       req.correlationId = req.headers['x-correlation-id'] || generateCorrelationId();
       res.setHeader('X-Correlation-ID', req.correlationId);
-      
+
       // Añadir a contexto de logging
       req.logContext = {
         correlationId: req.correlationId,
@@ -294,10 +343,11 @@ graph TB
         endpoint: req.path,
         method: req.method
       };
-      
+
       next();
     });
     ```
+
   </Tab>
   <Tab title="Consulta">
     ```bash
@@ -307,6 +357,7 @@ graph TB
     | sort @timestamp desc
     | limit 100
     ```
+
   </Tab>
 </Tabs>
 
@@ -329,6 +380,7 @@ graph TB
       --end-time 1705315800 \
       --query-string 'fields @timestamp, @message | filter correlation_id = "req-abc123-def456"'
     ```
+
   </Step>
   <Step title="Análisis de Métricas">
     ```promql
@@ -337,6 +389,7 @@ graph TB
     histogram_quantile(0.95, auth_request_duration_seconds) # Latencia
     auth_active_connections # Carga del sistema
     ```
+
   </Step>
   <Step title="Análisis de Traces">
     - Abrir Jaeger UI
@@ -352,9 +405,10 @@ graph TB
   <CodeBlock title="Error Rate por Endpoint" language="promql">
     ```promql
     # Error rate por endpoint en los últimos 5 minutos
-    rate(http_requests_total{status=~"5.."}[5m]) / 
+    rate(http_requests_total{status=~"5.."}[5m]) /
     rate(http_requests_total[5m]) * 100
     ```
+
   </CodeBlock>
   <CodeBlock title="Slow Queries" language="sql">
     ```sql
@@ -364,6 +418,7 @@ graph TB
     | sort @timestamp desc
     | limit 20
     ```
+
   </CodeBlock>
   <CodeBlock title="Error Correlation" language="sql">
     ```sql
@@ -373,6 +428,7 @@ graph TB
     | stats count() by user_id
     | sort count() desc
     ```
+
   </CodeBlock>
 </CodeGroup>
 
@@ -382,25 +438,38 @@ graph TB
 
 <Card title="Políticas de Retención" icon="clock">
 
-**Logs:**
+* *Logs:**
+
 - Production: 30 días
-- Staging: 14 días  
+
+- Staging: 14 días
+
 - Development: 7 días
+
 - Critical Errors: 90 días (exportados a S3)
 
-**Métricas:**
+* *Métricas:**
+
 - High Resolution (1s): 3 horas
+
 - Standard (1m): 90 días
+
 - Aggregated (1h): 1 año
+
 - Business KPIs: 3 años
 
-**Traces:**
+* *Traces:**
+
 - Production: 7 días
+
 - Staging: 3 días
+
 - Sample Rate: 10% (100% para errores)
 
-**Configuración CloudWatch:**
+* *Configuración CloudWatch:**
+
 ```bash
+
 # Configurar retención de logs
 aws logs put-retention-policy \
   --log-group-name "/aws/eks/retrogame/auth-service" \
@@ -412,6 +481,7 @@ aws logs create-export-task \
   --from 1704067200 \
   --to 1704153600 \
   --destination "retrogame-logs-archive"
+
 ```
 
 </Card>
@@ -426,28 +496,28 @@ aws logs create-export-task \
     - Database Unavailable
     - Authentication System Down
     - Payment Processing Failed
-    
+
     **Escalación:** Inmediata PagerDuty
   </Tab>
   <Tab title="High (P1)">
     - High Error Rate (> 5%)
     - High Latency (p95 > 2s)
     - Resource Exhaustion (> 90%)
-    
+
     **Escalación:** Slack + Email
   </Tab>
   <Tab title="Medium (P2)">
     - Moderate Error Rate (> 1%)
     - Elevated Latency (p95 > 1s)
     - Resource Warning (> 80%)
-    
+
     **Escalación:** Slack
   </Tab>
   <Tab title="Low (P3)">
     - Performance Degradation
     - Capacity Planning Warnings
     - Non-Critical Failures
-    
+
     **Escalación:** Email daily digest
   </Tab>
 </Tabs>
@@ -455,6 +525,7 @@ aws logs create-export-task \
 ### Configuración de Alertas
 
 ```yaml
+
 # Grafana Alert Rules
 groups:
   - name: auth-service-alerts
@@ -469,4 +540,5 @@ groups:
           summary: "High error rate in auth service"
           description: "Error rate is {{ $value }}% for the last 5 minutes"
           correlation_query: 'fields @timestamp, @message | filter service = "auth-service" and level = "
+
 ```

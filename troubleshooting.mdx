@@ -1,7 +1,6 @@
 ---
 title: 8.4. Solución de Problemas Comunes
-description: Guía de resolución de problemas comunes en Retro Game Hub para desarrollo
-  y producción
+description: Guía completa de resolución de problemas en Retro Game Hub para desarrollo y producción
 icon: file-lines
 ---
 
@@ -9,25 +8,201 @@ icon: file-lines
 
 Guía completa para diagnosticar y resolver problemas comunes en Retro Game Hub en entornos de desarrollo y producción.
 
-- --
+---
 
-## 🚨 Problemas de Desarrollo Local
+## 🏠 Entorno de Desarrollo
 
-### 1. Juego No Carga
+### 🎮 Problemas de Juegos
 
-#### Síntomas
+#### 1. Juego No Carga
 
+**Síntomas:**
 - Pantalla negra después de seleccionar juego
-
 - Mensaje "Error loading game"
-
 - Barra de progreso se queda congelada
 
-#### Diagnóstico
-
+**Diagnóstico:**
 ```bash
+# 1. Verificar que el archivo .jsdos existe localmente
+ls -la public/juegos/
 
-# 1. Verificar que el archivo .jsdos existe en S3
+# 2. Verificar permisos de archivos
+chmod 644 public/juegos/*.jsdos
+
+# 3. Verificar servidor de desarrollo
+curl -I http://localhost:3000/juegos/doom.jsdos
+
+# 4. Verificar consola del navegador
+# F12 > Console > buscar errores de CORS o 404
+```
+
+**Soluciones:**
+- **A. Archivo no encontrado (404)**
+  ```bash
+  # Verificar que el archivo existe
+  cp ~/Downloads/doom.jsdos public/juegos/
+  ```
+
+- **B. Problema de CORS en desarrollo**
+  ```javascript
+  // next.config.js
+  module.exports = {
+    async headers() {
+      return [
+        {
+          source: '/juegos/:path*',
+          headers: [
+            { key: 'Access-Control-Allow-Origin', value: '*' },
+            { key: 'Access-Control-Allow-Methods', value: 'GET' }
+          ]
+        }
+      ]
+    }
+  }
+  ```
+
+- **C. js-dos no inicializa**
+  ```javascript
+  // Verificar en consola del navegador
+  console.log(typeof Dos); // Debe ser 'function'
+  
+  // Si es undefined, verificar que js-dos.js está cargado
+  <script src="/jsdos/js-dos.js"></script>
+  ```
+
+#### 2. Problemas de Performance
+
+**Síntomas:**
+- Juego se ejecuta muy lento
+- Audio entrecortado
+- Controles con retraso
+
+**Soluciones:**
+```javascript
+// Ajustar configuración de js-dos
+const dosOptions = {
+  wdosboxUrl: "/jsdos/wdosbox.wasm",
+  cycles: "auto",      // Reducir si hay problemas
+  autolock: false,     // Desactivar para debugging
+  aspectRatio: "keep"
+};
+```
+
+### 🔐 Problemas de Autenticación
+
+#### Error de Login
+
+**Síntomas:**
+- Login falla con credenciales correctas
+- Error "Invalid credentials"
+- Redirección incorrecta después del login
+
+**Diagnóstico:**
+```bash
+# Verificar variables de entorno
+echo $NEXTAUTH_URL
+echo $NEXTAUTH_SECRET
+
+# Verificar base de datos
+npx prisma studio
+
+# Verificar logs de NextAuth
+DEBUG=nextauth* npm run dev
+```
+
+**Soluciones:**
+```bash
+# 1. Configurar variables de entorno
+cat > .env.local <<EOF
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=$(openssl rand -base64 32)
+DATABASE_URL="postgresql://user:pass@localhost:5432/retrogame"
+EOF
+
+# 2. Reinicializar base de datos
+npx prisma migrate reset
+npx prisma generate
+npx prisma db push
+```
+
+### 🗄️ Problemas de Base de Datos
+
+#### Conexión Fallida
+
+**Diagnóstico:**
+```bash
+# Verificar que PostgreSQL está corriendo
+pg_isready -h localhost -p 5432
+
+# Probar conexión directa
+psql postgresql://user:pass@localhost:5432/retrogame
+
+# Verificar logs de Prisma
+npx prisma db pull --preview-feature
+```
+
+**Soluciones:**
+```bash
+# Iniciar PostgreSQL (macOS)
+brew services start postgresql
+
+# Iniciar PostgreSQL (Linux)
+sudo systemctl start postgresql
+
+# Crear base de datos si no existe
+createdb retrogame
+
+# Aplicar migraciones
+npx prisma migrate deploy
+```
+
+### 📦 Problemas de Dependencias
+
+#### Error de Instalación
+
+**Diagnóstico:**
+```bash
+# Limpiar cache
+rm -rf node_modules package-lock.json
+npm cache clean --force
+
+# Verificar versiones
+node --version  # Requiere Node 18+
+npm --version
+
+# Instalar con logs verbosos
+npm install --verbose
+```
+
+**Soluciones:**
+```bash
+# Usar versión correcta de Node
+nvm use 18
+nvm install 18
+
+# Instalar dependencias
+npm ci
+
+# Si persisten errores, usar yarn
+yarn install
+```
+
+---
+
+## 🚀 Entorno de Producción
+
+### 🌐 Problemas de CDN y Assets
+
+#### 1. Juego No Carga en Producción
+
+**Síntomas:**
+- Funciona en desarrollo pero no en producción
+- Error 403/404 al cargar .jsdos
+- CORS errors en consola
+
+**Diagnóstico:**
+```bash
+# 1. Verificar que el archivo existe en S3
 aws s3 ls s3://retrogame-cdn-production/juegos/
 
 # 2. Verificar permisos públicos del bucket
@@ -39,493 +214,346 @@ aws cloudfront get-distribution --id E1XXXXXXXXXXXXX
 # 4. Probar descarga directa
 curl -I https://cdn.retrogamehub.games/juegos/doom.jsdos
 
+# 5. Verificar headers CORS
+curl -H "Origin: https://retrogamehub.games" \
+     -H "Access-Control-Request-Method: GET" \
+     -H "Access-Control-Request-Headers: X-Requested-With" \
+     -X OPTIONS \
+     https://cdn.retrogamehub.games/juegos/doom.jsdos
 ```
 
-#### Soluciones
+**Soluciones:**
 
-* *A. Archivo no encontrado (404)**
+- **A. Archivo no encontrado (404)**
+  ```bash
+  # Subir el archivo faltante
+  aws s3 cp doom.jsdos s3://retrogame-cdn-production/juegos/
+  
+  # Verificar que se subió correctamente
+  aws s3 ls s3://retrogame-cdn-production/juegos/doom.jsdos
+  
+  # Invalidar caché de CloudFront
+  aws cloudfront create-invalidation \
+    --distribution-id E1XXXXXXXXXXXXX \
+    --paths "/juegos/doom.jsdos"
+  ```
 
+- **B. Problema de CORS**
+  ```bash
+  # Verificar configuración CORS actual
+  aws s3api get-bucket-cors --bucket retrogame-cdn-production
+  
+  # Aplicar política CORS correcta
+  cat > cors.json <<EOF
+  {
+    "CORSRules": [{
+      "AllowedOrigins": [
+        "https://retrogamehub.games",
+        "https://www.retrogamehub.games"
+      ],
+      "AllowedMethods": ["GET", "HEAD"],
+      "AllowedHeaders": ["*"],
+      "MaxAgeSeconds": 3600
+    }]
+  }
+  EOF
+  
+  aws s3api put-bucket-cors \
+    --bucket retrogame-cdn-production \
+    --cors-configuration file://cors.json
+  ```
+
+- **C. Permisos de S3**
+  ```json
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "PublicReadGetObject",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": "s3:GetObject",
+        "Resource": "arn:aws:s3:::retrogame-cdn-production/juegos/*"
+      }
+    ]
+  }
+  ```
+
+#### 2. CloudFront Issues
+
+**Síntomas:**
+- Contenido desactualizado
+- Errores intermitentes
+- Performance lenta
+
+**Diagnóstico:**
 ```bash
+# Verificar estado de distribución
+aws cloudfront get-distribution --id E1XXXXXXXXXXXXX
 
-# Subir el archivo faltante
-aws s3 cp doom.jsdos s3://retrogame-cdn-production/juegos/
+# Verificar invalidaciones pendientes
+aws cloudfront list-invalidations --distribution-id E1XXXXXXXXXXXXX
 
-# Invalidar caché de CloudFront
+# Probar desde diferentes regiones
+curl -I -H "CloudFront-Viewer-Country: US" \
+  https://cdn.retrogamehub.games/juegos/doom.jsdos
+```
+
+**Soluciones:**
+```bash
+# Invalidar caché completo
 aws cloudfront create-invalidation \
   --distribution-id E1XXXXXXXXXXXXX \
-  --paths "/juegos/doom.jsdos"
+  --paths "/*"
 
+# Verificar configuración de caché
+aws cloudfront get-distribution-config \
+  --id E1XXXXXXXXXXXXX \
+  --query 'DistributionConfig.DefaultCacheBehavior'
 ```
 
-* *B. Problema de CORS**
+### 🔒 Problemas de SSL/TLS
 
+#### Certificado Expirado
+
+**Diagnóstico:**
 ```bash
+# Verificar certificado
+openssl s_client -connect retrogamehub.games:443 -servername retrogamehub.games
 
-# Verificar configuración CORS del bucket
-aws s3api get-bucket-cors --bucket retrogame-cdn-production
+# Verificar en AWS Certificate Manager
+aws acm list-certificates --region us-east-1
 
-# Aplicar política CORS correcta
-cat > cors.json <<EOF
-{
-  "CORSRules": [{
-    "AllowedOrigins": ["https://retrogamehub.games"],
-    "AllowedMethods": ["GET", "HEAD"],
-    "AllowedHeaders": ["*"],
-    "MaxAgeSeconds": 3600
-  }]
-}
-EOF
-
-aws s3api put-bucket-cors \
-  --bucket retrogame-cdn-production \
-  --cors-configuration file://cors.json
-
+# Verificar fecha de expiración
+curl -vI https://retrogamehub.games 2>&1 | grep -i expire
 ```
 
-* *C. js-dos no inicializa**
-
-```javascript
-// Verificar en consola del navegador
-console.log(typeof Dos); // Debe ser 'function'
-
-// Si es undefined, verificar que js-dos.js está cargado
-<script src="jsdos/js-dos.js"></script>
-
-```
-
-### 2. Error de Autenticación
-
-#### Síntomas
-
-- Login falla con credenciales correctas
-
-- Token JWT inválido
-
-- "Unauthorized" en requests autenticados
-
-#### Diagnóstico
-
+**Soluciones:**
 ```bash
+# Renovar certificado (si es manual)
+aws acm request-certificate \
+  --domain-name retrogamehub.games \
+  --domain-name www.retrogamehub.games \
+  --validation-method DNS
 
-# Verificar variables de entorno
-echo $JWT_SECRET
-echo $GITHUB_CLIENT_ID
-echo $GITHUB_CLIENT_SECRET
-
-# Verificar conectividad con GitHub OAuth
-curl -I https://github.com/login/oauth/authorize
-
+# Actualizar CloudFront con nuevo certificado
+aws cloudfront update-distribution \
+  --id E1XXXXXXXXXXXXX \
+  --distribution-config file://new-cert-config.json
 ```
 
-#### Soluciones
+### 🗄️ Problemas de Base de Datos en Producción
 
+#### Conexión Lenta/Timeout
+
+**Diagnóstico:**
 ```bash
-
-# Regenerar JWT secret
-kubectl create secret generic jwt-secret \
-  --from-literal=JWT_SECRET=$(openssl rand -base64 32) \
-  --dry-run=client -o yaml | kubectl apply -f -
-
-# Reiniciar auth service
-kubectl rollout restart deployment auth-service
-
-```
-
-- --
-
-## 🏭 Problemas de Producción
-
-### 1. Pod CrashLoopBackOff
-
-#### Síntomas
-
-- Pods se reinician continuamente
-
-- Estado "CrashLoopBackOff" en kubectl get pods
-
-- Aplicación no responde
-
-#### Diagnóstico
-
-```bash
-
-# Verificar estado de los pods
-kubectl get pods -n retrogame
-
-# Ver logs del pod problemático
-kubectl logs -f pod-name -n retrogame --previous
-
-# Describir el pod para ver eventos
-kubectl describe pod pod-name -n retrogame
-
-```
-
-#### Soluciones Comunes
-
-* *A. Verificar secrets faltantes**
-
-```bash
-
-# Listar secrets disponibles
-kubectl get secrets -n retrogame
-
-# Verificar contenido del secret
-kubectl describe secret app-secrets -n retrogame
-
-# Crear secret faltante
-kubectl create secret generic app-secrets \
-  --from-literal=DATABASE_URL="postgresql://user:pass@host:5432/db" \
-  --from-literal=REDIS_URL="redis://redis:6379"
-
-```
-
-* *B. Validar health checks**
-
-```yaml
-
-# Ajustar probe configuration en deployment
-livenessProbe:
-  httpGet:
-    path: /health
-    port: 3000
-  initialDelaySeconds: 60  # Aumentar si la app tarda en iniciar
-  periodSeconds: 10
-  timeoutSeconds: 5
-  failureThreshold: 3
-
-readinessProbe:
-  httpGet:
-    path: /ready
-    port: 3000
-  initialDelaySeconds: 30
-  periodSeconds: 5
-
-```
-
-### 2. OOMKilled (Out of Memory)
-
-#### Síntomas
-
-- Pods terminan con código de salida 137
-
-- "OOMKilled" en kubectl describe pod
-
-- Performance degradada antes del crash
-
-#### Diagnóstico
-
-```bash
-
-# Verificar usage actual de memoria
-kubectl top pods -n retrogame
-
-# Ver historial de recursos
-kubectl describe pod pod-name -n retrogame | grep -A 10 "Last State"
-
-# Verificar límites configurados
-kubectl get pod pod-name -n retrogame -o yaml | grep -A 5 resources
-
-```
-
-#### Soluciones
-
-* *A. Aumentar memory limits**
-
-```yaml
-resources:
-  limits:
-    memory: "1Gi"    # Aumentar de 512Mi
-    cpu: "1000m"
-  requests:
-    memory: "512Mi"
-    cpu: "500m"
-
-```
-
-* *B. Analizar memory leaks**
-
-```bash
-
-# Habilitar debugging en Node.js
-kubectl set env deployment/app-service NODE_OPTIONS="--inspect=0.0.0.0:9229"
-
-# Port forward para debugging
-kubectl port-forward pod-name 9229:9229
-
-# Usar Chrome DevTools para analizar heap
-
-# chrome://inspect -> Configure -> Add localhost:9229
-
-```
-
-### 3. Latencia Alta en Base de Datos
-
-#### Síntomas
-
-- Respuestas lentas de la API (>2s)
-
-- Timeouts en queries
-
-- High CPU usage en RDS
-
-#### Diagnóstico
-
-```bash
-
-# Verificar slow queries con RDS Performance Insights
-aws rds describe-db-instances --db-instance-identifier retrogame-prod
-
-# Conectar a la base y verificar queries activas
-psql $DATABASE_URL -c "SELECT pid, now() - pg_stat_activity.query_start AS duration, query FROM pg_stat_activity WHERE (now() - pg_stat_activity.query_start) > interval '5 minutes';"
-
-```
-
-#### Soluciones
-
-* *A. Revisar índices faltantes**
-
-```sql
-
-- - Identificar queries sin índices
-SELECT schemaname, tablename, attname, n_distinct, correlation
-FROM pg_stats
-WHERE tablename IN ('games', 'users', 'favorites')
-ORDER BY n_distinct DESC;
-
-- - Crear índices necesarios
-CREATE INDEX CONCURRENTLY idx_games_category ON games(category);
-CREATE INDEX CONCURRENTLY idx_favorites_user_game ON favorites(user_id, game_id);
-
-```
-
-* *B. Verificar connection pooling**
-
-```javascript
-// Configurar pgPool correctamente
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 20,                    // máximo de conexiones
-  idleTimeoutMillis: 30000,   // timeout para conexiones idle
-  connectionTimeoutMillis: 2000,
-});
-
-```
-
-### 4. Error 502 Bad Gateway
-
-#### Síntomas
-
-- Kong devuelve 502 en requests
-
-- "Bad Gateway" en navegador
-
-- Intermitente o constante
-
-#### Diagnóstico
-
-```bash
-
-# Verificar estado de Kong
-kubectl get pods -l app=kong -n kong
-
-# Verificar logs de Kong
-kubectl logs -f deployment/kong-proxy -n kong
-
-# Verificar upstream health
-kubectl exec -it deployment/kong-proxy -n kong -- kong health
-
-```
-
-#### Soluciones
-
-* *A. Verificar Kong upstream health**
-
-```bash
-
-# Listar upstreams configurados
-curl -s http://localhost:8001/upstreams
-
-# Verificar targets de un upstream
-curl -s http://localhost:8001/upstreams/api-service/targets
-
-# Verificar health de targets
-curl -s http://localhost:8001/upstreams/api-service/health
-
-```
-
-* *B. Revisar service endpoints**
-
-```bash
-
-# Verificar que los servicios tienen endpoints
-kubectl get endpoints -n retrogame
-
-# Verificar conectividad interna
-kubectl run debug --image=busybox --rm -it --restart=Never -- nslookup api-service.retrogame.svc.cluster.local
-
-```
-
-### 5. OAuth2 Redirect Loops
-
-#### Síntomas
-
-- Login redirige infinitamente
-
-- Error "redirect_uri_mismatch"
-
-- Usuario no puede completar autenticación
-
-#### Diagnóstico
-
-```bash
-
-# Verificar configuración OAuth en GitHub
-echo "GitHub OAuth App Settings:"
-echo "Homepage URL: https://retrogamehub.games"
-echo "Callback URL: https://retrogamehub.games/auth/callback"
-
-# Verificar variables de entorno
-kubectl get secret oauth-secrets -o yaml | base64 -d
-
-```
-
-#### Soluciones
-
-* *A. Validar callback URLs**
-
-```bash
-
-# Verificar que las URLs coinciden exactamente
-
-# En GitHub OAuth App:
-
-# - Homepage URL: https://retrogamehub.games
-
-# - Authorization callback URL: https://retrogamehub.games/auth/github/callback
-
-# En el código:
-GITHUB_CALLBACK_URL=https://retrogamehub.games/auth/github/callback
-
-```
-
-* *B. Verificar configuración de sesiones**
-
-```javascript
-// Configurar session correctamente
-app.use(session({
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production', // true en producción
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 horas
-  }
-}));
-
-```
-
-### 6. Agotamiento de Conexiones RDS
-
-#### Síntomas
-
-- "Too many connections" errors
-
-- Nuevas conexiones fallan
-
-- Degradación de performance
-
-#### Diagnóstico
-
-```sql
-
-- - Verificar conexiones activas
+# Verificar conexiones activas
 SELECT count(*) FROM pg_stat_activity;
 
-- - Ver conexiones por estado
-SELECT state, count(*)
-FROM pg_stat_activity
-WHERE state IS NOT NULL
-GROUP BY state;
+# Verificar queries lentas
+SELECT query, mean_time, calls 
+FROM pg_stat_statements 
+ORDER BY mean_time DESC 
+LIMIT 10;
 
-- - Identificar conexiones idle
-SELECT pid, usename, application_name, state, query_start
-FROM pg_stat_activity
-WHERE state = 'idle'
-ORDER BY query_start;
-
+# Verificar locks
+SELECT * FROM pg_locks WHERE NOT granted;
 ```
 
-#### Soluciones
+**Soluciones:**
+```sql
+-- Optimizar conexiones
+ALTER SYSTEM SET max_connections = 100;
+ALTER SYSTEM SET shared_buffers = '256MB';
 
-* *A. Configurar connection pooling**
+-- Terminar conexiones colgadas
+SELECT pg_terminate_backend(pid) 
+FROM pg_stat_activity 
+WHERE state = 'idle' 
+AND state_change < current_timestamp - INTERVAL '1 hour';
+```
 
+### 📊 Problemas de Performance
+
+#### Carga Lenta
+
+**Diagnóstico:**
+```bash
+# Verificar métricas de CloudWatch
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/ApplicationELB \
+  --metric-name ResponseTime \
+  --start-time 2024-01-01T00:00:00Z \
+  --end-time 2024-01-01T23:59:59Z \
+  --period 3600 \
+  --statistics Average
+
+# Verificar logs de aplicación
+aws logs filter-log-events \
+  --log-group-name /aws/lambda/retrogame-api \
+  --filter-pattern "ERROR"
+
+# Analizar bundle size
+npm run analyze
+```
+
+**Soluciones:**
 ```javascript
-// Usar PgBouncer o configurar pool limits
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: parseInt(process.env.DB_POOL_MAX) || 10,  // Limitar por pod
-  min: 2,
-  acquire: 30000,
-  idle: 10000
+// Optimizar imports
+import dynamic from 'next/dynamic';
+
+const GamePlayer = dynamic(() => import('../components/GamePlayer'), {
+  loading: () => <p>Cargando juego...</p>,
+  ssr: false
 });
 
+// Optimizar imágenes
+import Image from 'next/image';
+
+<Image
+  src="/games/doom-cover.jpg"
+  alt="Doom"
+  width={300}
+  height={400}
+  priority={false}
+  loading="lazy"
+/>
 ```
 
-* *B. Aumentar max_connections en RDS**
+---
+
+## 🔧 Herramientas de Debugging
+
+### Logs y Monitoreo
 
 ```bash
+# Logs de desarrollo
+npm run dev 2>&1 | tee debug.log
 
-# Modificar parameter group
-aws rds modify-db-parameter-group \
-  --db-parameter-group-name retrogame-params \
-  --parameters "ParameterName=max_connections,ParameterValue=200,ApplyMethod=pending-reboot"
+# Logs de producción (Vercel)
+vercel logs
 
-# Reiniciar instancia RDS
-aws rds reboot-db-instance --db-instance-identifier retrogame-prod
+# Logs de AWS Lambda
+aws logs tail /aws/lambda/retrogame-api --follow
 
+# Monitoreo en tiempo real
+npx @next/bundle-analyzer
 ```
 
-- --
-
-## 🔍 Herramientas de Monitoreo
-
-### Comandos Útiles
+### Scripts de Diagnóstico
 
 ```bash
+#!/bin/bash
+# check-health.sh
 
-# Monitoreo general del cluster
-kubectl top nodes
-kubectl top pods -A
+echo "🔍 Verificando salud del sistema..."
 
-# Verificar eventos del cluster
-kubectl get events --sort-by=.metadata.creationTimestamp
+# 1. Verificar conectividad
+curl -I https://retrogamehub.games || echo "❌ Sitio no accesible"
 
-# Logs en tiempo real
-kubectl logs -f -l app=api-service -n retrogame
+# 2. Verificar CDN
+curl -I https://cdn.retrogamehub.games || echo "❌ CDN no accesible"
 
-# Verificar conectividad entre servicios
-kubectl run debug --image=nicolaka/netshoot --rm -it --restart=Never
+# 3. Verificar API
+curl -I https://retrogamehub.games/api/health || echo "❌ API no responde"
 
+# 4. Verificar base de datos
+psql $DATABASE_URL -c "SELECT 1;" || echo "❌ Base de datos no accesible"
+
+echo "✅ Verificación completada"
 ```
 
-### Dashboards Recomendados
+---
 
-- **Grafana**: Métricas de infraestructura y aplicación
+## 📞 Escalación de Problemas
 
-- **AWS CloudWatch**: Logs centralizados y métricas de AWS
+### Niveles de Severidad
 
-- **RDS Performance Insights**: Análisis detallado de queries
+**🔴 Crítico (P0)**
+- Sitio completamente inaccesible
+- Pérdida de datos
+- Vulnerabilidad de seguridad activa
 
-- **Kong Manager**: Estado y métricas del API Gateway
+**🟡 Alto (P1)**
+- Funcionalidad principal no disponible
+- Performance severamente degradada
+- Errores que afectan a >50% de usuarios
 
-- --
+**🟢 Medio (P2)**
+- Funcionalidades secundarias afectadas
+- Problemas de UX menores
+- Errores intermitentes
 
-## 📞 Escalación
+**🔵 Bajo (P3)**
+- Mejoras cosméticas
+- Optimizaciones
+- Documentación
 
-Si los problemas persisten después de seguir esta guía:
+### Contactos de Emergencia
 
-1. **Recopilar información**: logs, métricas, timeline del problema
-2. **Verificar status pages**: GitHub Status, AWS Status
-3. **Contactar al equipo de DevOps** con toda la información relevante
-4. **Documentar la resolución** para futuras referencias
+```yaml
+# contacts.yml
+production_issues:
+  - role: "Lead Developer"
+    contact: "dev@retrogamehub.games"
+    phone: "+1-xxx-xxx-xxxx"
+    
+  - role: "DevOps Engineer" 
+    contact: "devops@retrogamehub.games"
+    phone: "+1-xxx-xxx-xxxx"
+
+infrastructure:
+  - service: "AWS Support"
+    tier: "Business"
+    case_url: "https://console.aws.amazon.com/support/"
+  
+  - service: "Vercel Support"
+    tier: "Pro"
+    contact: "support@vercel.com"
+```
+
+---
+
+## 📝 Reporting de Bugs
+
+### Template de Reporte
+
+```markdown
+## 🐛 Bug Report
+
+**Descripción:**
+Descripción clara del problema
+
+**Pasos para Reproducir:**
+1. Ve a '...'
+2. Haz clic en '....'
+3. Desplázate hacia abajo hasta '....'
+4. Ver error
+
+**Comportamiento Esperado:**
+Descripción de lo que esperabas que ocurriera
+
+**Comportamiento Actual:**
+Descripción de lo que realmente ocurre
+
+**Capturas de Pantalla:**
+Si aplica, adjuntar capturas
+
+**Información del Sistema:**
+- OS: [e.g. macOS 14.0]
+- Browser: [e.g. Chrome 120.0]
+- Versión: [e.g. 1.2.0]
+
+**Información Adicional:**
+Cualquier otro contexto sobre el problema
+```
+
+### Logs Útiles
+
+```javascript
+// Frontend debugging
+console.group('🎮 Game Loading Debug');
+console.log('Game URL:', gameUrl);
+console.log('js-dos loaded:', typeof Dos !== 'undefine
+```

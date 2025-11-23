@@ -1,7 +1,8 @@
 ---
-title: "6.9. Troubleshooting de Redis"
-description: "Resolución de problemas comunes con Redis en el sistema de rankings: cache eviction, conexiones, clustering y persistencia"
-icon: "wrench"
+title: 6.9. Troubleshooting de Redis
+description: 'Resolución de problemas comunes con Redis en el sistema de rankings:
+  cache eviction, conexiones, clustering y persistencia'
+icon: wrench
 ---
 
 # Guía de Troubleshooting de Redis
@@ -11,15 +12,20 @@ Esta guía te ayudará a identificar y resolver los problemas más comunes relac
 ## Problema: Rankings Desactualizados
 
 ### Síntomas
+
 - Los rankings muestran datos antiguos después de nuevos scores
+
 - Puntuaciones recientes no aparecen en los leaderboards
+
 - Inconsistencias entre el ranking y la base de datos
 
 ### Diagnóstico
 
 <Tabs>
 <Tab title="Verificar Cache">
+
 ```bash
+
 # Conectar a Redis
 redis-cli -h redis-cluster.retrogame.local -p 6379
 
@@ -32,10 +38,14 @@ TTL ranking:game:123:weekly
 
 # Verificar contenido del ranking
 ZREVRANGE ranking:game:123:daily 0 10 WITHSCORES
+
 ```
+
 </Tab>
 <Tab title="Verificar Conectividad">
+
 ```bash
+
 # Ping básico
 redis-cli ping
 
@@ -45,7 +55,9 @@ redis-cli info memory
 
 # Verificar logs de aplicación
 kubectl logs -f deployment/ranking-service | grep redis
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -58,6 +70,7 @@ Antes de realizar cambios en producción, verifica en un entorno de desarrollo.
 #### 1. Limpiar Cache Específico
 
 ```bash
+
 # Eliminar rankings específicos
 redis-cli DEL ranking:game:123:daily
 redis-cli DEL ranking:game:123:weekly
@@ -66,6 +79,7 @@ redis-cli DEL ranking:global:monthly
 # Forzar regeneración desde el servicio
 curl -X POST "https://api.retrogame.cloud/rankings/refresh/123" \
   -H "Authorization: Bearer $TOKEN"
+
 ```
 
 #### 2. Verificar TTL y Expiración
@@ -74,7 +88,7 @@ curl -X POST "https://api.retrogame.cloud/rankings/refresh/123" \
 // Configuración recomendada en ranking-service
 const RANKING_TTL = {
   daily: 3600,     // 1 hora
-  weekly: 7200,    // 2 horas  
+  weekly: 7200,    // 2 horas
   monthly: 14400,  // 4 horas
   alltime: 86400   // 24 horas
 };
@@ -82,13 +96,17 @@ const RANKING_TTL = {
 // Verificar que se está configurando correctamente
 await redis.zadd(`ranking:game:${gameId}:${period}`, score, userId);
 await redis.expire(`ranking:game:${gameId}:${period}`, RANKING_TTL[period]);
+
 ```
 
 ## Problema: Errores de Conexión
 
 ### Síntomas
+
 - `ECONNREFUSED` en logs del servicio
+
 - Timeouts al acceder a Redis
+
 - Rankings no se actualizan
 
 ### Diagnóstico
@@ -99,7 +117,9 @@ Verifica primero la conectividad de red antes de revisar la configuración de Re
 
 <Tabs>
 <Tab title="Verificar Estado">
+
 ```bash
+
 # Estado del pod Redis
 kubectl get pods -l app=redis-cluster -o wide
 
@@ -108,10 +128,14 @@ kubectl logs -f redis-cluster-0
 
 # Verificar servicios
 kubectl get svc | grep redis
+
 ```
+
 </Tab>
 <Tab title="Verificar Configuración">
+
 ```yaml
+
 # Verificar ConfigMap de Redis
 apiVersion: v1
 kind: ConfigMap
@@ -124,7 +148,9 @@ data:
     maxclients 10000
     timeout 0
     tcp-keepalive 300
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -154,6 +180,7 @@ const redis = new Redis.Cluster([
   clusterRetryDelay: 1000,
   scaleReads: 'slave'
 });
+
 ```
 
 #### 2. Circuit Breaker
@@ -168,44 +195,57 @@ const redisOptions = {
 };
 
 const breaker = new CircuitBreaker(updateRanking, redisOptions);
+
 ```
 
 ## Problema: Memory Eviction
 
 ### Síntomas
+
 - Rankings desaparecen inesperadamente
+
 - Logs con `maxmemory` warnings
+
 - Performance degradada
 
 ### Diagnóstico
 
 ```bash
+
 # Verificar uso de memoria
 redis-cli info memory
 
-# Ver política de eviction actual  
+# Ver política de eviction actual
 redis-cli config get maxmemory-policy
 
 # Monitorear evictions
 redis-cli info stats | grep evicted
+
 ```
 
 ### Configuración Recomendada
 
 <Tabs>
 <Tab title="Política LRU">
+
 ```bash
+
 # Configurar eviction policy para rankings
 redis-cli config set maxmemory-policy allkeys-lru
 redis-cli config set maxmemory 4gb
 
 # Guardar configuración
 redis-cli config rewrite
+
 ```
+
 </Tab>
 <Tab title="Monitorización">
+
 ```yaml
+
 # Alerta en Prometheus
+
 - alert: RedisMemoryHigh
   expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.8
   for: 5m
@@ -214,7 +254,9 @@ redis-cli config rewrite
   annotations:
     summary: "Redis memory usage is high"
     description: "Redis instance {{ $labels.instance }} memory usage is above 80%"
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -233,6 +275,7 @@ Recomendado para producción con alta disponibilidad y escalabilidad
 ### Configuración Cluster
 
 ```yaml
+
 # redis-cluster.yaml
 apiVersion: apps/v1
 kind: StatefulSet
@@ -265,6 +308,7 @@ spec:
         - "5000"
         - --appendonly
         - "yes"
+
 ```
 
 ## Persistencia RDB vs AOF
@@ -282,7 +326,9 @@ spec:
 
 <Tabs>
 <Tab title="Configuración">
+
 ```bash
+
 # Habilitar ambos métodos
 redis-cli config set save "900 1 300 10 60 10000"
 redis-cli config set appendonly yes
@@ -290,9 +336,12 @@ redis-cli config set appendfsync everysec
 redis-cli config set no-appendfsync-on-rewrite no
 redis-cli config set auto-aof-rewrite-percentage 100
 redis-cli config set auto-aof-rewrite-min-size 64mb
+
 ```
+
 </Tab>
 <Tab title="Monitoring">
+
 ```javascript
 // Script para monitorear persistencia
 const checkPersistence = async () => {
@@ -301,7 +350,9 @@ const checkPersistence = async () => {
   console.log('AOF last rewrite:', info.aof_last_rewrite_time);
   console.log('AOF size:', info.aof_current_size);
 };
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -310,13 +361,21 @@ const checkPersistence = async () => {
 ### Métricas Clave
 
 ```yaml
+
 # Grafana Dashboard queries
+
 - redis_connected_clients
-- redis_blocked_clients  
+
+- redis_blocked_clients
+
 - redis_memory_used_bytes
+
 - redis_keyspace_hits_total
+
 - redis_keyspace_misses_total
+
 - redis_commands_processed_total
+
 ```
 
 ### Alertas Críticas
@@ -327,6 +386,7 @@ Configura estas alertas para detectar problemas antes de que afecten a los usuar
 
 ```yaml
 groups:
+
 - name: redis.rules
   rules:
   - alert: RedisDown
@@ -337,7 +397,7 @@ groups:
     annotations:
       summary: Redis instance is down
 
-  - alert: RedisMemoryHigh  
+  - alert: RedisMemoryHigh
     expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
     for: 2m
     labels:
@@ -348,11 +408,13 @@ groups:
     for: 1m
     labels:
       severity: warning
+
 ```
 
 ## Comandos Útiles de Debugging
 
 ```bash
+
 # Información general
 redis-cli info
 
@@ -370,6 +432,7 @@ redis-cli --bigkeys
 
 # Verificar latencia
 redis-cli --latency -h redis-cluster.retrogame.local
+
 ```
 
 <Note>

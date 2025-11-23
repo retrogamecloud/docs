@@ -69,6 +69,7 @@ erDiagram
         timestamp updated_at
         timestamp created_at
     }
+
 ```
 
 ## Gestión de Migraciones
@@ -80,6 +81,7 @@ RetroGameCloud utiliza **Knex.js** como herramienta principal para la gestión d
 #### Estructura de Archivos
 
 ```
+
 database/
 ├── migrations/
 │   ├── 20231201_001_create_users_table.js
@@ -89,6 +91,7 @@ database/
 │   ├── 01_users.js
 │   └── 02_games.js
 └── knexfile.js
+
 ```
 
 ### Creación de Migraciones
@@ -96,11 +99,13 @@ database/
 #### 1. Generar Nueva Migración
 
 ```bash
+
 # Crear migración con timestamp automático
 npx knex migrate:make add_user_preferences_table
 
 # Crear migración con nombre específico
 npx knex migrate:make add_oauth_providers --timestamp-format YYYYMMDD_HHmm
+
 ```
 
 #### 2. Estructura de Migración
@@ -116,7 +121,7 @@ exports.up = function(knex) {
     table.json('game_settings').defaultTo('{}');
     table.timestamp('created_at').defaultTo(knex.fn.now());
     table.timestamp('updated_at').defaultTo(knex.fn.now());
-    
+
     // Índices y constrains
     table.foreign('user_id').references('id').inTable('users').onDelete('CASCADE');
     table.index(['user_id']);
@@ -126,22 +131,26 @@ exports.up = function(knex) {
 exports.down = function(knex) {
   return knex.schema.dropTableIfExists('user_preferences');
 };
+
 ```
 
 ### Estrategias para Cambios Breaking
 
 #### Adición de Columnas NOT NULL
 
-**❌ Incorrecto - Causa downtime:**
+* *❌ Incorrecto - Causa downtime:**
+
 ```javascript
 exports.up = function(knex) {
   return knex.schema.alterTable('users', function(table) {
     table.string('phone').notNullable(); // Error: filas existentes no tienen valor
   });
 };
+
 ```
 
-**✅ Correcto - Zero downtime:**
+* *✅ Correcto - Zero downtime:**
+
 ```javascript
 // Migración 1: Añadir columna como nullable
 exports.up = function(knex) {
@@ -163,6 +172,7 @@ exports.up = function(knex) {
     table.string('phone').notNullable().alter();
   });
 };
+
 ```
 
 #### Eliminación de Columnas
@@ -177,6 +187,7 @@ exports.up = function(knex) {
     table.dropColumn('old_field');
   });
 };
+
 ```
 
 #### Cambios de Tipo de Datos
@@ -188,19 +199,20 @@ exports.up = async function(knex) {
   await knex.schema.alterTable('scores', function(table) {
     table.bigInteger('score_new');
   });
-  
+
   // Migrar datos con validación
   await knex.raw(`
-    UPDATE scores 
-    SET score_new = CASE 
+    UPDATE scores
+    SET score_new = CASE
       WHEN score::text ~ '^[0-9]+$' THEN score::bigint
       ELSE 0
     END
   `);
-  
+
   // En migración posterior: drop old, rename new
   return Promise.resolve();
 };
+
 ```
 
 ### Proceso de Testing
@@ -208,6 +220,7 @@ exports.up = async function(knex) {
 #### 1. Testing Local
 
 ```bash
+
 # Resetear base de datos local
 npm run db:reset
 
@@ -219,11 +232,13 @@ npm run db:seed
 
 # Ejecutar tests
 npm run test:integration
+
 ```
 
 #### 2. Testing en Staging
 
 ```yaml
+
 # .github/workflows/test-migration.yml
 name: Test Database Migration
 on:
@@ -253,6 +268,7 @@ jobs:
         run: npm run test:integration
       - name: Test Migration Down
         run: npm run db:rollback
+
 ```
 
 #### 3. Dry Run en Staging
@@ -263,31 +279,32 @@ const knex = require('../database/connection');
 
 async function dryRun() {
   const transaction = await knex.transaction();
-  
+
   try {
     console.log('🧪 Iniciando dry run...');
-    
+
     // Aplicar migración en transacción
     await transaction.migrate.latest();
-    
+
     // Verificar integridad
     const healthCheck = await runHealthChecks(transaction);
-    
+
     if (healthCheck.success) {
       console.log('✅ Migración simulada exitosa');
     } else {
       throw new Error(`Health check failed: ${healthCheck.errors}`);
     }
-    
+
     // Rollback para no aplicar cambios
     await transaction.rollback();
-    
+
   } catch (error) {
     console.error('❌ Dry run falló:', error);
     await transaction.rollback();
     process.exit(1);
   }
 }
+
 ```
 
 ### Aplicación en Producción
@@ -324,12 +341,14 @@ module.exports = {
     }
   }
 };
+
 ```
 
 #### Script de Aplicación Automatizada
 
 ```bash
 #!/bin/bash
+
 # scripts/apply-migration.sh
 
 set -e
@@ -361,6 +380,7 @@ npm run health:check || {
 }
 
 echo "✅ Migración aplicada exitosamente"
+
 ```
 
 ### Plan de Rollback Automático
@@ -384,16 +404,16 @@ async function healthCheck() {
     {
       name: 'foreign-key-constraints',
       check: () => knex.raw(`
-        SELECT COUNT(*) as violations 
-        FROM information_schema.table_constraints 
-        WHERE constraint_type = 'FOREIGN KEY' 
+        SELECT COUNT(*) as violations
+        FROM information_schema.table_constraints
+        WHERE constraint_type = 'FOREIGN KEY'
         AND constraint_name LIKE '%_violated'
       `)
     }
   ];
 
   const results = [];
-  
+
   for (const { name, check } of checks) {
     try {
       await check();
@@ -402,15 +422,16 @@ async function healthCheck() {
       results.push({ name, status: 'FAILED', error: error.message });
     }
   }
-  
+
   const failed = results.filter(r => r.status === 'FAILED');
-  
+
   return {
     success: failed.length === 0,
     results,
     errors: failed.map(f => `${f.name}: ${f.error}`)
   };
 }
+
 ```
 
 #### Rollback Automático
@@ -419,23 +440,23 @@ async function healthCheck() {
 // scripts/auto-rollback.js
 async function autoRollback() {
   console.log('🔄 Iniciando rollback automático...');
-  
+
   try {
     // Obtener última migración aplicada
     const [lastBatch] = await knex('knex_migrations')
       .max('batch as batch')
       .first();
-    
+
     if (lastBatch.batch) {
       // Rollback del último batch
       await knex.migrate.rollback();
-      
+
       // Verificar que el rollback fue exitoso
       const healthCheck = await runHealthChecks();
-      
+
       if (healthCheck.success) {
         console.log('✅ Rollback completado exitosamente');
-        
+
         // Notificar al equipo
         await notifyTeam({
           status: 'rollback-success',
@@ -448,7 +469,7 @@ async function autoRollback() {
     }
   } catch (error) {
     console.error('❌ Rollback falló:', error);
-    
+
     // Notificación crítica
     await notifyTeam({
       status: 'rollback-failed',
@@ -458,82 +479,130 @@ async function autoRollback() {
     });
   }
 }
+
 ```
 
 ### Checklist Pre-Migración
 
 <Tabs>
 <Tab title="Desarrollo">
+
 ```markdown
+
 ## ✅ Checklist - Desarrollo
 
 ### Antes de crear la migración:
+
 - [ ] Analizar impacto en consultas existentes
+
 - [ ] Verificar que no hay breaking changes
+
 - [ ] Documentar cambios en esquema
+
 - [ ] Escribir tests para nueva estructura
 
 ### Al escribir la migración:
+
 - [ ] Incluir función `down` para rollback
+
 - [ ] Usar transacciones cuando sea necesario
+
 - [ ] Validar que funciona con datos existentes
+
 - [ ] Añadir índices necesarios
 
 ### Testing:
+
 - [ ] Probar migración up/down localmente
+
 - [ ] Ejecutar suite completa de tests
+
 - [ ] Verificar performance de queries afectadas
+
 - [ ] Validar con datos de volumen similar a producción
+
 ```
+
 </Tab>
 
 <Tab title="Staging">
+
 ```markdown
+
 ## ✅ Checklist - Staging
 
 ### Preparación:
+
 - [ ] Sincronizar datos con snapshot de producción
+
 - [ ] Verificar versión de PostgreSQL coincida
+
 - [ ] Configurar monitoreo de performance
 
 ### Ejecución:
+
 - [ ] Ejecutar dry-run exitosamente
+
 - [ ] Aplicar migración en staging
+
 - [ ] Verificar funcionalidad completa de aplicación
+
 - [ ] Medir tiempo de ejecución de migración
 
 ### Validación:
+
 - [ ] Health checks pasan
+
 - [ ] Tests de integración pasan
+
 - [ ] Performance tests dentro de parámetros
+
 - [ ] Rollback funciona correctamente
+
 ```
+
 </Tab>
 
 <Tab title="Producción">
+
 ```markdown
+
 ## ✅ Checklist - Producción
 
 ### Pre-migración (24h antes):
+
 - [ ] Coordinar ventana de mantenimiento
+
 - [ ] Notificar a stakeholders
+
 - [ ] Preparar scripts de rollback
+
 - [ ] Verificar espacio en disco para backup
 
 ### Pre-migración (inmediato):
+
 - [ ] Crear backup completo de base de datos
+
 - [ ] Verificar conectividad y permisos
+
 - [ ] Confirmar que staging tests pasaron
+
 - [ ] Alertar a equipo de DevOps
 
 ### Durante la migración:
+
 - [ ] Monitorear logs en tiempo real
+
 - [ ] Verificar métricas de sistema
+
 - [ ] Confirmar health checks post-migración
+
 - [ ] Validar funcionalidad crítica
 
 ### Post-migración:
+
 - [
 </Tab>
 </Tabs>
+
 ```

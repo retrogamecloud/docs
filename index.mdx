@@ -1,5 +1,5 @@
 ---
-title: 1.1. Documentación Retro Game Hub
+title: 1. Documentación Retro Game Hub
 description: Juega juegos clásicos de DOS en la nube con infraestructura moderna
 icon: file-lines
 ---
@@ -11,44 +11,72 @@ Una plataforma cloud-native para jugar juegos clásicos de DOS usando el emulado
 <Card
   title="Inicio Rápido"
   icon="rocket"
-  href="/quickstart"
+  href="/2-inicio/quickstart"
   horizontal
 >
   Comienza con Retro Game Hub en minutos.
 </Card>
 
-## Visión General de la Arquitectura
+## Estructura de la Documentación
 
-Aprende sobre nuestra arquitectura de microservicios cloud-native.
+Esta documentación está organizada de manera lógica siguiendo el flujo de desarrollo y operación de la plataforma:
 
 <Columns cols={2}>
   <Card
-    title="Infraestructura"
-    icon="server"
-    href="/infrastructure/overview"
+    title="1. Inicio"
+    icon="home"
+    href="/1-inicio"
   >
-    AWS EKS, Terraform e infraestructura cloud.
+    Introducción, instalación y configuración inicial del proyecto.
   </Card>
   <Card
-    title="Microservicios"
+    title="2. Arquitectura"
+    icon="sitemap"
+    href="/2-arquitectura/overview"
+  >
+    Diseño general, patrones y decisiones arquitectónicas.
+  </Card>
+  <Card
+    title="3. Servicios"
     icon="cubes"
-    href="/services/auth-service"
+    href="/3-servicios/auth-service"
   >
-    Servicios de autenticación, juegos, puntuaciones, rankings y usuarios.
+    Microservicios: auth, games, scores, rankings y usuarios.
   </Card>
   <Card
-    title="Monitoreo"
-    icon="chart-line"
-    href="/infrastructure/monitoring"
+    title="4. Infraestructura"
+    icon="server"
+    href="/4-infraestructura/overview"
   >
-    Prometheus, Grafana e integración con GitHub OAuth.
+    AWS EKS, Terraform, Kubernetes e infraestructura cloud.
   </Card>
   <Card
-    title="Referencia API"
+    title="5. Desarrollo"
+    icon="code"
+    href="/5-desarrollo/setup"
+  >
+    Entorno de desarrollo, herramientas y buenas prácticas.
+  </Card>
+  <Card
+    title="6. CI/CD"
+    icon="infinity"
+    href="/6-cicd/pipeline"
+  >
+    Pipelines de integración continua y despliegue automatizado.
+  </Card>
+  <Card
+    title="7. API"
     icon="terminal"
-    href="/api-reference/auth/login"
+    href="/7-api/auth/login"
   >
-    Documentación completa de la API REST.
+    Documentación completa de la API REST y endpoints.
+  </Card>
+  <Card
+    title="8. Operaciones"
+    icon="chart-line"
+    href="/8-operaciones/monitoring"
+  >
+    Monitoreo, observabilidad, troubleshooting y mantenimiento.
   </Card>
 </Columns>
 
@@ -58,54 +86,41 @@ Aprende sobre nuestra arquitectura de microservicios cloud-native.
   <Card
     title="Emulación js-dos"
     icon="gamepad"
-    href="/frontend/jsdos-integration"
+    href="/3-servicios/frontend/jsdos-integration"
   >
     Juega juegos clásicos de DOS directamente en tu navegador.
   </Card>
   <Card
     title="Autenticación de Usuarios"
     icon="shield"
-    href="/services/auth-service"
+    href="/3-servicios/auth-service"
   >
     Autenticación basada en JWT con backend PostgreSQL.
   </Card>
   <Card
     title="Seguimiento de Puntuaciones"
     icon="trophy"
-    href="/services/score-service"
+    href="/3-servicios/score-service"
   >
     Registra y envía puntuaciones de juegos con rankings en tiempo real.
   </Card>
   <Card
     title="Rankings Globales"
     icon="ranking-star"
-    href="/services/ranking-service"
+    href="/3-servicios/ranking-service"
   >
     Tablas de clasificación con caché Redis para rendimiento óptimo.
   </Card>
 </Columns>
 
-## Stack Tecnológico
+## Tecnologías Utilizadas
 
-- **Orquestación**: Kubernetes (AWS EKS)
+- **Frontend**: React, js-dos emulator
+- **Backend**: Node.js, Express, microservicios
+- **Base de Datos**: PostgreSQL, Redis
+- **Infraestructura**: AWS EKS, Terraform
+- **Monitoreo**: Prometheus, Grafana
+- **CI/CD**: GitHub Actions, ArgoCD
+- **Autenticación**: JWT, GitHub OAuth
 
-- **Infraestructura como Código**: Terraform
-
-- **Gateway API**: Kong
-
-- **Bases de Datos**: PostgreSQL, Redis
-
-- **Monitoreo**: Prometheus, Grafana, AlertManager
-
-- **CDN**: CloudFront + S3
-
-- **Autenticación**: JWT + GitHub OAuth (monitoreo)
-
-<Card
-  title="Ver en GitHub"
-  icon="github"
-  href="https://github.com/retrogamecloud"
->
-  Explora el código fuente y contribuye.
-</Card>
-
+¿Nuevo en la plataforma? Comienza con la [guía de inicio rápido](/1-inicio/quickstart) para configurar tu entorno de desarrollo en pocos minutos.

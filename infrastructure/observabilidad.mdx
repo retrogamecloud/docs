@@ -1,7 +1,8 @@
 ---
-title: "6.10. Observabilidad y Métricas"
-description: "Guía completa de observabilidad, métricas Golden Signals, umbrales de alerta y correlación de logs-métricas-traces"
-icon: "chart-line"
+title: 6.10. Observabilidad y Métricas
+description: Guía completa de observabilidad, métricas Golden Signals, umbrales de
+  alerta y correlación de logs-métricas-traces
+icon: chart-line
 ---
 
 ## Introducción
@@ -21,24 +22,25 @@ graph TD
     C --> D[Kong Gateway]
     D --> E[Microservicio]
     E --> F[Base de Datos]
-    
+
     B -.->|Logs Acceso| L1[CloudWatch Logs]
     D -.->|Métricas Kong| M1[Prometheus]
     E -.->|Logs App| L2[CloudWatch Logs]
     E -.->|Métricas Custom| M2[Prometheus]
     F -.->|Métricas RDS| M3[CloudWatch Metrics]
     E -.->|Traces| T1[Jaeger]
-    
+
     L1 --> G[Grafana Loki]
     L2 --> G
     M1 --> H[Grafana]
     M2 --> H
     M3 --> H
     T1 --> I[Grafana Tempo]
-    
+
     G --> J[Dashboard Unificado]
     H --> J
     I --> J
+
 ```
 
 ## Golden Signals por Servicio
@@ -47,59 +49,84 @@ graph TD
 
 <Tabs>
 <Tab title="Latencia">
-**Latencia**: Tiempo que tarda en procesarse una solicitud
+
+* *Latencia**: Tiempo que tarda en procesarse una solicitud
 
 - **P50**: 50% de las solicitudes
+
 - **P95**: 95% de las solicitudes
+
 - **P99**: 99% de las solicitudes
 
-**Ejemplo de consulta Prometheus**:
+* *Ejemplo de consulta Prometheus**:
+
 ```promql
-histogram_quantile(0.95, 
+histogram_quantile(0.95,
   sum(rate(http_request_duration_seconds_bucket{service="game-catalog"}[5m])) by (le)
 )
+
 ```
+
 </Tab>
 
 <Tab title="Tráfico">
-**Tráfico**: Demanda del sistema (RPS, QPM)
+
+* *Tráfico**: Demanda del sistema (RPS, QPM)
 
 - **RPS**: Requests per Second
+
 - **QPM**: Queries per Minute
+
 - **Throughput**: Operaciones por unidad de tiempo
 
-**Ejemplo de consulta**:
+* *Ejemplo de consulta**:
+
 ```promql
 sum(rate(http_requests_total{service="auth"}[1m]))
+
 ```
+
 </Tab>
 
 <Tab title="Errores">
-**Errores**: Tasa de requests que fallan
+
+* *Errores**: Tasa de requests que fallan
 
 - **Error Rate**: Porcentaje de errores
+
 - **4xx vs 5xx**: Errores cliente vs servidor
+
 - **Error Budget**: Presupuesto de errores permitidos
 
-**Ejemplo de consulta**:
+* *Ejemplo de consulta**:
+
 ```promql
-sum(rate(http_requests_total{status=~"5.."}[5m])) / 
+sum(rate(http_requests_total{status=~"5.."}[5m])) /
 sum(rate(http_requests_total[5m])) * 100
+
 ```
+
 </Tab>
 
 <Tab title="Saturación">
-**Saturación**: Utilización de recursos del sistema
+
+* *Saturación**: Utilización de recursos del sistema
 
 - **CPU**: Porcentaje de uso
+
 - **Memoria**: Utilización RAM
+
 - **Disco**: I/O y espacio
+
 - **Red**: Ancho de banda
 
-**Ejemplo de consulta**:
+* *Ejemplo de consulta**:
+
 ```promql
 100 * (1 - avg(irate(node_cpu_seconds_total{mode="idle"}[5m])))
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -107,9 +134,11 @@ sum(rate(http_requests_total[5m])) * 100
 
 <Tabs>
 <Tab title="Auth Service">
-**Métricas Críticas**:
+
+* *Métricas Críticas**:
 
 ```yaml
+
 # Latencia
 auth_login_duration_seconds:
   - p95 < 200ms (normal)
@@ -132,13 +161,17 @@ auth_jwt_cache_hit_ratio:
   - > 95% (normal)
   - 90-95% (warning)
   - < 90% (critical)
+
 ```
+
 </Tab>
 
 <Tab title="Game Catalog">
-**Métricas Críticas**:
+
+* *Métricas Críticas**:
 
 ```yaml
+
 # Latencia
 game_search_duration_seconds:
   - p95 < 100ms (normal)
@@ -161,13 +194,17 @@ game_catalog_db_connections:
   - < 70% pool (normal)
   - 70-90% pool (warning)
   - > 90% pool (critical)
+
 ```
+
 </Tab>
 
 <Tab title="Score Service">
-**Métricas Críticas**:
+
+* *Métricas Críticas**:
 
 ```yaml
+
 # Latencia
 score_submission_duration_seconds:
   - p95 < 150ms (normal)
@@ -190,7 +227,9 @@ score_leaderboard_cache_usage:
   - < 80% (normal)
   - 80-95% (warning)
   - > 95% (critical)
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -200,8 +239,10 @@ score_leaderboard_cache_usage:
 
 <Tabs>
 <Tab title="Alertas Críticas">
+
 ```yaml
 groups:
+
 - name: retrogamecloud.critical
   rules:
   - alert: HighErrorRate
@@ -236,12 +277,16 @@ groups:
     annotations:
       summary: "Conexiones de BD cerca del límite"
       description: "{{ $value }}% de conexiones en uso"
+
 ```
+
 </Tab>
 
 <Tab title="Alertas Warning">
+
 ```yaml
 groups:
+
 - name: retrogamecloud.warning
   rules:
   - alert: ModerateErrorRate
@@ -274,7 +319,9 @@ groups:
     annotations:
       summary: "Poco espacio en disco"
       description: "{{ $value }}% libre en {{ $labels.instance }}"
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -284,6 +331,7 @@ groups:
 
 <Tabs>
 <Tab title="Panel de Estado General">
+
 ```json
 {
   "dashboard": {
@@ -321,10 +369,13 @@ groups:
     ]
   }
 }
+
 ```
+
 </Tab>
 
 <Tab title="Panel por Servicio">
+
 ```json
 {
   "panels": [
@@ -356,7 +407,9 @@ groups:
     }
   ]
 }
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -368,6 +421,7 @@ Cada microservicio debe tener su propio dashboard detallado con métricas espec�
 
 <Tabs>
 <Tab title="Auth Service Dashboard">
+
 ```json
 {
   "dashboard": {
@@ -406,10 +460,13 @@ Cada microservicio debe tener su propio dashboard detallado con métricas espec�
     ]
   }
 }
+
 ```
+
 </Tab>
 
 <Tab title="Game Catalog Dashboard">
+
 ```json
 {
   "dashboard": {
@@ -448,7 +505,9 @@ Cada microservicio debe tener su propio dashboard detallado con métricas espec�
     ]
   }
 }
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -458,6 +517,7 @@ Cada microservicio debe tener su propio dashboard detallado con métricas espec�
 
 <Tabs>
 <Tab title="Formato de Log Estándar">
+
 ```json
 {
   "timestamp": "2024-01-15T10:30:45.123Z",
@@ -480,10 +540,13 @@ Cada microservicio debe tener su propio dashboard detallado con métricas espec�
     "mfa_enabled": true
   }
 }
+
 ```
+
 </Tab>
 
 <Tab title="Implementación en Node.js">
+
 ```javascript
 const winston = require('winston');
 const { v4: uuidv4 } = require('uuid');
@@ -497,4 +560,5 @@ const logger = winston.createLogger({
     winston.format.
 </Tab>
 </Tabs>
+
 ```
