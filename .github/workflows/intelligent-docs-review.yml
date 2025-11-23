@@ -207,6 +207,8 @@ jobs:
           git add AUTO_FIXES_REPORT.md BROKEN_LINKS_REPORT.md UNDOCUMENTED_APIS_REPORT.md AUTO_IMPLEMENTED_REPORT.md 2>/dev/null || true
           git add broken-links.json undocumented-apis.json generated-diagrams.json incremental-analysis.json 2>/dev/null || true
           git add .analysis-cache.json 2>/dev/null || true
+          # Añadir TODOS los archivos .mdx (incluyendo los auto-generados en directorios nuevos)
+          git add **/*.mdx 2>/dev/null || true
           git add api-reference/ docs/ cicd/ infrastructure/ services/ frontend/ architecture/ database/ monitoring/ security/ data/ observability/ operations/ 2>/dev/null || true
           git add *.mdx 2>/dev/null || true
           
