@@ -101,15 +101,26 @@ jobs:
           fi
           
           echo "🏗️ Generating Infrastructure Documentation..."
-          # Infrastructure (Terraform)
+          # Infrastructure (Terraform) - Simplified to avoid parsing issues
           if [ -d ".repos/infrastructure" ]; then
-            echo "  → terraform-modules"
-            # Extraer descripciones de variables.tf y outputs.tf
-            find .repos/infrastructure -name "*.tf" -type f | while read tf_file; do
-              service_name=$(basename $(dirname "$tf_file"))
-              echo "## Infrastructure: ${service_name}" >> "temp-docs/infrastructure-docs.md"
-              grep -A 3 'variable\|output\|resource' "$tf_file" >> "temp-docs/infrastructure-docs.md" 2>/dev/null || true
-            done
+            echo "  → terraform-overview"
+            {
+              echo "# AWS Infrastructure"
+              echo ""
+              echo "## Componentes Principales"
+              echo ""
+              echo "- **EKS Cluster**: Kubernetes v1.34 con node groups escalables"
+              echo "- **RDS PostgreSQL**: Base de datos db.t3.micro"
+              echo "- **VPC**: Red privada con subnets públicas y privadas"
+              echo "- **NAT Gateway**: Acceso a internet desde nodos privados"
+              echo "- **Application Load Balancer**: Entrada HTTPS con SSL"
+              echo "- **CloudFront CDN**: Distribución de assets estáticos"
+              echo ""
+              echo "## Repositorio"
+              echo ""
+              echo "Código Terraform completo: [retrogamecloud/infrastructure](https://github.com/retrogamecloud/infrastructure)"
+              echo ""
+            } > "temp-docs/infrastructure-docs.md"
           fi
           
           echo "🔀 Generating Kong Configuration Documentation..."
