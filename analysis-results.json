@@ -1,100 +1,266 @@
 {
-  "analysis_summary": "La documentación está bien estructurada pero presenta gaps críticos: falta documentación de seguridad y DR, los diagramas de arquitectura son insuficientes, hay inconsistencias en nomenclatura (Retro Game Hub vs RetroGameCloud), y faltan guías operativas para producción. Score general: 7.5/10.",
-  "overall_score": 7.5,
+  "analysis_summary": "Sistema bien estructurado pero con gaps críticos: falta documentación de seguridad, disaster recovery, métricas de monitorización, arquitectura de datos y guías de contribución. Diagramas de secuencia incompletos y necesidad de consolidar documentación duplicada.",
+  "overall_score": 7.2,
   "improvements": [
     {
       "priority": "high",
       "category": "content",
       "title": "Documentación de Seguridad Completa",
-      "description": "Falta documentación crítica sobre seguridad: políticas de secretos, gestión de credenciales en K8s, rotación de tokens JWT, hardening de contenedores, políticas de red, y escaneo de vulnerabilidades. Es fundamental para producción.",
+      "description": "Falta documentación crítica sobre seguridad: gestión de secretos en Kubernetes, políticas de RBAC, rotación de JWT, hardening de contenedores, escaneo de vulnerabilidades y respuesta a incidentes. Es fundamental para producción.",
       "files_to_create": [
         "security/overview.mdx",
         "security/secrets-management.mdx",
-        "security/network-policies.mdx",
-        "security/container-security.mdx",
-        "security/jwt-best-practices.mdx"
+        "security/rbac-policies.mdx",
+        "security/vulnerability-scanning.mdx",
+        "security/incident-response.mdx"
       ],
       "files_to_modify": [
-        "architecture.mdx",
-        "deployment.mdx"
+        "infrastructure/eks-cluster.mdx"
       ],
       "files_to_delete": [],
-      "proposed_content": "# Seguridad en Retro Game Hub\n\n## Gestión de Secretos\n- AWS Secrets Manager para credenciales RDS\n- Kubernetes Secrets cifrados en reposo\n- Rotación automática de tokens JWT\n\n## Políticas de Red\n- Network Policies K8s entre microservicios\n- Security Groups AWS restrictivos\n- Whitelist de IPs para administración",
-      "mermaid_diagram": "graph TB\n    subgraph Capa_Perimetral[Capa Perimetral]\n        CF[CloudFront WAF]\n        ALB[ALB con SSL/TLS]\n    end\n    subgraph Capa_Autenticacion[Autenticación]\n        OAuth[OAuth2 Proxy]\n        Kong[Kong JWT Plugin]\n    end\n    subgraph Capa_Aplicacion[Aplicación]\n        Auth[Auth Service]\n        Game[Game Catalog]\n        Score[Score Service]\n    end\n    subgraph Capa_Datos[Datos]\n        RDS[(RDS PostgreSQL cifrado)]\n        Redis[(Redis con AUTH)]\n    end\n    CF -->|HTTPS| ALB\n    ALB -->|mTLS| OAuth\n    OAuth --> Kong\n    Kong -->|JWT Validado| Auth\n    Kong -->|JWT Validado| Game\n    Kong -->|JWT Validado| Score\n    Auth -.->|Secrets Manager| RDS\n    Score -.->|TLS| Redis",
-      "rationale": "La seguridad es crítica para producción. Sin documentación clara, los desarrolladores pueden cometer errores que expongan datos sensibles o credenciales."
+      "proposed_content": "# Seguridad del Sistema\n\n## Gestión de Secretos\n- AWS Secrets Manager integración\n- Kubernetes Secrets encriptados con KMS\n- Rotación automática de credenciales\n\n## Políticas RBAC\n- Roles por servicio\n- ServiceAccounts dedicados\n- Principio de mínimo privilegio\n\n## JWT y Tokens\n- Expiración: 24h\n- Refresh tokens: 7 días\n- Blacklist de tokens revocados",
+      "mermaid_diagram": "",
+      "rationale": "La seguridad es crítica en producción. Sin documentación clara sobre gestión de secretos, RBAC y políticas de seguridad, el sistema es vulnerable y dificulta auditorías de cumplimiento."
     },
     {
       "priority": "high",
       "category": "content",
-      "title": "Plan de Recuperación ante Desastres (DR)",
-      "description": "No existe documentación sobre backups, RTO/RPO, procedimientos de restauración, o planes de continuidad. Fundamental para entornos productivos con datos críticos de usuarios.",
+      "title": "Arquitectura de Datos y Esquemas de Base de Datos",
+      "description": "No existe documentación del modelo de datos, esquemas de tablas, relaciones entre entidades ni estrategia de migraciones. Crítico para desarrollo y mantenimiento.",
       "files_to_create": [
-        "operations/disaster-recovery.mdx",
-        "operations/backup-strategy.mdx",
-        "operations/incident-response.mdx"
+        "architecture/data-model.mdx",
+        "architecture/database-schemas.mdx",
+        "architecture/migrations.mdx"
       ],
       "files_to_modify": [
-        "deployment.mdx"
+        "services/auth-service.mdx",
+        "services/user-service.mdx",
+        "services/score-service.mdx"
       ],
       "files_to_delete": [],
-      "proposed_content": "# Plan de Recuperación ante Desastres\n\n## Objetivos\n- RTO (Recovery Time Objective): 4 horas\n- RPO (Recovery Point Objective): 1 hora\n\n## Estrategia de Backups\n- RDS: Snapshots automatizados cada hora, retención 7 días\n- Redis: AOF persistence + replicación\n- S3: Versionado habilitado + Cross-Region Replication\n\n## Procedimientos de Restauración\n1. Recuperación de Base de Datos desde snapshot\n2. Recreación de cluster EKS desde código Terraform\n3. Despliegue de servicios vía ArgoCD\n4. Validación de integridad de datos",
-      "mermaid_diagram": "flowchart TD\n    Start[Detección de Incidente] --> Assess{Evaluar Severidad}\n    Assess -->|Crítico| Alert[Alertar Equipo On-Call]\n    Assess -->|Mayor| Investigate[Investigar Causa]\n    Assess -->|Menor| Log[Registrar en Sistema]\n    Alert --> Failover{¿Requiere Failover?}\n    Failover -->|Sí BD| RestoreDB[Restaurar desde Snapshot RDS]\n    Failover -->|Sí Cluster| RecreateEKS[Recrear EKS con Terraform]\n    Failover -->|Sí Servicios| RedeployServices[Redesplegar vía ArgoCD]\n    RestoreDB --> Validate[Validar Integridad]\n    RecreateEKS --> Validate\n    RedeployServices --> Validate\n    Validate --> PostMortem[Análisis Post-Mortem]\n    Investigate --> Fix[Aplicar Corrección]\n    Fix --> PostMortem\n    Log --> Monitor[Monitorizar]",
-      "rationale": "Sin un plan DR documentado, la recuperación ante fallos será caótica, incrementando el downtime y posible pérdida de datos de usuarios."
+      "proposed_content": "# Modelo de Datos\n\n## Entidades Principales\n### Usuarios\n- id (UUID)\n- username (único, índice)\n- email (único, índice)\n- password_hash\n- created_at, updated_at\n\n### Puntuaciones\n- id (UUID)\n- user_id (FK)\n- game_id (FK)\n- score (integer)\n- created_at\n- Índice único: (user_id, game_id)\n\n## Relaciones\n- Usuario 1:N Puntuaciones\n- Juego 1:N Puntuaciones",
+      "mermaid_diagram": "erDiagram\n    USERS ||--o{ SCORES : registra\n    USERS ||--o{ SESSIONS : tiene\n    GAMES ||--o{ SCORES : pertenece\n    USERS {\n        uuid id PK\n        varchar username UK\n        varchar email UK\n        varchar password_hash\n        varchar display_name\n        varchar avatar_url\n        text bio\n        timestamp created_at\n        timestamp updated_at\n    }\n    SCORES {\n        uuid id PK\n        uuid user_id FK\n        uuid game_id FK\n        integer score\n        timestamp created_at\n        timestamp updated_at\n    }\n    GAMES {\n        uuid id PK\n        varchar name\n        varchar slug UK\n        text description\n        varchar jsdos_url\n        varchar image_url\n        integer year\n        varchar genre\n        timestamp created_at\n    }\n    SESSIONS {\n        uuid id PK\n        uuid user_id FK\n        varchar token_hash\n        timestamp expires_at\n        timestamp created_at\n    }",
+      "rationale": "Sin documentación del modelo de datos, los desarrolladores no pueden entender las relaciones, constraints ni diseñar queries eficientes. Esencial para onboarding y evolución del sistema."
     },
     {
       "priority": "high",
       "category": "diagrams",
       "title": "Diagrama de Arquitectura de Red Completo",
-      "description": "El diagrama actual de arquitectura es muy básico. Falta mostrar VPCs, subnets públicas/privadas, NAT Gateways, Security Groups, y flujo de tráfico detallado.",
+      "description": "Falta diagrama detallado mostrando VPC, subnets públicas/privadas, NAT Gateway, Security Groups, flujo de tráfico y puntos de entrada/salida.",
       "files_to_create": [
         "infrastructure/network-architecture.mdx"
       ],
       "files_to_modify": [
-        "architecture.mdx",
         "infrastructure/networking.mdx"
       ],
       "files_to_delete": [],
-      "proposed_content": "# Arquitectura de Red AWS\n\n## Topología de VPC\n- VPC: 10.0.0.0/16\n- Subnets públicas: 10.0.1.0/24, 10.0.2.0/24 (ALB, NAT Gateway)\n- Subnets privadas: 10.0.10.0/24, 10.0.11.0/24 (EKS Workers)\n- Subnets de datos: 10.0.20.0/24, 10.0.21.0/24 (RDS, Redis)\n\n## Security Groups\n- SG-ALB: Permite 443 desde Internet\n- SG-EKS: Permite tráfico desde ALB\n- SG-RDS: Permite 5432 solo desde EKS\n- SG-Redis: Permite 6379 solo desde EKS",
-      "mermaid_diagram": "graph TB\n    subgraph Internet\n        Users[Usuarios]\n    end\n    subgraph AWS_Region[Región AWS us-east-1]\n        subgraph VPC[VPC 10.0.0.0/16]\n            subgraph AZ1[Zona Disponibilidad 1a]\n                PublicSubnet1[Subnet Pública<br/>10.0.1.0/24]\n                PrivateSubnet1[Subnet Privada<br/>10.0.10.0/24]\n                DataSubnet1[Subnet Datos<br/>10.0.20.0/24]\n            end\n            subgraph AZ2[Zona Disponibilidad 1b]\n                PublicSubnet2[Subnet Pública<br/>10.0.2.0/24]\n                PrivateSubnet2[Subnet Privada<br/>10.0.11.0/24]\n                DataSubnet2[Subnet Datos<br/>10.0.21.0/24]\n            end\n            IGW[Internet Gateway]\n            NAT1[NAT Gateway AZ1]\n            NAT2[NAT Gateway AZ2]\n            ALB[Application Load Balancer]\n            EKS1[EKS Worker Nodes]\n            EKS2[EKS Worker Nodes]\n            RDS1[(RDS Primary)]\n            RDS2[(RDS Standby)]\n            Redis1[(Redis Primary)]\n            Redis2[(Redis Replica)]\n        end\n        CF[CloudFront CDN]\n    end\n    Users -->|HTTPS| CF\n    CF -->|HTTPS| IGW\n    IGW --> PublicSubnet1\n    IGW --> PublicSubnet2\n    PublicSubnet1 --> ALB\n    PublicSubnet2 --> ALB\n    PublicSubnet1 --> NAT1\n    PublicSubnet2 --> NAT2\n    ALB -->|SG: 8080| PrivateSubnet1\n    ALB -->|SG: 8080| PrivateSubnet2\n    PrivateSubnet1 --> EKS1\n    PrivateSubnet2 --> EKS2\n    EKS1 -->|SG: 5432| DataSubnet1\n    EKS2 -->|SG: 5432| DataSubnet2\n    DataSubnet1 --> RDS1\n    DataSubnet2 --> RDS2\n    DataSubnet1 --> Redis1\n    DataSubnet2 --> Redis2\n    EKS1 -.->|Salida Internet| NAT1\n    EKS2 -.->|Salida Internet| NAT2\n    RDS1 -.->|Replicación| RDS2",
-      "rationale": "Un diagrama de red detallado es esencial para entender la segmentación, troubleshooting de conectividad, y auditorías de seguridad."
-    },
-    {
-      "priority": "high",
-      "category": "quality",
-      "title": "Inconsistencia en Nombres del Proyecto",
-      "description": "La documentación usa indistintamente 'Retro Game Hub' y 'RetroGameCloud'. Esto confunde y resta profesionalismo. Debe estandarizarse un solo nombre en toda la documentación.",
-      "files_to_create": [],
-      "files_to_modify": [
-        "index.mdx",
-        "quickstart.mdx",
-        "architecture.mdx",
-        "troubleshooting.mdx",
-        "configuration.mdx",
-        "deployment.mdx",
-        "README.md"
-      ],
-      "files_to_delete": [],
-      "proposed_content": "Buscar y reemplazar todas las instancias de los nombres variados por un único nombre oficial. Recomendación: usar 'Retro Game Hub' en documentación de usuario y 'retrogamehub' (sin espacios, minúsculas) en código, URLs y identificadores técnicos.",
-      "mermaid_diagram": "",
-      "rationale": "La consistencia en branding y nomenclatura es fundamental para credibilidad y usabilidad. Los usuarios se confunden cuando ven nombres diferentes en distintas secciones."
+      "proposed_content": "# Arquitectura de Red AWS\n\n## Topología VPC\n- VPC: 10.0.0.0/16\n- 3 Availability Zones\n- Subnets públicas: ALB, NAT Gateway\n- Subnets privadas: EKS nodes, RDS\n\n## Flujo de Tráfico\n1. CloudFront -> ALB (público)\n2. ALB -> Kong Gateway (privado)\n3. Kong -> Microservicios (privado)\n4. Microservicios -> RDS (privado)\n\n## Security Groups\n- SG-ALB: 443 desde CloudFront\n- SG-Kong: 8000/8443 desde ALB\n- SG-Services: puertos específicos desde Kong\n- SG-RDS: 5432 desde SG-Services",
+      "mermaid_diagram": "graph TB\n    subgraph Internet\n        USER[Usuario]\n        CF[CloudFront CDN]\n    end\n    subgraph VPC[VPC 10.0.0.0/16]\n        subgraph PublicSubnets[Subnets Públicas]\n            ALB[Application Load Balancer]\n            NAT[NAT Gateway]\n        end\n        subgraph PrivateSubnets[Subnets Privadas]\n            subgraph EKS[Cluster EKS]\n                KONG[Kong Gateway]\n                AUTH[Auth Service]\n                CATALOG[Catalog Service]\n                SCORE[Score Service]\n                USER_SVC[User Service]\n                RANK[Ranking Service]\n            end\n            RDS[(RDS PostgreSQL)]\n        end\n    end\n    USER -->|HTTPS| CF\n    CF -->|HTTPS:443| ALB\n    ALB -->|HTTP:8000| KONG\n    KONG -->|HTTP:3001| AUTH\n    KONG -->|HTTP:3002| CATALOG\n    KONG -->|HTTP:3003| SCORE\n    KONG -->|HTTP:3004| USER_SVC\n    KONG -->|HTTP:3005| RANK\n    AUTH -->|PostgreSQL:5432| RDS\n    USER_SVC -->|PostgreSQL:5432| RDS\n    SCORE -->|PostgreSQL:5432| RDS\n    CATALOG -->|PostgreSQL:5432| RDS\n    RANK -->|PostgreSQL:5432| RDS\n    EKS -.->|Salida Internet| NAT",
+      "rationale": "El diagrama de red es fundamental para entender la segmentación, debugging de conectividad y configuración de firewalls. Actualmente no hay visualización clara de la topología de red."
     },
     {
       "priority": "high",
       "category": "content",
-      "title": "Guía de Operaciones y Runbooks",
-      "description": "Falta documentación operativa diaria: procedimientos de escalado, actualizaciones de servicios, rollback, manejo de incidentes comunes, y playbooks para operadores.",
+      "title": "Plan de Disaster Recovery y Backups",
+      "description": "No existe documentación sobre estrategia de backups, RPO/RTO, procedimientos de restauración, ni plan de disaster recovery. Crítico para producción.",
       "files_to_create": [
-        "operations/overview.mdx",
-        "operations/scaling.mdx",
-        "operations/updates-rollback.mdx",
-        "operations/runbooks.mdx",
-        "operations/on-call-guide.mdx"
+        "operations/disaster-recovery.mdx",
+        "operations/backup-strategy.mdx",
+        "operations/incident-runbooks.mdx"
       ],
       "files_to_modify": [
-        "troubleshooting.mdx"
+        "deployment.mdx"
       ],
       "files_to_delete": [],
-      "proposed_content": "# Guía de Operaciones\n\n## Escalado de Servicios\n\n### Escalado Horizontal (HPA)"
+      "proposed_content": "# Disaster Recovery\n\n## Objetivos\n- RPO: 1 hora (máxima pérdida de datos)\n- RTO: 4 horas (tiempo de recuperación)\n\n## Estrategia de Backups\n### Base de Datos RDS\n- Snapshots automáticos diarios\n- Retención: 7 días\n- Backups en región secundaria\n\n### Configuración Kubernetes\n- Velero para backup de recursos K8s\n- Backup diario a S3\n- GitOps como fuente de verdad\n\n### Assets y Juegos\n- Versionado en S3 con lifecycle policies\n- Replicación cross-region\n\n## Procedimientos\n1. Restauración RDS desde snapshot\n2. Recreación cluster EKS con Terraform\n3. Restauración recursos K8s con Velero\n4. Validación de servicios",
+      "mermaid_diagram": "",
+      "rationale": "Sin plan de DR documentado, la recuperación ante desastres sería caótica. Los RPO/RTO no definidos impiden SLAs claros y la falta de procedimientos aumenta el tiempo de inactividad."
+    },
+    {
+      "priority": "high",
+      "category": "content",
+      "title": "Guía de Monitorización y Métricas",
+      "description": "El archivo monitoring.mdx existe pero falta detalle sobre qué métricas monitorizar, alertas configuradas, dashboards disponibles y procedimientos de troubleshooting basados en métricas.",
+      "files_to_create": [
+        "operations/metrics-guide.mdx",
+        "operations/alerting.mdx",
+        "operations/dashboards.mdx"
+      ],
+      "files_to_modify": [
+        "infrastructure/monitoring.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "# Métricas y Monitorización\n\n## Métricas Clave por Servicio\n### Auth Service\n- Tasa de registro/login exitosos vs fallidos\n- Latencia P50/P95/P99 de endpoints\n- Tokens JWT activos\n- Errores de validación\n\n### Score Service\n- Submissions por minuto\n- Latencia de escritura DB\n- Scores duplicados detectados\n\n### Kong Gateway\n- Requests por segundo\n- Latencia upstream\n- Códigos HTTP 4xx/5xx\n- Rate limiting triggers\n\n## Alertas Críticas\n- CPU > 80% por 5min\n- Memory > 85%\n- Error rate > 5%\n- Latencia P95 > 500ms\n- Pods en CrashLoopBackOff\n\n## Dashboards\n- Overview del sistema\n- Por servicio\n- Base de datos RDS\n- Cluster EKS",
+      "mermaid_diagram": "",
+      "rationale": "La monitorización efectiva requiere saber qué métricas son críticas y cuándo alertar. Sin esta guía, los equipos no saben qué vigilar ni cómo responder a degradaciones del servicio."
+    },
+    {
+      "priority": "medium",
+      "category": "diagrams",
+      "title": "Diagrama de Flujo de Autenticación OAuth2 Completo",
+      "description": "Existe documentación de OAuth2 pero falta diagrama detallado del flujo completo incluyendo OAuth2 Proxy, callbacks, refresh tokens y manejo de sesiones.",
+      "files_to_create": [],
+      "files_to_modify": [
+        "infrastructure/oauth2-authentication.mdx",
+        "sequence-diagrams.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "",
+      "mermaid_diagram": "sequenceDiagram\n    participant U as Usuario\n    participant B as Browser\n    participant CF as CloudFront\n    participant O2P as OAuth2 Proxy\n    participant GH as GitHub OAuth\n    participant KONG as Kong Gateway\n    participant AUTH as Auth Service\n    participant DB as PostgreSQL\n    U->>B: Accede a aplicación\n    B->>CF: GET /\n    CF->>O2P: Forward request\n    O2P->>O2P: Verifica cookie sesión\n    alt Sin sesión válida\n        O2P->>B: Redirect a /oauth2/start\n        B->>O2P: GET /oauth2/start\n        O2P->>GH: Redirect a GitHub authorize\n        Note over O2P,GH: client_id, redirect_uri, scope\n        U->>GH: Login en GitHub\n        GH->>B: Redirect con code\n        B->>O2P: GET /oauth2/callback?code=XXX\n        O2P->>GH: POST /access_token\n        Note over O2P,GH: Intercambio code por token\n        GH-->>O2P: access_token, refresh_token\n        O2P->>GH: GET /user con access_token\n        GH-->>O2P: Perfil usuario GitHub\n        O2P->>KONG: POST /auth/github/login\n        KONG->>AUTH: Forward request\n        AUTH->>DB: Buscar o crear usuario\n        DB-->>AUTH: Usuario\n        AUTH->>AUTH: Generar JWT\n        AUTH-->>KONG: JWT token\n        KONG-->>O2P: JWT token\n        O2P->>O2P: Crear sesión cookie\n        O2P->>B: Set-Cookie + Redirect /\n    end\n    B->>CF: GET / con cookie\n    CF->>O2P: Verifica autenticación\n    O2P->>CF: OK, request autenticado\n    CF->>B: Aplicación frontend\n    B->>KONG: API calls con JWT\n    KONG->>AUTH: Validar JWT\n    AUTH-->>KONG: Token válido\n    KONG->>B: Respuesta API",
+      "rationale": "El flujo OAuth2 es complejo y crítico. Un diagrama completo ayuda a desarrolladores y operaciones a entender el proceso, debuggear problemas de autenticación y configurar correctamente los componentes."
+    },
+    {
+      "priority": "medium",
+      "category": "content",
+      "title": "Guía de Contribución y Estándares de Código",
+      "description": "Falta documentación sobre cómo contribuir al proyecto: estándares de código, proceso de PR, convenciones de commit, testing requirements y code review checklist.",
+      "files_to_create": [
+        "contributing/overview.mdx",
+        "contributing/code-standards.mdx",
+        "contributing/pull-requests.mdx",
+        "contributing/testing.mdx"
+      ],
+      "files_to_modify": [
+        "README.md"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "# Guía de Contribución\n\n## Estándares de Código\n### JavaScript/Node.js\n- ESLint con config Airbnb\n- Prettier para formato\n- JSDoc para funciones públicas\n\n### Naming Conventions\n- Variables: camelCase\n- Constantes: UPPER_SNAKE_CASE\n- Archivos: kebab-case\n- Componentes: PascalCase\n\n## Proceso Pull Request\n1. Fork del repositorio\n2. Rama feature/fix desde main\n3. Commits siguiendo Conventional Commits\n4. Tests pasando localmente\n5. PR con descripción detallada\n6. Code review por 2 maintainers\n\n## Conventional Commits\n- feat: nueva funcionalidad\n- fix: corrección de bug\n- docs: cambios documentación\n- test: añadir tests\n- refactor: refactorización\n\n## Testing Requirements\n- Cobertura mínima: 80%\n- Tests unitarios para lógica\n- Tests integración para APIs",
+      "mermaid_diagram": "",
+      "rationale": "Sin guías de contribución claras, la calidad del código es inconsistente y el onboarding de nuevos desarrolladores es lento. Los estándares documentados mejoran la mantenibilidad."
+    },
+    {
+      "priority": "medium",
+      "category": "content",
+      "title": "Documentación de Performance y Optimización",
+      "description": "Falta documentación sobre optimizaciones implementadas, benchmarks, límites de escalado y best practices para rendimiento de cada servicio.",
+      "files_to_create": [
+        "operations/performance.mdx",
+        "operations/scaling-limits.mdx",
+        "operations/optimization-guide.mdx"
+      ],
+      "files_to_modify": [],
+      "files_to_delete": [],
+      "proposed_content": "# Performance y Escalado\n\n## Benchmarks Actuales\n### Auth Service\n- Login: ~50ms P95\n- Register: ~150ms P95\n- Verify JWT: ~5ms P95\n- Throughput: 1000 req/s por pod\n\n### Score Service\n- Submit score: ~100ms P95\n- Get scores: ~30ms P95\n- Throughput: 500 req/s por pod\n\n## Límites de Escalado\n### Horizontal\n- Mín pods: 2\n- Máx pods: 10\n- Target CPU: 70%\n- Target Memory: 80%\n\n### Vertical\n- Requests: 100m CPU, 128Mi RAM\n- Limits: 500m CPU, 512Mi RAM\n\n## Optimizaciones\n### Base de Datos\n- Índices en user_id, game_id\n- Connection pooling: 20 conex\n- Query timeout: 5s\n\n### Caching\n- Rankings: Redis 5min TTL\n- Catalog: Redis 1h TTL",
+      "mermaid_diagram": "",
+      "rationale": "Conocer los límites de performance y las optimizaciones ayuda a dimensionar correctamente, identificar cuellos de botella y tomar decisiones informadas sobre escalado."
+    },
+    {
+      "priority": "medium",
+      "category": "structure",
+      "title": "Consolidar Documentación de API Duplicada",
+      "description": "Existe duplicación entre api-reference/* y docs/api/*. La estructura api-reference tiene múltiples archivos para el mismo servicio (ej: auth-service.mdx y luego auth/login.mdx). Consolidar en una jerarquía clara.",
+      "files_to_create": [],
+      "files_to_modify": [],
+      "files_to_delete": [
+        "docs/api/auth-register.mdx"
+      ],
+      "proposed_content": "Reorganizar api-reference con estructura: api-reference/[servicio]/[operación].mdx. Eliminar duplicados. Mantener un índice claro en api-reference/introduction.mdx con links a cada operación.",
+      "mermaid_diagram": "",
+      "rationale": "La duplicación confunde a los usuarios y dificulta mantenimiento. Una estructura clara tipo OpenAPI Spec (servicio -> operación) es estándar y más navegable."
+    },
+    {
+      "priority": "medium",
+      "category": "diagrams",
+      "title": "Diagrama de Componentes de Frontend",
+      "description": "Falta diagrama mostrando arquitectura del frontend: componentes React, integración JS-DOS, gestión de estado, comunicación con backend y flujo de usuario jugando.",
+      "files_to_create": [
+        "frontend/architecture.mdx"
+      ],
+      "files_to_modify": [
+        "frontend/overview.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "",
+      "mermaid_diagram": "graph TB\n    subgraph Frontend[Aplicación Frontend]\n        subgraph Componentes[Componentes React]\n            NAV[Navigation]\n            CATALOG_VIEW[Catálogo Juegos]\n            GAME_VIEW[Vista Juego]\n            PROFILE[Perfil Usuario]\n            RANKING[Rankings]\n        end\n        subgraph Estado[Gestión Estado]\n            AUTH_STATE[Estado Auth]\n            GAME_STATE[Estado Juego]\n            USER_STATE[Estado Usuario]\n        end\n        subgraph Emulador[Motor JS-DOS]\n            JSDOS[js-dos Engine]\n            CANVAS[Canvas Rendering]\n            INPUT[Input Handler]\n        end\n        subgraph API[Cliente API]\n            HTTP[HTTP Client]\n            WS[WebSocket Client]\n            CACHE[Cache Local]\n        end\n    end\n    subgraph Backend[Backend Services]\n        KONG_API[Kong Gateway]\n    end\n    subgraph CDN[CloudFront]\n        ASSETS[Assets Estáticos]\n        JSDOS_FILES[Archivos .jsdos]\n    end\n    NAV --> CATALOG_VIEW\n    NAV --> PROFILE\n    NAV --> RANKING\n    CATALOG_VIEW -->|Seleccionar juego| GAME_VIEW\n    GAME_VIEW --> JSDOS\n    JSDOS --> CANVAS\n    JSDOS --> INPUT\n    GAME_VIEW -->|Submit score| HTTP\n    HTTP --> KONG_API\n    CATALOG_VIEW -->|Listar juegos| HTTP\n    RANKING -->|Ver rankings| HTTP\n    PROFILE -->|Datos usuario| HTTP\n    AUTH_STATE -.->|Actualiza| NAV\n    AUTH_STATE -.->|Actualiza| PROFILE\n    GAME_STATE -.->|Actualiza| GAME_VIEW\n    JSDOS -->|Carga ROM| JSDOS_FILES\n    CATALOG_VIEW -->|Carga imágenes| ASSETS",
+      "rationale": "Entender la arquitectura del frontend es crucial para desarrollo. Actualmente solo hay documentación de integración JS-DOS pero no vista global de componentes y flujos de datos."
+    },
+    {
+      "priority": "medium",
+      "category": "content",
+      "title": "Documentación de Estrategia de Testing",
+      "description": "No existe documentación sobre estrategia de testing: tipos de tests, cobertura esperada, herramientas usadas, cómo ejecutar tests y CI/CD integration.",
+      "files_to_create": [
+        "development/testing-strategy.mdx",
+        "development/unit-tests.mdx",
+        "development/integration-tests.mdx",
+        "development/e2e-tests.mdx"
+      ],
+      "files_to_modify": [
+        "cicd/github-actions.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "# Estrategia de Testing\n\n## Pirámide de Tests\n### Tests Unitarios (70%)\n- Lógica de negocio\n- Utilidades y helpers\n- Validaciones\n- Framework: Jest\n\n### Tests Integración (20%)\n- APIs endpoints\n- Integración con DB\n- Comunicación entre servicios\n- Framework: Supertest + Jest\n\n### Tests E2E (10%)\n- Flujos críticos usuario\n- Registro -> Login -> Jugar -> Score\n- Framework: Playwright\n\n## Ejecución Local\nbash npm test - Todos los tests npm run test:unit - Solo unitarios npm run test:integration - Solo integración npm run test:e2e - End-to-end npm run test:coverage - Con reporte cobertura\n\n## CI/CD\n- Tests unitarios en cada PR\n- Tests integración en merge a main\n- Tests E2E en deploy a staging\n- Cobertura mínima: 80%",
+      "mermaid_diagram": "",
+      "rationale": "La estrategia de testing no está documentada, lo que lleva a tests inconsistentes y bajo coverage. Documentar claramente qué testear y cómo mejora la calidad del código."
+    },
+    {
+      "priority": "low",
+      "category": "content",
+      "title": "Glosario de Términos Técnicos",
+      "description": "Añadir glosario con definiciones de términos técnicos usados: JWT, OAuth2, GitOps, HPA, Ingress, ServiceMesh, etc. Útil para onboarding.",
+      "files_to_create": [
+        "reference/glossary.mdx"
+      ],
+      "files_to_modify": [
+        "index.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "# Glosario Técnico\n\n## A\n**ArgoCD**: Herramienta GitOps para despliegue continuo en Kubernetes.\n**ALB**: Application Load Balancer de AWS, distribuye tráfico HTTP/HTTPS.\n\n## E\n**EKS**: Amazon Elastic Kubernetes Service, Kubernetes gestionado en AWS.\n\n## G\n**GitOps**: Metodología donde Git es fuente de verdad para infraestructura.\n\n## H\n**HPA**: Horizontal Pod Autoscaler, escala pods según métricas.\n\n## J\n**JWT**: JSON Web Token, estándar para tokens de autenticación.\n**JS-DOS**: Emulador de DOS en JavaScript para navegadores.\n\n## K\n**Kong**: API Gateway open-source para gestión de APIs.\n\n## O\n**OAuth2**: Protocolo de autorización estándar de la industria.",
+      "mermaid_diagram": "",
+      "rationale": "Un glosario facilita el onboarding de nuevos miembros del equipo y sirve como referencia rápida. Aunque no es crítico, mejora la accesibilidad de la documentación."
+    },
+    {
+      "priority": "low",
+      "category": "quality",
+      "title": "Estandarizar Formato de Ejemplos de Código",
+      "description": "Los ejemplos de código tienen formatos inconsistentes: algunos con comentarios, otros sin, diferentes estilos de respuesta. Estandarizar con plantilla común.",
+      "files_to_create": [
+        "contributing/code-examples-template.mdx"
+      ],
+      "files_to_modify": [
+        "api-reference/auth/login.mdx",
+        "api-reference/auth/register.mdx",
+        "api-reference/scores/submit.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "# Plantilla Ejemplos de Código\n\n## Estructura Estándar\n\n### Request\nbash curl -X POST https://api.retrogamehub.com/auth/login -H Content-Type: application/json -d { username: jugador123, password: miPassword123 }\n\n### Response Exitosa\njson { success: true, data: { token: eyJhbGc..., user: { id: uuid, username: jugador123, email: user@example.com } }, timestamp: 2025-01-20T10:30:00Z }\n\n### Response Error\njson { success: false, error: { code: AUTH001, message: Credenciales inválidas, details: Usuario o contraseña incorrectos }, timestamp: 2025-01-20T10:30:00Z }",
+      "mermaid_diagram": "",
+      "rationale": "Ejemplos consistentes mejoran la experiencia del desarrollador y reducen confusión. Aunque no es urgente, aumenta la profesionalidad de la documentación."
+    },
+    {
+      "priority": "low",
+      "category": "new_section",
+      "title": "Sección de FAQs (Preguntas Frecuentes)",
+      "description": "Añadir sección de preguntas frecuentes agrupadas por tema: desarrollo, despliegue, troubleshooting, arquitectura. Complementa la documentación existente.",
+      "files_to_create": [
+        "faq/overview.mdx",
+        "faq/development.mdx",
+        "faq/deployment.mdx",
+        "faq/architecture.mdx"
+      ],
+      "files_to_modify": [
+        "index.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "# Preguntas Frecuentes\n\n## Desarrollo\n\n### ¿Cómo añado un nuevo servicio?\n1. Crear directorio en backend/services/nuevo-servicio\n2. Configurar package.json y dependencias\n3. Añadir Dockerfile\n4. Crear manifiestos K8s en kubernetes/\n5. Configurar ruta en kong/\n6. Actualizar ArgoCD Application\n\n### ¿Cómo funciona la autenticación entre servicios?\nLos servicios se autentican mediante ServiceAccounts de Kubernetes. Kong valida JWT en requests externos.\n\n## Despliegue\n\n### ¿Cuánto tarda el despliegue completo?\n- Infraestructura Terraform: 20-30 min\n- Cluster EKS: 15 min\n- Servicios ArgoCD: 5-10 min\n- Total: ~40-50 minutos",
+      "mermaid_diagram": "",
+      "rationale": "FAQs reducen repetición de preguntas comunes y sirven como quick reference. Aunque no es prioritario, mejora la experiencia del usuario de la documentación."
+    },
+    {
+      "priority": "high",
+      "category": "diagrams",
+      "title": "Diagrama de Flujo CI/CD Completo",
+      "description": "Documentar visualmente el pipeline completo desde commit hasta producción: GitHub Actions, build, tests, push a registry, ArgoCD sync, health checks.",
+      "files_to_create": [],
+      "files_to_modify": [
+        "cicd/overview.mdx",
+        "cicd/github-actions.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "",
+      "mermaid_diagram": "graph LR\n    subgraph Developer[Desarrollador]\n        COMMIT[git commit]\n        PUSH[git push]\n    end\n    subgraph GitHub[GitHub]\n        PR[Pull Request]\n        MAIN[Branch main]\n    end\n    subgraph GitHubActions[GitHub Actions]\n        LINT[Linting]\n        TEST[Tests Unitarios]\n        BUILD[Build Docker]\n        PUSH_ECR[Push a ECR]\n        UPDATE_MANIFEST[Update K8s Manifest]\n    end\n    subgraph ECR[Amazon ECR]\n        REGISTRY[Container Registry]\n    end\n    subgraph ArgoCD[ArgoCD]\n        DETECT[Detectar Cambio]\n        SYNC[Sync con Cluster]\n        HEALTH[Health Check]\n    end\n    subgraph EKS[Cluster EKS]\n        DEPLOY[Deploy Nuevo Pod]\n        ROLLING[Rolling Update]\n        READY[Pod Ready]\n    end\n    COMMIT --> PUSH\n    PUSH --> PR\n    PR -->|Merge| MAIN\n    MAIN --> LINT\n    LINT --> TEST\n    TEST -->|Pasan| BUILD\n    BUILD --> PUSH_ECR\n    PUSH_ECR --> REGISTRY\n    PUSH_ECR --> UPDATE_MANIFEST\n    UPDATE_MANIFEST -->|Git commit| DETECT\n    DETECT --> SYNC\n    SYNC --> DEPLOY\n    DEPLOY --> ROLLING\n    ROLLING --> HEALTH\n    HEALTH -->|OK| READY\n    HEALTH -->|Falla| ROLLING",
+      "rationale": "El pipeline CI/CD es el corazón del delivery. Un diagrama completo ayuda a entender el flujo, identificar puntos de fallo y optimizar tiempos de despliegue."
     }
-  ]
+  ],
+  "new_sections": []
 }

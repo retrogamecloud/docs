@@ -74,7 +74,7 @@
               "services/score-service",
               "services/ranking-service"
             ],
-            "description": "Documentación técnica detallada de cada microservicio del sistema: autenticación, usuarios, catálogo, puntuaciones y rankings"
+            "description": "Documentación técnica detallada de cada microservicio: autenticación, usuarios, catálogo de juegos, puntuaciones y rankings"
           },
           {
             "group": "4. Aplicación Frontend",
@@ -101,7 +101,7 @@
               "infrastructure/route53-ssl",
               "infrastructure/monitoring"
             ],
-            "description": "Infraestructura cloud completa: clúster EKS, redes VPC, CDN CloudFront, gestión DNS, certificados SSL y monitorización"
+            "description": "Infraestructura cloud completa: clúster EKS, redes VPC, CDN CloudFront, gestión DNS con Route53, certificados SSL y monitorización"
           },
           {
             "group": "7. Despliegue y GitOps",
@@ -112,7 +112,7 @@
               "infrastructure/argocd-gitops",
               "deployment"
             ],
-            "description": "Pipelines CI/CD con GitHub Actions, metodología GitOps, ArgoCD y procesos de despliegue automatizado"
+            "description": "Pipelines CI/CD con GitHub Actions, metodología GitOps, configuración de ArgoCD y procesos de despliegue automatizado"
           },
           {
             "group": "8. Configuración y Operaciones",
@@ -120,7 +120,7 @@
               "configuration",
               "troubleshooting"
             ],
-            "description": "Gestión de configuración, variables de entorno, resolución de problemas y mantenimiento operativo"
+            "description": "Gestión de configuración, variables de entorno, resolución de problemas comunes y mantenimiento operativo"
           }
         ]
       },
@@ -135,14 +135,14 @@
               "api-reference/auth/verify",
               "api-reference/auth-service"
             ],
-            "description": "Endpoints de login, registro de usuarios, verificación de tokens y especificación completa del servicio de autenticación"
+            "description": "Endpoints de inicio de sesión, registro de usuarios, verificación de tokens y especificación completa del servicio de autenticación"
           },
           {
             "group": "2. API de Usuarios",
             "pages": [
               "api-reference/user-service"
             ],
-            "description": "Gestión completa de perfiles de usuario, actualización de datos y configuración de preferencias"
+            "description": "Gestión completa de perfiles de usuario, actualización de datos personales y configuración de preferencias"
           },
           {
             "group": "3. API de Catálogo de Juegos",
@@ -151,7 +151,7 @@
               "api-reference/games/get",
               "api-reference/game-catalog-service"
             ],
-            "description": "Listado de juegos disponibles, búsqueda con filtros, consulta de detalles y especificación del servicio"
+            "description": "Listado de juegos disponibles, búsqueda con filtros avanzados, consulta de detalles y especificación completa del servicio"
           },
           {
             "group": "4. API de Puntuaciones",
@@ -160,7 +160,7 @@
               "api-reference/scores/get",
               "api-reference/score-service"
             ],
-            "description": "Envío de puntuaciones, consulta de histórico, validación de resultados y especificación del servicio"
+            "description": "Envío de puntuaciones de partidas, consulta de histórico personal, validación de resultados y especificación del servicio"
           },
           {
             "group": "5. API de Rankings",
@@ -169,10 +169,10 @@
               "api-reference/rankings/by-game",
               "api-reference/ranking-service"
             ],
-            "description": "Tablas de clasificación globales, rankings por juego individual, estadísticas y posicionamiento de jugadores"
+            "description": "Tablas de clasificación globales, rankings específicos por juego, estadísticas y posicionamiento de jugadores"
           },
           {
-            "group": "6. Documentación Técnica del Sistema",
+            "group": "6. Especificaciones Técnicas",
             "pages": [
               "api-reference/backend-main",
               "api-reference/frontend",
@@ -180,7 +180,7 @@
               "api-reference/kong-config",
               "api-reference/kubernetes-manifests"
             ],
-            "description": "Especificaciones técnicas completas: backend, frontend, infraestructura como código, configuración de Kong Gateway y manifiestos de Kubernetes"
+            "description": "Documentación técnica completa del sistema: arquitectura backend, frontend, infraestructura como código, configuración de Kong Gateway y manifiestos de Kubernetes"
           }
         ]
       }
