@@ -1,12 +1,12 @@
 ---
-title: 6.7. Monitoreo y Observabilidad
+title: 4.7. Monitoreo y Observabilidad
 description: Stack completo de observabilidad con Prometheus, Grafana, AlertManager
   y CloudWatch. Golden Signals, correlación de trazas y debugging distribuido para
   Retro Game Hub
 icon: chart-line
 ---
 
-## Stack de Monitoreo y Observabilidad
+## 4.7.1. Stack de Monitoreo y Observabilidad
 
 Retro Game Hub implementa observabilidad completa siguiendo las mejores prácticas SRE con Golden Signals, logging estructurado y correlación distribuida para debugging eficiente.
 
@@ -36,7 +36,7 @@ Retro Game Hub implementa observabilidad completa siguiendo las mejores práctic
   </Card>
 </CardGroup>
 
-## Arquitectura de Observabilidad
+## 4.7.2. Arquitectura de Observabilidad
 
 ```mermaid
 graph TD
@@ -73,495 +73,409 @@ graph TD
     V --> T
 
     style V fill:#f9f,stroke:#333,stroke-width:2px
-
 ```
 
-## Golden Signals por Servicio
+## 4.7.3. Golden Signals Implementation
 
-### 1. Latencia (Latency)
+### 4.7.3.1. Latencia (Latency)
+```yaml
+# prometheus-rules.yaml
+groups:
+  - name: golden-signals-latency
+    rules:
+      - record: retrogame:request_duration_seconds:rate5m
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(http_request_duration_seconds_bucket[5m])) 
+            by (service, method, le)
+          )
 
-<CodeGroup>
-
-```yaml user-service
-
-# User Service - Latency SLIs
-http_request_duration_seconds:
-  p95_threshold: 200ms    # Crítico: > 500ms
-  p99_threshold: 500ms    # Crítico: > 1s
-
-login_duration_seconds:
-  p95_threshold: 300ms    # Crítico: > 800ms
-
-jwt_validation_duration:
-  p95_threshold: 50ms     # Crítico: > 100ms
-
+      - alert: HighLatency
+        expr: |
+          retrogame:request_duration_seconds:rate5m > 0.5
+        for: 2m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "High latency on {{ $labels.service }}"
+          description: "95th percentile latency is {{ $value }}s"
 ```
 
-```yaml game-service
+### 4.7.3.2. Tráfico (Traffic)
+```yaml
+  - name: golden-signals-traffic
+    rules:
+      - record: retrogame:request_rate:rate5m
+        expr: |
+          sum(rate(http_requests_total[5m])) 
+          by (service, method, status)
 
-# Game Service - Latency SLIs
-game_search_duration_seconds:
-  p95_threshold: 150ms    # Crítico: > 400ms
-
-game_metadata_fetch_duration:
-  p95_threshold: 100ms    # Crítico: > 250ms
-
-save_state_duration_seconds:
-  p95_threshold: 200ms    # Crítico: > 600ms
-
+      - alert: TrafficSpike
+        expr: |
+          (
+            retrogame:request_rate:rate5m > 
+            (retrogame:request_rate:rate1h offset 1h) * 2
+          )
+        for: 5m
+        labels:
+          severity: info
 ```
 
-```yaml multiplayer-service
+### 4.7.3.3. Errores (Errors)
+```yaml
+  - name: golden-signals-errors
+    rules:
+      - record: retrogame:error_rate:rate5m
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) 
+          by (service) / 
+          sum(rate(http_requests_total[5m])) 
+          by (service)
 
-# Multiplayer Service - Latency SLIs
-websocket_message_latency:
-  p95_threshold: 50ms     # Crítico: > 100ms
-
-room_join_duration:
-  p95_threshold: 300ms    # Crítico: > 800ms
-
-game_sync_latency:
-  p95_threshold: 30ms     # Crítico: > 80ms
-
+      - alert: HighErrorRate
+        expr: retrogame:error_rate:rate5m > 0.05
+        for: 2m
+        labels:
+          severity: critical
 ```
 
-</CodeGroup>
+### 4.7.3.4. Saturación (Saturation)
+```yaml
+  - name: golden-signals-saturation
+    rules:
+      - alert: HighCPU
+        expr: |
+          avg(rate(container_cpu_usage_seconds_total[5m])) 
+          by (pod) > 0.8
+        for: 5m
 
-### 2. Tráfico (Traffic)
-
-<CodeGroup>
-
-```yaml requests-per-second
-
-# Tráfico - RPS por servicio
-user_service_rps:
-  normal: 50-200 RPS
-  peak: 500-1000 RPS
-  alert_threshold: > 1500 RPS
-
-game_service_rps:
-  normal: 100-400 RPS
-  peak: 1000-2000 RPS
-  alert_threshold: > 3000 RPS
-
-multiplayer_active_connections:
-  normal: 200-800 connections
-  peak: 2000-4000 connections
-  alert_threshold: > 5000 connections
-
+      - alert: HighMemory
+        expr: |
+          container_memory_usage_bytes / 
+          container_spec_memory_limit_bytes > 0.85
+        for: 2m
 ```
 
-```yaml business-metrics
+## 4.7.4. Instrumentación de Microservicios
 
-# Métricas de Negocio
-concurrent_games:
-  normal: 50-200 games
-  peak: 500-1000 games
-  alert_threshold: > 1500 games
+### 4.7.4.1. Node.js Prometheus Client
+```javascript
+// src/shared/monitoring/prometheus.js
+const prometheus = require('prom-client');
+const logger = require('./logger');
 
-daily_active_users:
-  target: > 1000 DAU
-  alert_threshold: < 500 DAU
+class PrometheusMetrics {
+  constructor() {
+    // Registry personalizado
+    this.register = new prometheus.Registry();
+    
+    // Métricas por defecto
+    prometheus.collectDefaultMetrics({
+      register: this.register,
+      prefix: 'retrogame_',
+      gcDurationBuckets: [0.001, 0.01, 0.1, 1, 2, 5]
+    });
 
-room_utilization:
-  target: 60-80%
-  alert_threshold: > 90%
+    // Custom metrics
+    this.httpDuration = new prometheus.Histogram({
+      name: 'retrogame_http_request_duration_seconds',
+      help: 'Duration of HTTP requests in seconds',
+      labelNames: ['service', 'method', 'route', 'status'],
+      buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 7, 10],
+      registers: [this.register]
+    });
 
-```
+    this.httpRequests = new prometheus.Counter({
+      name: 'retrogame_http_requests_total',
+      help: 'Total number of HTTP requests',
+      labelNames: ['service', 'method', 'route', 'status'],
+      registers: [this.register]
+    });
 
-</CodeGroup>
+    this.activeConnections = new prometheus.Gauge({
+      name: 'retrogame_active_connections',
+      help: 'Number of active WebSocket connections',
+      labelNames: ['service'],
+      registers: [this.register]
+    });
 
-### 3. Errores (Errors)
+    this.businessMetrics = {
+      gamesPlayed: new prometheus.Counter({
+        name: 'retrogame_games_played_total',
+        help: 'Total games played',
+        labelNames: ['game_type', 'mode'],
+        registers: [this.register]
+      }),
 
-<CodeGroup>
+      usersOnline: new prometheus.Gauge({
+        name: 'retrogame_users_online',
+        help: 'Current users online',
+        registers: [this.register]
+      }),
 
-```yaml error-rates
+      matchmakingTime: new prometheus.Histogram({
+        name: 'retrogame_matchmaking_duration_seconds',
+        help: 'Time taken for matchmaking',
+        buckets: [1, 2, 5, 10, 30, 60],
+        registers: [this.register]
+      })
+    };
+  }
 
-# Error Rate SLIs - Por servicio
-http_error_rate:
-  target: < 0.1% (99.9% success)
-  warning: > 0.5%
-  critical: > 1%
+  middleware() {
+    return (req, res, next) => {
+      const start = Date.now();
+      
+      res.on('finish', () => {
+        const duration = (Date.now() - start) / 1000;
+        
+        const labels = {
+          service: process.env.SERVICE_NAME,
+          method: req.method,
+          route: req.route?.path || 'unknown',
+          status: res.statusCode
+        };
 
-authentication_error_rate:
-  target: < 0.05%
-  warning: > 0.2%
-  critical: > 0.5%
+        this.httpDuration.observe(labels, duration);
+        this.httpRequests.inc(labels);
+      });
 
-game_load_error_rate:
-  target: < 0.1%
-  warning: > 0.3%
-  critical: > 1%
+      next();
+    };
+  }
 
-```
-
-```yaml redis-errors
-
-# Redis/Cache Errors
-redis_connection_errors:
-  warning: > 5 errors/min
-  critical: > 20 errors/min
-
-cache_miss_rate:
-  normal: 5-15%
-  warning: > 30%
-  critical: > 50%
-
-session_timeout_rate:
-  warning: > 2%
-  critical: > 5%
-
-```
-
-</CodeGroup>
-
-### 4. Saturación (Saturation)
-
-<CodeGroup>
-
-```yaml resource-saturation
-
-# Saturación de Recursos
-cpu_utilization:
-  target: 50-70%
-  warning: > 80%
-  critical: > 90%
-
-memory_utilization:
-  target: 60-80%
-  warning: > 85%
-  critical: > 95%
-
-pod_cpu_throttling:
-  warning: > 5%
-  critical: > 15%
-
-```
-
-```yaml storage-saturation
-
-# Almacenamiento y I/O
-disk_utilization:
-  warning: > 80%
-  critical: > 90%
-
-redis_memory_usage:
-  warning: > 70%
-  critical: > 85%
-
-connection_pool_usage:
-  warning: > 80%
-  critical: > 95%
-
-```
-
-</CodeGroup>
-
-## Dashboards Grafana Recomendados
-
-### 1. Overview Dashboard - Cluster Health
-
-<Frame>
-
-```json
-{
-  "dashboard": {
-    "title": "Retro Game Hub - Cluster Overview",
-    "panels": [
-      {
-        "title": "Golden Signals Summary",
-        "targets": [
-          "rate(http_requests_total[5m])",
-          "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
-          "rate(http_requests_total{status=~\"5..\"}[5m])",
-          "avg(rate(container_cpu_usage_seconds_total[5m]))"
-        ]
-      },
-      {
-        "title": "Active Users & Games",
-        "targets": [
-          "active_users_total",
-          "concurrent_games_total",
-          "multiplayer_connections_total"
-        ]
-      },
-      {
-        "title": "Resource Utilization",
-        "targets": [
-          "avg(rate(container_cpu_usage_seconds_total[5m])) * 100",
-          "avg(container_memory_usage_bytes / container_spec_memory_limit_bytes) * 100"
-        ]
+  trackBusinessMetric(metric, labels = {}, value = 1) {
+    try {
+      if (this.businessMetrics[metric]) {
+        if (this.businessMetrics[metric].inc) {
+          this.businessMetrics[metric].inc(labels, value);
+        } else {
+          this.businessMetrics[metric].set(labels, value);
+        }
       }
-    ]
+    } catch (error) {
+      logger.error('Error tracking business metric', { metric, error });
+    }
+  }
+
+  getMetrics() {
+    return this.register.metrics();
   }
 }
 
+module.exports = new PrometheusMetrics();
 ```
 
-</Frame>
-
-### 2. Service-Specific Dashboard
-
-<CodeGroup>
-
-```json user-service-dashboard
-{
-  "title": "User Service - Detailed Metrics",
-  "panels": [
-    {
-      "title": "Login Performance",
-      "targets": [
-        "histogram_quantile(0.95, rate(login_duration_seconds_bucket[5m]))",
-        "rate(login_attempts_total[5m])",
-        "rate(login_failures_total[5m])"
-      ]
-    },
-    {
-      "title": "JWT Operations",
-      "targets": [
-        "histogram_quantile(0.95, rate(jwt_validation_duration_seconds_bucket[5m]))",
-        "rate(jwt_validation_errors_total[5m])"
-      ]
-    },
-    {
-      "title": "Database Connections",
-      "targets": [
-        "postgres_connections_active",
-        "postgres_connections_idle",
-        "rate(postgres_queries_total[5m])"
-      ]
-    }
-  ]
-}
-
-```
-
-```json multiplayer-dashboard
-{
-  "title": "Multiplayer Service - Real-time Metrics",
-  "panels": [
-    {
-      "title": "WebSocket Performance",
-      "targets": [
-        "websocket_connections_active",
-        "histogram_quantile(0.95, rate(websocket_message_duration_seconds_bucket[5m]))",
-        "rate(websocket_errors_total[5m])"
-      ]
-    },
-    {
-      "title": "Game Room Metrics",
-      "targets": [
-        "game_rooms_active",
-        "avg(players_per_room)",
-        "rate(room_join_events_total[5m])"
-      ]
-    }
-  ]
-}
-
-```
-
-</CodeGroup>
-
-### 3. User Journey Dashboard
-
-```json user-journey-dashboard
-{
-  "title": "User Journey - End-to-End Experience",
-  "panels": [
-    {
-      "title": "User Flow Funnel",
-      "targets": [
-        "rate(page_visits_total{page=\"landing\"}[5m])",
-        "rate(user_registrations_total[5m])",
-        "rate(game_launches_total[5m])",
-        "rate(multiplayer_joins_total[5m])"
-      ]
-    },
-    {
-      "title": "User Experience Metrics",
-      "targets": [
-        "histogram_quantile(0.95, rate(page_load_duration_seconds_bucket[5m]))",
-        "histogram_quantile(0.95, rate(game_start_duration_seconds_bucket[5m]))",
-        "avg(user_session_duration_seconds)"
-      ]
-    }
-  ]
-}
-
-```
-
-## Logging Estructurado y Correlation IDs
-
-### Implementación de Structured Logging
-
-<CodeGroup>
-
-```javascript user-service-logging
-// user-service/src/utils/logger.js
-const winston = require('winston');
+### 4.7.4.2. Middleware Express
+```javascript
+// src/shared/monitoring/middleware.js
+const prometheusMetrics = require('./prometheus');
+const logger = require('./logger');
 const { v4: uuidv4 } = require('uuid');
 
+const monitoringMiddleware = (req, res, next) => {
+  // Correlation ID
+  req.correlationId = req.headers['x-correlation-id'] || uuidv4();
+  res.setHeader('X-Correlation-ID', req.correlationId);
+
+  // Request logging
+  logger.info('Request started', {
+    correlationId: req.correlationId,
+    method: req.method,
+    url: req.url,
+    userAgent: req.headers['user-agent'],
+    ip: req.ip
+  });
+
+  // Response logging
+  const originalSend = res.send;
+  res.send = function(data) {
+    logger.info('Request completed', {
+      correlationId: req.correlationId,
+      status: res.statusCode,
+      responseTime: Date.now() - req.startTime
+    });
+    
+    return originalSend.call(this, data);
+  };
+
+  req.startTime = Date.now();
+  next();
+};
+
+module.exports = {
+  monitoring: monitoringMiddleware,
+  prometheus: prometheusMetrics.middleware()
+};
+```
+
+## 4.7.5. Distributed Tracing con Jaeger
+
+### 4.7.5.1. Configuración OpenTelemetry
+```javascript
+// src/shared/tracing/tracer.js
+const { NodeSDK } = require('@opentelemetry/sdk-node');
+const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
+const { JaegerExporter } = require('@opentelemetry/exporter-jaeger');
+const { Resource } = require('@opentelemetry/resources');
+const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
+
+const jaegerExporter = new JaegerExporter({
+  endpoint: process.env.JAEGER_ENDPOINT || 'http://jaeger:14268/api/traces',
+});
+
+const sdk = new NodeSDK({
+  resource: new Resource({
+    [SemanticResourceAttributes.SERVICE_NAME]: process.env.SERVICE_NAME,
+    [SemanticResourceAttributes.SERVICE_VERSION]: process.env.SERVICE_VERSION,
+    [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV,
+  }),
+  traceExporter: jaegerExporter,
+  instrumentations: [
+    getNodeAutoInstrumentations({
+      '@opentelemetry/instrumentation-redis': {
+        enabled: true,
+      },
+      '@opentelemetry/instrumentation-http': {
+        enabled: true,
+        requestHook: (span, request) => {
+          span.setAttributes({
+            'http.request.correlation_id': request.headers['x-correlation-id']
+          });
+        }
+      }
+    })
+  ],
+});
+
+sdk.start();
+
+module.exports = sdk;
+```
+
+### 4.7.5.2. Custom Spans
+```javascript
+// src/shared/tracing/spans.js
+const { trace, context } = require('@opentelemetry/api');
+const tracer = trace.getTracer('retrogame-tracer');
+
+class TracingHelper {
+  static async executeWithSpan(name, operation, attributes = {}) {
+    return tracer.startActiveSpan(name, { attributes }, async (span) => {
+      try {
+        const result = await operation(span);
+        span.setStatus({ code: 2 }); // OK
+        return result;
+      } catch (error) {
+        span.recordException(error);
+        span.setStatus({ code: 2, message: error.message }); // ERROR
+        throw error;
+      } finally {
+        span.end();
+      }
+    });
+  }
+
+  static getCurrentSpan() {
+    return trace.getActiveSpan();
+  }
+
+  static addEvent(name, attributes = {}) {
+    const span = this.getCurrentSpan();
+    if (span) {
+      span.addEvent(name, attributes);
+    }
+  }
+}
+
+module.exports = TracingHelper;
+```
+
+## 4.7.6. Logging Estructurado
+
+### 4.7.6.1. Winston Logger
+```javascript
+// src/shared/monitoring/logger.js
+const winston = require('winston');
+const { CloudWatchLogsTransport } = require('winston-aws-cloudwatch');
+
 const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
   format: winston.format.combine(
     winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
     winston.format.json(),
-    winston.format.printf(info => {
+    winston.format.printf(({ timestamp, level, message, ...meta }) => {
       return JSON.stringify({
-        timestamp: info.timestamp,
-        level: info.level,
-        service: 'user-service',
-        correlationId: info.correlationId || 'unknown',
-        userId: info.userId,
-        action: info.action,
-        message: info.message,
-        duration: info.duration,
-        error: info.error,
-        metadata: info.metadata
+        timestamp,
+        level,
+        service: process.env.SERVICE_NAME,
+        version: process.env.SERVICE_VERSION,
+        environment: process.env.NODE_ENV,
+        message,
+        ...meta
       });
     })
   ),
   transports: [
-    new winston.transports.Console(),
-    new winston.transports.CloudWatchLogs({
-      logGroupName: '/retrogamehub/user-service',
-      logStreamName: process.env.HOSTNAME || 'local'
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      )
+    }),
+    
+    new CloudWatchLogsTransport({
+      logGroupName: `/retrogame/${process.env.SERVICE_NAME}`,
+      logStreamName: `${process.env.SERVICE_NAME}-${new Date().getTime()}`,
+      awsRegion: process.env.AWS_REGION,
+      retentionInDays: 30
     })
   ]
 });
 
-// Middleware para correlation ID
-const correlationMiddleware = (req, res, next) => {
-  req.correlationId = req.headers['x-correlation-id'] || uuidv4();
-  res.set('x-correlation-id', req.correlationId);
-  next();
-};
-
-module.exports = { logger, correlationMiddleware };
-
+module.exports = logger;
 ```
 
-```javascript game-service-logging
-// game-service/src/middleware/logging.js
-const { logger } = require('../utils/logger');
+## 4.7.7. Dashboards Grafana
 
-const logGameOperation = (operation) => {
-  return (req, res, next) => {
-    const startTime = Date.now();
-
-    logger.info({
-      correlationId: req.correlationId,
-      userId: req.user?.id,
-      action: `${operation}_start`,
-      gameId: req.params.gameId,
-      metadata: {
-        userAgent: req.get('User-Agent'),
-        ip: req.ip
-      }
-    });
-
-    res.on('finish', () => {
-      const duration = Date.now() - startTime;
-
-      logger.info({
-        correlationId: req.correlationId,
-        userId: req.user?.id,
-        action: `${operation}_complete`,
-        gameId: req.params.gameId,
-        duration,
-        statusCode: res.statusCode,
-        metadata: {
-          success: res.statusCode < 400
+### 4.7.7.1. Service Overview Dashboard
+```json
+{
+  "dashboard": {
+    "title": "Retro Game Hub - Service Overview",
+    "panels": [
+      {
+        "title": "Request Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(retrogame_http_requests_total[5m]))",
+            "legendFormat": "RPS"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps"
+          }
         }
-      });
-    });
-
-    next();
-  };
-};
-
-module.exports = { logGameOperation };
-
-```
-
-```javascript multiplayer-logging
-// multiplayer-service/src/utils/socketLogger.js
-const { logger } = require('./logger');
-
-class SocketLogger {
-  static logConnection(socket, userId) {
-    logger.info({
-      correlationId: socket.correlationId,
-      userId,
-      action: 'websocket_connection',
-      socketId: socket.id,
-      metadata: {
-        origin: socket.handshake.headers.origin,
-        userAgent: socket.handshake.headers['user-agent']
-      }
-    });
-  }
-
-  static logRoomJoin(socket, userId, roomId) {
-    logger.info({
-      correlationId: socket.correlationId,
-      userId,
-      action: 'room_join',
-      roomId,
-      socketId: socket.id,
-      metadata: {
-        timestamp: new Date().toISOString()
-      }
-    });
-  }
-
-  static logGameEvent(socket, userId, event, data) {
-    logger.info({
-      correlationId: socket.correlationId,
-      userId,
-      action: 'game_event',
-      event,
-      socketId: socket.id,
-      metadata: {
-        eventData: data,
-        timestamp: new Date().toISOString()
-      }
-    });
-  }
-}
-
-module.exports = { SocketLogger };
-
-```
-
-</CodeGroup>
-
-## Correlación Logs-Métricas-Traces para Debugging
-
-### Flujo de Debugging Distribuido
-
-<Steps>
-  <Step title="1. Identificación del Problema">
-    ```bash
-    # Usuario reporta: "No puedo unirme a partidas multijugador"
-    # Correlation ID del error: corr-123e4567-e89b-12d3-a456-426614174000
-
-    # Buscar en CloudWatch Logs
-    aws logs filter-log-events \
-      --log-group-name "/retrogamehub/multiplayer-service" \
-      --filter-pattern "corr-123e4567-e89b-12d3-a456-426614174000"
-    ```
-
-  </Step>
-
-  <Step title="2. Análisis de Métricas Correlacionadas">
-    ```promql
-    # Verificar métricas en el momento del error
-    # Timestamp del error: 2024-01-15T14:30:00Z
-
-    # Latencia de conexión WebSocket
-    histogram_quantile
-</Steps>
-</Step>
-
+      },
+      {
+        "title": "Error Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(retrogame_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(retrogame_http_requests_total[5m]))",
+            "legendFormat": "Error %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 0.01 },
+                { "color": "red", "value": 0.05
 ```

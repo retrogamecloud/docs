@@ -1,14 +1,14 @@
 ---
-title: 6.4. Networking y Seguridad
+title: 4.4. Networking y Seguridad
 description: Arquitectura de red VPC, subnets, security groups y topología de red
 icon: network-wired
 ---
 
-## Arquitectura de Red
+## 4.4.1. Arquitectura de Red
 
 Retro Game Hub utiliza una VPC dedicada con subnets públicas y privadas distribuidas en 3 zonas de disponibilidad para alta disponibilidad.
 
-## Configuración de VPC
+## 4.4.2. Configuración de VPC
 
 <CardGroup cols={3}>
   <Card title="CIDR Block" icon="network-wired">
@@ -30,7 +30,7 @@ Retro Game Hub utiliza una VPC dedicada con subnets públicas y privadas distrib
   </Card>
 </CardGroup>
 
-## Topología de Red
+## 4.4.3. Topología de Red
 
 <Frame>
 
@@ -77,455 +77,207 @@ graph TB
 
             RDS_PRIMARY[(RDS Primary<br/>AZ-A)]
             RDS_STANDBY[(RDS Standby<br/>AZ-B)]
-            REDIS[(ElastiCache<br/>Redis)]
         end
     end
 
+    %% Conexiones
     IGW --> ALB
+    IGW --> NAT1
+    IGW --> NAT2
+    IGW --> NAT3
+
     ALB --> NODE1
     ALB --> NODE2
     ALB --> NODE3
 
-    NAT1 --> IGW
-    NAT2 --> IGW
-    NAT3 --> IGW
-
-    NODE1 --> NAT1
-    NODE2 --> NAT2
-    NODE3 --> NAT3
+    NAT1 --> NODE1
+    NAT2 --> NODE2
+    NAT3 --> NODE3
 
     NODE1 --> RDS_PRIMARY
     NODE2 --> RDS_PRIMARY
     NODE3 --> RDS_PRIMARY
 
-    NODE1 --> REDIS
-    NODE2 --> REDIS
-    NODE3 --> REDIS
+    RDS_PRIMARY -.-> RDS_STANDBY
 
-    RDS_PRIMARY <--> RDS_STANDBY
-
-    PUB1 --> NAT1
-    PUB2 --> NAT2
-    PUB3 --> NAT3
-
-    PRIV1 --> NODE1
-    PRIV2 --> NODE2
-    PRIV3 --> NODE3
-
-    DB1 --> RDS_PRIMARY
-    DB2 --> RDS_STANDBY
-
+    %% Estilos
+    classDef publicSubnet fill:#e1f5fe
+    classDef privateSubnet fill:#f3e5f5
+    classDef dbSubnet fill:#e8f5e8
+    
+    class PUB1,PUB2,PUB3 publicSubnet
+    class PRIV1,PRIV2,PRIV3 privateSubnet
+    class DB1,DB2 dbSubnet
 ```
 
 </Frame>
 
-## Diseño de Subnets
+## 4.4.4. Security Groups
 
-### Subnets Públicas
-
-Tienen acceso directo a Internet vía Internet Gateway.
-
-<Table>
-  <thead>
-    <tr>
-      <th>Subnet</th>
-      <th>CIDR</th>
-      <th>AZ</th>
-      <th>Uso</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>**Public 1**</td>
-      <td>10.0.1.0/24</td>
-      <td>eu-west-1a</td>
-      <td>ALB, NAT Gateway</td>
-    </tr>
-    <tr>
-      <td>**Public 2**</td>
-      <td>10.0.2.0/24</td>
-      <td>eu-west-1b</td>
-      <td>ALB, NAT Gateway</td>
-    </tr>
-    <tr>
-      <td>**Public 3**</td>
-      <td>10.0.3.0/24</td>
-      <td>eu-west-1c</td>
-      <td>ALB, NAT Gateway</td>
-    </tr>
-  </tbody>
-</Table>
-
-* *Recursos en subnets públicas:**
-
-- Application Load Balancer (ALB)
-
-- NAT Gateway (uno por AZ)
-
-- Bastion Host (opcional)
-
-### Subnets Privadas
-
-Sin acceso directo a Internet - salen a través del NAT Gateway.
-
-<Table>
-  <thead>
-    <tr>
-      <th>Subnet</th>
-      <th>CIDR</th>
-      <th>AZ</th>
-      <th>Uso</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>**Private 1**</td>
-      <td>10.0.11.0/24</td>
-      <td>eu-west-1a</td>
-      <td>EKS nodes</td>
-    </tr>
-    <tr>
-      <td>**Private 2**</td>
-      <td>10.0.12.0/24</td>
-      <td>eu-west-1b</td>
-      <td>EKS nodes</td>
-    </tr>
-    <tr>
-      <td>**Private 3**</td>
-      <td>10.0.13.0/24</td>
-      <td>eu-west-1c</td>
-      <td>EKS nodes</td>
-    </tr>
-  </tbody>
-</Table>
-
-### Subnets de Base de Datos
-
-<Table>
-  <thead>
-    <tr>
-      <th>Subnet</th>
-      <th>CIDR</th>
-      <th>AZ</th>
-      <th>Uso</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>**DB 1**</td>
-      <td>10.0.21.0/24</td>
-      <td>eu-west-1a</td>
-      <td>RDS primary, ElastiCache</td>
-    </tr>
-    <tr>
-      <td>**DB 2**</td>
-      <td>10.0.22.0/24</td>
-      <td>eu-west-1b</td>
-      <td>RDS standby</td>
-    </tr>
-  </tbody>
-</Table>
-
-## Flujo de Tráfico
-
-### Tráfico Entrante
-
-<Frame>
-
-```mermaid
-sequenceDiagram
-    participant U as Usuario
-    participant CF as CloudFront
-    participant ALB as Load Balancer
-    participant EKS as EKS Pods
-    participant RDS as Base de Datos
-
-    U->>CF: 1. Solicitud HTTPS
-    CF->>ALB: 2. Reenvío a ALB (público)
-    ALB->>EKS: 3. Balanceo a pods (privado)
-    EKS->>RDS: 4. Query DB (privado)
-    RDS->>EKS: 5. Respuesta
-    EKS->>ALB: 6. Respuesta HTTP
-    ALB->>CF: 7. Respuesta
-    CF->>U: 8. Respuesta al usuario
-
+### Application Load Balancer
+```json
+{
+  "name": "alb-security-group",
+  "ingress": [
+    {
+      "protocol": "tcp",
+      "port": 443,
+      "source": "0.0.0.0/0"
+    },
+    {
+      "protocol": "tcp", 
+      "port": 80,
+      "source": "0.0.0.0/0"
+    }
+  ],
+  "egress": [
+    {
+      "protocol": "tcp",
+      "port": 80,
+      "destination": "eks-nodes-sg"
+    }
+  ]
+}
 ```
 
-</Frame>
-
-### Tráfico Saliente
-
-<Frame>
-
-```mermaid
-sequenceDiagram
-    participant EKS as EKS Pods
-    participant NAT as NAT Gateway
-    participant IGW as Internet Gateway
-    participant EXT as Servicios Externos
-
-    EKS->>NAT: 1. Solicitud saliente
-    NAT->>IGW: 2. Traducción NAT
-    IGW->>EXT: 3. Hacia Internet
-    EXT->>IGW: 4. Respuesta
-    IGW->>NAT: 5. Retorno
-    NAT->>EKS: 6. Respuesta al pod
-
+### EKS Nodes
+```json
+{
+  "name": "eks-nodes-security-group",
+  "ingress": [
+    {
+      "protocol": "tcp",
+      "port": 80,
+      "source": "alb-security-group"
+    },
+    {
+      "protocol": "tcp",
+      "ports": "1025-65535",
+      "source": "self"
+    }
+  ],
+  "egress": [
+    {
+      "protocol": "tcp",
+      "port": 5432,
+      "destination": "rds-security-group"
+    }
+  ]
+}
 ```
 
-</Frame>
+### RDS Database
+```json
+{
+  "name": "rds-security-group", 
+  "ingress": [
+    {
+      "protocol": "tcp",
+      "port": 5432,
+      "source": "eks-nodes-sg"
+    }
+  ],
+  "egress": []
+}
+```
 
-## Security Groups
+## 4.4.5. Routing Tables
 
-### ALB Security Group
+<CardGroup cols={2}>
+  <Card title="Public Route Table" icon="route">
+    - **Destino**: 10.0.0.0/16 → Local
+    - **Destino**: 0.0.0.0/0 → Internet Gateway
+  </Card>
 
-<Accordion title="alb-security-group">
+  <Card title="Private Route Tables" icon="route">
+    - **Destino**: 10.0.0.0/16 → Local
+    - **Destino**: 0.0.0.0/0 → NAT Gateway (por AZ)
+  </Card>
+</CardGroup>
 
+## 4.4.6. Network ACLs
+
+### Default NACL Rules
 ```yaml
-Inbound Rules:
-  - Port: 80
-    Protocol: HTTP
-    Source: 0.0.0.0/0
-    Description: "HTTP from anywhere"
+inbound_rules:
+  - rule: 100
+    protocol: tcp
+    port_range: 80
+    cidr: 10.0.0.0/16
+    action: allow
+    
+  - rule: 110  
+    protocol: tcp
+    port_range: 443
+    cidr: 10.0.0.0/16
+    action: allow
 
-  - Port: 443
-    Protocol: HTTPS
-    Source: 0.0.0.0/0
-    Description: "HTTPS from anywhere"
+  - rule: 120
+    protocol: tcp
+    port_range: 1024-65535
+    cidr: 0.0.0.0/0
+    action: allow
 
-Outbound Rules:
-  - Port: 8080
-    Protocol: HTTP
-    Destination: eks-nodes-sg
-    Description: "To EKS nodes"
-
+outbound_rules:
+  - rule: 100
+    protocol: tcp
+    port_range: 80
+    cidr: 0.0.0.0/0
+    action: allow
+    
+  - rule: 110
+    protocol: tcp  
+    port_range: 443
+    cidr: 0.0.0.0/0
+    action: allow
 ```
 
-</Accordion>
+## 4.4.7. DNS y Service Discovery
 
-### EKS Nodes Security Group
+<Info>
+La VPC tiene **DNS Resolution** y **DNS Hostnames** habilitados para permitir la resolución de nombres dentro de la red.
+</Info>
 
-<Accordion title="eks-nodes-security-group">
+### Route 53 Private Hosted Zone
+- **Zona**: `retro-game-hub.local`
+- **Registros**: 
+  - `rds.retro-game-hub.local` → RDS Endpoint
+  - `redis.retro-game-hub.local` → ElastiCache Endpoint
 
+### EKS Service Discovery
+Los servicios de Kubernetes utilizan **CoreDNS** para resolución interna:
+- `user-service.default.svc.cluster.local`
+- `game-service.default.svc.cluster.local`
+- `notification-service.default.svc.cluster.local`
+
+## 4.4.8. Monitoreo de Red
+
+### VPC Flow Logs
 ```yaml
-Inbound Rules:
-  - Port: 8080
-    Protocol: HTTP
-    Source: alb-security-group
-    Description: "From ALB"
-
-  - Port: 443
-    Protocol: HTTPS
-    Source: eks-control-plane-sg
-    Description: "From EKS control plane"
-
-  - Ports: 1025-65535
-    Protocol: TCP
-    Source: self
-    Description: "Inter-node communication"
-
-Outbound Rules:
-  - Port: 443
-    Protocol: HTTPS
-    Destination: 0.0.0.0/0
-    Description: "HTTPS to anywhere"
-
-  - Port: 5432
-    Protocol: TCP
-    Destination: rds-security-group
-    Description: "To PostgreSQL"
-
-  - Port: 6379
-    Protocol: TCP
-    Destination: redis-security-group
-    Description: "To Redis"
-
+flow_logs:
+  destination: CloudWatch Logs
+  traffic_type: ALL
+  log_format: "${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action}"
+  retention: 30 days
 ```
 
-</Accordion>
+### Métricas Clave
+<CardGroup cols={3}>
+  <Card title="Latencia" icon="clock">
+    **< 50ms**
+    
+    Entre servicios internos
+  </Card>
 
-### RDS Security Group
+  <Card title="Throughput" icon="gauge-high">
+    **10 Gbps**
+    
+    Capacidad máxima de red
+  </Card>
 
-<Accordion title="rds-security-group">
-
-```yaml
-Inbound Rules:
-  - Port: 5432
-    Protocol: TCP
-    Source: eks-nodes-sg
-    Description: "From EKS nodes"
-
-Outbound Rules:
-  - None (managed by AWS)
-
-```
-
-</Accordion>
-
-### Redis Security Group
-
-<Accordion title="redis-security-group">
-
-```yaml
-Inbound Rules:
-  - Port: 6379
-    Protocol: TCP
-    Source: eks-nodes-sg
-    Description: "From EKS nodes"
-
-Outbound Rules:
-  - None (managed by AWS)
-
-```
-
-</Accordion>
-
-## Network ACLs
-
-### Subnet Pública - NACL
-
-<Table>
-  <thead>
-    <tr>
-      <th>Regla</th>
-      <th>Tipo</th>
-      <th>Protocolo</th>
-      <th>Puerto</th>
-      <th>Origen/Destino</th>
-      <th>Acción</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>100</td>
-      <td>Inbound</td>
-      <td>TCP</td>
-      <td>80</td>
-      <td>0.0.0.0/0</td>
-      <td>ALLOW</td>
-    </tr>
-    <tr>
-      <td>110</td>
-      <td>Inbound</td>
-      <td>TCP</td>
-      <td>443</td>
-      <td>0.0.0.0/0</td>
-      <td>ALLOW</td>
-    </tr>
-    <tr>
-      <td>120</td>
-      <td>Inbound</td>
-      <td>TCP</td>
-      <td>1024-65535</td>
-      <td>0.0.0.0/0</td>
-      <td>ALLOW</td>
-    </tr>
-    <tr>
-      <td>100</td>
-      <td>Outbound</td>
-      <td>TCP</td>
-      <td>8080</td>
-      <td>10.0.0.0/16</td>
-      <td>ALLOW</td>
-    </tr>
-    <tr>
-      <td>110</td>
-      <td>Outbound</td>
-      <td>TCP</td>
-      <td>1024-65535</td>
-      <td>0.0.0.0/0</td>
-      <td>ALLOW</td>
-    </tr>
-  </tbody>
-</Table>
-
-### Subnet Privada - NACL
-
-<Table>
-  <thead>
-    <tr>
-      <th>Regla</th>
-      <th>Tipo</th>
-      <th>Protocolo</th>
-      <th>Puerto</th>
-      <th>Origen/Destino</th>
-      <th>Acción</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>100</td>
-      <td>Inbound</td>
-      <td>TCP</td>
-      <td>8080</td>
-      <td>10.0.0.0/16</td>
-      <td>ALLOW</td>
-    </tr>
-    <tr>
-      <td>110</td>
-      <td>Inbound</td>
-      <td>TCP</td>
-      <td>443</td>
-      <td>10.0.0.0/16</td>
-      <td>ALLOW</td>
-    </tr>
-    <tr>
-      <td>120</td>
-      <td>Inbound</td>
-      <td>TCP</td>
-      <td>1024-65535</td>
-      <td>0.0.0.0/0</td>
-      <td>ALLOW</td>
-    </tr>
-    <tr>
-      <td>100</td>
-      <td>Outbound</td>
-      <td>TCP</td>
-      <td>443</td>
-      <td>0.0.0.0/0</td>
-      <td>ALLOW</td>
-    </tr>
-    <tr>
-      <td>110</td>
-      <td>Outbound</td>
-      <td>TCP</td>
-      <td>5432</td>
-      <td>10.0.0.0/16</td>
-      <td>ALLOW</td>
-    </tr>
-    <tr>
-      <td>120</td>
-      <td>Outbound</td>
-      <td>TCP</td>
-      <td>6379</td>
-      <td>10.0.0.0/16</td>
-      <td>ALLOW</td>
-    </tr>
-  </tbody>
-</Table>
-
-## Configuración de Routing
-
-### Route Tables
-
-<Tabs>
-  <Tab title="Public Route Table">
-    ```yaml
-    Routes:
-      - Destination: 10.0.0.0/16
-        Target: local
-        Description: "VPC internal routing"
-
-      - Destination: 0.0.0.0/0
-        Target: igw-xxx
-        Description: "Internet Gateway
-</Tab>
-
-```
-
-</Tab>
-</Tabs>
-
-```
-
-```
+  <Card title="Availability" icon="shield-check">
+    **99.99%**
+    
+    Uptime objetivo de red
+  </Card>
+</CardGroup>

@@ -83,20 +83,25 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
 ```bash
 git clone https://github.com/tu-usuario/retro-game-hub.git
 cd retro-game-hub/infrastructure
+
 ```
 
 ### Paso 2: Configurar Variables
 
 ```bash
+
 # Copiar archivo de configuración
 cp terraform.tfvars.example terraform.tfvars
 
 # Editar con tus valores
 nano terraform.tfvars
+
 ```
 
 <CodeGroup>
+
 ```hcl terraform.tfvars
+
 # Configuración básica
 region = "eu-west-1"
 project_name = "retro-game-hub"
@@ -114,12 +119,15 @@ node_group_instance_types = ["t3.medium"]
 node_group_desired_size = 2
 node_group_max_size = 4
 node_group_min_size = 1
+
 ```
+
 </CodeGroup>
 
 ### Paso 3: Desplegar Infraestructura
 
 ```bash
+
 # Inicializar Terraform
 terraform init
 
@@ -128,6 +136,7 @@ terraform plan
 
 # Aplicar cambios
 terraform apply -auto-approve
+
 ```
 
 <Warning>
@@ -139,16 +148,19 @@ terraform apply -auto-approve
 Una vez completado el despliegue:
 
 ```bash
+
 # Configurar acceso al cluster
 aws eks update-kubeconfig --region eu-west-1 --name retro-game-hub-cluster
 
 # Verificar conexión
 kubectl get nodes
+
 ```
 
 ## Verificar Despliegue
 
 ```bash
+
 # Ver todos los pods
 kubectl get pods -A
 
@@ -157,6 +169,7 @@ kubectl get svc -n retro-game-hub
 
 # Obtener URL de acceso
 kubectl get ingress -n retro-game-hub
+
 ```
 
 <Tip>
