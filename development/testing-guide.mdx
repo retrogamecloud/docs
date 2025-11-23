@@ -1,7 +1,6 @@
 ---
 title: Testing y QA
-description: 'Estrategia completa de testing para RetroGameCloud: unitarios, integración,
-  E2E y proceso de QA'
+description: 'Estrategia completa de testing para RetroGameCloud: unitarios, integración, E2E y proceso de QA'
 icon: flask-vial
 ---
 
@@ -23,7 +22,6 @@ graph TD
     style B fill:#4ecdc4
     style C fill:#45b7d1
     style D fill:#96ceb4
-
 ```
 
 ## Tests Unitarios
@@ -60,7 +58,6 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
       }
     }
     ```
-
   </Tab>
 
   <Tab title="jest.config.js">
@@ -79,412 +76,410 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
       setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts']
     };
     ```
-
   </Tab>
 </Tabs>
 
 ### Ejemplo de Test Unitario
 
 ```javascript
-// src/services/__tests__/authService.test.js
+// src/services/__tests__/authService.test.ts
 import { AuthService } from '../authService';
 import { UserRepository } from '../../repositories/userRepository';
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-
-jest.mock('../../repositories/userRepository');
-jest.mock('bcrypt');
-jest.mock('jsonwebtoken');
+import { JWTService } from '../jwtService';
 
 describe('AuthService', () => {
-  let authService;
-  let mockUserRepository;
+  let authService: AuthService;
+  let mockUserRepository: jest.Mocked<UserRepository>;
+  let mockJWTService: jest.Mocked<JWTService>;
 
   beforeEach(() => {
-    mockUserRepository = new UserRepository();
-    authService = new AuthService(mockUserRepository);
+    mockUserRepository = createMockUserRepository();
+    mockJWTService = createMockJWTService();
+    authService = new AuthService(mockUserRepository, mockJWTService);
   });
 
-  describe('login', () => {
-    it('debería autenticar usuario con credenciales válidas', async () => {
-      // Arrange
-      const email = 'test@example.com';
-      const password = 'password123';
-      const hashedPassword = 'hashedPassword123';
-      const user = { id: 1, email, password: hashedPassword };
-      const token = 'jwt-token';
+  describe('authenticateUser', () => {
+    it('should return JWT token for valid credentials', async () => {
+      // Given
+      const credentials = { email: 'test@example.com', password: 'password123' };
+      const mockUser = { id: '1', email: 'test@example.com', hashedPassword: 'hashed' };
+      
+      mockUserRepository.findByEmail.mockResolvedValue(mockUser);
+      mockJWTService.generateToken.mockReturnValue('jwt-token');
 
-      mockUserRepository.findByEmail.mockResolvedValue(user);
-      bcrypt.compare.mockResolvedValue(true);
-      jwt.sign.mockReturnValue(token);
+      // When
+      const result = await authService.authenticateUser(credentials);
 
-      // Act
-      const result = await authService.login(email, password);
-
-      // Assert
-      expect(result).toEqual({ token, user: { id: 1, email } });
-      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(email);
-      expect(bcrypt.compare).toHaveBeenCalledWith(password, hashedPassword);
+      // Then
+      expect(result.token).toBe('jwt-token');
+      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('test@example.com');
     });
   });
 });
-
 ```
-
-### Comandos de Ejecución
-
-<Card title="Comandos de Testing" icon="terminal">
-  ```bash
-  # Ejecutar todos los tests
-  npm test
-
-  # Ejecutar tests en modo watch
-  npm run test:watch
-
-  # Generar reporte de coverage
-  npm run test:coverage
-
-  # Tests para CI/CD
-  npm run test:ci
-  ```
-
-</Card>
 
 ## Tests de Integración
 
 ### Configuración con Supertest
 
-Los tests de integración validan los endpoints de la API utilizando **Supertest**.
+Los tests de integración validan la interacción entre componentes y endpoints de API.
 
 ```javascript
-// src/test/integration/auth.integration.test.js
+// src/integration/__tests__/auth.integration.test.ts
 import request from 'supertest';
-import app from '../../app';
-import { setupTestDatabase, cleanupTestDatabase } from '../helpers/database';
+import { app } from '../../app';
+import { setupTestDatabase, teardownTestDatabase } from '../helpers/database';
 
-describe('Auth Integration Tests', () => {
+describe('Authentication Integration', () => {
   beforeAll(async () => {
     await setupTestDatabase();
   });
 
   afterAll(async () => {
-    await cleanupTestDatabase();
+    await teardownTestDatabase();
   });
 
   describe('POST /api/auth/login', () => {
-    it('debería autenticar usuario correctamente', async () => {
-      // Crear usuario de prueba
-      await request(app)
-        .post('/api/auth/register')
-        .send({
-          email: 'test@example.com',
-          password: 'Password123!',
-          username: 'testuser'
-        });
+    it('should authenticate user and return JWT', async () => {
+      // Given
+      const userData = {
+        email: 'player@retrogame.com',
+        password: 'SecurePass123!'
+      };
 
-      // Intentar login
+      // When
       const response = await request(app)
         .post('/api/auth/login')
-        .send({
-          email: 'test@example.com',
-          password: 'Password123!'
-        });
+        .send(userData)
+        .expect(200);
 
-      expect(response.status).toBe(200);
+      // Then
       expect(response.body).toHaveProperty('token');
-      expect(response.body.user).toMatchObject({
-        email: 'test@example.com',
-        username: 'testuser'
-      });
-    });
-
-    it('debería fallar con credenciales inválidas', async () => {
-      const response = await request(app)
-        .post('/api/auth/login')
-        .send({
-          email: 'invalid@example.com',
-          password: 'wrongpassword'
-        });
-
-      expect(response.status).toBe(401);
-      expect(response.body).toHaveProperty('error');
+      expect(response.body).toHaveProperty('user');
+      expect(response.body.user.email).toBe(userData.email);
     });
   });
 });
-
 ```
 
-### Helper para Base de Datos de Test
+# Tests End-to-End
 
-```javascript
-// src/test/helpers/database.js
-import { Pool } from 'pg';
-import { migrate } from 'postgres-migrations';
+## Herramientas
 
-const testDb = new Pool({
-  host: process.env.TEST_DB_HOST || 'localhost',
-  port: process.env.TEST_DB_PORT || 5432,
-  database: process.env.TEST_DB_NAME || 'retrogame_test',
-  user: process.env.TEST_DB_USER || 'postgres',
-  password: process.env.TEST_DB_PASSWORD || 'password'
-});
+### Playwright para Tests de Interfaz
 
-export async function setupTestDatabase() {
-  await migrate({
-    client: testDb,
-    directory: 'migrations',
-    migrationsTable: 'migrations'
-  });
-}
+Playwright nos permite ejecutar tests E2E en múltiples navegadores con alta confiabilidad.
 
-export async function cleanupTestDatabase() {
-  await testDb.query('TRUNCATE TABLE users, games, scores RESTART IDENTITY CASCADE');
-}
+### Newman para Tests de API
 
-```
-
-## Tests End-to-End
-
-### Configuración con Playwright
-
-Los tests E2E validan los flujos críticos de usuario utilizando **Playwright**.
+Newman ejecuta collections de Postman para validar la API de forma automatizada.
 
 <Tabs>
-  <Tab title="playwright.config.js">
-    ```javascript
-    import { defineConfig } from '@playwright/test';
+  <Tab title="playwright.config.ts">
+    ```typescript
+    import { defineConfig, devices } from '@playwright/test';
 
     export default defineConfig({
       testDir: './e2e',
-      timeout: 30000,
-      retries: 2,
+      fullyParallel: true,
+      forbidOnly: !!process.env.CI,
+      retries: process.env.CI ? 2 : 0,
+      workers: process.env.CI ? 1 : undefined,
+      reporter: 'html',
       use: {
-        baseURL: process.env.E2E_BASE_URL || 'http://localhost:3000',
-        headless: true,
-        screenshot: 'only-on-failure',
-        video: 'retain-on-failure'
+        baseURL: 'http://localhost:3000',
+        trace: 'on-first-retry',
       },
       projects: [
         {
-          name: 'Chrome',
-          use: { ...devices['Desktop Chrome'] }
+          name: 'chromium',
+          use: { ...devices['Desktop Chrome'] },
         },
         {
-          name: 'Firefox',
-          use: { ...devices['Desktop Firefox'] }
+          name: 'firefox',
+          use: { ...devices['Desktop Firefox'] },
         },
-        {
-          name: 'Safari',
-          use: { ...devices['Desktop Safari'] }
-        }
       ],
       webServer: {
-        command: 'npm start',
-        port: 3000,
-        reuseExistingServer: !process.env.CI
-      }
+        command: 'npm run dev',
+        url: 'http://localhost:3000',
+        reuseExistingServer: !process.env.CI,
+      },
     });
     ```
-
   </Tab>
 
-  <Tab title="e2e/auth.spec.js">
-    ```javascript
-    import { test, expect } from '@playwright/test';
-
-    test.describe('Autenticación', () => {
-      test('flujo completo de registro y login', async ({ page }) => {
-        // Ir a página de registro
-        await page.goto('/register');
-
-        // Llenar formulario de registro
-        await page.fill('input[name="username"]', 'testuser');
-        await page.fill('input[name="email"]', 'test@example.com');
-        await page.fill('input[name="password"]', 'Password123!');
-        await page.fill('input[name="confirmPassword"]', 'Password123!');
-
-        // Enviar formulario
-        await page.click('button[type="submit"]');
-
-        // Verificar redirección a login
-        await expect(page).toHaveURL('/login');
-        await expect(page.locator('.success-message')).toContainText('Registro exitoso');
-
-        // Realizar login
-        await page.fill('input[name="email"]', 'test@example.com');
-        await page.fill('input[name="password"]', 'Password123!');
-        await page.click('button[type="submit"]');
-
-        // Verificar login exitoso
-        await expect(page).toHaveURL('/dashboard');
-        await expect(page.locator('.user-menu')).toContainText('testuser');
-      });
-    });
+  <Tab title="newman-config.json">
+    ```json
+    {
+      "collection": "./postman/RetroGameCloud-API.json",
+      "environment": "./postman/environments/test.json",
+      "reporters": ["cli", "junit"],
+      "reporter": {
+        "junit": {
+          "export": "./test-results/newman-results.xml"
+        }
+      },
+      "bail": true,
+      "color": "on"
+    }
     ```
-
   </Tab>
 </Tabs>
 
-### Test de Juego Completo
+## Escenarios Críticos
 
-```javascript
-// e2e/gameplay.spec.js
+### E2E-001: Flujo Completo de Jugador
+
+<Callout type="info">
+**Test crítico para validar la experiencia completa del usuario**
+</Callout>
+
+```typescript
+// e2e/complete-player-flow.spec.ts
 import { test, expect } from '@playwright/test';
 
-test.describe('Gameplay', () => {
-  test.beforeEach(async ({ page }) => {
-    // Login automático
-    await page.goto('/login');
-    await page.fill('input[name="email"]', 'test@example.com');
-    await page.fill('input[name="password"]', 'Password123!');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL('/dashboard');
-  });
+test('E2E-001: Complete Player Journey', async ({ page }) => {
+  // 1. Registro de usuario nuevo
+  await page.goto('/register');
+  await page.fill('[data-testid="email"]', 'newplayer@test.com');
+  await page.fill('[data-testid="password"]', 'SecurePass123!');
+  await page.fill('[data-testid="username"]', 'RetroGamer2024');
+  await page.click('[data-testid="register-button"]');
+  
+  await expect(page.locator('[data-testid="success-message"]')).toBeVisible();
 
-  test('iniciar y jugar un juego retro', async ({ page }) => {
-    // Ir al catálogo de juegos
-    await page.click('nav a[href="/games"]');
-    await expect(page).toHaveURL('/games');
+  // 2. Login y obtención de JWT
+  await page.goto('/login');
+  await page.fill('[data-testid="email"]', 'newplayer@test.com');
+  await page.fill('[data-testid="password"]', 'SecurePass123!');
+  await page.click('[data-testid="login-button"]');
+  
+  await expect(page.locator('[data-testid="user-menu"]')).toBeVisible();
 
-    // Seleccionar un juego
-    await page.click('.game-card[data-game="pac-man"]');
-    await expect(page).toHaveURL('/games/pac-man');
+  // 3. Listar catálogo de juegos
+  await page.goto('/games');
+  await expect(page.locator('[data-testid="games-grid"]')).toBeVisible();
+  
+  const gameCount = await page.locator('[data-testid="game-card"]').count();
+  expect(gameCount).toBeGreaterThan(0);
 
-    // Iniciar juego
-    await page.click('button.start-game');
+  // 4. Cargar juego con js-dos
+  await page.click('[data-testid="game-card"]:first-child');
+  await expect(page.locator('[data-testid="dosbox-canvas"]')).toBeVisible();
+  
+  // Wait for game to load
+  await page.waitForSelector('[data-testid="game-loaded"]', { timeout: 30000 });
 
-    // Esperar a que cargue el emulador
-    await expect(page.locator('canvas.dos-canvas')).toBeVisible();
+  // 5. Guardar puntuación
+  await page.click('[data-testid="submit-score"]');
+  await page.fill('[data-testid="score-input"]', '15000');
+  await page.click('[data-testid="save-score-button"]');
+  
+  await expect(page.locator('[data-testid="score-saved"]')).toBeVisible();
 
-    // Verificar que el juego está cargado
-    await expect(page.locator('.game-status')).toContainText('Juego cargado');
-
-    // Simular interacción (tecla de pausa)
-    await page.keyboard.press('Space');
-
-    // Verificar guardar puntuación
-    await page.click('button.save-score');
-    await expect(page.locator('.score-saved')).toBeVisible();
-  });
+  // 6. Verificar aparición en ranking
+  await page.goto('/leaderboard');
+  const playerScore = page.locator(`[data-testid="score-entry-RetroGamer2024"]`);
+  await expect(playerScore).toBeVisible();
+  await expect(playerScore.locator('[data-testid="score"]')).toContainText('15000');
 });
-
 ```
 
-## Tests de Carga
+### E2E-002: Flujo de Autenticación OAuth2
 
-### Configuración con k6
+```typescript
+// e2e/oauth-authentication.spec.ts
+import { test, expect } from '@playwright/test';
 
-Los tests de carga simulan **1000 usuarios concurrentes** utilizando **k6**.
-
-```javascript
-// k6/load-test.js
-import http from 'k6/http';
-import { check, group } from 'k6';
-import { Rate } from 'k6/metrics';
-
-export let errorRate = new Rate('errors');
-
-export let options = {
-  stages: [
-    { duration: '2m', target: 100 }, // Ramp up
-    { duration: '5m', target: 100 }, // Stay at 100 users
-    { duration: '2m', target: 200 }, // Ramp up
-    { duration: '5m', target: 200 }, // Stay at 200 users
-    { duration: '2m', target: 500 }, // Ramp up
-    { duration: '5m', target: 500 }, // Stay at 500 users
-    { duration: '2m', target: 1000 }, // Ramp up to 1000
-    { duration: '5m', target: 1000 }, // Stay at 1000 users
-    { duration: '2m', target: 0 }, // Ramp down
-  ],
-  thresholds: {
-    http_req_duration: ['p(95)<500'], // 95% de requests < 500ms
-    http_req_failed: ['rate<0.1'], // Error rate < 10%
-  },
-};
-
-const BASE_URL = 'https://api.retrogamecloud.com';
-
-export function setup() {
-  // Crear usuario de test
-  let loginRes = http.post(`${BASE_URL}/api/auth/login`, {
-    email: 'loadtest@example.com',
-    password: 'LoadTest123!'
-  });
-
-  return { authToken: loginRes.json().token };
-}
-
-export default function(data) {
-  let params = {
-    headers: {
-      'Authorization': `Bearer ${data.authToken}`,
-      'Content-Type': 'application/json',
-    },
-  };
-
-  group('API Load Test', function() {
-    // Test endpoint de juegos
-    group('Games API', function() {
-      let res = http.get(`${BASE_URL}/api/games`, params);
-      check(res, {
-        'games status 200': (r) => r.status === 200,
-        'games response time < 500ms': (r) => r.timings.duration < 500,
-      }) || errorRate.add(1);
-    });
-
-    // Test endpoint de rankings
-    group('Rankings API', function() {
-      let res = http.get(`${BASE_URL}/api/rankings/global`, params);
-      check(res, {
-        'rankings status 200': (r) => r.status === 200,
-        'rankings response time < 1s': (r) => r.timings.duration < 1000,
-      }) || errorRate.add(1);
-    });
-
-    // Test submit score
-    group('Submit Score', function() {
-      let payload = JSON.stringify({
-        gameId: 'pac-man',
-        score: Math.floor(Math.random() * 10000),
-        level: Math.floor(Math.random() * 10)
-      });
-
-      let res = http.post(`${BASE_URL}/api/scores`, payload, params);
-      check(res, {
-        'submit score status 201': (r) => r.status === 201,
-        'submit score time < 2s': (r) => r.timings.duration < 2000,
-      }) || errorRate.add(1);
+test('E2E-002: OAuth2 Authentication Flow', async ({ page, context }) => {
+  // 1. Inicio de sesión con Google
+  await page.goto('/login');
+  
+  // Mock Google OAuth for testing
+  await context.route('**/auth/google', route => {
+    route.fulfill({
+      status: 302,
+      headers: {
+        'Location': '/auth/google/callback?code=mock_auth_code&state=mock_state'
+      }
     });
   });
-}
 
+  await page.click('[data-testid="google-login-button"]');
+
+  // 2. Callback y generación de JWT
+  await expect(page).toHaveURL(/.*\/dashboard/);
+  
+  // Verify JWT token is stored
+  const token = await page.evaluate(() => localStorage.getItem('auth_token'));
+  expect(token).toBeTruthy();
+
+  // 3. Acceso a recursos protegidos
+  await page.goto('/profile');
+  await expect(page.locator('[data-testid="user-profile"]')).toBeVisible();
+  
+  // Verify API calls include JWT
+  const [request] = await Promise.all([
+    page.waitForRequest('**/api/user/profile'),
+    page.reload()
+  ]);
+  
+  expect(request.headers().authorization).toContain('Bearer');
+});
 ```
 
-### Ejecutar Tests de Carga
+### E2E-003: Validación de Rendimiento de Juegos
 
-<Card title="Comandos k6" icon="gauge-high">
-  ```bash
-  # Instalar k6
-  brew install k6  # macOS
-  # o
-  sudo apt-get install k6  # Ubuntu
+```typescript
+// e2e/game-performance.spec.ts
+import { test, expect } from '@playwright/test';
 
-  # Ejecutar test de carga
-  k6 run k6/load-test.js
+test('E2E-003: Game Performance Validation', async ({ page }) => {
+  await page.goto('/games/pac-man');
+  
+  // Start performance monitoring
+  await page.coverage.startJSCoverage();
+  const startTime = Date.now();
+  
+  // Wait for game initialization
+  await page.waitForSelector('[data-testid="dosbox-canvas"]');
+  await page.waitForSelector('[data-testid="game-loaded"]', { timeout: 15000 });
+  
+  const loadTime = Date.now() - startTime;
+  
+  // Verify game loads within acceptable time
+  expect(loadTime).toBeLessThan(10000); // 10 seconds max
+  
+  // Check memory usage
+  const metrics = await page.evaluate(() => {
+    return {
+      memory: (performance as any).memory?.usedJSHeapSize || 0,
+      timing: performance.timing.loadEventEnd - performance.timing.navigationStart
+    };
+  });
+  
+  expect(metrics.memory).toBeLessThan(100 * 1024 * 1024); // Less than 100MB
+});
+```
 
-  # Ejecutar con salida a InfluxDB
-  k6 run --out influxdb=http://localhost:8086/k6 k6/load-test.js
+## Ejecución en CI
 
-  # Test de spike (picos de tráfico)
-  k6 run k6/spike-test.js
-  ```
+Los tests E2E se ejecutan en GitHub Actions contra un cluster efímero de Kubernetes con servicios mock.
 
-</Card>
+<Tabs>
+  <Tab title="github-actions-e2e.yml">
+    ```yaml
+    name: E2E Tests
 
-## Testing Local con Minikube
+    on:
+      pull_request:
+        branches: [main, develop]
+      push:
+        branches: [main]
 
-### Setup del Entorno Local
+    jobs:
+      e2e-tests:
+        runs-on: ubuntu-latest
+        
+        services:
+          redis:
+            image: redis:7
+            options: >-
+              --health-cmd "redis-cli ping"
+              --health-interval 10s
+              --health-timeout 5s
+              --health-retries 5
+          
+          postgres:
+            image: postgres:15
+            env:
+              POSTGRES_PASSWORD: postgres
+              POSTGRES_DB: retrogame_test
+            options: >-
+              --health-cmd pg_isready
+              --health-interval 10s
+              --health-timeout 5s
+              --health-retries 5
 
-```bash
+        steps:
+          - uses: actions/checkout@v4
+          
+          - name: Setup Node.js
+            uses: actions/setup-node@v4
+            with:
+              node-version: '18'
+              cache: 'npm'
+          
+          - name: Install dependencies
+            run: npm ci
+          
+          - name: Setup test database
+            run: |
+              npm run db:migrate:test
+              npm run db:seed:test
+            env:
+              DATABASE_URL: postgresql://postgres:postgres@localhost:5432/retrogame_test
+          
+          - name: Install Playwright
+            run: npx playwright install --with-deps
+          
+          - name: Start application
+            run: |
+              npm run build
+              npm start &
+              sleep 10
+            env:
+              NODE_ENV: test
+              DATABASE_URL: postgresql://postgres:postgres@localhost:5432/retrogame_test
+              REDIS_URL: redis://localhost:6379
+          
+          - name: Run E2E tests
+            run: npx playwright test
+          
+          - name: Run API tests with Newman
+            run: npx newman run ./postman/RetroGameCloud-API.json -e ./postman/environments/ci.json
+          
+          - name: Upload test results
+            uses: actions/upload-artifact@v4
+            if: always()
+            with:
+              name: e2e-results
+              path: |
+                playwright-report/
+                test-results/
+                newman-results.xml
+    ```
+  </Tab>
 
+  <Tab title="docker-compose.test.yml">
+    ```yaml
+    version: '3.8'
+    
+    services:
+      app-test:
+        build:
+          context: .
+          dockerfile: Dockerfile.test
+        ports:
+          - "3000:3000"
+        environment:
+          - NODE_ENV=test
+          - DATABASE_URL=postgresql://postgres:postgres@db-test:5432/retrogame_test
+          - REDIS_URL=redis://redis-test:6379
+        depends_on:
+          - db-test
+          - redis-test
+        volumes:
+          - ./test-results:/app/test-results
+      
+      db-test:
+        image: postgres:15
+        environment:
+          POSTGRES_DB: retrogame_test
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - "
+</Tab>
+</Tabs>
 ```

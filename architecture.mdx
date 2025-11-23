@@ -1,7 +1,6 @@
 ---
 title: 2.1. Arquitectura del Sistema
-description: Visión general de la arquitectura de microservicios cloud-native de Retro
-  Game Hub desplegada en AWS EKS
+description: Visión general de la arquitectura de microservicios cloud-native de Retro Game Hub desplegada en AWS EKS, incluyendo decisiones arquitectónicas y justificaciones técnicas
 icon: file-lines
 ---
 
@@ -64,7 +63,6 @@ graph TD
     L --> N
     A -.-> P
     M -.-> P
-
 ```
 
 ## Arquitectura por Capas Detallada
@@ -73,368 +71,181 @@ graph TD
 Esta capa maneja todo el tráfico entrante y la distribución de contenido:
 
 - **CloudFront CDN**: Distribución global de contenido estático y assets de juegos
-
-- **Application Load Balancer**: Terminación SSL/TLS y balanceado de carga
+- **Application Load Balancer**: Terminación SSL/TLS y balanceo de carga
 
 ### 2. Capa de Gateway
-Proporciona enrutamiento, autenticación y control de acceso:
-
-- **Kong API Gateway**: Enrutamiento inteligente, rate limiting, y middleware
+Proporciona autenticación, autorización y enrutamiento:
 
 - **GitHub OAuth2 Proxy**: Autenticación para herramientas de monitoreo
+- **Kong API Gateway**: Gestión de APIs, rate limiting y enrutamiento
 
 ### 3. Capa de Observabilidad
-Monitoreo y observabilidad del sistema:
-
-- **Prometheus**: Recolección de métricas de todos los servicios
+Stack de monitoreo y alertas:
 
 - **Grafana**: Visualización de métricas y dashboards
-
-- **AlertManager**: Gestión de alertas y notificaciones
+- **Prometheus**: Recolección y almacenamiento de métricas
+- **AlertManager**: Sistema de alertas y notificaciones
 
 ### 4. Capa de Aplicación
 Microservicios desplegados en EKS:
 
-<CardGroup cols={2}>
-  <Card title="Auth Service" icon="shield">
-    - Generación/validación de tokens JWT
-    - Autenticación de usuarios
-    - Gestión de sesiones
-    - Puerto: 3001
-  </Card>
-
-  <Card title="Game Catalog Service" icon="gamepad">
-    - Gestión de metadatos de juegos
-    - Listado de juegos disponibles
-    - Categorización y búsqueda
-    - Puerto: 3002
-  </Card>
-
-  <Card title="Score Service" icon="trophy">
-    - Envío y validación de puntuaciones
-    - Publicación de eventos de scoring
-    - Prevención de cheating
-    - Puerto: 3003
-  </Card>
-
-  <Card title="Ranking Service" icon="ranking-star">
-    - Generación de tablas de posiciones
-    - Rankings globales y por juego
-    - Cache de rankings frecuentes
-    - Puerto: 3004
-  </Card>
-
-  <Card title="User Service" icon="user">
-    - Gestión de perfiles de usuario
-    - Preferencias y configuración
-    - Historial de juegos
-    - Puerto: 3005
-  </Card>
-
-  <Card title="Frontend Static" icon="browser">
-    - Interfaz web estática
-    - Integración con js-dos emulator
-    - Assets de frontend
-  </Card>
-</CardGroup>
+- **Auth Service (3001)**: Autenticación y autorización de usuarios
+- **Game Catalog Service (3002)**: Gestión del catálogo de juegos
+- **Score Service (3003)**: Manejo de puntuaciones
+- **Ranking Service (3004)**: Generación de rankings
+- **User Service (3005)**: Gestión de perfiles de usuario
+- **Frontend Static**: Interfaz web con emulador js-dos
 
 ### 5. Capa de Datos
-Almacenamiento persistente y cache:
+Almacenamiento persistente y caché:
 
-- **PostgreSQL RDS**: Base de datos principal para usuarios, juegos, puntuaciones
+- **PostgreSQL RDS**: Base de datos principal relacional
+- **Redis Cache**: Caché para rankings y sesiones
+- **S3 Bucket**: Almacenamiento de assets de juegos y archivos estáticos
 
-- **Redis Cache**: Cache de rankings y sesiones de usuario
+## Registros de Decisiones Arquitectónicas (ADR)
 
-- **S3 Bucket**: Almacenamiento de archivos .jsdos y contenido estático
+### ADR-001: Selección de Kong como API Gateway
 
-## Infraestructura como Código
+**Estado**: Aceptada
 
-### AWS EKS Cluster
+**Contexto**: Necesitábamos un API Gateway para gestionar autenticación, rate limiting y enrutamiento entre microservicios.
 
-```yaml
-Cluster Configuration:
+**Decisión**: Kong Gateway open-source con plugins de autenticación JWT.
 
-- Kubernetes Version: 1.28
+**Consecuencias**:
+- **Positivas**: Escalable, plugins extensibles, comunidad activa, alto rendimiento
+- **Negativas**: Curva de aprendizaje, requiere base de datos PostgreSQL
 
-- Node Groups:
-  - System: t3.medium (2-4 nodes)
-  - Application: t3.large (2-6 nodes)
+### ADR-002: Amazon EKS vs Amazon ECS
 
-- Auto Scaling: Habilitado
+**Estado**: Aceptada
 
-- VPC: Private subnets con NAT Gateway
+**Contexto**: Evaluamos entre EKS (Kubernetes gestionado) y ECS (servicio de contenedores de AWS) para orquestar nuestros microservicios.
 
-```
+**Decisión**: Amazon EKS con nodos gestionados.
 
-### Networking
+**Consecuencias**:
+- **Positivas**: Estándar de la industria, portabilidad multi-cloud, ecosistema rico de herramientas, mejor para equipos con experiencia en Kubernetes
+- **Negativas**: Mayor complejidad operacional, costo más alto que ECS, curva de aprendizaje pronunciada
 
-```yaml
-VPC Configuration:
+### ADR-003: PostgreSQL vs MongoDB
 
-- CIDR: 10.0.0.0/16
+**Estado**: Aceptada
 
-- Public Subnets: 10.0.1.0/24, 10.0.2.0/24
+**Contexto**: Selección de base de datos principal para almacenar datos de usuarios, juegos y puntuaciones.
 
-- Private Subnets: 10.0.10.0/24, 10.0.20.0/24
+**Decisión**: PostgreSQL en Amazon RDS con Multi-AZ deployment.
 
-- Availability Zones: Multi-AZ deployment
+**Consecuencias**:
+- **Positivas**: ACID compliance, consultas complejas con SQL, madurez del ecosistema, excelente soporte para JSON, alta disponibilidad con Multi-AZ
+- **Negativas**: Escalado horizontal más complejo que NoSQL, requiere diseño de esquema más rígido
 
-```
+### ADR-004: Redis para Caché y Sesiones
 
-## Flujo de Datos Típico
+**Estado**: Aceptada
 
-### 1. Carga de Juego
+**Contexto**: Necesidad de una solución de caché de alto rendimiento para rankings en tiempo real y gestión de sesiones de usuario.
 
-```mermaid
-sequenceDiagram
-    participant U as Usuario
-    participant CF as CloudFront
-    participant FE as Frontend
-    participant GW as Kong Gateway
-    participant GC as Game Catalog
-    participant S3 as S3 Assets
+**Decisión**: Amazon ElastiCache para Redis en configuración de cluster.
 
-    U->>CF: Solicita página de juego
-    CF->>FE: Sirve HTML/CSS/JS
-    FE->>GW: GET /games/{id}/metadata
-    GW->>GC: Enruta solicitud
-    GC->>FE: Retorna metadatos
-    FE->>S3: Descarga archivo .jsdos
-    S3->>FE: Archivo del juego
-    FE->>U: Inicia emulador
+**Consecuencias**:
+- **Positivas**: Rendimiento extremadamente alto, estructuras de datos ricas, persistencia opcional, pub/sub integrado
+- **Negativas**: Datos en memoria (más costoso), requiere gestión de memoria cuidadosa
 
-```
+### ADR-005: Prometheus y Grafana para Observabilidad
 
-### 2. Envío de Puntuación
+**Estado**: Aceptada
 
-```mermaid
-sequenceDiagram
-    participant U as Usuario
-    participant FE as Frontend
-    participant GW as Kong Gateway
-    participant AS as Auth Service
-    participant SS as Score Service
-    participant RS as Ranking Service
-    participant DB as PostgreSQL
-    participant RC as Redis Cache
+**Contexto**: Necesidad de un stack de monitoreo robusto para microservicios en Kubernetes.
 
-    U->>FE: Finaliza juego con score
-    FE->>GW: POST /scores (con JWT)
-    GW->>AS: Valida token
-    AS->>GW: Token válido
-    GW->>SS: Enruta score
-    SS->>DB: Guarda puntuación
-    SS->>RS: Evento: nueva puntuación
-    RS->>RC: Actualiza cache de rankings
-    SS->>FE: Confirmación
-    FE->>U: Muestra resultado
+**Decisión**: Prometheus para métricas, Grafana para visualización, AlertManager para alertas.
 
-```
+**Consecuencias**:
+- **Positivas**: Estándar de facto para Kubernetes, integración nativa, modelo de datos de series temporales, alertas flexibles
+- **Negativas**: Almacenamiento local (no distribuido nativamente), requiere configuración de retention policies
 
-## Características de la Arquitectura
+### ADR-006: js-dos para Emulación de Juegos Retro
 
-### Escalabilidad
+**Estado**: Aceptada
 
-- **Horizontal**: Auto-scaling de pods en EKS
+**Contexto**: Necesidad de ejecutar juegos DOS clásicos directamente en el navegador.
 
-- **Vertical**: Ajuste dinámico de recursos por servicio
+**Decisión**: js-dos como emulador web basado en EmDOSBox.
 
-- **CDN**: Distribución global de contenido estático
+**Consecuencias**:
+- **Positivas**: Ejecución en navegador sin plugins, compatibilidad amplia con juegos DOS, configuración relativamente simple
+- **Negativas**: Rendimiento limitado comparado con emuladores nativos, dependiente de capacidades del navegador
 
-### Alta Disponibilidad
+## Patrones Arquitectónicos Implementados
 
-- **Multi-AZ**: Despliegue en múltiples zonas de disponibilidad
+### 1. API Gateway Pattern
+Kong actúa como punto de entrada único, manejando:
+- Autenticación y autorización
+- Rate limiting y throttling
+- Enrutamiento inteligente
+- Transformación de requests/responses
 
-- **Load Balancing**: Distribución de carga entre instancias
+### 2. Database per Service
+Cada microservicio mantiene su propio dominio de datos:
+- **Auth Service**: Tokens, sesiones
+- **User Service**: Perfiles, preferencias
+- **Game Catalog**: Metadata de juegos
+- **Score Service**: Puntuaciones históricas
+- **Ranking Service**: Rankings calculados (caché)
 
-- **Health Checks**: Monitoreo continuo de salud de servicios
-
-### Seguridad
-
-- **Network Policies**: Aislamiento de red entre microservicios
-
-- **JWT Authentication**: Autenticación stateless
-
-- **SSL/TLS**: Cifrado en tránsito
-
-- **VPC**: Red privada virtual aislada
-
-### Observabilidad
-
-- **Metrics**: Prometheus para métricas de aplicación e infraestructura
-
-- **Logs**: Agregación centralizada de logs
-
-- **Tracing**: Seguimiento de requests distribuidos
-
-- **Alerting**: Notificaciones proactivas de problemas
-
-Esta arquitectura permite que Retro Game Hub sea altamente escalable, mantenible y resiliente, proporcionando una experiencia de usuario óptima mientras facilita el desarrollo y operación del sistema.
-
-## Arquitectura de Componentes
-
-```mermaid
-graph LR
-    subgraph Frontend
-        UI[Interfaz Web]
-        JSDOS[JS-DOS Emulator]
-    end
-
-    subgraph Gateway
-        Kong[Kong API Gateway]
-        OAuth[OAuth2 Proxy]
-    end
-
-    subgraph Microservicios
-        Auth[Auth Service]
-        User[User Service]
-        Catalog[Game Catalog]
-        Score[Score Service]
-        Ranking[Ranking Service]
-    end
-
-    subgraph Datos
-        DB[(PostgreSQL)]
-        S3[S3 Storage]
-    end
-
-    UI --> Kong
-    Kong --> OAuth
-    OAuth --> Auth
-    Kong --> User
-    Kong --> Catalog
-    Kong --> Score
-    Kong --> Ranking
-    Auth --> DB
-    User --> DB
-    Catalog --> S3
-    Score --> DB
-    Ranking --> DB
-```
-
-
-
-```mermaid
-graph LR
-    subgraph Frontend
-        UI[Interfaz Web]
-        JSDOS[JS-DOS Emulator]
-    end
-
-    subgraph Gateway
-        Kong[Kong API Gateway]
-        OAuth[OAuth2 Proxy]
-    end
-
-    subgraph Microservicios
-        Auth[Auth Service]
-        User[User Service]
-        Catalog[Game Catalog]
-        Score[Score Service]
-        Ranking[Ranking Service]
-    end
-
-    subgraph Datos
-        DB[(PostgreSQL)]
-        S3[S3 Storage]
-    end
-
-    UI --> Kong
-    Kong --> OAuth
-    OAuth --> Auth
-    Kong --> User
-    Kong --> Catalog
-    Kong --> Score
-    Kong --> Ranking
-    Auth --> DB
-    User --> DB
-    Catalog --> S3
-    Score --> DB
-    Ranking --> DB
-
-```
-
-
-
-```mermaid
-graph LR
-    subgraph Frontend
-        UI[Interfaz Web]
-        JSDOS[JS-DOS Emulator]
-    end
-
-    subgraph Gateway
-        Kong[Kong API Gateway]
-        OAuth[OAuth2 Proxy]
-    end
-
-    subgraph Microservicios
-        Auth[Auth Service]
-        User[User Service]
-        Catalog[Game Catalog]
-        Score[Score Service]
-        Ranking[Ranking Service]
-    end
-
-    subgraph Datos
-        DB[(PostgreSQL)]
-        S3[S3 Storage]
-    end
-
-    UI --> Kong
-    Kong --> OAuth
-    OAuth --> Auth
-    Kong --> User
-    Kong --> Catalog
-    Kong --> Score
-    Kong --> Ranking
-    Auth --> DB
-    User --> DB
-    Catalog --> S3
-    Score --> DB
-    Ranking --> DB
-
-```
-
-
-
-```mermaid
-graph LR
-    subgraph Frontend
-        UI[Interfaz Web]
-        JSDOS[JS-DOS Emulator]
-    end
-
-    subgraph Gateway
-        Kong[Kong API Gateway]
-        OAuth[OAuth2 Proxy]
-    end
-
-    subgraph Microservicios
-        Auth[Auth Service]
-        User[User Service]
-        Catalog[Game Catalog]
-        Score[Score Service]
-        Ranking[Ranking Service]
-    end
-
-    subgraph Datos
-        DB[(PostgreSQL)]
-        S3[S3 Storage]
-    end
-
-    UI --> Kong
-    Kong --> OAuth
-    OAuth --> Auth
-    Kong --> User
-    Kong --> Catalog
-    Kong --> Score
-    Kong --> Ranking
-    Auth --> DB
-    User --> DB
-    Catalog --> S3
-    Score --> DB
-    Ranking --> DB
-
-```
-
+### 3. CQRS (Command Query Responsibility Segregation)
+Separación entre operaciones de escritura y lectura:
+- Comandos: Escrituras en PostgreSQL
+- Queries: Lecturas optimizadas desde Redis cache
+
+### 4. Circuit Breaker Pattern
+Implementado en Kong y entre servicios para:
+- Prevenir cascadas de fallos
+- Degradación elegante de funcionalidad
+- Recuperación automática
+
+### 5. Event-Driven Architecture
+Comunicación asíncrona entre servicios:
+- Eventos de puntuaciones → Actualización de rankings
+- Eventos de usuario → Invalidación de caché
+- Eventos de juegos → Actualización de catálogo
+
+## Consideraciones de Seguridad
+
+### Autenticación y Autorización
+- JWT tokens gestionados por Auth Service
+- OAuth2 proxy para herramientas administrativas
+- Principio de menor privilegio en RBAC de Kubernetes
+
+### Seguridad de Red
+- VPC con subnets privadas para EKS
+- Security Groups restrictivos
+- Network Policies de Kubernetes
+- TLS end-to-end
+
+### Gestión de Secretos
+- AWS Secrets Manager para credenciales de BD
+- Kubernetes Secrets para configuración sensible
+- Rotación automática de secretos
+
+## Escalabilidad y Rendimiento
+
+### Escalado Horizontal
+- Horizontal Pod Autoscaler (HPA) basado en CPU/memoria
+- Cluster Autoscaler para nodos de EKS
+- Réplicas múltiples de servicios críticos
+
+### Optimizaciones de Rendimiento
+- CloudFront para CDN global
+- Redis para caché de alta velocidad
+- Connection pooling en servicios de BD
+- Compresión gzip en Kong
+
+### Manejo de Carga
+- Load balancing inteligente con Kong
+- Circuit breakers para protección
+- Rate limiting por usuario/IP
+- Graceful degradation de funcionalidades
+
+Esta arquitectura proporciona una base sólida, escalable y mantenible para Retro Game Hub, con decisiones técnicas bien documentadas que facilitan el onboarding de nuevos desarrolladores y la evolución futura del sistema.

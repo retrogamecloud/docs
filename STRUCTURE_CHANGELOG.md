@@ -1,15 +1,15 @@
 # 📋 Reorganización de Estructura de Documentación
 
-**Fecha**: 2025-11-23 15:30:14  
+**Fecha**: 2025-11-23 16:24:53  
 **Generado por**: Claude Sonnet 4.5
 
 ## 📊 Resumen de Cambios
 
-Se ha reorganizado la estructura completa con criterios de flujo lógico de aprendizaje. En Documentación: movido 'Desarrollo Local' al final (grupo 8) ya que es más útil después de entender la arquitectura. En Referencia API: creado grupo 'Visión General' al inicio, reorganizados todos los servicios poniendo primero la especificación completa y luego los endpoints individuales, y movido 'Frontend' al final. Se han renumerado todos los grupos consecutivamente del 1 al 8 en Documentación y del 1 al 9 en Referencia API.
+Se ha reorganizado la estructura para seguir un flujo lógico más intuitivo. En la pestaña Documentación se mejoró la nomenclatura de grupos (Backend → Microservicios Backend, Infraestructura → Infraestructura AWS, Despliegue y CI/CD → CI/CD y GitOps, Desarrollo Local → Entorno de Desarrollo). En Referencia API se aplicó una nomenclatura más consistente (Visión General → Introducción, nombres de grupos usando 'Servicio de' para homogeneidad). Se eliminó la redundancia 'Catálogo de Juegos' simplificándolo a 'Catálogo'. Se reorganizó el último grupo de Frontend antes de Infraestructura para mantener coherencia conceptual (capas de aplicación antes de infraestructura).
 
 ## 🎯 Justificación
 
-La nueva organización sigue el principio pedagógico de ir de lo general a lo específico. En Documentación, el usuario primero entiende qué es el proyecto (Inicio), luego su arquitectura general, después los componentes (Frontend/Backend), seguridad, infraestructura, despliegue y finalmente cómo desarrollar localmente. En Referencia API, se comienza con una visión general del backend completo, seguido de cada servicio con su especificación completa primero y endpoints específicos después, lo que facilita la consulta. Se eliminan redundancias al consolidar páginas relacionadas bajo el mismo grupo y se mejora la navegabilidad con nombres más descriptivos.
+La reorganización mejora la experiencia del usuario siguiendo estos principios: (1) Nomenclatura consistente y profesional en todos los grupos; (2) Flujo conceptual claro de arriba hacia abajo (introducción → aplicación → servicios → infraestructura); (3) Eliminación de redundancias en nombres; (4) Agrupación semántica mejorada manteniendo la numeración consecutiva; (5) Mayor claridad en la distinción entre documentación conceptual y referencia técnica detallada. La estructura facilita que usuarios nuevos encuentren rápidamente la información de inicio, mientras que desarrolladores experimentados pueden acceder directamente a referencias técnicas específicas.
 
 ---
 

@@ -45,6 +45,66 @@ El servicio de rankings proporciona tablas de clasificación (leaderboards) para
   </Card>
 </CardGroup>
 
+## Flujo de Actualización de Rankings
+
+La sincronización entre scores y rankings es un proceso crítico que involucra múltiples servicios:
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Auth as Auth Service
+    participant Scores as Scores Service
+    participant Ranking as Ranking Service
+    participant Redis
+    participant DB as PostgreSQL
+
+    Client->>Auth: Validate JWT
+    Auth-->>Client: Token válido
+    
+    Client->>Scores: POST /scores
+    Scores->>DB: Save score
+    DB-->>Scores: Score saved
+    
+    Note over Scores,Ranking: Event-driven update
+    Scores->>Ranking: Event: new_score
+    
+    Ranking->>DB: Recalculate ranking
+    DB-->>Ranking: Updated ranking
+    
+    Ranking->>Redis: Invalidate cache keys
+    Redis-->>Ranking: Cache cleared
+    
+    Ranking->>Redis: Store new ranking
+    Redis-->>Ranking: Cached
+    
+    Scores-->>Client: Score submitted
+    
+    Note over Client,Redis: Next ranking request uses fresh cache
+    Client->>Ranking: GET /rankings/games/:slug
+    Ranking->>Redis: Check cache
+    Redis-->>Ranking: Fresh data
+    Ranking-->>Client: Updated ranking
+```
+
+### Estrategia de Invalidación de Cache
+
+<CardGroup cols={2}>
+  <Card title="Keys Afectados" icon="key">
+    **Por Score**: `ranking:game:{slug}:*`
+    
+    **Global**: `ranking:global:*`
+    
+    **Temporal**: `ranking:*:daily`, `ranking:*:weekly`
+  </Card>
+
+  <Card title="Patrón de Update" icon="refresh">
+    1. **Invalidar** cache existente
+    2. **Recalcular** ranking en DB
+    3. **Pre-cache** top rankings
+    4. **Notificar** clientes via WebSocket
+  </Card>
+</CardGroup>
+
 ## Funcionalidades Principales
 
 - **Rankings por juego**: Top 10 mejores scores por cada juego
@@ -77,75 +137,115 @@ El servicio expone los siguientes endpoints REST:
 
 <CardGroup cols={2}>
   <Card title="Rankings Temporales" icon="calendar">
-    `GET /api/rankings/games/:gameSlug/period`
+    `GET /api/rankings/games/:gameSlug/period/:period`
 
-    Rankings por período de tiempo
+    Rankings por período (daily, weekly, monthly)
   </Card>
 
-  <Card title="Posición de Usuario" icon="user">
-    `GET /api/rankings/users/:username/position`
+  <Card title="Posición del Usuario" icon="user">
+    `GET /api/rankings/games/:gameSlug/user/:userId`
 
-    Posición específica de un jugador
+    Posición específica de un usuario
   </Card>
 </CardGroup>
 
-### Documentación Detallada
+## Optimizaciones de Performance
 
-Para especificaciones completas de cada endpoint, parámetros, respuestas y ejemplos de código:
-
-<Card title="API Reference - Rankings Service" icon="book-open" href="/api-reference/rankings">
-  Ver documentación completa de endpoints, schemas y ejemplos de implementación
-</Card>
-
-## Ejemplo de Integración
-
-```javascript
-// Cliente para consultar rankings
-const rankingsClient = {
-  async getGameRanking(gameSlug) {
-    const response = await fetch(`/api/rankings/games/${gameSlug}`);
-    return response.json();
-  },
-
-  async getGlobalRanking(limit = 10) {
-    const response = await fetch(`/api/rankings/global?limit=${limit}`);
-    return response.json();
-  },
-
-  async getUserPosition(username, gameSlug) {
-    const response = await fetch(`/api/rankings/users/${username}/position?game=${gameSlug}`);
-    return response.json();
-  }
-};
-
-// Ejemplo de uso
-const doomRanking = await rankingsClient.getGameRanking('doom');
-console.log('Top 3 en Doom:', doomRanking.slice(0, 3));
-
-```
-
-## Estrategia de Cache
+### Cache Strategy
 
 <CardGroup cols={2}>
-  <Card title="Cache Caliente" icon="flame">
-    **Top 10 por juego**: TTL 5 minutos
-
-    **Global top 100**: TTL 10 minutos
+  <Card title="Hot Data" icon="fire">
+    **Top 10**: Cache permanente con TTL de 1 hora
+    
+    **Invalidación**: Solo por nuevos scores en top 10
   </Card>
 
-  <Card title="Invalidación" icon="refresh-cw">
-    **Automática**: Al recibir nuevos scores
-
-    **Manual**: Endpoint de administración
+  <Card title="Cold Data" icon="snowflake">
+    **Rankings completos**: Cache bajo demanda
+    
+    **TTL**: 15 minutos para rankings extensos
   </Card>
 </CardGroup>
+
+### Estructura de Cache Redis
+
+```yaml
+# Rankings por juego (top 10)
+ranking:game:{gameSlug}:top10
+  - Sorted Set con scores y userIds
+  - TTL: 3600 segundos
+
+# Ranking global
+ranking:global:top10
+  - Sorted Set con scores agregados
+  - TTL: 3600 segundos
+
+# Rankings temporales
+ranking:game:{gameSlug}:daily:{date}
+ranking:game:{gameSlug}:weekly:{week}
+ranking:game:{gameSlug}:monthly:{month}
+  - TTL variable según período
+```
+
+## Eventos y Sincronización
+
+### Event Handling
+
+<CardGroup cols={2}>
+  <Card title="Eventos Entrantes" icon="arrow-down">
+    **new_score**: Nuevo score guardado
+    
+    **score_updated**: Score existente actualizado
+    
+    **user_banned**: Usuario baneado del ranking
+  </Card>
+
+  <Card title="Eventos Salientes" icon="arrow-up">
+    **ranking_updated**: Ranking recalculado
+    
+    **new_leader**: Nuevo líder en ranking
+    
+    **position_changed**: Cambio de posición significativo
+  </Card>
+</CardGroup>
+
+### WebSocket Notifications
+
+Para actualizaciones en tiempo real a los clientes:
+
+```javascript
+// Notificación de nuevo líder
+{
+  type: 'ranking_update',
+  gameSlug: 'snake-game',
+  event: 'new_leader',
+  data: {
+    userId: '123',
+    username: 'PlayerOne',
+    score: 15000,
+    previousLeader: 'PlayerTwo'
+  }
+}
+```
 
 ## Monitoreo y Métricas
 
-- **Latencia promedio**: < 50ms (con cache)
+<CardGroup cols={3}>
+  <Card title="Cache Performance" icon="chart-line">
+    - Hit rate de Redis
+    - Tiempo de invalidación
+    - Frecuencia de updates
+  </Card>
 
-- **Hit ratio Redis**: > 95%
+  <Card title="Ranking Stats" icon="chart-bar">
+    - Rankings más consultados
+    - Frecuencia de cambios
+    - Top jugadores activos
+  </Card>
 
-- **Consultas por segundo**: Hasta 1000 RPS
-
-- **Disponibilidad**: 99.9% SLA
+  <Card title="System Health" icon="heart-pulse">
+    - Latencia de endpoints
+    - Errores de sync
+    - Memoria Redis utilizada
+  </Card>
+</CardGroup>

@@ -13,9 +13,9 @@
       "size": 19638
     },
     "architecture.mdx": {
-      "hash": "9b672355be48640e060ad44d84a4746328f3eafc1fc065093b2292da4a635fe6",
-      "last_analyzed": "2025-11-23T15:50:53.748929",
-      "size": 9533
+      "hash": "6ea9ecec1c4b309bc85b741ebef0ca2a66e2c97713a433fb672a796ba0492256",
+      "last_analyzed": "2025-11-23T16:08:41.384867",
+      "size": 10216
     },
     "configuration.mdx": {
       "hash": "89e8bff078814672f341de43dcf58fc8c0ab791cf89d86ec797c906599431258",
@@ -324,7 +324,7 @@
     },
     "AUTO_FIXES_REPORT.md": {
       "hash": "be114aeaca6082148ae4d54043791ac296fc7e2eb5734e410de197c552b51f67",
-      "last_analyzed": "2025-11-23T15:50:53.749007",
+      "last_analyzed": "2025-11-23T16:08:41.384820",
       "size": 534
     },
     "STRUCTURE_CHANGELOG.md": {
@@ -334,17 +334,17 @@
     },
     "CHANGELOG_WIKI_2025-11-20.md": {
       "hash": "d13877754ef905f75e10e04599d08786c84a78b89b5a478d17f4b058a96099e0",
-      "last_analyzed": "2025-11-23T15:50:53.748975",
+      "last_analyzed": "2025-11-23T16:08:41.384971",
       "size": 12710
     },
     "README.md": {
       "hash": "024bf7c7673705356f681d02d8192dcae1115ccbdf621307bae295c7f89abb0b",
-      "last_analyzed": "2025-11-23T15:50:53.749073",
+      "last_analyzed": "2025-11-23T16:08:41.384933",
       "size": 1394
     },
     "BROKEN_LINKS_REPORT.md": {
       "hash": "cdfeb16c56cd104d00bc1238346d4f82405f37febd024b5aebccd3a27be458c4",
-      "last_analyzed": "2025-11-23T15:50:53.749140",
+      "last_analyzed": "2025-11-23T16:08:41.384903",
       "size": 3658
     },
     "IMPROVEMENTS.md": {
