@@ -438,6 +438,11 @@ def generate_improvements_report(analysis_result, output_path):
     if new_sections:
         report += "\n## 📁 Nuevas Secciones Propuestas\n\n"
         for section in new_sections:
+            # Validar que section sea un dict
+            if isinstance(section, str):
+                report += f"- {section}\n"
+                continue
+                
             report += f"### {section.get('name', 'Sin nombre')}\n\n"
             report += f"{section.get('description', '')}  \n\n"
             
@@ -445,7 +450,10 @@ def generate_improvements_report(analysis_result, output_path):
             if files:
                 report += "**Archivos**:\n"
                 for file in files:
-                    report += f"- `{file.get('filename', '')}`: {file.get('title', '')}  \n"
+                    if isinstance(file, dict):
+                        report += f"- `{file.get('filename', '')}`: {file.get('title', '')}  \n"
+                    else:
+                        report += f"- {file}\n"
                 report += "\n"
     
     # Diagramas necesarios
