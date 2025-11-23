@@ -1,0 +1,719 @@
+---
+title: "6.0. Bootstrap Inicial"
+description: "Configuración inicial antes de desplegar con Terraform"
+icon: "rocket-launch"
+---
+
+# Bootstrap Inicial de la Infraestructura
+
+Esta guía cubre toda la configuración necesaria **antes** de ejecutar `terraform apply`. Es crítico completar estos pasos para evitar errores y asegurar un despliegue exitoso.
+
+<Warning>
+  **Completar estos pasos es OBLIGATORIO** antes de proceder con Terraform. Saltarse el bootstrap causará fallos en el despliegue.
+</Warning>
+
+## 📋 Requisitos Previos
+
+### Sistema Operativo
+- Linux / macOS / WSL2 en Windows
+- Acceso a terminal bash/zsh
+
+### Herramientas Requeridas
+
+<Tabs>
+  <Tab title="Linux / WSL">
+    ```bash
+    # AWS CLI v2
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    unzip awscliv2.zip
+    sudo ./aws/install
+    aws --version  # Verificar >= 2.x
+    
+    # Terraform
+    wget https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip
+    unzip terraform_1.6.6_linux_amd64.zip
+    sudo mv terraform /usr/local/bin/
+    terraform --version  # Verificar >= 1.5.0
+    
+    # kubectl
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    chmod +x kubectl
+    sudo mv kubectl /usr/local/bin/
+    kubectl version --client  # Verificar >= 1.28
+    
+    # jq (para scripts)
+    sudo apt-get update && sudo apt-get install -y jq
+    
+    # git
+    sudo apt-get install -y git
+    ```
+  </Tab>
+  
+  <Tab title="macOS">
+    ```bash
+    # Usando Homebrew
+    brew install awscli terraform kubectl jq git
+    
+    # Verificar versiones
+    aws --version
+    terraform --version
+    kubectl version --client
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## 🔐 Paso 1: Configurar Cuenta AWS
+
+### 1.1 Crear Usuario IAM para Terraform
+
+<Steps>
+  <Step title="Acceder a IAM Console">
+    Inicia sesión en AWS Console → IAM → Users → **Add users**
+  </Step>
+  
+  <Step title="Configurar Usuario">
+    - **Nombre**: `terraform-deployer`
+    - **Access type**: Programmatic access ✓
+    - **Permissions**: Attach existing policies directly
+    - Seleccionar: **AdministratorAccess** (temporal para bootstrap)
+  </Step>
+  
+  <Step title="Guardar Credenciales">
+    ```bash
+    # Descargar el archivo CSV con:
+    # - Access Key ID
+    # - Secret Access Key
+    
+    # ⚠️ IMPORTANTE: Estas credenciales solo se muestran UNA VEZ
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  En producción, reemplaza `AdministratorAccess` con una política de permisos mínimos. Ver sección "IAM Policy Recommendations" más abajo.
+</Warning>
+
+### 1.2 Configurar AWS CLI
+
+```bash
+# Configurar perfil de AWS
+aws configure --profile terraform
+
+# Ingresar cuando se solicite:
+# AWS Access Key ID: <tu-access-key>
+# AWS Secret Access Key: <tu-secret-key>
+# Default region name: eu-west-1
+# Default output format: json
+
+# Verificar configuración
+aws sts get-caller-identity --profile terraform
+
+# Output esperado:
+# {
+#     "UserId": "AIDAXXXXXXXXX",
+#     "Account": "123456789012",
+#     "Arn": "arn:aws:iam::123456789012:user/terraform-deployer"
+# }
+
+# Exportar para uso en la sesión actual
+export AWS_PROFILE=terraform
+```
+
+### 1.3 Verificar Permisos
+
+```bash
+# Script de verificación de permisos
+cat > check-permissions.sh <<'EOF'
+#!/bin/bash
+
+echo "🔍 Verificando permisos de AWS..."
+
+services=("ec2" "eks" "rds" "s3" "iam" "route53" "elasticloadbalancing" "cloudfront")
+
+for service in "${services[@]}"; do
+  echo -n "Checking $service... "
+  if aws $service describe-* --max-items 1 2>/dev/null; then
+    echo "✅"
+  else
+    echo "❌ Sin permisos"
+  fi
+done
+
+echo ""
+echo "📊 Verificando cuotas de servicio..."
+aws service-quotas list-service-quotas --service-code eks | grep -A3 "Clusters"
+EOF
+
+chmod +x check-permissions.sh
+./check-permissions.sh
+```
+
+### 1.4 Verificar Límites de Servicio (Service Quotas)
+
+```bash
+# Ver límites de EKS
+aws service-quotas get-service-quota \
+  --service-code eks \
+  --quota-code L-1194D53C
+
+# Ver límites de VPC
+aws ec2 describe-account-attributes --region eu-west-1
+
+# Ver límites de Elastic IPs
+aws ec2 describe-account-attributes \
+  --attribute-names max-elastic-ips \
+  --region eu-west-1
+```
+
+<Accordion title="Límites Mínimos Requeridos">
+  | Recurso | Mínimo Requerido | Default AWS |
+  |---------|------------------|-------------|
+  | EKS Clusters | 1 | 100 |
+  | VPCs | 1 | 5 |
+  | Elastic IPs | 3 | 5 |
+  | NAT Gateways | 1 | 5 |
+  | EBS Volumes | 10 | 1000 |
+  | RDS Instances | 1 | 40 |
+  
+  <Note>
+    Si algún límite es insuficiente, solicita aumento en AWS Service Quotas Console.
+  </Note>
+</Accordion>
+
+---
+
+## 🪣 Paso 2: Configurar Backend de Terraform
+
+El backend remoto es **esencial** para:
+- ✅ Colaboración en equipo
+- ✅ Prevención de conflictos (state locking)
+- ✅ Backup automático del estado
+- ✅ Versionado del estado
+
+### 2.1 Script de Bootstrap del Backend
+
+```bash
+#!/bin/bash
+# bootstrap-terraform-backend.sh
+
+set -e  # Exit on error
+
+# Configuración
+AWS_REGION="eu-west-1"
+BUCKET_NAME="retrogame-terraform-state-$(date +%s)"  # Único con timestamp
+DYNAMODB_TABLE="terraform-lock"
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+echo "🚀 Bootstrapping Terraform Backend..."
+echo "Account ID: $ACCOUNT_ID"
+echo "Region: $AWS_REGION"
+echo "Bucket: $BUCKET_NAME"
+
+# 1. Crear bucket S3
+echo ""
+echo "📦 Creando bucket S3..."
+if [ "$AWS_REGION" = "us-east-1" ]; then
+  aws s3api create-bucket \
+    --bucket $BUCKET_NAME \
+    --region $AWS_REGION
+else
+  aws s3api create-bucket \
+    --bucket $BUCKET_NAME \
+    --region $AWS_REGION \
+    --create-bucket-configuration LocationConstraint=$AWS_REGION
+fi
+
+# 2. Habilitar versionado
+echo "🔄 Habilitando versionado..."
+aws s3api put-bucket-versioning \
+  --bucket $BUCKET_NAME \
+  --versioning-configuration Status=Enabled
+
+# 3. Habilitar encriptación
+echo "🔐 Habilitando encriptación..."
+aws s3api put-bucket-encryption \
+  --bucket $BUCKET_NAME \
+  --server-side-encryption-configuration '{
+    "Rules": [{
+      "ApplyServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+      },
+      "BucketKeyEnabled": true
+    }]
+  }'
+
+# 4. Bloquear acceso público
+echo "🔒 Bloqueando acceso público..."
+aws s3api put-public-access-block \
+  --bucket $BUCKET_NAME \
+  --public-access-block-configuration \
+    "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+
+# 5. Habilitar logging
+echo "📝 Habilitando logging..."
+aws s3api put-bucket-logging \
+  --bucket $BUCKET_NAME \
+  --bucket-logging-status '{
+    "LoggingEnabled": {
+      "TargetBucket": "'$BUCKET_NAME'",
+      "TargetPrefix": "logs/"
+    }
+  }'
+
+# 6. Crear tabla DynamoDB para locking
+echo ""
+echo "🔐 Creando tabla DynamoDB para state locking..."
+aws dynamodb create-table \
+  --table-name $DYNAMODB_TABLE \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --region $AWS_REGION \
+  --tags Key=Project,Value=RetroGameHub Key=ManagedBy,Value=Terraform
+
+# 7. Esperar a que la tabla esté activa
+echo "⏳ Esperando a que DynamoDB esté activa..."
+aws dynamodb wait table-exists --table-name $DYNAMODB_TABLE --region $AWS_REGION
+
+echo ""
+echo "✅ Backend de Terraform configurado exitosamente!"
+echo ""
+echo "📝 Añade esto a tu main.tf:"
+echo ""
+cat <<EOF
+terraform {
+  backend "s3" {
+    bucket         = "$BUCKET_NAME"
+    key            = "terraform.tfstate"
+    region         = "$AWS_REGION"
+    dynamodb_table = "$DYNAMODB_TABLE"
+    encrypt        = true
+  }
+}
+EOF
+echo ""
+echo "💾 Guardando configuración en terraform-backend.txt..."
+cat > terraform-backend.txt <<EOF
+BUCKET_NAME=$BUCKET_NAME
+DYNAMODB_TABLE=$DYNAMODB_TABLE
+AWS_REGION=$AWS_REGION
+ACCOUNT_ID=$ACCOUNT_ID
+EOF
+
+echo ""
+echo "🎉 Bootstrap completado!"
+```
+
+### 2.2 Ejecutar Bootstrap
+
+```bash
+# Descargar y ejecutar script
+chmod +x bootstrap-terraform-backend.sh
+./bootstrap-terraform-backend.sh
+
+# El script generará terraform-backend.txt con los valores
+cat terraform-backend.txt
+```
+
+<Tip>
+  Guarda `terraform-backend.txt` en un lugar seguro. Lo necesitarás para configurar Terraform.
+</Tip>
+
+---
+
+## 📝 Paso 3: Configurar Repositorio de Infraestructura
+
+### 3.1 Clonar Repositorio
+
+```bash
+# Clonar repositorio
+git clone https://github.com/retrogamecloud/infrastructure.git
+cd infrastructure/terraform/eks_test
+
+# Verificar estructura
+ls -la
+# Deberías ver: main.tf, variables.tf, vpc.tf, eks.tf, etc.
+```
+
+### 3.2 Crear terraform.tfvars
+
+```bash
+# Copiar template
+cp terraform.tfvars.example terraform.tfvars
+
+# Editar con tu editor favorito
+vim terraform.tfvars  # o nano, code, etc.
+```
+
+**Contenido mínimo de terraform.tfvars**:
+
+```hcl
+# ============================================
+# AWS Configuration
+# ============================================
+region = "eu-west-1"
+
+# ============================================
+# EKS Cluster
+# ============================================
+cluster_name = "retrogame"
+k8s_version  = "1.34"
+
+# Node Group Configuration
+node_instance_types = ["t3.medium"]  # ⚠️ Mínimo t3.medium!
+node_desired_size   = 2
+node_min_size       = 1
+node_max_size       = 4
+
+# ============================================
+# Database (RDS PostgreSQL)
+# ============================================
+db_instance_class = "db.t3.micro"
+db_name          = "retrogamedb"
+db_username      = "postgres"
+db_password      = "CHANGE_ME_SECURE_PASSWORD_123!"  # ⚠️ CAMBIAR!
+
+# ============================================
+# Domain Configuration
+# ============================================
+domain_name = "retrogamehub.games"  # ⚠️ Usar tu dominio
+
+# ============================================
+# GitHub OAuth (para monitoreo)
+# ============================================
+github_oauth_client_id     = "Ov23li..."  # ⚠️ De GitHub OAuth App
+github_oauth_client_secret = "ghp_..."    # ⚠️ De GitHub OAuth App
+
+# ============================================
+# Tags
+# ============================================
+project     = "RetroGameHub"
+environment = "production"
+```
+
+<Warning>
+  **NUNCA** hagas commit de `terraform.tfvars`. Debe estar en `.gitignore`.
+</Warning>
+
+### 3.3 Configurar Backend en main.tf
+
+```bash
+# Leer valores del bootstrap
+source terraform-backend.txt
+
+# Editar main.tf y añadir backend
+cat >> main.tf <<EOF
+
+terraform {
+  backend "s3" {
+    bucket         = "$BUCKET_NAME"
+    key            = "eks/terraform.tfstate"
+    region         = "$AWS_REGION"
+    dynamodb_table = "$DYNAMODB_TABLE"
+    encrypt        = true
+  }
+}
+EOF
+```
+
+---
+
+## 🎫 Paso 4: Configurar GitHub OAuth (Para Monitoreo)
+
+### 4.1 Crear OAuth App en GitHub
+
+<Steps>
+  <Step title="Acceder a GitHub Settings">
+    GitHub → Settings → Developer settings → OAuth Apps → **New OAuth App**
+  </Step>
+  
+  <Step title="Configurar Aplicación">
+    ```
+    Application name: Retro Game Hub Monitoring
+    Homepage URL: https://retrogamehub.games
+    Authorization callback URL: https://retrogamehub.games/oauth2/callback
+    ```
+  </Step>
+  
+  <Step title="Obtener Credenciales">
+    Después de crear, obtendrás:
+    - **Client ID**: `Ov23li...`
+    - **Client Secret**: Click en "Generate a new client secret"
+    
+    Copia ambos valores a tu `terraform.tfvars`
+  </Step>
+</Steps>
+
+### 4.2 Configurar Usuarios Autorizados
+
+En el repositorio de infraestructura, edita el ConfigMap de OAuth2 Proxy para especificar qué usuarios pueden acceder:
+
+```yaml
+# En terraform/eks_test/monitoring.tf
+# Buscar oauth2-proxy configmap y modificar:
+
+data:
+  authenticated-emails-list: |
+    tu-email@gmail.com
+    otro-dev@company.com
+```
+
+---
+
+## 🌐 Paso 5: Configurar Dominio (Opcional pero Recomendado)
+
+### 5.1 Si Tienes un Dominio Existente
+
+<Accordion title="Opción A: Dominio en Route53">
+  Si compraste el dominio en Route53, ya tienes la Hosted Zone creada automáticamente. Solo necesitas anotar el ID:
+  
+  ```bash
+  aws route53 list-hosted-zones
+  ```
+</Accordion>
+
+<Accordion title="Opción B: Dominio en Otro Registrador">
+  Si el dominio está en Namecheap, GoDaddy, etc.:
+  
+  1. Terraform creará la Hosted Zone automáticamente
+  2. Después del `terraform apply`, obtendrás los nameservers
+  3. Actualiza los nameservers en tu registrador con los de AWS
+  
+  ```bash
+  # Después de terraform apply
+  terraform output route53_nameservers
+  ```
+</Accordion>
+
+### 5.2 Si NO Tienes Dominio
+
+Puedes usar la URL del Application Load Balancer directamente:
+
+```hcl
+# En terraform.tfvars, comenta o deja vacío
+domain_name = ""  # Se usará ALB DNS
+```
+
+<Note>
+  Sin dominio personalizado, no tendrás:
+  - ❌ Certificado SSL/TLS (HTTPS)
+  - ❌ URLs amigables
+  - ❌ Acceso vía dominio (usarás IP del ALB)
+</Note>
+
+---
+
+## 💰 Paso 6: Configurar Presupuesto AWS (Recomendado)
+
+Para evitar sorpresas en la factura:
+
+```bash
+# Crear presupuesto de $200/mes
+aws budgets create-budget \
+  --account-id $(aws sts get-caller-identity --query Account --output text) \
+  --budget file://budget.json
+
+# Contenido de budget.json
+cat > budget.json <<'EOF'
+{
+  "BudgetName": "RetroGameHub-Monthly",
+  "BudgetLimit": {
+    "Amount": "200",
+    "Unit": "USD"
+  },
+  "TimeUnit": "MONTHLY",
+  "BudgetType": "COST",
+  "CostFilters": {
+    "TagKeyValue": ["Project$RetroGameHub"]
+  }
+}
+EOF
+```
+
+---
+
+## ✅ Checklist Final Pre-Despliegue
+
+Antes de ejecutar `terraform apply`, verifica:
+
+<Checklist>
+  - [ ] AWS CLI configurado y funcionando (`aws sts get-caller-identity`)
+  - [ ] Usuario IAM con permisos suficientes
+  - [ ] Límites de servicio verificados (Service Quotas)
+  - [ ] Backend de Terraform creado (S3 + DynamoDB)
+  - [ ] Repositorio clonado y en la carpeta correcta
+  - [ ] `terraform.tfvars` configurado con valores reales
+  - [ ] Backend configurado en `main.tf`
+  - [ ] GitHub OAuth App creada (si usas monitoreo)
+  - [ ] Dominio registrado o decisión de usar ALB DNS
+  - [ ] Presupuesto AWS configurado (opcional pero recomendado)
+  - [ ] `.gitignore` incluye `terraform.tfvars` y `*.tfstate`
+  - [ ] Herramientas instaladas: terraform, kubectl, aws-cli
+</Checklist>
+
+---
+
+## 🚀 Próximos Pasos
+
+Una vez completado el bootstrap:
+
+<CardGroup cols={2}>
+  <Card title="Inicializar Terraform" icon="terminal" href="/infrastructure/terraform-backend">
+    ```bash
+    terraform init
+    ```
+  </Card>
+  
+  <Card title="Validar Configuración" icon="check">
+    ```bash
+    terraform validate
+    terraform plan
+    ```
+  </Card>
+  
+  <Card title="Desplegar Infraestructura" icon="rocket" href="/deployment">
+    ```bash
+    terraform apply
+    ```
+  </Card>
+  
+  <Card title="Configurar kubectl" icon="dharmachakra">
+    ```bash
+    aws eks update-kubeconfig \
+      --region eu-west-1 \
+      --name retrogame
+    ```
+  </Card>
+</CardGroup>
+
+---
+
+## 🆘 Troubleshooting Bootstrap
+
+<AccordionGroup>
+  <Accordion title="Error: Access Denied al crear S3 bucket">
+    **Causa**: Permisos IAM insuficientes
+    
+    **Solución**:
+    ```bash
+    # Verificar permisos
+    aws iam get-user-policy --user-name terraform-deployer --policy-name TerraformPolicy
+    
+    # Asegurar que el usuario tenga s3:CreateBucket
+    ```
+  </Accordion>
+  
+  <Accordion title="Error: El nombre del bucket ya existe">
+    **Causa**: Nombres de buckets S3 son globalmente únicos
+    
+    **Solución**: El script usa timestamp para evitar colisiones. Si persiste:
+    ```bash
+    # Añadir sufijo aleatorio
+    BUCKET_NAME="retrogame-terraform-state-$RANDOM-$(date +%s)"
+    ```
+  </Accordion>
+  
+  <Accordion title="Error: DynamoDB table already exists">
+    **Solución**: Usar la tabla existente o eliminarla primero
+    ```bash
+    # Ver tablas existentes
+    aws dynamodb list-tables
+    
+    # Eliminar tabla (⚠️ perderás locks activos)
+    aws dynamodb delete-table --table-name terraform-lock
+    ```
+  </Accordion>
+  
+  <Accordion title="Error: Invalid credentials">
+    **Solución**:
+    ```bash
+    # Re-configurar AWS CLI
+    aws configure --profile terraform
+    
+    # Verificar
+    aws sts get-caller-identity --profile terraform
+    
+    # Exportar perfil
+    export AWS_PROFILE=terraform
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## 📚 Recursos Adicionales
+
+<CardGroup cols={3}>
+  <Card title="Backend de Terraform" icon="database" href="/infrastructure/terraform-backend">
+    Detalles del backend remoto
+  </Card>
+  
+  <Card title="Variables de Terraform" icon="sliders" href="/infrastructure/terraform-variables">
+    Referencia completa de variables
+  </Card>
+  
+  <Card title="Despliegue Completo" icon="rocket" href="/deployment">
+    Guía de despliegue paso a paso
+  </Card>
+</CardGroup>
+
+---
+
+## 📞 IAM Policy Recommendations
+
+Para producción, reemplaza `AdministratorAccess` con esta política de permisos mínimos:
+
+<Accordion title="terraform-deployer-policy.json">
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:*",
+        "eks:*",
+        "rds:*",
+        "s3:*",
+        "cloudfront:*",
+        "route53:*",
+        "acm:*",
+        "elasticloadbalancing:*",
+        "autoscaling:*",
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:PassRole",
+        "iam:CreateInstanceProfile",
+        "iam:DeleteInstanceProfile",
+        "iam:AddRoleToInstanceProfile",
+        "iam:RemoveRoleFromInstanceProfile",
+        "logs:*",
+        "kms:*",
+        "elasticache:*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+Aplicar política:
+```bash
+aws iam put-user-policy \
+  --user-name terraform-deployer \
+  --policy-name TerraformDeployerPolicy \
+  --policy-document file://terraform-deployer-policy.json
+```
+</Accordion>
+
+<Warning>
+  Ajusta los permisos según tus necesidades específicas siguiendo el principio de menor privilegio.
+</Warning>

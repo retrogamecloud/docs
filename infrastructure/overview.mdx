@@ -8,6 +8,94 @@ icon: "file-lines"
 
 La infraestructura de Retro Game Hub está completamente gestionada con **Terraform**, asegurando despliegues reproducibles y versionados.
 
+<Warning>
+  **Antes de desplegar**: Completa el [Bootstrap Inicial](/infrastructure/bootstrap) para configurar credenciales AWS, backend remoto y variables.
+</Warning>
+
+## Flujo de Despliegue
+
+```mermaid
+graph LR
+    A[Bootstrap] -->|1. AWS Config| B[terraform init]
+    B -->|2. Planear| C[terraform plan]
+    C -->|3. Aplicar| D[VPC + EKS]
+    D -->|4. kubectl| E[Acceso al Cluster]
+    E -->|5. Terraform| F[ArgoCD Instalado]
+    F -->|6. GitOps| G[Apps Desplegadas]
+    
+    style A fill:#ff6b6b
+    style D fill:#4ecdc4
+    style F fill:#bf3989
+    style G fill:#1a7f37
+```
+
+### Orden de Despliegue Recomendado
+
+<Steps>
+  <Step title="Bootstrap (Prerequisito)">
+    Configurar backend de Terraform, credenciales AWS, variables
+    
+    Ver [Guía de Bootstrap](/infrastructure/bootstrap)
+  </Step>
+  
+  <Step title="Terraform Init">
+    ```bash
+    terraform init
+    ```
+    Inicializa provider y backend remoto S3
+  </Step>
+  
+  <Step title="Terraform Apply (Una Sola Vez)">
+    ```bash
+    terraform apply
+    ```
+    Terraform resuelve dependencias automáticamente:
+    1. VPC y networking (5 min)
+    2. EKS cluster (10 min)
+    3. RDS, S3, CloudFront (5 min)
+    4. Monitoring stack (3 min)
+    5. ArgoCD (2 min)
+  </Step>
+  
+  <Step title="Configurar kubectl">
+    ```bash
+    aws eks update-kubeconfig --region eu-west-1 --name retrogame
+    ```
+  </Step>
+  
+  <Step title="Configurar ArgoCD Applications">
+    ```bash
+    kubectl apply -f argocd/apps/
+    ```
+    ArgoCD ahora gestiona los despliegues
+  </Step>
+</Steps>
+
+### Despliegue por Fases (Solo para Troubleshooting)
+
+Si necesitas desplegar componentes por separado:
+
+```bash
+# Fase 1: Networking
+terraform apply -target=module.vpc -target=aws_security_group.eks
+
+# Fase 2: EKS
+terraform apply -target=module.eks
+
+# Fase 3: Databases y Storage
+terraform apply -target=aws_db_instance.postgres -target=aws_s3_bucket.cdn
+
+# Fase 4: Monitoring y ArgoCD
+terraform apply -target=helm_release.kube_prometheus_stack -target=helm_release.argocd
+
+# Fase 5: Todo lo restante
+terraform apply
+```
+
+<Note>
+  El despliegue por fases solo es necesario si encuentras errores. En condiciones normales, `terraform apply` maneja todo.
+</Note>
+
 ## Servicios AWS Utilizados
 
 <CardGroup cols={2}>
@@ -161,6 +249,7 @@ Las instancias t3.micro son insuficientes para cargas de trabajo de EKS. Mínimo
     ```bash
     terraform apply
     ```
+    Duración: ~20-30 minutos
   </Step>
   
   <Step title="Configurar kubectl">
@@ -169,34 +258,66 @@ Las instancias t3.micro son insuficientes para cargas de trabajo de EKS. Mínimo
     ```
   </Step>
   
+  <Step title="Configurar ArgoCD">
+    ```bash
+    kubectl apply -f argocd/apps/
+    kubectl get applications -n argocd
+    ```
+    ArgoCD gestiona despliegues desde aquí
+  </Step>
+  
   <Step title="Verificar Despliegue">
     ```bash
     kubectl get nodes
     kubectl get pods --all-namespaces
     ```
+    Todo debe estar en estado Running/Healthy
   </Step>
 </Steps>
 
+Ver guía completa en [Despliegue](/deployment)
+
 ## Recursos Clave
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
+  <Card title="Bootstrap Inicial" icon="rocket-launch" href="/infrastructure/bootstrap">
+    Configuración previa al despliegue
+  </Card>
+  
+  <Card title="Backend de Terraform" icon="database" href="/infrastructure/terraform-backend">
+    S3 + DynamoDB para state management
+  </Card>
+  
+  <Card title="Variables de Terraform" icon="sliders" href="/infrastructure/terraform-variables">
+    Referencia completa de configuración
+  </Card>
+  
   <Card title="Detalles del Cluster EKS" icon="dharmachakra" href="/infrastructure/eks-cluster">
     Conoce la configuración de Kubernetes
   </Card>
+  
   <Card title="Configuración de Red" icon="network-wired" href="/infrastructure/networking">
     Entiende la VPC y security groups
   </Card>
+  
   <Card title="CDN con CloudFront" icon="cloud" href="/infrastructure/cdn-cloudfront">
     Distribución global de juegos y assets
   </Card>
+  
   <Card title="Route53 y SSL" icon="certificate" href="/infrastructure/route53-ssl">
     DNS personalizado y certificados HTTPS
   </Card>
+  
   <Card title="OAuth2 Authentication" icon="lock" href="/infrastructure/oauth2-authentication">
     Protección de herramientas con GitHub
   </Card>
+  
   <Card title="Stack de Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
     Prometheus, Grafana, y configuración OAuth
+  </Card>
+  
+  <Card title="ArgoCD y GitOps" icon="arrows-rotate" href="/infrastructure/argocd-gitops">
+    Despliegue continuo declarativo
   </Card>
 </CardGroup>
 
@@ -204,9 +325,44 @@ Las instancias t3.micro son insuficientes para cargas de trabajo de EKS. Mínimo
 
 ¿Listo para profundizar? Explora los componentes específicos de infraestructura:
 
-- [Configuración del Cluster EKS](/infrastructure/eks-cluster)
-- [Networking y Seguridad](/infrastructure/networking)
-- [CDN con S3 y CloudFront](/infrastructure/cdn-cloudfront)
-- [Route53 y Certificados SSL](/infrastructure/route53-ssl)
-- [Autenticación OAuth2 con GitHub](/infrastructure/oauth2-authentication)
-- [Monitoreo y Observabilidad](/infrastructure/monitoring)
+<CardGroup cols={3}>
+  <Card title="1. Bootstrap" icon="rocket-launch" href="/infrastructure/bootstrap">
+    Configuración inicial y prerequisitos
+  </Card>
+  
+  <Card title="2. Backend de Terraform" icon="database" href="/infrastructure/terraform-backend">
+    Estado remoto S3 + DynamoDB
+  </Card>
+  
+  <Card title="3. Variables" icon="sliders" href="/infrastructure/terraform-variables">
+    Configurar terraform.tfvars
+  </Card>
+  
+  <Card title="4. Cluster EKS" icon="dharmachakra" href="/infrastructure/eks-cluster">
+    Configuración detallada de Kubernetes
+  </Card>
+  
+  <Card title="5. Networking" icon="network-wired" href="/infrastructure/networking">
+    VPC, subnets y security
+  </Card>
+  
+  <Card title="6. CDN" icon="cloud" href="/infrastructure/cdn-cloudfront">
+    S3 y CloudFront para assets
+  </Card>
+  
+  <Card title="7. Route53" icon="globe" href="/infrastructure/route53-ssl">
+    DNS y certificados SSL
+  </Card>
+  
+  <Card title="8. OAuth2" icon="lock" href="/infrastructure/oauth2-authentication">
+    Autenticación con GitHub
+  </Card>
+  
+  <Card title="9. Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
+    Prometheus y Grafana
+  </Card>
+  
+  <Card title="10. ArgoCD" icon="arrows-rotate" href="/infrastructure/argocd-gitops">
+    GitOps y despliegue continuo
+  </Card>
+</CardGroup>

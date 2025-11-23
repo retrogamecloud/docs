@@ -8,6 +8,32 @@ icon: "file-lines"
 
 Esta guía cubre el despliegue completo de Retro Game Hub en AWS utilizando EKS, RDS, CloudFront y toda la infraestructura necesaria.
 
+<Warning>
+  **IMPORTANTE**: Antes de proceder, completa el [Bootstrap Inicial](/infrastructure/bootstrap) para configurar credenciales AWS, backend de Terraform y variables necesarias.
+</Warning>
+
+## 📊 Flujo de Despliegue Completo
+
+```mermaid
+graph TD
+    A[👨‍💻 Bootstrap Inicial] -->|Configuración| B[AWS CLI + IAM]
+    B -->|Backend| C[S3 + DynamoDB]
+    C -->|Variables| D[terraform.tfvars]
+    D -->|terraform init| E[Inicializar Terraform]
+    E -->|terraform apply| F[Crear VPC + EKS]
+    F -->|20 min| G[Cluster EKS Ready]
+    G -->|kubectl config| H[Configurar Acceso]
+    H -->|Terraform instala| I[ArgoCD en Cluster]
+    I -->|ArgoCD detecta| J[Repo kubernetes/]
+    J -->|ArgoCD despliega| K[Microservicios]
+    K -->|Verificar| L[✅ Sistema Corriendo]
+    
+    style A fill:#ff6b6b
+    style F fill:#4ecdc4
+    style I fill:#bf3989
+    style L fill:#4ecdc4
+```
+
 ## 📋 Pre-requisitos
 
 ### Herramientas Requeridas
@@ -60,16 +86,57 @@ export DOMAIN="retrogamehub.games"
 
 ## 🏗️ Fase 1: Infraestructura AWS con Terraform
 
+<Note>
+  Si no completaste el bootstrap, ve a [Bootstrap Inicial](/infrastructure/bootstrap) antes de continuar.
+</Note>
+
 ### 1.1 Clonar el Repositorio
 
 ```bash
 git clone https://github.com/retrogamecloud/infrastructure.git
-cd infrastructure
+cd infrastructure/terraform/eks_test
 ```
 
-### 1.2 Configurar Variables de Terraform
+### 1.2 Verificar Backend de Terraform
 
-Crear archivo `terraform.tfvars`:
+```bash
+# Verificar que main.tf tiene configuración de backend
+grep -A 5 'backend "s3"' main.tf
+
+# Debería mostrar:
+# backend "s3" {
+#   bucket         = "retrogame-terraform-state-xxx"
+#   key            = "terraform.tfstate"
+#   region         = "eu-west-1"
+#   dynamodb_table = "terraform-lock"
+#   encrypt        = true
+# }
+```
+
+<Accordion title="¿No ves configuración de backend?">
+  Si `main.tf` no tiene backend configurado, sigue la guía de [Backend de Terraform](/infrastructure/terraform-backend) para crearlo.
+</Accordion>
+
+### 1.3 Revisar terraform.tfvars
+
+```bash
+# Verificar que terraform.tfvars existe
+ls -la terraform.tfvars
+
+# Ver contenido (¡cuidado con secrets!)
+cat terraform.tfvars
+```
+
+Variables mínimas requeridas:
+- ✅ `db_password`
+- ✅ `github_oauth_client_id`
+- ✅ `github_oauth_client_secret`
+
+<Tip>
+  Ver todas las variables disponibles en [Variables de Terraform](/infrastructure/terraform-variables)
+</Tip>
+
+### 1.4 Inicializar Terraform
 
 ```hcl
 # terraform.tfvars
@@ -103,21 +170,66 @@ project = "RetroGameCloud"
 team = "DevOps"
 ```
 
-### 1.3 Inicializar y Desplegar
+### 1.4 Inicializar Terraform
 
 ```bash
-# Inicializar Terraform
+# Inicializar Terraform con backend remoto
 terraform init
 
-# Validar configuración
+# Output esperado:
+# Initializing the backend...
+# Successfully configured the backend "s3"!
+# 
+# Terraform has been successfully initialized!
+```
+
+<Accordion title="Troubleshooting: Error inicializando backend">
+**Error: Failed to get existing workspaces**
+
+```bash
+# Verificar credenciales
+aws sts get-caller-identity
+
+# Verificar permisos en bucket
+aws s3 ls s3://retrogame-terraform-state/
+
+# Si falla, revisar política IAM (ver Bootstrap)
+```
+
+**Error: Backend configuration changed**
+
+```bash
+# Reconfigurar backend
+terraform init -reconfigure
+```
+</Accordion>
+
+### 1.5 Validar y Planear
+
+```bash
+# Validar sintaxis de archivos
 terraform validate
 
-# Revisar plan de ejecución
+# Ver plan completo de lo que se creará
 terraform plan
 
-# ⚠️ Revisar costos estimados (aprox. $200-250/mes)
-# Aplicar infraestructura (tardará ~20-30 minutos)
-terraform apply
+# Guardar plan para revisión
+terraform plan -out=tfplan
+terraform show tfplan
+```
+
+**Recursos que se crearán** (~52 recursos):
+- 1 VPC con 6 subnets (3 públicas + 3 privadas)
+- 1 Cluster EKS con addons
+- 1 Node Group (2-4 nodos t3.medium)
+- 1 Instancia RDS PostgreSQL
+- 3 Buckets S3 + 1 CloudFront distribution
+- 1 Application Load Balancer
+- 1 Hosted Zone Route53 + Certificados ACM
+- Stack de monitoreo (Prometheus, Grafana, AlertManager)
+- ArgoCD para GitOps
+
+### 1.6 Aplicar Infraestructura (⏱️ 20-30 minutos)
 
 # Guardar outputs importantes
 terraform output -json > terraform-outputs.json
@@ -329,6 +441,52 @@ curl http://$KONG_LB:8001/status
 # Verificar configuración
 kubectl exec -it deployment/kong -n backend -- kong config db_export
 ```
+
+---
+
+## 🔄 Fase 4.5: Configurar ArgoCD para GitOps
+
+<Info>
+  ArgoCD ya está instalado por Terraform en el namespace `argocd`. Ahora lo configuraremos para gestionar tus aplicaciones.
+</Info>
+
+### 4.5.1 Verificar Instalación de ArgoCD
+
+```bash
+# Ver pods de ArgoCD
+kubectl get pods -n argocd
+
+# Deberías ver varios pods Running
+# Ver servicios
+kubectl get svc -n argocd
+```
+
+### 4.5.2 Acceder a ArgoCD UI
+
+```bash
+# URL de ArgoCD
+echo "https://retrogamehub.games/argocd"
+
+# Obtener password de admin
+kubectl get secret argocd-initial-admin-secret -n argocd \
+  -o jsonpath="{.data.password}" | base64 -d
+```
+
+### 4.5.3 Crear Applications
+
+```bash
+# Aplicar definiciones de aplicaciones
+kubectl apply -f argocd/apps/
+
+# Verificar estado
+kubectl get applications -n argocd
+# NAME       SYNC STATUS   HEALTH STATUS
+# backend    Synced        Healthy
+# frontend   Synced        Healthy
+# kong       Synced        Healthy
+```
+
+Ver guía completa en [ArgoCD y GitOps](/infrastructure/argocd-gitops)
 
 ---
 
@@ -667,6 +825,48 @@ aws cloudfront create-invalidation \
 <Warning>
 Recuerda destruir la infraestructura con `terraform destroy` cuando no la necesites para evitar costos.
 </Warning>
+
+---
+
+## 🔧 Troubleshooting de Terraform
+
+<AccordionGroup>
+  <Accordion title="Error: InsufficientCapabilitiesException">
+    **Síntoma**: Error creating EKS Node Group
+    
+    **Solución**:
+    ```bash
+    # Verificar y adjuntar políticas IAM necesarias
+    aws iam attach-role-policy \
+      --role-name eks-node-group-role \
+      --policy-arn arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+    ```
+  </Accordion>
+  
+  <Accordion title="Error: InvalidParameterException (Subnets)">
+    **Causa**: CIDR blocks muy pequeños
+    
+    **Solución**: Ajustar en `terraform.tfvars`:
+    ```hcl
+    vpc_cidr = "10.0.0.0/16"  # Más amplio
+    ```
+  </Accordion>
+  
+  <Accordion title="Estado Corrupto de Terraform">
+    **Solución**:
+    ```bash
+    terraform refresh
+    # O restaurar desde S3 backup
+    ```
+  </Accordion>
+  
+  <Accordion title="Error: DynamoDB Lock Timeout">
+    **Solución**:
+    ```bash
+    terraform force-unlock <LOCK_ID>
+    ```
+  </Accordion>
+</AccordionGroup>
 
 ---
 

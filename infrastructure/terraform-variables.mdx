@@ -1,0 +1,675 @@
+---
+title: "6.0.2. Variables de Terraform"
+description: "Referencia completa de variables de configuración"
+icon: "sliders"
+---
+
+# Variables de Terraform
+
+Guía completa de todas las variables disponibles para configurar la infraestructura de Retro Game Hub.
+
+## Variables Obligatorias
+
+Estas variables **DEBEN** ser definidas en `terraform.tfvars`:
+
+<ParamField path="db_password" type="string" required>
+  Password para la base de datos RDS PostgreSQL
+  
+  **Requisitos**:
+  - Mínimo 8 caracteres
+  - Incluir mayúsculas, minúsculas, números
+  - Evitar caracteres especiales problemáticos: `@`, `"`, `'`
+  
+  ```hcl
+  db_password = "MySecurePassword123!"
+  ```
+  
+  <Warning>
+    NUNCA uses passwords débiles como "password123" o "admin". Usa un password manager para generar uno fuerte.
+  </Warning>
+</ParamField>
+
+<ParamField path="github_oauth_client_id" type="string" required>
+  Client ID de la GitHub OAuth App para monitoreo
+  
+  **Obtenerlo**:
+  1. GitHub → Settings → Developer settings → OAuth Apps
+  2. New OAuth App
+  3. Copiar Client ID
+  
+  ```hcl
+  github_oauth_client_id = "Ov23liXXXXXXXXXXXX"
+  ```
+</ParamField>
+
+<ParamField path="github_oauth_client_secret" type="string" required>
+  Client Secret de la GitHub OAuth App
+  
+  ```hcl
+  github_oauth_client_secret = "ghp_XXXXXXXXXXXXXXXXXXXXXXXX"
+  ```
+  
+  <Warning>
+    Este valor es sensible. No lo commitees en Git. Terraform automáticamente lo marca como sensitive.
+  </Warning>
+</ParamField>
+
+---
+
+## Variables Opcionales con Valores por Defecto
+
+### AWS Configuration
+
+<ParamField path="region" type="string" default="eu-west-1">
+  Región de AWS donde se desplegará la infraestructura
+  
+  ```hcl
+  region = "eu-west-1"  # Irlanda
+  # region = "us-east-1"  # Virginia
+  # region = "ap-southeast-1"  # Singapur
+  ```
+  
+  <Tip>
+    Elige una región cercana a tus usuarios para menor latencia. Considera también los costos por región.
+  </Tip>
+</ParamField>
+
+<ParamField path="availability_zones" type="list(string)" default='["eu-west-1a", "eu-west-1b", "eu-west-1c"]'>
+  Zonas de disponibilidad para alta disponibilidad
+  
+  ```hcl
+  availability_zones = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
+  ```
+  
+  <Note>
+    Usar 3 AZs mejora la resiliencia pero incrementa costos (NAT Gateway en cada AZ).
+  </Note>
+</ParamField>
+
+---
+
+### EKS Cluster Configuration
+
+<ParamField path="cluster_name" type="string" default="retrogame">
+  Nombre del cluster de Kubernetes
+  
+  ```hcl
+  cluster_name = "retrogame"
+  # cluster_name = "retrogame-prod"
+  # cluster_name = "retrogame-staging"
+  ```
+</ParamField>
+
+<ParamField path="k8s_version" type="string" default="1.34">
+  Versión de Kubernetes
+  
+  ```hcl
+  k8s_version = "1.34"
+  ```
+  
+  <Accordion title="Versiones Soportadas">
+    | Versión | Estado | Fin de Soporte |
+    |---------|--------|----------------|
+    | 1.34 | ✅ Stable | 2026-05 |
+    | 1.33 | ✅ Stable | 2026-02 |
+    | 1.32 | ⚠️ Deprecated | 2025-12 |
+    | 1.31 | ❌ End of Life | 2025-09 |
+    
+    [Ver roadmap de EKS](https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html)
+  </Accordion>
+</ParamField>
+
+---
+
+### Node Group Configuration
+
+<ParamField path="node_instance_types" type="list(string)" default='["t3.medium"]'>
+  Tipos de instancias EC2 para los nodos worker
+  
+  ```hcl
+  node_instance_types = ["t3.medium"]
+  # node_instance_types = ["t3.small", "t3.medium"]  # Mixed
+  # node_instance_types = ["t3.large"]  # Más potente
+  ```
+  
+  <Accordion title="Comparación de Instancias">
+    | Tipo | vCPU | RAM | Pods/Nodo | Costo/Hora | Costo/Mes |
+    |------|------|-----|-----------|------------|-----------|
+    | t3.micro | 2 | 1 GB | 4 | $0.0104 | ~$7.50 |
+    | t3.small | 2 | 2 GB | 11 | $0.0208 | ~$15 |
+    | **t3.medium** | 2 | 4 GB | **17** | $0.0416 | **~$30** |
+    | t3.large | 2 | 8 GB | 35 | $0.0832 | ~$60 |
+    | t3.xlarge | 4 | 16 GB | 58 | $0.1664 | ~$120 |
+    
+    <Warning>
+      **t3.micro y t3.small NO son recomendados** para EKS por limitaciones de pods y memoria.
+    </Warning>
+  </Accordion>
+</ParamField>
+
+<ParamField path="node_desired_size" type="number" default={2}>
+  Número inicial de nodos en el cluster
+  
+  ```hcl
+  node_desired_size = 2  # Balance entre costo y disponibilidad
+  ```
+</ParamField>
+
+<ParamField path="node_min_size" type="number" default={1}>
+  Número mínimo de nodos (para auto-scaling)
+  
+  ```hcl
+  node_min_size = 1  # Puede escalar a 1 en horarios de baja demanda
+  # node_min_size = 0  # ⚠️ Peligroso: cluster puede quedar sin nodos
+  ```
+</ParamField>
+
+<ParamField path="node_max_size" type="number" default={4}>
+  Número máximo de nodos (para auto-scaling)
+  
+  ```hcl
+  node_max_size = 4  # Límite para controlar costos
+  # node_max_size = 10  # Para cargas de trabajo más altas
+  ```
+</ParamField>
+
+<ParamField path="node_disk_size" type="number" default={50}>
+  Tamaño del disco EBS por nodo (en GB)
+  
+  ```hcl
+  node_disk_size = 50  # Suficiente para imágenes Docker
+  # node_disk_size = 100  # Si tienes muchas imágenes grandes
+  ```
+</ParamField>
+
+---
+
+### RDS Database Configuration
+
+<ParamField path="db_instance_class" type="string" default="db.t3.micro">
+  Clase de instancia para RDS PostgreSQL
+  
+  ```hcl
+  db_instance_class = "db.t3.micro"  # Free tier, desarrollo
+  # db_instance_class = "db.t3.small"  # Producción ligera
+  # db_instance_class = "db.t3.medium"  # Producción media
+  ```
+  
+  <Accordion title="Comparación de Instancias RDS">
+    | Clase | vCPU | RAM | Costo/Hora | Costo/Mes |
+    |-------|------|-----|------------|-----------|
+    | **db.t3.micro** | 2 | 1 GB | $0.017 | **~$12** |
+    | db.t3.small | 2 | 2 GB | $0.034 | ~$25 |
+    | db.t3.medium | 2 | 4 GB | $0.068 | ~$50 |
+    | db.t3.large | 2 | 8 GB | $0.136 | ~$100 |
+    
+    <Note>
+      **db.t3.micro** está cubierto por Free Tier (750 horas/mes primer año).
+    </Note>
+  </Accordion>
+</ParamField>
+
+<ParamField path="db_name" type="string" default="retrogamedb">
+  Nombre de la base de datos principal
+  
+  ```hcl
+  db_name = "retrogamedb"
+  ```
+</ParamField>
+
+<ParamField path="db_username" type="string" default="postgres">
+  Usuario administrador de PostgreSQL
+  
+  ```hcl
+  db_username = "postgres"
+  # db_username = "admin"
+  ```
+</ParamField>
+
+<ParamField path="db_allocated_storage" type="number" default={20}>
+  Almacenamiento inicial para RDS (en GB)
+  
+  ```hcl
+  db_allocated_storage = 20  # Mínimo recomendado
+  # db_allocated_storage = 100  # Para producción con muchos datos
+  ```
+</ParamField>
+
+<ParamField path="db_max_allocated_storage" type="number" default={100}>
+  Almacenamiento máximo con auto-scaling
+  
+  ```hcl
+  db_max_allocated_storage = 100  # Escala automáticamente hasta 100 GB
+  ```
+</ParamField>
+
+<ParamField path="db_backup_retention_days" type="number" default={7}>
+  Días de retención de backups automáticos
+  
+  ```hcl
+  db_backup_retention_days = 7   # Desarrollo/Testing
+  # db_backup_retention_days = 30  # Producción
+  ```
+</ParamField>
+
+---
+
+### VPC & Networking
+
+<ParamField path="vpc_cidr" type="string" default="10.0.0.0/16">
+  CIDR block para la VPC
+  
+  ```hcl
+  vpc_cidr = "10.0.0.0/16"  # 65,536 IPs
+  # vpc_cidr = "172.16.0.0/16"  # Alternativo
+  ```
+  
+  <Warning>
+    No usar rangos que colisionen con redes corporativas si planeas VPN o peering.
+  </Warning>
+</ParamField>
+
+<ParamField path="public_subnet_cidrs" type="list(string)" default='["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]'>
+  CIDR blocks para subnets públicas
+  
+  ```hcl
+  public_subnet_cidrs = [
+    "10.0.1.0/24",  # 256 IPs en AZ-a
+    "10.0.2.0/24",  # 256 IPs en AZ-b
+    "10.0.3.0/24"   # 256 IPs en AZ-c
+  ]
+  ```
+</ParamField>
+
+<ParamField path="private_subnet_cidrs" type="list(string)" default='["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]'>
+  CIDR blocks para subnets privadas
+  
+  ```hcl
+  private_subnet_cidrs = [
+    "10.0.11.0/24",  # Nodos EKS en AZ-a
+    "10.0.12.0/24",  # Nodos EKS en AZ-b
+    "10.0.13.0/24"   # Nodos EKS en AZ-c
+  ]
+  ```
+</ParamField>
+
+---
+
+### Domain & DNS
+
+**domain_name** (string, default: "retrogamehub.games")
+
+Dominio principal del proyecto
+
+```hcl
+domain_name = "retrogamehub.games"
+# domain_name = "myapp.com"
+# domain_name = ""  # Dejar vacío para no usar dominio
+```
+
+<Note>
+  Si dejas `domain_name` vacío, se usará el DNS del ALB directamente (sin SSL).
+</Note>
+
+**create_route53_zone** (bool, default: true)
+
+Crear Hosted Zone en Route53
+
+```hcl
+create_route53_zone = true   # Terraform crea la zona
+# create_route53_zone = false  # Usar zona existente
+```
+
+---
+
+### S3 & CloudFront
+
+<ParamField path="cdn_bucket_name" type="string" default="retrogame-cdn">
+  Nombre del bucket S3 para CDN
+  
+  ```hcl
+  cdn_bucket_name = "retrogame-cdn"
+  # cdn_bucket_name = "myapp-assets-prod"
+  ```
+  
+  <Warning>
+    Los nombres de buckets S3 son **globalmente únicos**. Si el nombre ya existe, Terraform fallará.
+  </Warning>
+</ParamField>
+
+<ParamField path="enable_cloudfront" type="bool" default={true}>
+  Habilitar distribución CloudFront
+  
+  ```hcl
+  enable_cloudfront = true   # Recomendado para producción
+  # enable_cloudfront = false  # Solo S3 directo (desarrollo)
+  ```
+</ParamField>
+
+---
+
+### Monitoring Stack
+
+<ParamField path="enable_monitoring" type="bool" default={true}>
+  Desplegar stack de monitoreo (Prometheus + Grafana)
+  
+  ```hcl
+  enable_monitoring = true   # Incluye Prometheus, Grafana, AlertManager
+  # enable_monitoring = false  # Sin monitoreo (reduce costos)
+  ```
+</ParamField>
+
+<ParamField path="grafana_admin_password" type="string" default="admin">
+  Password inicial de Grafana admin
+  
+  ```hcl
+  grafana_admin_password = "SecureGrafanaPass123!"
+  ```
+  
+  <Warning>
+    Cambia el password por defecto "admin" en producción.
+  </Warning>
+</ParamField>
+
+---
+
+### ArgoCD
+
+<ParamField path="enable_argocd" type="bool" default={true}>
+  Desplegar ArgoCD para GitOps
+  
+  ```hcl
+  enable_argocd = true   # Gestión GitOps
+  # enable_argocd = false  # Despliegues manuales con kubectl
+  ```
+</ParamField>
+
+<ParamField path="argocd_version" type="string" default="2.9.3">
+  Versión de ArgoCD Helm Chart
+  
+  ```hcl
+  argocd_version = "2.9.3"
+  # argocd_version = "latest"  # ⚠️ No recomendado para producción
+  ```
+</ParamField>
+
+---
+
+### Tags
+
+<ParamField path="project" type="string" default="RetroGameHub">
+  Tag para identificar el proyecto
+  
+  ```hcl
+  project = "RetroGameHub"
+  ```
+</ParamField>
+
+<ParamField path="environment" type="string" default="production">
+  Ambiente de despliegue
+  
+  ```hcl
+  environment = "production"
+  # environment = "staging"
+  # environment = "development"
+  ```
+</ParamField>
+
+<ParamField path="managed_by" type="string" default="terraform">
+  Herramienta de gestión
+  
+  ```hcl
+  managed_by = "terraform"
+  ```
+</ParamField>
+
+---
+
+## Ejemplos de Configuración
+
+### terraform.tfvars Mínimo (Solo Obligatorias)
+
+```hcl
+# Mínimo absoluto para desplegar
+db_password                = "MySecurePassword123!"
+github_oauth_client_id     = "Ov23liXXXXXXXXXXXX"
+github_oauth_client_secret = "ghp_XXXXXXXXXXXXXXXXXXXXXXXX"
+```
+
+<Note>
+  Con solo estas 3 variables, Terraform usará los defaults para todo lo demás.
+</Note>
+
+---
+
+### terraform.tfvars para Desarrollo
+
+```hcl
+# ============================================
+# DESARROLLO / PRUEBAS
+# ============================================
+
+# AWS
+region = "eu-west-1"
+
+# EKS - Configuración económica
+cluster_name        = "retrogame-dev"
+k8s_version         = "1.34"
+node_instance_types = ["t3.medium"]  # Mínimo viable
+node_desired_size   = 1              # Solo 1 nodo para ahorrar
+node_min_size       = 1
+node_max_size       = 2
+
+# RDS - Free tier
+db_instance_class = "db.t3.micro"
+db_name          = "retrogamedb_dev"
+db_username      = "postgres"
+db_password      = "DevPassword123!"
+
+# Sin dominio (usar ALB DNS)
+domain_name         = ""
+create_route53_zone = false
+enable_cloudfront   = false
+
+# Monitoreo básico
+enable_monitoring = true
+enable_argocd    = false  # Despliegues manuales en dev
+
+# Tags
+environment = "development"
+project     = "RetroGameHub"
+```
+
+**Costo estimado**: ~$80-100/mes
+
+---
+
+### terraform.tfvars para Producción
+
+```hcl
+# ============================================
+# PRODUCCIÓN
+# ============================================
+
+# AWS
+region             = "eu-west-1"
+availability_zones = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
+
+# EKS - Alta disponibilidad
+cluster_name        = "retrogame-prod"
+k8s_version         = "1.34"
+node_instance_types = ["t3.medium", "t3.large"]  # Mixed para flexibilidad
+node_desired_size   = 3                          # 3 nodos para HA
+node_min_size       = 2
+node_max_size       = 6
+node_disk_size      = 100
+
+# RDS - Producción con backups
+db_instance_class        = "db.t3.small"
+db_name                  = "retrogamedb"
+db_username              = "postgres"
+db_password              = "SUPER_SECURE_PASSWORD_FROM_PASSWORD_MANAGER"
+db_allocated_storage     = 50
+db_max_allocated_storage = 200
+db_backup_retention_days = 30
+
+# Dominio personalizado
+domain_name         = "retrogamehub.games"
+create_route53_zone = true
+enable_cloudfront   = true
+
+# Monitoreo completo
+enable_monitoring      = true
+enable_argocd         = true
+grafana_admin_password = "GrafanaSecurePass123!"
+
+# GitHub OAuth
+github_oauth_client_id     = "Ov23liXXXXXXXXXXXX"
+github_oauth_client_secret = "ghp_XXXXXXXXXXXXXXXXXXXXXXXX"
+
+# Tags
+environment = "production"
+project     = "RetroGameHub"
+managed_by  = "terraform"
+```
+
+**Costo estimado**: ~$200-250/mes
+
+---
+
+### terraform.tfvars para Staging
+
+```hcl
+# ============================================
+# STAGING (Réplica de Producción)
+# ============================================
+
+# AWS
+region = "eu-west-1"
+
+# EKS - Similar a prod pero más pequeño
+cluster_name        = "retrogame-staging"
+k8s_version         = "1.34"
+node_instance_types = ["t3.medium"]
+node_desired_size   = 2
+node_min_size       = 1
+node_max_size       = 3
+
+# RDS - Menos robusto que prod
+db_instance_class        = "db.t3.micro"
+db_name                  = "retrogamedb_staging"
+db_username              = "postgres"
+db_password              = "StagingPassword123!"
+db_backup_retention_days = 7
+
+# Subdominio
+domain_name         = "staging.retrogamehub.games"
+create_route53_zone = false  # Usar zona de prod
+enable_cloudfront   = true
+
+# Monitoreo y GitOps
+enable_monitoring = true
+enable_argocd    = true
+
+# GitHub OAuth (misma app que prod)
+github_oauth_client_id     = "Ov23liXXXXXXXXXXXX"
+github_oauth_client_secret = "ghp_XXXXXXXXXXXXXXXXXXXXXXXX"
+
+# Tags
+environment = "staging"
+project     = "RetroGameHub"
+```
+
+**Costo estimado**: ~$120-150/mes
+
+---
+
+## Validación de Variables
+
+Script para validar tu `terraform.tfvars`:
+
+```bash
+#!/bin/bash
+# validate-tfvars.sh
+
+echo "🔍 Validando terraform.tfvars..."
+
+# Verificar que existe
+if [ ! -f terraform.tfvars ]; then
+    echo "❌ terraform.tfvars no encontrado"
+    exit 1
+fi
+
+# Verificar variables obligatorias
+required_vars=("db_password" "github_oauth_client_id" "github_oauth_client_secret")
+
+for var in "${required_vars[@]}"; do
+    if grep -q "^$var\s*=" terraform.tfvars; then
+        echo "✅ $var definido"
+    else
+        echo "❌ $var NO definido (OBLIGATORIO)"
+    fi
+done
+
+# Verificar password débil
+if grep -q 'db_password.*=.*["' terraform.tfvars; then
+    password=$(grep 'db_password' terraform.tfvars | sed 's/.*= *"\(.*\)".*/\1/')
+    
+    if [ ${#password} -lt 8 ]; then
+        echo "⚠️  Password muy corto (mínimo 8 caracteres)"
+    fi
+    
+    if ! echo "$password" | grep -q '[A-Z]'; then
+        echo "⚠️  Password sin mayúsculas"
+    fi
+    
+    if ! echo "$password" | grep -q '[0-9]'; then
+        echo "⚠️  Password sin números"
+    fi
+fi
+
+echo ""
+echo "✅ Validación completada"
+```
+
+Ejecutar:
+```bash
+chmod +x validate-tfvars.sh
+./validate-tfvars.sh
+```
+
+---
+
+## Variables Sensibles
+
+Terraform automáticamente marca estas variables como `sensitive`:
+
+- `db_password`
+- `github_oauth_client_secret`
+- `grafana_admin_password`
+
+Esto significa que **no se mostrarán** en los logs ni en el output de `terraform plan/apply`.
+
+### Acceder a Variables Sensibles
+
+```bash
+# Ver valor de una variable sensible (con cuidado)
+terraform output -raw db_password
+
+# NO aparecerá en plan
+terraform plan  # db_password = (sensitive value)
+```
+
+---
+
+## Próximos Pasos
+
+<CardGroup cols={2}>
+  <Card title="Desplegar Infraestructura" icon="rocket" href="/deployment">
+    Con las variables configuradas, procede al despliegue
+  </Card>
+  
+  <Card title="Troubleshooting" icon="wrench" href="/troubleshooting">
+    Resolver problemas comunes de configuración
+  </Card>
+</CardGroup>

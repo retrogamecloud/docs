@@ -391,6 +391,68 @@ curl -X POST https://hooks.slack.com/services/... \
   -d '{"text":"Test desde ArgoCD"}'
 ```
 
+---
+
+## 🎓 Tutorial Paso a Paso: Desplegar un Cambio
+
+### Escenario: Actualizar la Imagen del Backend
+
+Este tutorial muestra el flujo completo de GitOps desde hacer un cambio en código hasta verlo en producción.
+
+<Steps>
+  <Step title="Hacer Cambio en Código">
+    ```bash
+    cd backend
+    git checkout -b feat/new-endpoint
+    # ... hacer cambios ...
+    git commit -m "feat: add new endpoint"
+    git push origin feat/new-endpoint
+    # Crear PR, merge a main
+    ```
+  </Step>
+  
+  <Step title="GitHub Actions Construye Imagen">
+    Automáticamente construye y pushea:
+    - `username/backend:v1.2.5`
+    - `username/backend:sha-abc123`
+    - `username/backend:latest`
+  </Step>
+  
+  <Step title="Actualizar Manifest">
+    ```bash
+    cd infrastructure/k8s/backend
+    vim deployment.yaml
+    # Cambiar image: username/backend:v1.2.5
+    git commit -m "chore: update backend to v1.2.5"
+    git push origin main
+    ```
+  </Step>
+  
+  <Step title="ArgoCD Despliega">
+    ```bash
+    # Monitorear
+    kubectl get pods -n retrogame -w
+    
+    # O forzar sync
+    kubectl patch application backend -n argocd \
+      --type merge -p '{"operation":{"sync":{"revision":"HEAD"}}}'
+    ```
+  </Step>
+  
+  <Step title="Verificar">
+    ```bash
+    kubectl describe pod backend-xxx -n retrogame | grep Image
+    kubectl logs -f deployment/backend -n retrogame
+    ```
+  </Step>
+</Steps>
+
+**Duración total**: ~5-8 minutos de commit a producción ⚡
+
+Ver más en [Estrategias de Rollback](/cicd/rollback-strategies)
+
+---
+
 ## 📚 Referencias
 
 - [ArgoCD Documentation](https://argo-cd.readthedocs.io/)

@@ -1,0 +1,712 @@
+---
+title: "7.5. Estrategias de Rollback"
+description: "Cómo revertir despliegues problemáticos de forma segura"
+icon: "clock-rotate-left"
+---
+
+# Estrategias de Rollback
+
+Guía completa para revertir despliegues problemáticos en producción usando ArgoCD, Git y kubectl.
+
+## ¿Cuándo Hacer Rollback?
+
+<CardGroup cols={2}>
+  <Card title="❌ Errores Críticos" icon="exclamation-triangle">
+    - Aplicación crasheando
+    - Pérdida de datos
+    - Vulnerabilidad de seguridad
+    - API returning 500s
+  </Card>
+  
+  <Card title="⚠️ Degradación" icon="triangle-exclamation">
+    - Performance degradada >50%
+    - Aumento de errores >10%
+    - Timeouts frecuentes
+    - Memoria/CPU al 100%
+  </Card>
+  
+  <Card title="📊 Métricas Anormales" icon="chart-line">
+    - Latencia p99 >2s
+    - Error rate >5%
+    - Request timeout >30s
+    - Pod restarts >10/min
+  </Card>
+  
+  <Card title="🔒 Compliance" icon="shield">
+    - Violación de políticas
+    - Datos sensibles expuestos
+    - Audit log failures
+    - Certificados expirados
+  </Card>
+</CardGroup>
+
+---
+
+## Método 1: Rollback desde ArgoCD (Recomendado)
+
+### Ventajas
+- ✅ Interfaz visual e intuitiva
+- ✅ Historial completo de despliegues
+- ✅ Preview antes de aplicar
+- ✅ Sincronización automática con Git
+
+### Desde la UI
+
+<Steps>
+  <Step title="Acceder a ArgoCD">
+    ```
+    https://retrogamehub.games/argocd
+    ```
+    
+    Autenticar con GitHub OAuth
+  </Step>
+  
+  <Step title="Seleccionar Aplicación">
+    Click en la aplicación problemática (ej: `backend`, `frontend`)
+    
+    Verás el estado actual y los recursos desplegados
+  </Step>
+  
+  <Step title="Ver Historial">
+    Click en **"HISTORY"** en el panel superior
+    
+    Se muestra lista de todos los despliegues:
+    ```
+    ┌────────┬─────────┬────────────────┬──────────┐
+    │ Rev    │ Date    │ Author         │ Status   │
+    ├────────┼─────────┼────────────────┼──────────┤
+    │ HEAD   │ 2 min   │ user@mail.com  │ Failed   │ ← Actual (problema)
+    │ HEAD-1 │ 2 hours │ user@mail.com  │ Success  │ ← Revertir aquí
+    │ HEAD-2 │ 1 day   │ user@mail.com  │ Success  │
+    └────────┴─────────┴────────────────┴──────────┘
+    ```
+  </Step>
+  
+  <Step title="Seleccionar Versión Buena">
+    Click en la versión que funcionaba (típicamente HEAD-1)
+    
+    **Preview del cambio**:
+    - Ver diff entre versión actual y la seleccionada
+    - Revisar qué imágenes Docker cambiarán
+    - Validar configuración
+  </Step>
+  
+  <Step title="Ejecutar Rollback">
+    Click en **"ROLLBACK"**
+    
+    Confirmar en el modal
+    
+    ArgoCD ejecutará:
+    ```bash
+    kubectl apply -f deployment-HEAD-1.yaml
+    kubectl rollout status deployment/backend
+    ```
+  </Step>
+  
+  <Step title="Verificar">
+    - Estado debe cambiar a `Synced` y `Healthy`
+    - Ver logs en tiempo real
+    - Verificar métricas en Grafana
+    
+    ```bash
+    # Desde terminal
+    kubectl get pods -n retrogame -w
+    ```
+  </Step>
+</Steps>
+
+### Desde CLI de ArgoCD
+
+```bash
+# Instalar argocd CLI (una vez)
+curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+chmod +x argocd
+sudo mv argocd /usr/local/bin/
+
+# Login
+argocd login retrogamehub.games/argocd --grpc-web
+
+# Ver historial
+argocd app history backend
+
+# Rollback a revisión específica
+argocd app rollback backend <REVISION_ID>
+
+# Rollback a versión anterior
+argocd app rollback backend HEAD-1
+
+# Forzar sincronización
+argocd app sync backend --force
+```
+
+---
+
+## Método 2: Rollback desde Git (GitOps Puro)
+
+### Ventajas
+- ✅ Permanente (ArgoCD no lo revertirá)
+- ✅ Auditable (commit en Git)
+- ✅ Puede revertir configuración, no solo imágenes
+- ✅ Funciona aunque ArgoCD esté caído
+
+### Git Revert (Recomendado)
+
+```bash
+# 1. Clonar repositorio de manifiestos
+git clone https://github.com/retrogamecloud/infrastructure.git
+cd infrastructure
+
+# 2. Ver historial del archivo problemático
+git log --oneline k8s/backend/deployment.yaml
+
+# Output:
+# abc1234 (HEAD) feat: update backend to v1.2.5
+# def5678 chore: update backend to v1.2.4
+# ghi9012 feat: update backend to v1.2.3
+
+# 3. Identificar commit problemático
+git show abc1234 k8s/backend/deployment.yaml
+
+# 4. Revertir el commit
+git revert abc1234
+
+# Esto crea un NUEVO commit que deshace los cambios
+# Mensaje sugerido: "Revert: update backend to v1.2.5 - caused high error rate"
+
+# 5. Push
+git push origin main
+
+# 6. ArgoCD detectará el cambio automáticamente (3 minutos)
+# O forzar sincronización inmediata:
+argocd app sync backend
+```
+
+<Note>
+  `git revert` es preferible a `git reset --hard` porque mantiene el historial intacto.
+</Note>
+
+### Rollback Manual de Imagen Docker
+
+Si solo necesitas cambiar la imagen Docker:
+
+```bash
+cd infrastructure/k8s/backend
+
+# Ver imagen actual
+grep "image:" deployment.yaml
+# image: username/backend:v1.2.5
+
+# Cambiar a versión anterior
+sed -i 's/username\/backend:v1.2.5/username\/backend:v1.2.4/g' deployment.yaml
+
+# Verificar cambio
+git diff deployment.yaml
+
+# Commit y push
+git add deployment.yaml
+git commit -m "rollback: revert backend to v1.2.4 - high error rate in v1.2.5"
+git push origin main
+
+# ArgoCD aplicará el cambio automáticamente
+```
+
+---
+
+## Método 3: Rollback desde kubectl (Emergencia)
+
+### ⚠️ Advertencias
+
+<Warning>
+  Los cambios desde kubectl son **TEMPORALES**. ArgoCD los revertirá eventualmente (auto-sync).
+  
+  Usa solo para emergencias. Luego haz el rollback permanente en Git.
+</Warning>
+
+### Rollback de Deployment
+
+```bash
+# Ver historial de revisiones
+kubectl rollout history deployment/backend -n retrogame
+
+# Output:
+# REVISION  CHANGE-CAUSE
+# 1         <none>
+# 2         Update to v1.2.4
+# 3         Update to v1.2.5  ← Actual (problemática)
+
+# Rollback a revisión anterior
+kubectl rollout undo deployment/backend -n retrogame
+
+# O especificar revisión exacta
+kubectl rollout undo deployment/backend -n retrogame --to-revision=2
+
+# Ver estado del rollout
+kubectl rollout status deployment/backend -n retrogame
+
+# Output:
+# Waiting for deployment "backend" rollout to finish: 1 old replicas are pending termination...
+# deployment "backend" successfully rolled out
+```
+
+### Rollback de ConfigMap o Secret
+
+```bash
+# Si cambiaste un ConfigMap/Secret y causó problemas
+
+# 1. Obtener versión anterior desde backup o Git
+kubectl get configmap backend-config -n retrogame -o yaml > backup.yaml
+
+# 2. Editar manualmente
+vim backup.yaml
+
+# 3. Aplicar versión anterior
+kubectl apply -f backup.yaml
+
+# 4. Reiniciar pods para cargar nueva configuración
+kubectl rollout restart deployment/backend -n retrogame
+```
+
+### Escalar a Cero (Emergency Stop)
+
+```bash
+# Si la aplicación está causando daño (ej: corrupción de datos)
+# Detener INMEDIATAMENTE:
+
+kubectl scale deployment/backend -n retrogame --replicas=0
+
+# Verificar que todos los pods se detengan
+kubectl get pods -n retrogame -w
+
+# Investigar el problema
+kubectl logs deployment/backend -n retrogame --previous
+
+# Cuando esté listo, restaurar
+kubectl scale deployment/backend -n retrogame --replicas=3
+```
+
+---
+
+## Método 4: Rollback de Base de Datos
+
+### RDS Snapshot Restore
+
+Si el despliegue causó cambios problemáticos en la BD:
+
+<Steps>
+  <Step title="Identificar Snapshot">
+    ```bash
+    # Listar snapshots recientes
+    aws rds describe-db-snapshots \
+      --db-instance-identifier retrogame-db \
+      --query 'DBSnapshots[*].[DBSnapshotIdentifier,SnapshotCreateTime]' \
+      --output table
+    
+    # Output:
+    # +-------------------------+----------------------+
+    # | retrogame-db-2024-11-23 | 2024-11-23T02:00:00Z | ← Antes del problema
+    # | retrogame-db-2024-11-22 | 2024-11-22T02:00:00Z |
+    # +-------------------------+----------------------+
+    ```
+  </Step>
+  
+  <Step title="Restaurar a Nueva Instancia">
+    ```bash
+    # Restaurar snapshot a una NUEVA instancia (no sobrescribe)
+    aws rds restore-db-instance-from-db-snapshot \
+      --db-instance-identifier retrogame-db-restored \
+      --db-snapshot-identifier retrogame-db-2024-11-23 \
+      --db-instance-class db.t3.micro \
+      --vpc-security-group-ids sg-xxxxxx
+    
+    # Esperar a que esté disponible (5-10 min)
+    aws rds wait db-instance-available \
+      --db-instance-identifier retrogame-db-restored
+    ```
+  </Step>
+  
+  <Step title="Actualizar Endpoint en Kubernetes">
+    ```bash
+    # Obtener nuevo endpoint
+    NEW_ENDPOINT=$(aws rds describe-db-instances \
+      --db-instance-identifier retrogame-db-restored \
+      --query 'DBInstances[0].Endpoint.Address' \
+      --output text)
+    
+    echo $NEW_ENDPOINT
+    
+    # Actualizar secret en K8s
+    kubectl create secret generic db-credentials \
+      --from-literal=host=$NEW_ENDPOINT \
+      --from-literal=username=postgres \
+      --from-literal=password=YOUR_PASSWORD \
+      --dry-run=client -o yaml | kubectl apply -f -
+    
+    # Reiniciar pods para usar nuevo endpoint
+    kubectl rollout restart deployment -n retrogame
+    ```
+  </Step>
+  
+  <Step title="Verificar y Limpiar">
+    ```bash
+    # Verificar que la aplicación funciona
+    kubectl logs -f deployment/backend -n retrogame
+    
+    # Si todo OK, eliminar instancia problemática
+    aws rds delete-db-instance \
+      --db-instance-identifier retrogame-db \
+      --skip-final-snapshot
+    
+    # Renombrar la restaurada (opcional)
+    aws rds modify-db-instance \
+      --db-instance-identifier retrogame-db-restored \
+      --new-db-instance-identifier retrogame-db \
+      --apply-immediately
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  Restaurar desde snapshot causa **pérdida de datos** desde el momento del snapshot.
+  Evalúa el trade-off entre integridad y pérdida de datos.
+</Warning>
+
+---
+
+## Método 5: Rollback de Infraestructura (Terraform)
+
+Si el problema fue causado por cambios en Terraform:
+
+### Revert de Terraform State
+
+```bash
+cd infrastructure/terraform/eks_test
+
+# Ver historial de estado en S3
+aws s3api list-object-versions \
+  --bucket retrogame-terraform-state \
+  --prefix terraform.tfstate
+
+# Output muestra VersionId de cada cambio
+
+# Descargar versión anterior del estado
+VERSION_ID="xyz789..."  # De la versión buena
+aws s3api get-object \
+  --bucket retrogame-terraform-state \
+  --key terraform.tfstate \
+  --version-id $VERSION_ID \
+  terraform.tfstate.previous
+
+# Respaldar estado actual
+cp terraform.tfstate terraform.tfstate.broken
+
+# Restaurar estado anterior
+mv terraform.tfstate.previous terraform.tfstate
+
+# Re-subir a S3
+aws s3 cp terraform.tfstate s3://retrogame-terraform-state/
+
+# Aplicar estado restaurado
+terraform init -reconfigure
+terraform plan  # Verificar qué se revertirá
+terraform apply
+```
+
+### Revert de Código Terraform
+
+```bash
+cd infrastructure/terraform/eks_test
+
+# Ver historial
+git log --oneline
+
+# Revertir commit problemático
+git revert abc1234
+
+# Aplicar cambios
+terraform plan
+terraform apply
+```
+
+---
+
+## Matriz de Decisión: ¿Qué Método Usar?
+
+<Table>
+  <thead>
+    <tr>
+      <th>Escenario</th>
+      <th>Método Recomendado</th>
+      <th>Tiempo</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**Nueva versión de imagen crashea**</td>
+      <td>ArgoCD Rollback</td>
+      <td>~30 seg</td>
+    </tr>
+    <tr>
+      <td>**ConfigMap incorrecto**</td>
+      <td>Git Revert + ArgoCD</td>
+      <td>~2 min</td>
+    </tr>
+    <tr>
+      <td>**ArgoCD no responde**</td>
+      <td>kubectl rollback</td>
+      <td>~10 seg</td>
+    </tr>
+    <tr>
+      <td>**Migración de BD falló**</td>
+      <td>RDS Snapshot Restore</td>
+      <td>~10 min</td>
+    </tr>
+    <tr>
+      <td>**Cambio de infraestructura**</td>
+      <td>Terraform Revert</td>
+      <td>~5 min</td>
+    </tr>
+    <tr>
+      <td>**Emergencia crítica**</td>
+      <td>Scale to 0 + Investigar</td>
+      <td>~5 seg</td>
+    </tr>
+  </tbody>
+</Table>
+
+---
+
+## Checklist Post-Rollback
+
+Después de hacer rollback, completa estos pasos:
+
+<Checklist>
+  - [ ] Verificar que la aplicación funciona correctamente
+  - [ ] Revisar logs para confirmar ausencia de errores
+  - [ ] Verificar métricas en Grafana vuelven a normal
+  - [ ] Confirmar que ArgoCD está en estado `Synced` y `Healthy`
+  - [ ] Si usaste kubectl, hacer rollback permanente en Git
+  - [ ] Documentar el incidente en un post-mortem
+  - [ ] Identificar causa raíz del problema
+  - [ ] Crear tests para prevenir regresión
+  - [ ] Notificar al equipo del rollback
+  - [ ] Actualizar CHANGELOG con la reversión
+</Checklist>
+
+---
+
+## Prevención de Rollbacks
+
+### Estrategias para Reducir Necesidad de Rollbacks
+
+<CardGroup cols={2}>
+  <Card title="Tests Automatizados" icon="vial">
+    ```yaml
+    # .github/workflows/test.yml
+    - name: Run tests
+      run: |
+        npm test
+        npm run integration-test
+    ```
+    
+    Tests comprehensivos antes de desplegar
+  </Card>
+  
+  <Card title="Canary Deployments" icon="dove">
+    ```yaml
+    # ArgoCD Rollouts
+    strategy:
+      canary:
+        steps:
+        - setWeight: 10  # 10% tráfico
+        - pause: {duration: 5m}
+        - setWeight: 50
+        - pause: {duration: 5m}
+        - setWeight: 100
+    ```
+  </Card>
+  
+  <Card title="Feature Flags" icon="flag">
+    ```javascript
+    if (featureFlags.newAlgorithm) {
+      // Nuevo código
+    } else {
+      // Código legacy
+    }
+    ```
+    
+    Habilitar features gradualmente
+  </Card>
+  
+  <Card title="Monitoring Alertas" icon="bell">
+    ```yaml
+    # AlertManager rules
+    - alert: HighErrorRate
+      expr: rate(errors[5m]) > 0.05
+      annotations:
+        summary: "Auto-rollback triggered"
+    ```
+  </Card>
+</CardGroup>
+
+### Blue-Green Deployment
+
+```bash
+# Desplegar nueva versión (green) sin afectar actual (blue)
+kubectl apply -f deployment-green.yaml
+
+# Esperar a que esté healthy
+kubectl wait --for=condition=ready pod -l version=green
+
+# Cambiar Service para apuntar a green
+kubectl patch service backend -p '{"spec":{"selector":{"version":"green"}}}'
+
+# Si hay problemas, revertir a blue instantáneamente
+kubectl patch service backend -p '{"spec":{"selector":{"version":"blue"}}}'
+
+# Si todo OK, eliminar blue
+kubectl delete deployment backend-blue
+```
+
+---
+
+## Runbook de Emergencia
+
+### Plantilla de Respuesta a Incidentes
+
+```markdown
+# Incident Response - [TIMESTAMP]
+
+## 🔴 Situation
+- **What happened**: [Descripción del problema]
+- **Severity**: [Critical / High / Medium / Low]
+- **Impact**: [Número de usuarios afectados]
+- **Detected**: [Cómo se detectó - alertas, usuarios, etc]
+
+## 🚨 Immediate Actions
+- [ ] Assess severity
+- [ ] Notify on-call engineer
+- [ ] Create incident channel (#incident-[ID])
+- [ ] Start incident timeline
+
+## 🔄 Rollback Decision
+- **Rollback**: [YES / NO / PARTIAL]
+- **Method**: [ArgoCD / Git / kubectl / Database]
+- **Target version**: [v1.2.4]
+- **Executed by**: [Name]
+- **Executed at**: [HH:MM UTC]
+
+## ✅ Verification
+- [ ] Application healthy
+- [ ] Metrics back to normal
+- [ ] No errors in logs
+- [ ] Users can access service
+
+## 📊 Post-Mortem
+- **Root cause**: [To be investigated]
+- **Action items**: [Created in JIRA/GitHub Issues]
+- **Follow-up**: [Schedule post-mortem meeting]
+```
+
+---
+
+## Herramientas de Apoyo
+
+### Script de Rollback Automatizado
+
+```bash
+#!/bin/bash
+# rollback.sh - Script de rollback automatizado
+
+set -e
+
+APP_NAME=$1
+TARGET_VERSION=$2
+
+if [ -z "$APP_NAME" ] || [ -z "$TARGET_VERSION" ]; then
+    echo "Usage: ./rollback.sh <app-name> <target-version>"
+    echo "Example: ./rollback.sh backend v1.2.4"
+    exit 1
+fi
+
+echo "🔄 Iniciando rollback de $APP_NAME a $TARGET_VERSION..."
+
+# 1. Backup de estado actual
+echo "📦 Creando backup..."
+kubectl get deployment $APP_NAME -n retrogame -o yaml > backup-${APP_NAME}-$(date +%s).yaml
+
+# 2. Obtener imagen actual
+CURRENT_IMAGE=$(kubectl get deployment $APP_NAME -n retrogame -o jsonpath='{.spec.template.spec.containers[0].image}')
+echo "Imagen actual: $CURRENT_IMAGE"
+
+# 3. Actualizar imagen
+NEW_IMAGE="username/$APP_NAME:$TARGET_VERSION"
+echo "Nueva imagen: $NEW_IMAGE"
+
+kubectl set image deployment/$APP_NAME \
+    $APP_NAME=$NEW_IMAGE \
+    -n retrogame
+
+# 4. Esperar rollout
+echo "⏳ Esperando rollout..."
+kubectl rollout status deployment/$APP_NAME -n retrogame --timeout=5m
+
+# 5. Verificar health
+echo "🔍 Verificando health..."
+sleep 10
+READY=$(kubectl get deployment $APP_NAME -n retrogame -o jsonpath='{.status.readyReplicas}')
+DESIRED=$(kubectl get deployment $APP_NAME -n retrogame -o jsonpath='{.status.replicas}')
+
+if [ "$READY" -eq "$DESIRED" ]; then
+    echo "✅ Rollback exitoso: $READY/$DESIRED pods ready"
+else
+    echo "❌ Rollback falló: $READY/$DESIRED pods ready"
+    exit 1
+fi
+
+# 6. Verificar logs
+echo "📋 Últimos logs:"
+kubectl logs deployment/$APP_NAME -n retrogame --tail=10
+
+echo ""
+echo "🎉 Rollback completado!"
+echo "⚠️  Recuerda hacer el rollback permanente en Git"
+```
+
+Usar:
+```bash
+chmod +x rollback.sh
+./rollback.sh backend v1.2.4
+```
+
+---
+
+## Contactos de Emergencia
+
+En caso de necesitar ayuda durante un rollback:
+
+- **On-Call Engineer**: Ver PagerDuty
+- **Slack Channel**: `#incident-response`
+- **AWS Support**: Premium Support (caso crítico)
+- **Escalation**: CTO / Lead DevOps
+
+---
+
+## Recursos Adicionales
+
+<CardGroup cols={2}>
+  <Card title="ArgoCD Rollback Docs" icon="book" href="https://argo-cd.readthedocs.io/en/stable/user-guide/commands/argocd_app_rollback/">
+    Documentación oficial de ArgoCD
+  </Card>
+  
+  <Card title="Kubectl Rollout" icon="book" href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-back-a-deployment">
+    Guía de Kubernetes sobre rollouts
+  </Card>
+  
+  <Card title="RDS Snapshots" icon="book" href="https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_RestoreFromSnapshot.html">
+    Restaurar desde snapshots de RDS
+  </Card>
+  
+  <Card title="Incident Response" icon="book" href="/troubleshooting">
+    Guía de troubleshooting general
+  </Card>
+</CardGroup>

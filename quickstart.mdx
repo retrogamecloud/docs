@@ -33,6 +33,35 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
 
 ## Requisitos Previos
 
+<Warning>
+  **Antes de comenzar**: Completa el [Bootstrap Inicial](/infrastructure/bootstrap) para configurar credenciales AWS y backend de Terraform.
+</Warning>
+
+## ✅ Checklist Pre-Despliegue
+
+Antes de ejecutar `terraform apply`, verifica:
+
+<Checklist>
+  - [ ] AWS CLI configurado (`aws sts get-caller-identity` funciona)
+  - [ ] Usuario IAM con permisos suficientes (Admin o política custom)
+  - [ ] Límites de servicio verificados (Service Quotas para EKS, VPC)
+  - [ ] Backend de Terraform creado (S3 + DynamoDB)
+  - [ ] Repositorio clonado: `git clone https://github.com/retrogamecloud/infrastructure.git`
+  - [ ] `terraform.tfvars` configurado con valores reales
+  - [ ] Backend configurado en `main.tf`
+  - [ ] GitHub OAuth App creada (para monitoreo)
+  - [ ] Dominio registrado O decisión de usar ALB DNS
+  - [ ] Presupuesto AWS configurado (opcional pero recomendado)
+  - [ ] `.gitignore` incluye `terraform.tfvars` y `*.tfstate`
+  - [ ] Herramientas instaladas: terraform >= 1.5, kubectl >= 1.28, aws-cli >= 2.x
+</Checklist>
+
+<Tip>
+  Si algún item falla, consulta la [Guía de Bootstrap](/infrastructure/bootstrap) completa.
+</Tip>
+
+## Requisitos Previos
+
 <AccordionGroup>
   <Accordion icon="aws" title="Cuenta de AWS">
     - Cuenta AWS activa con permisos de administrador
@@ -197,12 +226,18 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
     # Verificar nodos
     kubectl get nodes
     
-    # Verificar pods
+    # Verificar pods en todos los namespaces
     kubectl get pods --all-namespaces
     
-    # Ver servicios
+    # Ver servicios de aplicación
     kubectl get svc -n retrogame
+    
+    # Ver servicios de monitoreo
     kubectl get svc -n monitoring
+    
+    # NUEVO: Verificar ArgoCD
+    kubectl get pods -n argocd
+    kubectl get applications -n argocd
     ```
     
     Deberías ver algo como:
@@ -211,7 +246,21 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
     backend-7d9f8b6c-xk4pm                  1/1     Running   0          5m
     frontend-6b8c9d7f-p2k8n                 1/1     Running   0          5m
     kube-prometheus-stack-operator-...      1/1     Running   0          8m
+    
+    # ArgoCD Applications:
+    NAME       SYNC STATUS   HEALTH STATUS
+    backend    Synced        Healthy
+    frontend   Synced        Healthy
+    kong       Synced        Healthy
     ```
+    
+    <Tip>
+      Si algún pod está en `Pending` o `CrashLoopBackOff`, verifica los logs:
+      ```bash
+      kubectl describe pod <pod-name> -n retrogame
+      kubectl logs <pod-name> -n retrogame
+      ```
+    </Tip>
   </Step>
 </Steps>
 
@@ -267,6 +316,9 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
     ```
     Usuario: `admin`  
     Password: Ver output de Terraform
+    ```bash
+    terraform output grafana_admin_password
+    ```
   </Card>
   
   <Card title="Prometheus" icon="fire" href="https://retrogamehub.games/prometheus">
@@ -274,6 +326,18 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
     https://retrogamehub.games/prometheus
     ```
     Métricas del sistema
+  </Card>
+  
+  <Card title="ArgoCD" icon="arrows-rotate" href="https://retrogamehub.games/argocd">
+    ```
+    https://retrogamehub.games/argocd
+    ```
+    Usuario: `admin`  
+    Password:
+    ```bash
+    kubectl get secret argocd-initial-admin-secret -n argocd \
+      -o jsonpath="{.data.password}" | base64 -d
+    ```
   </Card>
   
   <Card title="AlertManager" icon="bell" href="https://retrogamehub.games/alertmanager">
@@ -285,7 +349,7 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
 </CardGroup>
 
 <Note>
-  Los servicios de monitoreo están protegidos por **GitHub OAuth** - solo usuarios de la organización `retrogamecloud` pueden acceder.
+  Los servicios de monitoreo (Grafana, Prometheus, ArgoCD) están protegidos por **GitHub OAuth** - solo usuarios autorizados pueden acceder.
 </Note>
 
 ### 3. Obtener Credenciales
