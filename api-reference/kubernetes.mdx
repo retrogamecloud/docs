@@ -6,7 +6,7 @@ icon: "code"
 
 <Info>
   Documentación generada automáticamente.
-  Última actualización: 2025-11-22
+  Última actualización: 2025-11-23
 </Info>
 
 # Kubernetes Manifests
@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: retrogamehub/frontend:sha-05efddc
+          image: retrogamehub/frontend:sha-2fbfb66
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -161,8 +161,8 @@ spec:
     spec:
       containers:
         - name: kong
-          # Imagen de Kong desde DockerHub - v1.0.17 (sha-f2f6c74)
-          image: retrogamehub/kong:sha-f2f6c74
+          # Imagen de Kong desde DockerHub - v1.0.18 (sha-316a3d2)
+          image: retrogamehub/kong:sha-316a3d2
           # La imagen se descarga solo si no existe localmente (mejor práctica)
           imagePullPolicy: IfNotPresent
           ports:
@@ -373,7 +373,7 @@ spec:
     spec:
       containers:
       - name: kong
-        image: retrogamehub/kong:sha-15388ef
+        image: retrogamehub/kong:sha-316a3d2
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
@@ -576,7 +576,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: retrogamehub/backend:sha-f07c8a9  # Will be updated by CI/CD
+        image: retrogamehub/backend:sha-f1f9b35  # Will be updated by CI/CD
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
@@ -694,7 +694,7 @@ spec:
       # Init container 1: Copiar archivos de la imagen al volumen compartido
       initContainers:
       - name: copy-files
-        image: retrogamehub/frontend:sha-2f9f13a
+        image: retrogamehub/frontend:sha-2fbfb66
         command: ["sh", "-c", "cp -r /app/* /shared/ && cp -r /app/.[^.]* /shared/ 2>/dev/null || true && ls -la /shared"]
         volumeMounts:
         - name: app-files
@@ -712,7 +712,7 @@ spec:
       
       containers:
       - name: frontend
-        image: retrogamehub/frontend:sha-2f9f13a
+        image: retrogamehub/frontend:sha-2fbfb66
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -868,7 +868,7 @@ spec:
       containers:
         - name: backend
           # Backend image v0.0.1 - testing PR workflow
-          image: retrogamehub/backend:sha-5c2619d
+          image: retrogamehub/backend:sha-f1f9b35
           # La imagen se descarga solo si no existe localmente (mejor práctica)
           imagePullPolicy: IfNotPresent
           ports:
