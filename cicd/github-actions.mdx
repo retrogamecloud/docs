@@ -21,16 +21,17 @@ graph TB
     I --> J[🚀 Deploy to EKS]
     J --> K[💨 Smoke Tests]
     K --> L[✅ Production Ready]
-    
+
     C -->|❌ Fail| M[🚫 Stop Pipeline]
     D -->|❌ Fail| M
     E -->|🚨 Vulnerabilities| M
     K -->|❌ Fail| N[🔄 Rollback]
-    
+
     style A fill:#e1f5fe
     style L fill:#e8f5e8
     style M fill:#ffebee
     style N fill:#fff3e0
+
 ```
 
 ## Workflows Implementados
@@ -93,7 +94,7 @@ graph TB
   </Card>
 </CardGroup>
 
----
+- --
 
 ## Workflow Principal: Build & Deploy
 
@@ -124,6 +125,7 @@ env:
   REGISTRY: 471112987599.dkr.ecr.us-east-1.amazonaws.com
   IMAGE_NAME: retrogame-cloud-auth
   AWS_REGION: us-east-1
+
 ```
 
 ```yaml Jobs - Build y Test
@@ -133,50 +135,52 @@ jobs:
     permissions:
       contents: read
       packages: write
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-    
+
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
-    
+
     - name: Install dependencies
       run: npm ci
-    
+
     - name: Run unit tests
       run: npm test
-    
+
     - name: Run E2E tests
       run: npm run test:e2e
+
 ```
 
 ```yaml Security y Docker
     - name: Run security audit
       run: npm audit --audit-level high
-    
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
-    
+
     - name: Login to Amazon ECR
       uses: aws-actions/amazon-ecr-login@v2
-    
+
     - name: Build Docker image
       run: |
         docker build -t $REGISTRY/$IMAGE_NAME:$GITHUB_SHA .
         docker build -t $REGISTRY/$IMAGE_NAME:latest .
-    
+
     - name: Push to ECR
       run: |
         docker push $REGISTRY/$IMAGE_NAME:$GITHUB_SHA
         docker push $REGISTRY/$IMAGE_NAME:latest
+
 ```
 
 ```yaml Update Kubernetes
@@ -184,17 +188,18 @@ jobs:
       run: |
         git clone https://github.com/cuervolu/retrogame-cloud-kubernetes.git
         cd retrogame-cloud-kubernetes
-        
+
         # Update image tag in deployment
         sed -i "s|image: $REGISTRY/$IMAGE_NAME:.*|image: $REGISTRY/$IMAGE_NAME:$GITHUB_SHA|g" \
           manifests/auth/deployment.yaml
-        
+
         # Commit and push changes
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add .
         git commit -m "Update $IMAGE_NAME to $GITHUB_SHA" || exit 0
         git push
+
 ```
 
 </CodeGroup>
@@ -208,21 +213,21 @@ jobs:
     - Security audit con npm
     - Smoke tests post-deploy
   </Card>
-  
+
   <Card title="Integración GitOps" icon="git-branch">
     - Push automático a ECR
     - Update de manifiestos K8s
     - ArgoCD detecta cambios
     - Deploy automático a EKS
   </Card>
-  
+
   <Card title="Seguridad" icon="shield-check">
     - Scan de vulnerabilidades
     - Secrets en GitHub Secrets
     - RBAC en EKS
     - Network policies
   </Card>
-  
+
   <Card title="Rollback Automático" icon="arrow-rotate-left">
     - Health checks fallan → rollback
     - Smoke tests fallan → rollback
@@ -231,7 +236,7 @@ jobs:
   </Card>
 </CardGroup>
 
----
+- --
 
 ## Smoke Tests Post-Deploy
 
@@ -253,17 +258,18 @@ jobs:
     - name: Health Check API
       run: |
         curl -f https://api.retrogame-cloud.com/health || exit 1
-    
+
     - name: Test Authentication
       run: |
         response=$(curl -s -X POST https://api.retrogame-cloud.com/auth/login \
           -H "Content-Type: application/json" \
           -d '{"email":"test@example.com","password":"test123"}')
         echo $response | jq '.token' || exit 1
-    
+
     - name: Test Game Catalog
       run: |
         curl -f https://api.retrogame-cloud.com/games || exit 1
+
 ```
 
 ```bash Rollback on Failure
@@ -272,10 +278,11 @@ jobs:
       run: |
         # Trigger ArgoCD rollback
         argocd app rollback retrogame-cloud --revision HEAD~1
-        
+
         # Notify team
         curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
           -d '{"text":"🚨 Smoke tests failed. Rolling back deployment."}'
+
 ```
 
 </CodeGroup>
@@ -285,9 +292,13 @@ jobs:
 El pipeline reporta métricas clave para visibilidad del proceso:
 
 - **Build time**: Tiempo total del pipeline
+
 - **Test coverage**: Cobertura de tests unitarios y E2E
+
 - **Security score**: Resultado del análisis de vulnerabilidades
+
 - **Deploy frequency**: Frecuencia de despliegues exitosos
+
 - **Mean time to recovery**: Tiempo promedio de recuperación ante fallos
 
 <Tip>

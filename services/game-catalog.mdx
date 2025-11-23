@@ -145,10 +145,11 @@ El servicio de catálogo gestiona el inventario de juegos retro disponibles en l
     ```bash
     # Verificar juego específico
     curl http://localhost:3003/api/games/doom
-    
+
     # Listar todos los slugs
     curl http://localhost:3003/api/games?fields=slug
     ```
+
   </Accordion>
 
   <Accordion title="Archivos .jsdos corruptos o faltantes">
@@ -169,10 +170,11 @@ El servicio de catálogo gestiona el inventario de juegos retro disponibles en l
     ```bash
     # Verificar archivos
     ls -la /storage/games/*.jsdos
-    
+
     # Verificar metadata
     curl http://localhost:3003/api/games/doom | jq '.jsdos_url'
     ```
+
   </Accordion>
 
   <Accordion title="Base de datos desactualizada">
@@ -193,10 +195,11 @@ El servicio de catálogo gestiona el inventario de juegos retro disponibles en l
     ```bash
     # Ejecutar migraciones
     npm run migrate
-    
+
     # Reindexar catálogo
     curl -X POST http://localhost:3003/api/admin/reindex
     ```
+
   </Accordion>
 
   <Accordion title="Búsqueda lenta o timeout">
@@ -217,10 +220,11 @@ El servicio de catálogo gestiona el inventario de juegos retro disponibles en l
     ```bash
     # Verificar performance
     curl -w "Time: %{time_total}s\n" http://localhost:3003/api/games/search?q=doom
-    
+
     # Limpiar caché
     curl -X DELETE http://localhost:3003/api/cache
     ```
+
   </Accordion>
 
   <Accordion title="Imágenes y capturas no cargan">
@@ -241,9 +245,10 @@ El servicio de catálogo gestiona el inventario de juegos retro disponibles en l
     ```bash
     # Verificar assets
     ls -la /assets/screenshots/
-    
+
     # Regenerar thumbnails
     curl -X POST http://localhost:3003/api/admin/generate-thumbnails
     ```
+
   </Accordion>
 </AccordionGroup>

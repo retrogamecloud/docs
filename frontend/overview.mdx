@@ -1,6 +1,7 @@
 ---
 title: 4.1. Visión General del Frontend
-description: Interfaz de usuario retro para jugar juegos clásicos de DOS con arquitectura de componentes moderna
+description: Interfaz de usuario retro para jugar juegos clásicos de DOS con arquitectura
+  de componentes moderna
 icon: display
 ---
 
@@ -44,6 +45,7 @@ CDN:
   - Nginx para juegos (.jsdos)
   - CloudFront para distribución global
   - Cache agresivo de assets
+
 ```
 
 ## Arquitectura de Componentes
@@ -53,43 +55,44 @@ graph TB
     subgraph "Frontend Architecture"
         A[index.html - Landing Page] --> B[AuthManager]
         A --> C[UIComponents]
-        
+
         D[games.html - Game Selection] --> E[GameGrid]
         D --> F[GameFilters]
-        
+
         G[Game Player] --> H[js-dos Integration]
         G --> I[ScoreTracker]
-        
+
         B --> J[API Client]
         I --> J
         E --> J
-        
+
         J --> K[Auth Service API]
         J --> L[Games Service API]
         J --> M[Scores Service API]
-        
+
         H --> N[DOSBox WebAssembly]
         H --> O[Game ROMs CDN]
     end
-    
+
     subgraph "State Management"
         P[LocalStorage]
         Q[SessionStorage]
         R[Memory State]
-        
+
         B --> P
         I --> Q
         E --> R
     end
-    
+
     subgraph "Routing"
         S[Hash-based Router]
         T[Page Navigation]
         U[Game Loading]
-        
+
         S --> T
         S --> U
     end
+
 ```
 
 ## Flujo de Datos y API Calls
@@ -102,30 +105,31 @@ sequenceDiagram
     participant G as Games API
     participant S as Scores API
     participant C as CDN
-    
+
     Note over U,C: Authentication Flow
     U->>F: Login/Register
     F->>A: POST /auth/login
     A->>F: JWT Token
     F->>F: Store in localStorage
-    
+
     Note over U,C: Game Selection Flow
     F->>G: GET /games (with JWT)
     G->>F: Games list + metadata
     F->>F: Render game grid
-    
+
     Note over U,C: Game Loading Flow
     U->>F: Select game
     F->>C: Request .jsdos file
     C->>F: Game ROM data
     F->>F: Initialize js-dos
     F->>F: Mount DOSBox
-    
+
     Note over U,C: Score Tracking Flow
     F->>F: Monitor game events
     F->>S: POST /scores/update
     S->>F: Updated leaderboard
     F->>F: Update UI rankings
+
 ```
 
 ## Gestión de Estado
@@ -137,24 +141,25 @@ graph LR
         A3[Login Status] --> A4[Memory]
         A5[User Profile] --> A2
     end
-    
+
     subgraph "Game State"
         G1[Current Game] --> G2[SessionStorage]
         G3[Game Progress] --> G2
         G4[Save States] --> G5[IndexedDB]
     end
-    
+
     subgraph "UI State"
         U1[Active Page] --> U2[Hash Router]
         U3[Modal States] --> U4[Memory]
         U5[Loading States] --> U4
     end
-    
+
     subgraph "Score State"
         S1[Current Score] --> S2[Memory]
         S2 --> S3[Real-time Updates]
         S4[Leaderboards] --> S5[SessionStorage]
     end
+
 ```
 
 ## Integración js-dos
@@ -165,38 +170,40 @@ graph TB
         A[Game Loader] --> B[DOSBox WASM]
         A --> C[File System Mount]
         A --> D[Input Handler]
-        
+
         B --> E[DOS Environment]
         C --> F[Virtual Drive C:]
         D --> G[Keyboard/Mouse Events]
-        
+
         E --> H[Game Execution]
         F --> H
         G --> H
-        
+
         H --> I[Screen Buffer]
         H --> J[Audio Buffer]
         H --> K[Game Events]
-        
+
         I --> L[Canvas Renderer]
         J --> M[Audio Context]
         K --> N[Score Tracker]
     end
-    
+
     subgraph "Performance Optimization"
         O[WebWorker Thread]
         P[Shared Array Buffer]
         Q[Memory Pool]
-        
+
         B --> O
         E --> P
         F --> Q
     end
+
 ```
 
 ## Estructura de Archivos
 
 ```
+
 frontend/
 ├── server.js              # Express server
 ├── package.json          # Dependencias
@@ -217,6 +224,7 @@ frontend/
     ├── js-dos.js
     ├── wdosbox.js
     └── emulators/
+
 ```
 
 ## Páginas Principales
@@ -227,17 +235,24 @@ frontend/
 
 La página principal incluye:
 
-**Características:**
+* *Características:**
 
 - Sistema de login/registro con JWT
+
 - Validación de formularios en tiempo real
+
 - Diseño responsive con grid animado
+
 - Efecto CRT con scanlines
+
 - Transiciones suaves entre estados
 
-**Componentes:**
+* *Componentes:**
+
 - `AuthForm`: Formularios de login/registro
+
 - `WelcomeScreen`: Pantalla de bienvenida
+
 - `LoadingSpinner`: Indicadores de carga retro
 
 </Accordion>
@@ -248,17 +263,26 @@ La página principal incluye:
 
 Grid de selección de juegos con:
 
-**Características:**
+* *Características:**
+
 - Filtros por categoría y año
+
 - Búsqueda en tiempo real
+
 - Thumbnails animados
+
 - Información detallada de cada juego
+
 - Leaderboards por juego
 
-**Componentes:**
+* *Componentes:**
+
 - `GameGrid`: Cuadrícula de juegos
+
 - `GameCard`: Tarjeta individual de juego
+
 - `FilterPanel`: Panel de filtros
+
 - `SearchBar`: Barra de búsqueda
 
 </Accordion>
@@ -269,17 +293,26 @@ Grid de selección de juegos con:
 
 Interfaz de juego con:
 
-**Características:**
+* *Características:**
+
 - Emulador js-dos embebido
+
 - Controles de pantalla completa
+
 - Sistema de guardado/carga
+
 - Tracker de puntuaciones en vivo
+
 - Chat opcional entre jugadores
 
-**Componentes:**
+* *Componentes:**
+
 - `DosEmulator`: Wrapper del emulador
+
 - `GameControls`: Controles de juego
+
 - `ScoreDisplay`: Visualización de puntuación
+
 - `SaveStateManager`: Gestión de partidas guardadas
 
 </Accordion>
@@ -295,12 +328,17 @@ El sistema utiliza routing basado en hash para navegación SPA:
 #/play/:gameId       // Reproductor de juego
 #/leaderboards       // Rankings globales
 #/profile           // Perfil de usuario
+
 ```
 
 ## Optimizaciones de Rendimiento
 
 - **Lazy Loading**: Carga bajo demanda de componentes js-dos
+
 - **Service Workers**: Cache de assets y juegos
+
 - **WebAssembly**: DOSBox compilado para máximo rendimiento
+
 - **Memory Management**: Gestión cuidadosa de memoria en emulación
+
 - **Asset Compression**: Compresión de ROMs y recursos estáticos
