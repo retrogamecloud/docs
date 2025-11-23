@@ -43,6 +43,8 @@ jobs:
           
       - name: Checkout all source repos
         run: |
+          # Limpiar .analysis-repos anteriores si existen
+          rm -rf .analysis-repos
           mkdir -p .analysis-repos
           
           echo "📦 Clonando repositorios para análisis completo..."
@@ -53,7 +55,10 @@ jobs:
           git clone --depth 1 https://${{ secrets.PAT_TOKEN }}@github.com/retrogamecloud/infrastructure.git .analysis-repos/infrastructure
           git clone --depth 1 https://${{ secrets.PAT_TOKEN }}@github.com/retrogamecloud/kubernetes.git .analysis-repos/kubernetes
           
-          echo "✅ Todos los repositorios clonados"
+          # Eliminar directorios .git para evitar que se detecten como submodules
+          find .analysis-repos -name ".git" -type d -exec rm -rf {} + 2>/dev/null || true
+          
+          echo "✅ Todos los repositorios clonados y limpiados"
           
       - name: Setup Python for Claude
         uses: actions/setup-python@v4

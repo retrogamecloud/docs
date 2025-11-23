@@ -197,18 +197,7 @@ Responde en JSON puro (sin markdown, sin bloques ```):
       "rationale": "Por qué es importante esta mejora EN ESPAÑOL"
     }}
   ],
-  "new_sections": [
-    {{
-      "name": "Nombre de sección",
-      "description": "Propósito de la sección",
-      "files": [
-        {{
-          "filename": "section/intro.mdx",
-          "title": "Título",
-          "content_outline": "Outline del contenido"
-        }}
-      ]
-    }}
+  ],
   "new_sections": [
     {{
       "name": "Nombre de sección EN ESPAÑOL",
@@ -228,24 +217,30 @@ Responde en JSON puro (sin markdown, sin bloques ```):
       "title": "Título del diagrama EN ESPAÑOL",
       "description": "Qué muestra EN ESPAÑOL",
       "location": "Dónde colocarlo",
-      "mermaid_code": "```mermaid\\ngraph TD\\n...\\n```  (con labels EN ESPAÑOL)"
+      "mermaid_code": "Código mermaid con labels EN ESPAÑOL"
     }}
   ],
   "quick_wins": [
     "Mejoras rápidas que se pueden implementar ya EN ESPAÑOL"
+  ],
+  "critical_gaps": [
+    "Documentación crítica que falta EN ESPAÑOL"
   ]
 }}
+
+**REGLAS CRÍTICAS PARA JSON VÁLIDO:**
+1. NO uses saltos de línea literales (\\n) dentro de valores string
+2. Si un string es largo, mantenlo en una sola línea continua
+3. Escapa comillas dobles: \\"
+4. NO incluyas bloques ```mermaid``` dentro del JSON, solo el código directo
+5. Valores de mermaid_diagram deben ser strings planos sin marcadores
+6. El analysis_summary debe ser máximo 200 caracteres en una línea
 
 RECUERDA: 
 - **TODO en español de España (castellano)**
 - Sé específico y accionable
 - Prioriza por impacto
 - Propón contenido concreto, no solo ideas abstractas
-- Usa Mermaid.js para todos los diagramas
-- **CRÍTICO**: En el JSON, NO uses saltos de línea (\\n) dentro de strings
-- **CRÍTICO**: Escapa comillas dobles dentro de strings con \\"
-- **CRÍTICO**: Mantén los valores de strings en una sola línea o usa espacios
-- Si necesitas múltiples líneas, usa arrays de strings separados
 """
     
     return prompt
@@ -300,24 +295,47 @@ def analyze_with_claude(client, docs_content, architecture, docs_structure, anal
         
         # Intentar parsear
         try:
-            return json.loads(json_text)
+            result = json.loads(json_text)
+            print("✅ JSON parseado correctamente")
+            return result
         except json.JSONDecodeError as e:
             print(f"⚠️  Error parseando JSON: {e}")
+            print(f"📄 Error en posición: línea {e.lineno}, columna {e.colno}")
             print(f"📄 Primeros 500 chars del JSON:")
             print(json_text[:500])
             print(f"\n📄 Últimos 500 chars del JSON:")
             print(json_text[-500:])
             
-            # Intentar reparar el JSON
+            # Intentar reparar el JSON con estrategias incrementales
             try:
-                print("🔧 Intentando reparar JSON...")
+                print("🔧 Estrategia 1: Reparación con json-repair...")
                 repaired = repair_json(json_text)
                 result = json.loads(repaired)
-                print("✅ JSON reparado exitosamente")
+                print("✅ JSON reparado exitosamente con json-repair")
                 return result
-            except Exception as repair_error:
-                print(f"❌ No se pudo reparar: {repair_error}")
-                return None
+            except Exception as repair_error_1:
+                print(f"❌ json-repair falló: {repair_error_1}")
+                
+                # Estrategia 2: Truncar en el último } válido
+                try:
+                    print("🔧 Estrategia 2: Buscar última llave válida...")
+                    last_brace = json_text.rfind('}')
+                    if last_brace > 0:
+                        truncated = json_text[:last_brace + 1]
+                        result = json.loads(truncated)
+                        print(f"✅ JSON parseado truncando a posición {last_brace}")
+                        return result
+                except Exception as repair_error_2:
+                    print(f"❌ Truncado falló: {repair_error_2}")
+                    
+                    # Estrategia 3: Retornar estructura mínima
+                    print("⚠️  Usando estructura de análisis mínima por defecto")
+                    return {
+                        "analysis_summary": "Error parseando respuesta de Claude",
+                        "critical_gaps": [],
+                        "improvements": [],
+                        "new_pages_needed": []
+                    }
             
     except Exception as e:
         print(f"❌ Error en análisis: {e}")
