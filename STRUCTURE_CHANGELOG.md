@@ -1,15 +1,15 @@
 # 📋 Reorganización de Estructura de Documentación
 
-**Fecha**: 2025-11-22 03:19:00  
+**Fecha**: 2025-11-23 03:54:08  
 **Generado por**: Claude Sonnet 4.5
 
 ## 📊 Resumen de Cambios
 
-Se ha reorganizado la estructura completa priorizando el flujo lógico del usuario desde la introducción hasta la referencia técnica. Los cambios principales incluyen: renombrado de 'Primeros Pasos' a 'Introducción' para mayor claridad, consolidación de 'Servicios Backend' en 'Microservicios' (más preciso técnicamente), adelantamiento de 'Seguridad y Autenticación' antes de infraestructura por su importancia crítica, renombrado de 'Infraestructura Cloud' a 'Infraestructura AWS' (más específico), consolidación de configuración y despliegue en 'Configuración', y renombrado de 'Solución de Problemas' a 'Operaciones' para abarcar más aspectos operacionales. En la Referencia API se eliminaron los números de grupos para simplificar y se cambió 'Documentación Técnica' por 'Especificaciones Técnicas' (más apropiado).
+Se ha reorganizado la estructura moviendo 'Seguridad y Autenticación' a la posición 3 (después de conceptos fundamentales), consolidando 'CI/CD y GitOps' con 'deployment' en un único grupo llamado 'CI/CD y Despliegue', y renombrando varios grupos para mayor claridad. Se ha mejorado la progresión lógica: Introducción → Conceptos → Seguridad → Implementación (Microservicios/Frontend) → Infraestructura → Despliegue → Configuración → Operaciones. Los nombres de grupos son más concisos y las descripciones más precisas.
 
 ## 🎯 Justificación
 
-Esta reorganización sigue un flujo pedagógico natural: primero se introduce el proyecto y se facilita el inicio rápido, luego se explica la arquitectura conceptual, después se profundiza en los componentes técnicos (microservicios, frontend), seguido de aspectos transversales críticos (seguridad), infraestructura de despliegue, automatización CI/CD, configuración práctica y finalmente operaciones. Este orden permite tanto a nuevos desarrolladores como a arquitectos experimentados navegar intuitivamente desde conceptos generales hasta detalles específicos de implementación. La eliminación de números en la Referencia API responde a que los endpoints no tienen una jerarquía de aprendizaje obligatoria, sino que son consultados según necesidad. Los nuevos nombres son más precisos técnicamente y siguen la terminología estándar de la industria en español.
+La nueva organización sigue un flujo de aprendizaje más natural: primero se presenta el proyecto y conceptos básicos, luego se explica la seguridad (fundamental antes de entender los microservicios), después se profundiza en la implementación técnica, infraestructura y finalmente operaciones. La seguridad se adelanta porque es transversal y necesaria para comprender cómo funcionan los microservicios. Se consolida todo lo relacionado con despliegue en un único grupo (CI/CD) evitando dispersión. Los nombres son más claros: 'Primeros Pasos' vs 'Introducción', 'Infraestructura y Nube' vs 'Infraestructura AWS', 'CI/CD y Despliegue' integra conceptos relacionados. La estructura mejora la navegabilidad y reduce saltos conceptuales.
 
 ---
 
