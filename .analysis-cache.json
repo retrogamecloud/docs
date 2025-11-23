@@ -13,9 +13,9 @@
       "size": 19638
     },
     "architecture.mdx": {
-      "hash": "fb3cf72f77c1b7947240e65bfa25e3a1b324b2110c6ba00f8b9269bdac385e78",
-      "last_analyzed": "2025-11-23T14:54:37.694707",
-      "size": 9806
+      "hash": "1929ce6dc805d13d888af9fb206c04efa5062ae774fead7fdd35b39e3f3fb4b7",
+      "last_analyzed": "2025-11-23T15:09:47.976189",
+      "size": 10489
     },
     "configuration.mdx": {
       "hash": "89e8bff078814672f341de43dcf58fc8c0ab791cf89d86ec797c906599431258",
@@ -323,34 +323,59 @@
       "size": 10236
     },
     "AUTO_FIXES_REPORT.md": {
-      "hash": "f07d713a39189a334600ae0a2fe01b0247f6017a2220f246f8dde4ab92eac1b6",
-      "last_analyzed": "2025-11-23T14:54:37.694581",
-      "size": 1423
+      "hash": "458f884861fc28f2b406a722c0f69291e984474aeaa5b47247d6948cdfb3acf1",
+      "last_analyzed": "2025-11-23T15:09:47.975951",
+      "size": 1270
     },
     "STRUCTURE_CHANGELOG.md": {
-      "hash": "2957607ec59fcab980b7cfed97e61ed8fd50e3129cefdac56102bd9827705981",
-      "last_analyzed": "2025-11-23T14:54:37.694547",
-      "size": 1832
+      "hash": "bf8d8a438525aae8d5ebf60eabf96580a43093e75b055861cda042ed9e3f013f",
+      "last_analyzed": "2025-11-23T15:09:47.976257",
+      "size": 1642
     },
     "CHANGELOG_WIKI_2025-11-20.md": {
       "hash": "d13877754ef905f75e10e04599d08786c84a78b89b5a478d17f4b058a96099e0",
-      "last_analyzed": "2025-11-23T14:54:37.694793",
+      "last_analyzed": "2025-11-23T15:09:47.976152",
       "size": 12710
     },
     "README.md": {
       "hash": "024bf7c7673705356f681d02d8192dcae1115ccbdf621307bae295c7f89abb0b",
-      "last_analyzed": "2025-11-23T14:54:37.694638",
+      "last_analyzed": "2025-11-23T15:09:47.975919",
       "size": 1394
     },
     "BROKEN_LINKS_REPORT.md": {
       "hash": "e4ab54560729b962ac916a4e6b6973bf22d4d25116ffdc19cfc55dd40efc776b",
-      "last_analyzed": "2025-11-23T14:54:37.694610",
+      "last_analyzed": "2025-11-23T15:09:47.975982",
       "size": 3244
     },
     "IMPROVEMENTS.md": {
-      "hash": "85595f65732ce784a7502d42844afa7191da07aa69a9641775f7ceb4f353d9ca",
-      "last_analyzed": "2025-11-23T14:54:37.694435",
-      "size": 7635
+      "hash": "aa3ebb3619aecb617991d6b4edb75527a8020ec6d1d58eca44f8ba679e15b7bf",
+      "last_analyzed": "2025-11-23T15:09:47.976066",
+      "size": 17769
+    },
+    "infrastructure/backup-recovery.mdx": {
+      "hash": "8069c9acb98f2fc530eb4f3cb313da54682a72390bf61297d5159f1c83169e61",
+      "last_analyzed": "2025-11-23T15:09:47.975836",
+      "size": 12730
+    },
+    "infrastructure/database-schema.mdx": {
+      "hash": "412899b5fd3a6fbb961cae8b8c638a43024275b7f08b3b7a20f968e9aac1b118",
+      "last_analyzed": "2025-11-23T15:09:47.975885",
+      "size": 13082
+    },
+    "infrastructure/secrets-management.mdx": {
+      "hash": "86f80a4eb7b9637b3ccb161718bc381cfcf9e5acd328a3d2ae9d503ce37c7d10",
+      "last_analyzed": "2025-11-23T15:09:47.976024",
+      "size": 11527
+    },
+    "infrastructure/security.mdx": {
+      "hash": "aa79168e6f24165ba375d5cdadb3fe271a0927d829e56355e014255bf87b83d1",
+      "last_analyzed": "2025-11-23T15:09:47.976113",
+      "size": 12303
+    },
+    "infrastructure/database.mdx": {
+      "hash": "6bd888ccc97dc03f880f24d2e41c9dbcd46659004edaee10ca318ed9ec8eadc8",
+      "last_analyzed": "2025-11-23T15:09:47.976226",
+      "size": 13278
     }
   },
   "analysis_results": {
@@ -562,6 +587,21 @@
       "analyzed": true
     },
     "IMPROVEMENTS.md": {
+      "analyzed": true
+    },
+    "infrastructure/backup-recovery.mdx": {
+      "analyzed": true
+    },
+    "infrastructure/database-schema.mdx": {
+      "analyzed": true
+    },
+    "infrastructure/secrets-management.mdx": {
+      "analyzed": true
+    },
+    "infrastructure/security.mdx": {
+      "analyzed": true
+    },
+    "infrastructure/database.mdx": {
       "analyzed": true
     }
   }

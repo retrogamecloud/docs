@@ -6,39 +6,107 @@ icon: user
 
 ## Descripción
 
-El servicio de usuarios gestiona los perfiles, preferencias y estadísticas de los jugadores en la plataforma.
+El servicio de usuarios gestiona los perfiles, preferencias y estadísticas de los jugadores en la plataforma. Proporciona funcionalidades completas para la administración de cuentas de usuario, incluyendo autenticación, personalización y seguimiento de actividad.
 
 <CardGroup cols={3}>
   <Card title="Perfiles" icon="id-card">
-    Info de usuario
+    Información completa de usuario
 
-    Username, email, avatar
+    Username, email, avatar, bio y configuración personal
   </Card>
 
   <Card title="Estadísticas" icon="chart-simple">
-    Historial de juego
+    Historial y métricas de juego
 
-    Total scores, juegos jugados
+    Scores totales, juegos jugados, rankings y progreso
   </Card>
 
   <Card title="Preferencias" icon="sliders">
-    Configuración
+    Configuración personalizada
 
-    Tema, idioma, privacidad
+    Tema, idioma, privacidad y notificaciones
   </Card>
 </CardGroup>
 
-## Endpoints
+## Información Técnica
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Puerto** | 3002 |
+| **Base de Datos** | PostgreSQL (usuarios, perfiles, estadísticas) |
+| **Dependencias** | Auth Service, Game Service |
+| **Cache** | Redis (sesiones, datos frecuentes) |
+
+## Características Principales
+
+### Gestión de Perfiles
+- Creación y actualización de perfiles de usuario
+- Subida y gestión de avatares personalizados
+- Biografías y información personal
+- Sistema de verificación de cuentas
+
+### Sistema de Estadísticas
+- Tracking automático de actividad de juego
+- Cálculo de rankings globales y por juego
+- Historial detallado de scores y logros
+- Métricas de tiempo de juego
+
+### Configuración y Preferencias
+- Personalización de interfaz (tema, idioma)
+- Configuración de privacidad granular
+- Gestión de notificaciones
+- Preferencias de juego
+
+## Endpoints Principales
+
+### Gestión de Perfiles
+
+<Card title="GET /api/users/:username" icon="eye" href="/api-reference/user-service/get-user-profile">
+  Obtener perfil público de usuario
+</Card>
+
+<Card title="PUT /api/users/:username" icon="pen" href="/api-reference/user-service/update-user-profile">
+  Actualizar perfil de usuario (requiere autenticación)
+</Card>
+
+<Card title="DELETE /api/users/:username" icon="trash" href="/api-reference/user-service/delete-user">
+  Eliminar cuenta de usuario
+</Card>
+
+### Estadísticas y Scores
+
+<Card title="GET /api/users/:username/scores" icon="trophy" href="/api-reference/user-service/get-user-scores">
+  Obtener todos los scores de un usuario
+</Card>
+
+<Card title="GET /api/users/:username/stats" icon="chart-line" href="/api-reference/user-service/get-user-stats">
+  Estadísticas detalladas del usuario
+</Card>
+
+<Card title="GET /api/users/:username/achievements" icon="medal" href="/api-reference/user-service/get-user-achievements">
+  Logros y badges del usuario
+</Card>
+
+### Configuración
+
+<Card title="GET /api/users/:username/preferences" icon="gear" href="/api-reference/user-service/get-user-preferences">
+  Obtener preferencias del usuario
+</Card>
+
+<Card title="PUT /api/users/:username/preferences" icon="sliders" href="/api-reference/user-service/update-user-preferences">
+  Actualizar configuración y preferencias
+</Card>
+
+## Vista Rápida de Endpoints
 
 ### GET /api/users/:username
 
-Obtiene el perfil público de un usuario.
+Obtiene el perfil público de un usuario con estadísticas básicas.
 
 <CodeGroup>
 
 ```bash Request
 curl http://api.retrogamecloud.com/api/users/player1
-
 ```
 
 ```json Response 200
@@ -58,27 +126,18 @@ curl http://api.retrogamecloud.com/api/users/player1
     "global_rank": 15
   }
 }
-
-```
-
-```json Error 404
-{
-  "error": "Usuario no encontrado"
-}
-
 ```
 
 </CodeGroup>
 
 ### GET /api/users/:username/scores
 
-Obtiene todos los scores de un usuario.
+Obtiene el historial de scores de un usuario específico.
 
 <CodeGroup>
 
 ```bash Request
-curl http://api.retrogamecloud.com/api/users/player1/scores
-
+curl http://api.retrogamecloud.com/api/users/player1/scores?limit=10
 ```
 
 ```json Response 200
@@ -92,7 +151,7 @@ curl http://api.retrogamecloud.com/api/users/player1/scores
     "updated_at": "2025-11-18T10:15:00.000Z"
   },
   {
-    "game": "Duke Nukem 3D",
+    "game": "Duke Nukem 3D", 
     "game_slug": "duke3d",
     "score": 150000,
     "rank": 5,
@@ -100,458 +159,22 @@ curl http://api.retrogamecloud.com/api/users/player1/scores
     "updated_at": "2025-11-16T09:00:00.000Z"
   }
 ]
-
 ```
 
 </CodeGroup>
 
-### PUT /api/users/:username
+## Documentación Completa
 
-Actualiza el perfil del usuario (requiere autenticación).
+Para información detallada sobre todos los endpoints, parámetros, respuestas y ejemplos de uso, consulta la [Referencia Completa de la API del Servicio de Usuarios](/api-reference/user-service).
 
-<CodeGroup>
+## Integración con Otros Servicios
 
-```bash Request
-curl -X PUT http://api.retrogamecloud.com/api/users/player1 \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "display_name": "Player One Pro",
-    "bio": "Top 10 global player",
-    "avatar_url": "https://cdn.retrogamecloud.com/avatars/new-avatar.jpg"
-  }'
+El servicio de usuarios se integra estrechamente con:
 
-```
+- **[Auth Service](/services/auth-service)**: Autenticación y autorización
+- **[Game Service](/services/game-service)**: Tracking de actividad de juego
+- **[Score Service](/services/score-service)**: Gestión de puntuaciones y rankings
 
-```json Response 200
-{
-  "message": "Perfil actualizado exitosamente",
-  "user": {
-    "id": 123,
-    "username": "player1",
-    "display_name": "Player One Pro",
-    "bio": "Top 10 global player",
-    "avatar_url": "https://cdn.retrogamecloud.com/avatars/new-avatar.jpg",
-    "updated_at": "2025-11-19T15:30:00.000Z"
-  }
-}
-
-```
-
-```json Error 403
-{
-  "error": "No autorizado para modificar este perfil"
-}
-
-```
-
-</CodeGroup>
-
-* *Campos actualizables:**
-
-- `display_name` (max 50 caracteres)
-
-- `bio` (max 500 caracteres)
-
-- `avatar_url` (URL válida)
-
-- `email` (formato email válido)
-
-<Warning>
-  El **username** no se puede cambiar después del registro.
-</Warning>
-
-### DELETE /api/users/:username
-
-Desactiva la cuenta del usuario (soft delete).
-
-<CodeGroup>
-
-```bash Request
-curl -X DELETE http://api.retrogamecloud.com/api/users/player1 \
-  -H "Authorization: Bearer <token>"
-
-```
-
-```json Response 200
-{
-  "message": "Cuenta desactivada exitosamente"
-}
-
-```
-
-</CodeGroup>
-
-* *Comportamiento:**
-
-- No elimina físicamente el usuario
-
-- Establece `is_active = false`
-
-- Los scores se mantienen pero con username "[deleted]"
-
-- El usuario puede reactivar su cuenta contactando soporte
-
-## Estadísticas de Usuario
-
-### Query de Estadísticas
-
-```sql
-
-- - Calcular stats completas de un usuario
-WITH user_stats AS (
-  SELECT
-    COUNT(DISTINCT s.game_id) as total_games_played,
-    SUM(s.score) as total_score,
-    MAX(s.score) as highest_score,
-    AVG(s.score)::INTEGER as avg_score
-  FROM scores s
-  JOIN users u ON s.user_id = u.id
-  WHERE u.username = $1
-),
-favorite_game AS (
-  SELECT g.name as game_name
-  FROM scores s
-  JOIN users u ON s.user_id = u.id
-  JOIN games g ON s.game_id = g.id
-  WHERE u.username = $1
-  ORDER BY s.score DESC
-  LIMIT 1
-),
-global_position AS (
-  SELECT COUNT(*) + 1 as rank
-  FROM (
-    SELECT SUM(s.score) as total
-    FROM scores s
-    JOIN users u ON s.user_id = u.id
-    WHERE u.is_active = true
-    GROUP BY u.id
-    HAVING SUM(s.score) > (
-      SELECT SUM(score)
-      FROM scores s2
-      JOIN users u2 ON s2.user_id = u2.id
-      WHERE u2.username = $1
-    )
-  ) ranked
-)
-SELECT
-  us.*,
-  fg.game_name as favorite_game,
-  gp.rank as global_rank
-FROM user_stats us, favorite_game fg, global_position gp;
-
-```
-
-## Esquema de Base de Datos
-
-### Tabla: users (extendida)
-
-```sql
-CREATE TABLE users (
-  id SERIAL PRIMARY KEY,
-  username VARCHAR(30) UNIQUE NOT NULL,
-  email VARCHAR(100) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  display_name VARCHAR(50),
-  avatar_url TEXT,
-  bio TEXT,
-  is_active BOOLEAN DEFAULT true,
-  email_verified BOOLEAN DEFAULT false,
-  last_login TIMESTAMP,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
-- - Triggers para updated_at
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-CREATE TRIGGER update_users_updated_at
-  BEFORE UPDATE ON users
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
-
-```
-
-### Tabla: user_preferences (futura)
-
-```sql
-CREATE TABLE user_preferences (
-  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  theme VARCHAR(20) DEFAULT 'retro',
-  language VARCHAR(10) DEFAULT 'es',
-  show_email BOOLEAN DEFAULT false,
-  show_rankings BOOLEAN DEFAULT true,
-  notifications_enabled BOOLEAN DEFAULT true,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
-```
-
-## Validaciones
-
-### Validar Display Name
-
-```javascript
-function validateDisplayName(displayName) {
-  if (!displayName) return true; // Opcional
-
-  if (displayName.length > 50) {
-    throw { status: 400, message: 'Display name demasiado largo (max 50)' };
-  }
-
-  // Permitir letras, números, espacios y caracteres básicos
-  const regex = /^[a-zA-Z0-9\s._-]+$/;
-  if (!regex.test(displayName)) {
-    throw { status: 400, message: 'Display name contiene caracteres inválidos' };
-  }
-
-  return true;
-}
-
-```
-
-### Validar Bio
-
-```javascript
-function validateBio(bio) {
-  if (!bio) return true; // Opcional
-
-  if (bio.length > 500) {
-    throw { status: 400, message: 'Bio demasiado larga (max 500)' };
-  }
-
-  // Sanitizar HTML/scripts
-  const sanitized = bio
-    .replace(/<script[^>]*>.*?<\/script>/gi, '')
-    .replace(/<[^>]+>/g, '');
-
-  return sanitized;
-}
-
-```
-
-### Validar Avatar URL
-
-```javascript
-function validateAvatarUrl(url) {
-  if (!url) return true; // Opcional
-
-  try {
-    const parsed = new URL(url);
-
-    // Solo permitir HTTPS
-    if (parsed.protocol !== 'https:') {
-      throw new Error('Solo se permiten URLs HTTPS');
-    }
-
-    // Validar extensión
-    const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-    const hasValidExt = validExtensions.some(ext =>
-      url.toLowerCase().endsWith(ext)
-    );
-
-    if (!hasValidExt) {
-      throw new Error('Formato de imagen no válido');
-    }
-
-    return true;
-  } catch (error) {
-    throw { status: 400, message: 'Avatar URL inválida' };
-  }
-}
-
-```
-
-## Seguridad y Privacidad
-
-### Autorización
-
-```javascript
-// Middleware para verificar que el usuario puede editar el perfil
-function requireOwnership(req, res, next) {
-  const { username } = req.params;
-  const { username: tokenUsername } = req.user;
-
-  if (username !== tokenUsername) {
-    return res.status(403).json({
-      error: 'No autorizado para modificar este perfil'
-    });
-  }
-
-  next();
-}
-
-// Uso
-app.put('/api/users/:username',
-  authMiddleware,
-  requireOwnership,
-  updateUserProfile
-);
-
-```
-
-### Ocultar Información Sensible
-
-```javascript
-function sanitizeUserForPublic(user) {
-  const { password_hash, email_verified, last_login, ...publicUser } = user;
-
-  // Ocultar email si el usuario no lo permite
-  if (!user.show_email) {
-    publicUser.email = null;
-  }
-
-  return publicUser;
-}
-
-```
-
-## Variables de Entorno
-
-```bash
-
-# Puerto del servicio
-PORT=3005
-
-# Base de datos
-DATABASE_URL=postgresql://postgres:password@postgres:5432/retrogamedb
-
-# JWT Secret
-JWT_SECRET=same-secret-as-auth-service
-
-# CDN para avatars
-AVATAR_CDN_URL=https://cdn.retrogamecloud.com/avatars
-
-# Logs
-LOG_LEVEL=info
-
-```
-
-## Integración con Frontend
-
-### Mostrar Perfil de Usuario
-
-```javascript
-async function loadUserProfile(username) {
-  try {
-    const response = await fetch(`http://api.retrogamecloud.com/api/users/${username}`);
-    const user = await response.json();
-
-    displayUserProfile(user);
-  } catch (error) {
-    console.error('Error cargando perfil:', error);
-  }
-}
-
-function displayUserProfile(user) {
-  const html = `
-    <div class="user-profile">
-      <img src="${user.avatar_url || '/default-avatar.png'}"
-           alt="${user.username}"
-           class="avatar">
-      <h2>${user.display_name || user.username}</h2>
-      <p class="username">@${user.username}</p>
-      <p class="bio">${user.bio || ''}</p>
-
-      <div class="stats">
-        <div class="stat">
-          <span class="label">Games Played</span>
-          <span class="value">${user.stats.total_games_played}</span>
-        </div>
-        <div class="stat">
-          <span class="label">Total Score</span>
-          <span class="value">${user.stats.total_score.toLocaleString()}</span>
-        </div>
-        <div class="stat">
-          <span class="label">Global Rank</span>
-          <span class="value">#${user.stats.global_rank}</span>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.getElementById('profile-container').innerHTML = html;
-}
-
-```
-
-### Editar Perfil
-
-```javascript
-async function updateProfile(username, updates) {
-  const token = localStorage.getItem('token');
-
-  try {
-    const response = await fetch(`http://api.retrogamecloud.com/api/users/${username}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(updates)
-    });
-
-    const data = await response.json();
-    console.log('✅ Perfil actualizado:', data);
-
-    // Recargar perfil
-    await loadUserProfile(username);
-  } catch (error) {
-    console.error('❌ Error actualizando perfil:', error);
-  }
-}
-
-// Uso
-updateProfile('player1', {
-  display_name: 'New Display Name',
-  bio: 'Updated bio text'
-});
-
-```
-
-## Roadmap
-
-<CardGroup cols={2}>
-  <Card title="v2.0 - Preferencias" icon="sliders">
-    Sistema de preferencias personalizables
-  </Card>
-
-  <Card title="v2.1 - Achievements" icon="trophy">
-    Sistema de logros y badges
-  </Card>
-
-  <Card title="v2.2 - Friends" icon="users">
-    Sistema de amigos y follow
-  </Card>
-
-  <Card title="v2.3 - Avatar Upload" icon="upload">
-    Subida directa de avatares
-  </Card>
-</CardGroup>
-
-## Próximos Pasos
-
-<CardGroup cols={2}>
-  <Card title="Auth Service" icon="lock" href="/services/auth-service">
-    Sistema de autenticación
-  </Card>
-
-  <Card title="Frontend" icon="window" href="/frontend/overview">
-    Interfaz de usuario
-  </Card>
-
-  <Card title="API Reference" icon="book" href="/api-reference/auth/login">
-    Documentación completa de APIs
-  </Card>
-
-  <Card title="CI/CD" icon="rocket" href="/cicd/overview">
-    Pipeline de despliegue
-  </Card>
-</CardGroup>
+<Note>
+Todos los endpoints que modifican datos de usuario requieren autenticación válida mediante token JWT.
+</Note>

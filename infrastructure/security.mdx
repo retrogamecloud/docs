@@ -1,7 +1,8 @@
 ---
-title: "Seguridad y Gestión de Secretos"
-description: "Guía completa para la gestión segura de secretos, políticas de seguridad y mejores prácticas en RetroGameCloud"
-icon: "shield-check"
+title: Seguridad y Gestión de Secretos
+description: Guía completa para la gestión segura de secretos, políticas de seguridad
+  y mejores prácticas en RetroGameCloud
+icon: shield-check
 ---
 
 # Seguridad y Gestión de Secretos
@@ -16,13 +17,13 @@ graph TB
         U[Usuario]
         CDN[CloudFront CDN]
     end
-    
+
     subgraph "AWS Cloud"
         subgraph "Public Subnets"
             ALB[Application Load Balancer]
             NAT[NAT Gateway]
         end
-        
+
         subgraph "Private Subnets"
             subgraph "EKS Cluster"
                 API[API Gateway Kong]
@@ -32,21 +33,21 @@ graph TB
                 SCORE[Score Service]
                 RANK[Ranking Service]
             end
-            
+
             RDS[(PostgreSQL RDS)]
             REDIS[(ElastiCache Redis)]
         end
-        
+
         subgraph "Security Services"
             SM[Secrets Manager]
             PS[Parameter Store]
             WAF[AWS WAF]
             SG[Security Groups]
         end
-        
+
         S3[S3 Buckets]
     end
-    
+
     U --> CDN
     CDN --> WAF
     WAF --> ALB
@@ -56,24 +57,25 @@ graph TB
     API --> GAME
     API --> SCORE
     API --> RANK
-    
+
     AUTH -.-> SM
     USER -.-> SM
     GAME -.-> PS
     SCORE -.-> PS
     RANK -.-> PS
-    
+
     AUTH --> RDS
     USER --> RDS
     GAME --> RDS
     SCORE --> RDS
     RANK --> RDS
-    
+
     AUTH --> REDIS
     SCORE --> REDIS
     RANK --> REDIS
-    
+
     GAME --> S3
+
 ```
 
 ## Gestión de Secretos
@@ -87,6 +89,7 @@ AWS Secrets Manager se utiliza para almacenar secretos críticos como credencial
 #### Configuración de Secretos
 
 ```yaml
+
 # secrets-manager-setup.yml
 apiVersion: external-secrets.io/v1beta1
 kind: SecretStore
@@ -102,7 +105,8 @@ spec:
         jwt:
           serviceAccountRef:
             name: external-secrets-sa
----
+
+- --
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
@@ -125,12 +129,14 @@ spec:
     remoteRef:
       key: retrogame/database
       property: password
+
 ```
 
 #### Estructura de Secretos
 
 <Tabs>
 <Tab title="Base de Datos">
+
 ```json
 {
   "retrogame/database": {
@@ -141,9 +147,12 @@ spec:
     "dbname": "retrogame"
   }
 }
+
 ```
+
 </Tab>
 <Tab title="JWT Secrets">
+
 ```json
 {
   "retrogame/jwt": {
@@ -153,9 +162,12 @@ spec:
     "audience": "retrogame-api"
   }
 }
+
 ```
+
 </Tab>
 <Tab title="OAuth2">
+
 ```json
 {
   "retrogame/oauth2": {
@@ -167,7 +179,9 @@ spec:
     "discord_client_secret": "xxx"
   }
 }
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -176,6 +190,7 @@ spec:
 Para configuraciones no sensibles pero importantes:
 
 ```bash
+
 # Configurar parámetros del sistema
 aws ssm put-parameter \
     --name "/retrogame/config/jwt-expiry" \
@@ -194,6 +209,7 @@ aws ssm put-parameter \
     --value "10" \
     --type "String" \
     --description "Maximum concurrent game sessions per user"
+
 ```
 
 ## Rotación de Secretos
@@ -201,6 +217,7 @@ aws ssm put-parameter \
 ### Rotación Automática de Credenciales de Base de Datos
 
 ```python
+
 # lambda-rotation-function.py
 import boto3
 import json
@@ -215,11 +232,11 @@ def lambda_handler(event, context):
     """
     secrets_client = boto3.client('secretsmanager')
     rds_client = boto3.client('rds')
-    
+
     secret_arn = event['Step']
     token = event['ClientRequestToken']
     step = event['Step']
-    
+
     if step == "createSecret":
         create_secret(secrets_client, secret_arn, token)
     elif step == "setSecret":
@@ -228,7 +245,7 @@ def lambda_handler(event, context):
         test_secret(secrets_client, secret_arn, token)
     elif step == "finishSecret":
         finish_secret(secrets_client, secret_arn, token)
-    
+
     return {"statusCode": 200}
 
 def create_secret(secrets_client, secret_arn, token):
@@ -238,34 +255,36 @@ def create_secret(secrets_client, secret_arn, token):
             SecretId=secret_arn,
             VersionStage="AWSCURRENT"
         )
-        
+
         # Generar nueva contraseña
         new_password = secrets_client.get_random_password(
             PasswordLength=32,
             ExcludeCharacters='"@/\\'
         )['RandomPassword']
-        
+
         # Actualizar secreto con nueva contraseña
         new_secret = json.loads(current_secret['SecretString'])
         new_secret['password'] = new_password
-        
+
         secrets_client.put_secret_value(
             SecretId=secret_arn,
             VersionId=token,
             SecretString=json.dumps(new_secret),
             VersionStages=['AWSPENDING']
         )
-        
+
         logger.info("Nuevo secreto creado con éxito")
-        
+
     except Exception as e:
         logger.error(f"Error creando secreto: {str(e)}")
         raise e
+
 ```
 
 ### Rotación de JWT Secrets
 
 ```yaml
+
 # jwt-rotation-cronjob.yml
 apiVersion: batch/v1
 kind: CronJob
@@ -294,7 +313,7 @@ spec:
               # Generar nuevos secretos JWT
               NEW_ACCESS_SECRET=$(openssl rand -base64 64)
               NEW_REFRESH_SECRET=$(openssl rand -base64 64)
-              
+
               # Actualizar en Secrets Manager
               aws secretsmanager update-secret \
                 --secret-id $SECRET_NAME \
@@ -304,11 +323,12 @@ spec:
                   \"issuer\": \"retrogame-cloud\",
                   \"audience\": \"retrogame-api\"
                 }"
-              
+
               # Reiniciar servicios para aplicar nuevos secretos
               kubectl rollout restart deployment/auth-service
               kubectl rollout restart deployment/user-service
           restartPolicy: OnFailure
+
 ```
 
 ## Políticas de Seguridad IAM
@@ -356,11 +376,13 @@ Aplicar el principio de menor privilegio. Cada servicio debe tener acceso única
     }
   ]
 }
+
 ```
 
 ### Service Account para Kubernetes
 
 ```yaml
+
 # service-account.yml
 apiVersion: v1
 kind: ServiceAccount
@@ -369,20 +391,24 @@ metadata:
   namespace: retrogame-cloud
   annotations:
     eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT-ID:role/RetroGameServiceRole
----
+
+- --
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: retrogame-role
   namespace: retrogame-cloud
 rules:
+
 - apiGroups: [""]
   resources: ["secrets", "configmaps"]
   verbs: ["get", "list"]
+
 - apiGroups: ["apps"]
   resources: ["deployments"]
   verbs: ["get", "list", "patch"]
----
+
+- --
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -393,9 +419,11 @@ roleRef:
   kind: Role
   name: retrogame-role
 subjects:
+
 - kind: ServiceAccount
   name: retrogame-service-account
   namespace: retrogame-cloud
+
 ```
 
 ## Seguridad de Red
@@ -455,6 +483,7 @@ subjects:
     }
   ]
 }
+
 ```
 
 ### Network ACLs
@@ -495,6 +524,7 @@ subjects:
     }
   ]
 }
+
 ```
 
 ## Cifrado
@@ -506,6 +536,7 @@ Todos los servicios utilizan TLS 1.2 o superior para comunicaciones.
 </Card>
 
 ```yaml
+
 # nginx-tls-config.yml
 apiVersion: v1
 kind: ConfigMap
@@ -518,11 +549,11 @@ data:
         server user-service:8080;
         server game-catalog:8080;
     }
-    
+
     server {
         listen 443 ssl http2;
         server_name api.retrogamecloud.com;
-        
+
         ssl_certificate /etc/ssl/certs/retrogame.crt;
         ssl_certificate_key /etc/ssl/private/retrogame.key;
         ssl_protocols TLSv1.2 TLSv1.3;

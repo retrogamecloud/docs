@@ -28,6 +28,23 @@ El servicio de catálogo gestiona el inventario de juegos retro disponibles en l
   </Card>
 </CardGroup>
 
+## Información Técnica
+
+| Atributo | Valor |
+|----------|-------|
+| **Puerto** | 3003 |
+| **Base de Datos** | PostgreSQL |
+| **Dependencias** | - |
+| **Tecnología** | Node.js + Express |
+
+## Funcionalidades Principales
+
+- **Gestión de Catálogo**: CRUD completo de juegos
+- **Búsqueda Avanzada**: Por nombre, género, año, desarrollador
+- **Metadata Rica**: Descripción, capturas, archivos .jsdos
+- **Filtros**: Por categorías y características
+- **Integración**: APIs para otros servicios
+
 ## Juegos Disponibles
 
 <Table>
@@ -105,239 +122,45 @@ El servicio de catálogo gestiona el inventario de juegos retro disponibles en l
 
 ## Endpoints
 
-### GET /games
-
-Lista todos los juegos disponibles.
-
-<CodeGroup>
-
-```bash Request
-curl http://api.retrogamecloud.com/games
-
-```
-
-```json Response 200
-[
-  {
-    "id": 1,
-    "name": "DOOM",
-    "slug": "doom",
-    "description": "First-person shooter revolucionario de id Software",
-    "year": 1993,
-    "genre": "FPS",
-    "file_url": "https://cdn.retrogamecloud.com/juegos/doom.jsdos",
-    "image_url": "https://cdn.retrogamecloud.com/img/doom.jpg",
-    "created_at": "2025-01-15T10:00:00.000Z"
-  },
-  {
-    "id": 2,
-    "name": "Duke Nukem 3D",
-    "slug": "duke3d",
-    "description": "Acción intensa en primera persona",
-    "year": 1996,
-    "genre": "FPS",
-    "file_url": "https://cdn.retrogamecloud.com/juegos/duke3d.jsdos",
-    "image_url": "https://cdn.retrogamecloud.com/img/duke3d.jpg",
-    "created_at": "2025-01-15T10:00:00.000Z"
-  }
-  // ... más juegos
-]
-
-```
-
-</CodeGroup>
-
-### GET /games/:slug
-
-Obtiene un juego específico por su slug.
-
-<CodeGroup>
-
-```bash Request
-curl http://api.retrogamecloud.com/games/doom
-
-```
-
-```json Response 200
-{
-  "id": 1,
-  "name": "DOOM",
-  "slug": "doom",
-  "description": "First-person shooter revolucionario de id Software. Combate demonios del infierno en Marte.",
-  "year": 1993,
-  "genre": "FPS",
-  "developer": "id Software",
-  "publisher": "id Software",
-  "file_url": "https://cdn.retrogamecloud.com/juegos/doom.jsdos",
-  "image_url": "https://cdn.retrogamecloud.com/img/doom.jpg",
-  "play_count": 1547,
-  "avg_score": 85000,
-  "created_at": "2025-01-15T10:00:00.000Z"
-}
-
-```
-
-```json Error 404
-{
-  "error": "Juego no encontrado"
-}
-
-```
-
-</CodeGroup>
-
-## Esquema de Base de Datos
-
-### Tabla: games
-
-```sql
-CREATE TABLE games (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  slug VARCHAR(100) UNIQUE NOT NULL,
-  description TEXT,
-  year INTEGER,
-  genre VARCHAR(50),
-  developer VARCHAR(100),
-  publisher VARCHAR(100),
-  file_url TEXT NOT NULL,
-  image_url TEXT,
-  play_count INTEGER DEFAULT 0,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE INDEX idx_games_slug ON games(slug);
-CREATE INDEX idx_games_genre ON games(genre);
-CREATE INDEX idx_games_year ON games(year);
-
-```
-
-### Script de Inicialización
-
-```sql
-
-- - init-db/02-games.sql
-INSERT INTO games (name, slug, description, year, genre, file_url, image_url) VALUES
-  ('DOOM', 'doom', 'First-person shooter revolucionario', 1993, 'FPS',
-   'https://cdn.retrogamecloud.com/juegos/doom.jsdos',
-   'https://cdn.retrogamecloud.com/img/doom.jpg'),
-
-  ('Duke Nukem 3D', 'duke3d', 'Acción en primera persona', 1996, 'FPS',
-   'https://cdn.retrogamecloud.com/juegos/duke3d.jsdos',
-   'https://cdn.retrogamecloud.com/img/duke3d.jpg'),
-
-  ('Wolfenstein 3D', 'wolf', 'El pionero de los FPS', 1992, 'FPS',
-   'https://cdn.retrogamecloud.com/juegos/wolf.jsdos',
-   'https://cdn.retrogamecloud.com/img/wolf.jpg'),
-
-  ('Mortal Kombat', 'mortalkombat', 'Lucha brutal', 1993, 'Fighting',
-   'https://cdn.retrogamecloud.com/juegos/mortalkombat.jsdos',
-   'https://cdn.retrogamecloud.com/img/mortalkombat.jpg'),
-
-  ('Street Fighter II', 'streetfighter2', 'Clásico de lucha', 1992, 'Fighting',
-   'https://cdn.retrogamecloud.com/juegos/streetfighter2.jsdos',
-   'https://cdn.retrogamecloud.com/img/streetfighter2.jpg'),
-
-  ('Tetris', 'tetris', 'Puzzle adictivo', 1989, 'Puzzle',
-   'https://cdn.retrogamecloud.com/juegos/tetris.jsdos',
-   'https://cdn.retrogamecloud.com/img/tetris.jpg'),
-
-  ('Dangerous Dave 2', 'dangerousdave2', 'Plataformas clásico', 1990, 'Platform',
-   'https://cdn.retrogamecloud.com/juegos/dangerousdave2.jsdos',
-   'https://cdn.retrogamecloud.com/img/dangerousdave2.jpg'),
-
-  ('The Lost Vikings', 'lostvikings', 'Puzzle cooperativo', 1993, 'Puzzle/Platform',
-   'https://cdn.retrogamecloud.com/juegos/lostvikings.jsdos',
-   'https://cdn.retrogamecloud.com/img/lostvikings.jpg'),
-
-  ('Heroes of Might and Magic II', 'heroesofmightandmagic2', 'Estrategia por turnos', 1996, 'Strategy',
-   'https://cdn.retrogamecloud.com/juegos/heroesofmightandmagic2.jsdos',
-   'https://cdn.retrogamecloud.com/img/heroesofmightandmagic2.jpg'),
-
-  ('Digger', 'digger', 'Arcade clásico', 1983, 'Arcade',
-   'https://cdn.retrogamecloud.com/juegos/digger.jsdos',
-   'https://cdn.retrogamecloud.com/img/digger.jpg');
-
-```
-
-## CDN de Juegos
-
-Los archivos `.jsdos` se sirven desde un CDN basado en Nginx.
-
-### Estructura del CDN
-
-```
-
-cdn/
-├── img/                      # Imágenes de portada
-│   ├── doom.jpg
-│   ├── duke3d.jpg
-│   └── ...
-└── juegos/                   # Archivos .jsdos
-    ├── doom.jsdos
-    ├── duke3d.jsdos
-    └── ...
-
-```
-
-### Configuración Nginx
-
-```nginx
-server {
-  listen 80;
-  server_name cdn.retrogamecloud.com;
-
-  root /usr/share/nginx/html;
-
-  location /juegos/ {
-    add_header Access-Control-Allow-Origin *;
-    add_header Cache-Control "public, max-age=31536000";
-  }
-
-  location /img/ {
-    add_header Access-Control-Allow-Origin *;
-    add_header Cache-Control "public, max-age=86400";
-  }
-}
-
-```
-
-## Variables de Entorno
-
-```bash
-
-# Puerto del servicio
-PORT=3002
-
-# Base de datos
-DATABASE_URL=postgresql://postgres:password@postgres:5432/retrogamedb
-
-# CDN URL
-CDN_BASE_URL=https://cdn.retrogamecloud.com
-
-# Cache
-ENABLE_CACHE=true
-CACHE_TTL=3600
-
-```
-
-## Próximos Pasos
+El servicio expone los siguientes grupos de endpoints:
 
 <CardGroup cols={2}>
-  <Card title="Score Service" icon="trophy" href="/services/score-service">
-    Gestión de puntuaciones
+  <Card title="Gestión de Juegos" icon="gamepad" href="/api-reference/game-catalog/games">
+    - Listar juegos
+    - Obtener juego por ID/slug
+    - Crear/editar/eliminar juegos
   </Card>
 
-  <Card title="Ranking Service" icon="ranking-star" href="/services/ranking-service">
-    Rankings y leaderboards
-  </Card>
-
-  <Card title="Frontend" icon="window" href="/frontend/overview">
-    Interfaz de usuario
-  </Card>
-
-  <Card title="CDN" icon="server" href="/infrastructure/overview">
-    Infraestructura del CDN
+  <Card title="Búsqueda y Filtros" icon="search" href="/api-reference/game-catalog/search">
+    - Búsqueda por término
+    - Filtros por género/año
+    - Ordenación múltiple
   </Card>
 </CardGroup>
+
+<Card title="Ver Documentación Completa de la API" icon="book-open" href="/api-reference/game-catalog">
+  Consulta todos los endpoints disponibles, parámetros, ejemplos de respuesta y códigos de error del servicio de catálogo.
+</Card>
+
+## Esquema de Datos
+
+```json
+{
+  "id": "string (UUID)",
+  "title": "string",
+  "slug": "string (único)",
+  "description": "string",
+  "year": "integer",
+  "genre": "string",
+  "developer": "string",
+  "publisher": "string",
+  "screenshots": ["string (URLs)"],
+  "jsdosUrl": "string (URL)",
+  "fileSize": "integer (bytes)",
+  "rating": "float (1.0-5.0)",
+  "playCount": "integer",
+  "tags": ["string"],
+  "createdAt": "datetime",
+  "updatedAt": "datetime"
+}
+```

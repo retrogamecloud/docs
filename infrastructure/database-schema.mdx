@@ -1,7 +1,8 @@
 ---
-title: "Esquema y Arquitectura de Base de Datos"
-description: "Documentación completa del modelo de datos PostgreSQL, incluyendo esquemas, relaciones, índices y estrategias de respaldo"
-icon: "database"
+title: Esquema y Arquitectura de Base de Datos
+description: Documentación completa del modelo de datos PostgreSQL, incluyendo esquemas,
+  relaciones, índices y estrategias de respaldo
+icon: database
 ---
 
 ## Visión General
@@ -20,7 +21,7 @@ erDiagram
     USERS ||--o{ RANKINGS : aparece
     GAMES ||--o{ SCORES : tiene
     GAMES ||--o{ RANKINGS : tiene
-    
+
     USERS {
         uuid id PK
         varchar username UK
@@ -33,21 +34,21 @@ erDiagram
         timestamp updated_at
         boolean is_active
     }
-    
+
     GAMES {
         uuid id PK
         varchar slug UK
         varchar name
         text description
         varchar jsdos_url
-        varchar thumbnail_url
+        varchar image_url
         varchar category
         int year
         timestamp created_at
         timestamp updated_at
         boolean is_active
     }
-    
+
     SCORES {
         uuid id PK
         uuid user_id FK
@@ -57,7 +58,7 @@ erDiagram
         timestamp achieved_at
         timestamp created_at
     }
-    
+
     RANKINGS {
         uuid id PK
         uuid game_id FK
@@ -81,53 +82,34 @@ erDiagram
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         display_name VARCHAR(100),
-        avatar_url VARCHAR(500),
+        avatar_url TEXT,
         bio TEXT,
-        is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        is_active BOOLEAN DEFAULT true
     );
     ```
   </Tab>
   <Tab title="Índices">
     ```sql
-    -- Índices principales
-    CREATE UNIQUE INDEX idx_users_username ON users(username);
-    CREATE UNIQUE INDEX idx_users_email ON users(email);
-    CREATE INDEX idx_users_is_active ON users(is_active);
+    -- Índices automáticos por PKs y UNIQUEs
+    CREATE INDEX idx_users_email ON users(email);
+    CREATE INDEX idx_users_username ON users(username);
     CREATE INDEX idx_users_created_at ON users(created_at);
-    
-    -- Índice compuesto para búsquedas activas
-    CREATE INDEX idx_users_active_created ON users(is_active, created_at) 
-    WHERE is_active = true;
+    CREATE INDEX idx_users_is_active ON users(is_active);
     ```
   </Tab>
-  <Tab title="Triggers">
+  <Tab title="Constraints">
     ```sql
-    -- Trigger para actualizar updated_at automáticamente
-    CREATE OR REPLACE FUNCTION update_updated_at_column()
-    RETURNS TRIGGER AS $$
-    BEGIN
-        NEW.updated_at = CURRENT_TIMESTAMP;
-        RETURN NEW;
-    END;
-    $$ language 'plpgsql';
-
-    CREATE TRIGGER update_users_updated_at 
-        BEFORE UPDATE ON users 
-        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    ALTER TABLE users ADD CONSTRAINT chk_username_length 
+        CHECK (length(username) >= 3);
+    ALTER TABLE users ADD CONSTRAINT chk_email_format 
+        CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+    ALTER TABLE users ADD CONSTRAINT chk_display_name_length 
+        CHECK (length(display_name) >= 1);
     ```
   </Tab>
 </Tabs>
-
-**Descripción**: Almacena información de usuarios registrados en la plataforma.
-
-**Campos clave**:
-- `username`: Identificador único legible por humanos
-- `email`: Email único para autenticación
-- `password_hash`: Hash seguro de la contraseña (bcrypt)
-- `display_name`: Nombre mostrado públicamente
-- `avatar_url`: URL de la imagen de perfil almacenada en S3
 
 ### Tabla: games
 
@@ -136,54 +118,39 @@ erDiagram
     ```sql
     CREATE TABLE games (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        slug VARCHAR(100) UNIQUE NOT NULL,
         name VARCHAR(255) NOT NULL,
+        slug VARCHAR(255) UNIQUE NOT NULL,
         description TEXT,
-        jsdos_url VARCHAR(500) NOT NULL,
-        thumbnail_url VARCHAR(500),
-        category VARCHAR(50),
+        jsdos_url TEXT NOT NULL,
+        image_url TEXT,
+        category VARCHAR(100),
         year INTEGER,
-        is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        is_active BOOLEAN DEFAULT true
     );
     ```
   </Tab>
   <Tab title="Índices">
     ```sql
-    -- Índices principales
-    CREATE UNIQUE INDEX idx_games_slug ON games(slug);
+    CREATE INDEX idx_games_slug ON games(slug);
     CREATE INDEX idx_games_category ON games(category);
     CREATE INDEX idx_games_year ON games(year);
     CREATE INDEX idx_games_is_active ON games(is_active);
-    
-    -- Índice para búsqueda de texto completo
     CREATE INDEX idx_games_name_trgm ON games USING gin(name gin_trgm_ops);
-    
-    -- Índice compuesto para catálogo activo
-    CREATE INDEX idx_games_active_category ON games(is_active, category, year) 
-    WHERE is_active = true;
     ```
   </Tab>
   <Tab title="Constraints">
     ```sql
-    -- Validaciones de dominio
-    ALTER TABLE games ADD CONSTRAINT chk_games_year 
-    CHECK (year >= 1970 AND year <= EXTRACT(YEAR FROM CURRENT_DATE));
-    
-    ALTER TABLE games ADD CONSTRAINT chk_games_category 
-    CHECK (category IN ('arcade', 'adventure', 'action', 'puzzle', 'rpg', 'strategy', 'simulation'));
+    ALTER TABLE games ADD CONSTRAINT chk_slug_format 
+        CHECK (slug ~* '^[a-z0-9-]+$');
+    ALTER TABLE games ADD CONSTRAINT chk_year_range 
+        CHECK (year >= 1970 AND year <= EXTRACT(YEAR FROM CURRENT_DATE));
+    ALTER TABLE games ADD CONSTRAINT chk_name_length 
+        CHECK (length(name) >= 1);
     ```
   </Tab>
 </Tabs>
-
-**Descripción**: Catálogo de juegos disponibles en la plataforma.
-
-**Campos clave**:
-- `slug`: Identificador URL-friendly único
-- `jsdos_url`: URL del archivo de juego en S3 para JS-DOS
-- `thumbnail_url`: Miniatura del juego
-- `category`: Categoría del juego (enum)
 
 ### Tabla: scores
 
@@ -194,42 +161,32 @@ erDiagram
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
-        score INTEGER NOT NULL CHECK (score >= 0),
+        score INTEGER NOT NULL,
         metadata JSONB,
         achieved_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, game_id)
     );
     ```
   </Tab>
   <Tab title="Índices">
     ```sql
-    -- Índices de clave foránea
+    -- Índice compuesto para rankings ordenados por juego
+    CREATE INDEX idx_scores_game_score_desc ON scores(game_id, score DESC);
     CREATE INDEX idx_scores_user_id ON scores(user_id);
-    CREATE INDEX idx_scores_game_id ON scores(game_id);
-    
-    -- Índices para rankings
-    CREATE INDEX idx_scores_game_score ON scores(game_id, score DESC);
-    CREATE INDEX idx_scores_user_game ON scores(user_id, game_id);
-    
-    -- Índice para mejor puntuación por usuario/juego
-    CREATE UNIQUE INDEX idx_scores_user_game_max ON scores(user_id, game_id, score DESC);
-    
-    -- Índice GIN para metadata JSONB
-    CREATE INDEX idx_scores_metadata ON scores USING GIN(metadata);
+    CREATE INDEX idx_scores_achieved_at ON scores(achieved_at);
+    CREATE INDEX idx_scores_metadata ON scores USING gin(metadata);
+    ```
+  </Tab>
+  <Tab title="Constraints">
+    ```sql
+    ALTER TABLE scores ADD CONSTRAINT chk_score_positive 
+        CHECK (score >= 0);
+    ALTER TABLE scores ADD CONSTRAINT chk_achieved_at_valid 
+        CHECK (achieved_at <= CURRENT_TIMESTAMP);
     ```
   </Tab>
 </Tabs>
-
-**Descripción**: Almacena todas las puntuaciones obtenidas por los usuarios.
-
-**Campos clave**:
-- `score`: Puntuación numérica (entero positivo)
-- `metadata`: Datos adicionales en JSON (tiempo de juego, nivel alcanzado, etc.)
-- `achieved_at`: Momento exacto en que se obtuvo la puntuación
-
-<Warning>
-  Las puntuaciones se almacenan de forma incremental. Para obtener la mejor puntuación de un usuario en un juego, usar las vistas materializadas correspondientes.
-</Warning>
 
 ### Tabla: rankings
 
@@ -240,227 +197,315 @@ erDiagram
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
         user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        rank INTEGER NOT NULL CHECK (rank > 0),
-        score INTEGER NOT NULL CHECK (score >= 0),
+        rank INTEGER NOT NULL,
+        score INTEGER NOT NULL,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(game_id, user_id),
-        UNIQUE(game_id, rank)
+        UNIQUE(game_id, rank),
+        UNIQUE(game_id, user_id)
     );
     ```
   </Tab>
   <Tab title="Índices">
     ```sql
-    -- Índice principal para rankings
     CREATE INDEX idx_rankings_game_rank ON rankings(game_id, rank);
     CREATE INDEX idx_rankings_user_id ON rankings(user_id);
-    
-    -- Índice para top rankings
-    CREATE INDEX idx_rankings_top ON rankings(game_id, rank) WHERE rank <= 100;
+    CREATE INDEX idx_rankings_updated_at ON rankings(updated_at);
+    ```
+  </Tab>
+  <Tab title="Constraints">
+    ```sql
+    ALTER TABLE rankings ADD CONSTRAINT chk_rank_positive 
+        CHECK (rank > 0);
+    ALTER TABLE rankings ADD CONSTRAINT chk_ranking_score_positive 
+        CHECK (score >= 0);
     ```
   </Tab>
 </Tabs>
 
-**Descripción**: Tabla desnormalizada con los rankings actuales por juego.
+## Queries Comunes
 
-<Note>
-  Esta tabla se actualiza mediante un proceso batch que calcula los rankings basándose en las mejores puntuaciones de cada usuario.
-</Note>
-
-## Vistas y Consultas Comunes
-
-### Vista: user_best_scores
+### Top 10 Jugadores por Juego
 
 ```sql
-CREATE MATERIALIZED VIEW user_best_scores AS
+-- Obtener el ranking de los mejores 10 jugadores para un juego específico
 SELECT 
-    user_id,
-    game_id,
-    MAX(score) as best_score,
-    MIN(achieved_at) as first_achieved,
-    MAX(achieved_at) as last_achieved,
-    COUNT(*) as total_attempts
-FROM scores
-GROUP BY user_id, game_id;
-
--- Índices para la vista materializada
-CREATE UNIQUE INDEX idx_user_best_scores_pk ON user_best_scores(user_id, game_id);
-CREATE INDEX idx_user_best_scores_game ON user_best_scores(game_id, best_score DESC);
+    r.rank,
+    u.username,
+    u.display_name,
+    u.avatar_url,
+    r.score,
+    r.updated_at
+FROM rankings r
+JOIN users u ON r.user_id = u.id
+WHERE r.game_id = $1 
+    AND u.is_active = true
+ORDER BY r.rank
+LIMIT 10;
 ```
 
-### Consultas Frecuentes
+### Scores de Usuario
 
-<Tabs>
-  <Tab title="Top 10 Rankings">
-    ```sql
-    -- Top 10 jugadores por juego
+```sql
+-- Obtener todos los scores de un usuario con información del juego
+SELECT 
+    g.name as game_name,
+    g.slug,
+    g.image_url,
+    s.score,
+    s.achieved_at,
+    COALESCE(r.rank, 0) as current_rank
+FROM scores s
+JOIN games g ON s.game_id = g.id
+LEFT JOIN rankings r ON r.game_id = s.game_id AND r.user_id = s.user_id
+WHERE s.user_id = $1 
+    AND g.is_active = true
+ORDER BY s.achieved_at DESC;
+```
+
+### Búsqueda de Juegos
+
+```sql
+-- Búsqueda de juegos por slug exacto
+SELECT 
+    id,
+    name,
+    slug,
+    description,
+    jsdos_url,
+    image_url,
+    category,
+    year
+FROM games 
+WHERE slug = $1 
+    AND is_active = true;
+```
+
+```sql
+-- Búsqueda de juegos por nombre (fuzzy search)
+SELECT 
+    id,
+    name,
+    slug,
+    description,
+    image_url,
+    category,
+    year,
+    similarity(name, $1) as sim_score
+FROM games 
+WHERE name % $1 
+    AND is_active = true
+ORDER BY similarity(name, $1) DESC
+LIMIT 20;
+```
+
+### Estadísticas de Usuario
+
+```sql
+-- Estadísticas completas de un usuario
+SELECT 
+    COUNT(s.id) as total_games_played,
+    AVG(s.score) as average_score,
+    MAX(s.score) as highest_score,
+    COUNT(CASE WHEN r.rank <= 10 THEN 1 END) as top_10_rankings,
+    COUNT(CASE WHEN r.rank = 1 THEN 1 END) as first_place_rankings
+FROM users u
+LEFT JOIN scores s ON u.id = s.user_id
+LEFT JOIN rankings r ON u.id = r.user_id
+WHERE u.id = $1
+GROUP BY u.id;
+```
+
+## Triggers y Funciones
+
+### Trigger para Actualizar Rankings
+
+```sql
+-- Función para recalcular rankings después de insertar/actualizar scores
+CREATE OR REPLACE FUNCTION update_rankings_for_game()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Eliminar rankings existentes para el juego
+    DELETE FROM rankings WHERE game_id = NEW.game_id;
+    
+    -- Recalcular rankings
+    INSERT INTO rankings (game_id, user_id, rank, score)
     SELECT 
-        u.username,
-        u.display_name,
-        r.score,
-        r.rank
-    FROM rankings r
-    JOIN users u ON r.user_id = u.id
-    WHERE r.game_id = $1 AND r.rank <= 10
-    ORDER BY r.rank;
-    ```
-  </Tab>
-  <Tab title="Historial Usuario">
-    ```sql
-    -- Historial de puntuaciones de un usuario
+        game_id,
+        user_id,
+        ROW_NUMBER() OVER (ORDER BY score DESC) as rank,
+        score
+    FROM scores 
+    WHERE game_id = NEW.game_id;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Crear trigger
+CREATE TRIGGER trigger_update_rankings
+    AFTER INSERT OR UPDATE ON scores
+    FOR EACH ROW
+    EXECUTE FUNCTION update_rankings_for_game();
+```
+
+### Función para Búsqueda Eficiente
+
+```sql
+-- Función para búsqueda combinada de juegos
+CREATE OR REPLACE FUNCTION search_games(
+    search_term TEXT,
+    category_filter TEXT DEFAULT NULL,
+    year_filter INTEGER DEFAULT NULL,
+    limit_count INTEGER DEFAULT 20
+)
+RETURNS TABLE (
+    id UUID,
+    name VARCHAR(255),
+    slug VARCHAR(255),
+    description TEXT,
+    image_url TEXT,
+    category VARCHAR(100),
+    year INTEGER,
+    relevance_score REAL
+) AS $$
+BEGIN
+    RETURN QUERY
     SELECT 
-        g.name as game_name,
+        g.id,
+        g.name,
         g.slug,
-        s.score,
-        s.achieved_at,
-        s.metadata
-    FROM scores s
-    JOIN games g ON s.game_id = g.id
-    WHERE s.user_id = $1
-    ORDER BY s.achieved_at DESC
-    LIMIT 50;
-    ```
-  </Tab>
-  <Tab title="Estadísticas Juego">
-    ```sql
-    -- Estadísticas generales de un juego
-    SELECT 
-        COUNT(DISTINCT user_id) as total_players,
-        COUNT(*) as total_scores,
-        MAX(score) as highest_score,
-        AVG(score) as average_score,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY score) as median_score
-    FROM scores
-    WHERE game_id = $1;
-    ```
-  </Tab>
-</Tabs>
-
-## Configuración de Base de Datos
-
-### Configuración RDS PostgreSQL
-
-```yaml
-# terraform/rds.tf
-resource "aws_db_instance" "retrogamecloud_db" {
-  identifier = "retrogamecloud-prod"
-  
-  # Configuración del motor
-  engine         = "postgres"
-  engine_version = "15.4"
-  instance_class = "db.t3.medium"
-  
-  # Almacenamiento
-  allocated_storage     = 100
-  max_allocated_storage = 1000
-  storage_encrypted     = true
-  storage_type         = "gp3"
-  
-  # Base de datos
-  db_name  = "retrogamecloud"
-  username = var.db_master_username
-  password = var.db_master_password
-  
-  # Redes y seguridad
-  vpc_security_group_ids = [aws_security_group.rds.id]
-  db_subnet_group_name   = aws_db_subnet_group.main.name
-  
-  # Respaldos
-  backup_retention_period = 7
-  backup_window          = "03:00-04:00"
-  maintenance_window     = "sun:04:00-sun:05:00"
-  
-  # Monitorización
-  monitoring_interval = 60
-  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
-  
-  # Protección
-  deletion_protection = true
-  skip_final_snapshot = false
-  final_snapshot_identifier = "retrogamecloud-final-snapshot"
-  
-  tags = {
-    Name = "RetroGameCloud Production DB"
-    Environment = "production"
-  }
-}
+        g.description,
+        g.image_url,
+        g.category,
+        g.year,
+        CASE 
+            WHEN g.name ILIKE '%' || search_term || '%' THEN 1.0
+            WHEN g.description ILIKE '%' || search_term || '%' THEN 0.8
+            ELSE similarity(g.name, search_term)
+        END as relevance_score
+    FROM games g
+    WHERE g.is_active = true
+        AND (
+            g.name ILIKE '%' || search_term || '%' 
+            OR g.description ILIKE '%' || search_term || '%'
+            OR g.name % search_term
+        )
+        AND (category_filter IS NULL OR g.category = category_filter)
+        AND (year_filter IS NULL OR g.year = year_filter)
+    ORDER BY relevance_score DESC, g.name ASC
+    LIMIT limit_count;
+END;
+$$ LANGUAGE plpgsql;
 ```
 
-### Variables de Conexión
+## Optimizaciones de Rendimiento
 
-```bash
-# Variables de entorno para microservicios
-DB_HOST=retrogamecloud-prod.cluster-xyz.eu-west-1.rds.amazonaws.com
-DB_PORT=5432
-DB_NAME=retrogamecloud
-DB_USER=app_user
-DB_PASSWORD=${DB_PASSWORD} # Desde AWS Secrets Manager
-DB_MAX_CONNECTIONS=20
-DB_CONNECTION_TIMEOUT=30
+### Extensiones Requeridas
+
+```sql
+-- Extensiones necesarias para funcionalidad completa
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+CREATE EXTENSION IF NOT EXISTS "btree_gin";
 ```
 
-## Estrategias de Respaldo y Recuperación
+### Configuraciones Recomendadas
 
-### Respaldos Automáticos
+<CodeGroup>
+```sql postgresql.conf
+# Configuraciones específicas para el workload
+shared_preload_libraries = 'pg_stat_statements'
+max_connections = 100
+shared_buffers = 256MB
+effective_cache_size = 1GB
+maintenance_work_mem = 64MB
+checkpoint_completion_target = 0.9
+wal_buffers = 16MB
+default_statistics_target = 100
+random_page_cost = 1.1
+effective_io_concurrency = 200
+```
 
-<Card title="Configuración de Respaldos" icon="clock">
-  - **Respaldos automáticos**: Cada 24 horas
-  - **Ventana de respaldo**: 03:00-04:00 UTC
-  - **Retención**: 7 días
-  - **Snapshots manuales**: Antes de cada despliegue mayor
-</Card>
+```sql Índices Parciales
+-- Índices parciales para consultas comunes
+CREATE INDEX idx_users_active_created 
+    ON users(created_at) WHERE is_active = true;
 
-### Procedimiento de Recuperación
+CREATE INDEX idx_games_active_category 
+    ON games(category) WHERE is_active = true;
+
+CREATE INDEX idx_recent_scores 
+    ON scores(achieved_at) 
+    WHERE achieved_at > CURRENT_DATE - INTERVAL '30 days';
+```
+</CodeGroup>
+
+## Estrategias de Respaldo
+
+### Respaldo Continuo
 
 ```bash
-# Restaurar desde snapshot
-aws rds restore-db-instance-from-db-snapshot \
-  --db-instance-identifier retrogamecloud-restored \
-  --db-snapshot-identifier retrogamecloud-snapshot-2024-01-15
+# Configuración de WAL archiving
+archive_mode = on
+archive_command = 'cp %p /backup/wal/%f'
+wal_level = replica
+max_wal_senders = 3
+```
 
-# Verificar integridad de datos
-psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "
+### Scripts de Respaldo
+
+```sql
+-- Respaldo lógico de datos críticos
+pg_dump \
+    --host=localhost \
+    --username=retrogame_user \
+    --dbname=retrogame_db \
+    --format=custom \
+    --compress=9 \
+    --file=backup_$(date +%Y%m%d_%H%M%S).dump
+```
+
+<Warning>
+  Los respaldos deben probarse regularmente mediante restauración en un ambiente de pruebas para garantizar su integridad.
+</Warning>
+
+## Monitoreo y Mantenimiento
+
+### Queries de Monitoreo
+
+```sql
+-- Verificar el crecimiento de tablas
 SELECT 
-  schemaname,
-  tablename,
-  n_tup_ins as inserts,
-  n_tup_upd as updates,
-  n_tup_del as deletes
-FROM pg_stat_user_tables;
-"
+    schemaname,
+    tablename,
+    attname,
+    n_distinct,
+    correlation
+FROM pg_stats 
+WHERE schemaname = 'public'
+ORDER BY tablename, attname;
+
+-- Monitorear el uso de índices
+SELECT 
+    indexrelname,
+    idx_scan,
+    idx_tup_read,
+    idx_tup_fetch
+FROM pg_stat_user_indexes
+ORDER BY idx_scan DESC;
 ```
 
-## Migraciones de Base de Datos
+### Mantenimiento Automatizado
 
-### Estructura de Migraciones
+```sql
+-- Configurar autovacuum para tablas de alta actividad
+ALTER TABLE scores SET (
+    autovacuum_vacuum_scale_factor = 0.1,
+    autovacuum_analyze_scale_factor = 0.05
+);
 
+ALTER TABLE rankings SET (
+    autovacuum_vacuum_scale_factor = 0.1,
+    autovacuum_analyze_scale_factor = 0.05
+);
 ```
-migrations/
-├── 001_initial_schema.up.sql
-├── 001_initial_schema.down.sql
-├── 002_add_user_profiles.up.sql
-├── 002_add_user_profiles.down.sql
-├── 003_optimize_indexes.up.sql
-└── 003_optimize_indexes.down.sql
-```
-
-### Ejemplo de Migración
-
-<Tabs>
-  <Tab title="Up Migration">
-    ```sql
-    -- migrations/004_add_game_categories.up.sql
-    BEGIN;
-
-    -- Añadir nueva columna
-    ALTER TABLE games ADD COLUMN difficulty_level INTEGER DEFAULT 1;
-    
-    -- Añadir constraint
-    ALTER TABLE games ADD CONSTRAINT chk_difficulty_level 
-    CHECK (difficulty_level BETWEEN 1 AND 5);
-    
-    -- Crear índice
-    CREATE INDEX idx_games_difficulty ON games(difficulty_level);
-    
-    -- Actualizar datos existentes
-    UPDATE games SET difficulty_level = 2 WHERE category = 'arcade';
-    UPDATE games SET difficulty_level = 3 WHERE category =

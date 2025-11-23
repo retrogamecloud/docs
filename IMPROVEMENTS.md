@@ -1,498 +1,273 @@
 # 🤖 Análisis Inteligente de Documentación
 
-**Fecha**: 2025-11-23 14:56:47  
+**Fecha**: 2025-11-23 15:12:12  
 **Generado por**: Claude Sonnet 4.5  
-**Puntuación General**: 6.5/10
+**Puntuación General**: 6.8/10
 
 ## 📊 Resumen Ejecutivo
 
-Documentación extensa pero desorganizada. Mezcla contenido duplicado (essentials, development.mdx obsoleto), falta documentación técnica crítica (base de datos, seguridad, respaldo), y necesita consolidación en estructura más coherente. Puntos fuertes: cobertura de servicios y CI/CD.
+Documentación sólida pero fragmentada. Falta cohesión entre servicios, diagramas de despliegue completos y guías de monitorización. Estructura dispersa con duplicación entre api-reference y services. Gaps críticos en troubleshooting de producción y recovery.
 
 ## 🎯 Mejoras Prioritarias
 
 
 ### Prioridad Alta ⚡
 
-#### Eliminar documentación obsoleta y duplicada
+#### Consolidar documentación duplicada de servicios
 
 **Categoría**: structure  
-**Descripción**: Varios archivos están duplicados o son plantillas no utilizadas. development.mdx es plantilla de Mintlify, essentials/* son ejemplos genéricos, y docs/api/auth-register.mdx duplica api-reference/auth/register.mdx  
-**Razón**: Reduce confusión, mejora mantenibilidad y evita información contradictoria. La carpeta essentials son ejemplos de Mintlify sin contenido real del proyecto.  
+**Descripción**: Existe duplicación entre /services/ y /api-reference/ para cada microservicio. Los archivos en services/ son más descriptivos mientras que api-reference/ tiene endpoints específicos. Se debe consolidar en una estructura unificada donde cada servicio tenga una página principal con overview y enlaces a sus endpoints específicos.  
+**Razón**: La duplicación confunde a los desarrolladores y dificulta el mantenimiento. Una estructura clara servicios->endpoints mejora la navegación y evita información contradictoria.  
 
-
----
-
-#### Documentar esquema y arquitectura de base de datos
-
-**Categoría**: content  
-**Descripción**: No existe documentación del modelo de datos, esquema PostgreSQL, relaciones entre tablas ni estrategias de indexación. Crítico para desarrollo y debugging.  
-**Razón**: Base de datos es componente crítico sin documentación. Desarrolladores necesitan entender modelo de datos para modificar servicios o diagnosticar problemas.  
-
-**Archivos a crear**: infrastructure/database.mdx, infrastructure/database-schema.mdx  
-**Archivos a modificar**: infrastructure/overview.mdx  
-
-**Diagrama propuesto**:
-```mermaid
-erDiagram
-    USERS ||--o{ SCORES : guarda
-    USERS ||--o{ RANKINGS : aparece
-    GAMES ||--o{ SCORES : tiene
-    GAMES ||--o{ RANKINGS : tiene
-    USERS {
-        uuid id PK
-        varchar username UK
-        varchar email UK
-        varchar password_hash
-        varchar display_name
-        varchar avatar_url
-        text bio
-        timestamp created_at
-    }
-    GAMES {
-        uuid id PK
-        varchar slug UK
-        varchar name
-        text description
-        varchar jsdos_url
-        varchar thumbnail_url
-        varchar category
-        int year
-        timestamp created_at
-    }
-    SCORES {
-        uuid id PK
-        uuid user_id FK
-        uuid game_id FK
-        int score
-        json metadata
-        timestamp achieved_at
-        timestamp created_at
-    }
-    RANKINGS {
-        uuid id PK
-        uuid game_id FK
-        uuid user_id FK
-        int rank
-        int score
-        timestamp updated_at
-    }
-```
-
+**Archivos a crear**: services/overview.mdx  
+**Archivos a modificar**: services/auth-service.mdx, services/user-service.mdx, services/game-catalog.mdx, services/score-service.mdx, services/ranking-service.mdx  
 
 ---
 
-#### Diagrama de arquitectura completa con flujo de datos
+#### Diagrama de arquitectura de componentes por capas
 
 **Categoría**: diagrams  
-**Descripción**: El diagrama actual en architecture.mdx está incompleto. Falta mostrar flujo de datos completo desde CDN hasta base de datos, incluyendo Kong, servicios, y comunicación interna.  
-**Razón**: Diagrama actual está simplificado y no muestra flujo real de datos. Equipo necesita entender path completo de requests para debugging y optimización.  
+**Descripción**: Falta un diagrama que muestre claramente las capas de la arquitectura: capa de entrada (CloudFront, ALB), capa de gateway (Kong, OAuth2 Proxy), capa de aplicación (microservicios), capa de datos (RDS, S3), y capa de infraestructura (EKS, VPC). El diagrama actual en architecture.mdx es demasiado simplificado.  
+**Razón**: Un diagrama por capas facilita entender la separación de responsabilidades, flujo de datos y ayuda en troubleshooting identificando en qué capa ocurre un problema.  
 
 **Archivos a modificar**: architecture.mdx  
 
 **Diagrama propuesto**:
 ```mermaid
-graph TB
-    subgraph Internet
-        U[Usuario]
-    end
-    subgraph AWS_CloudFront
-        CF[CloudFront CDN]
-        S3[S3 Bucket<br/>Assets Estáticos]
-    end
-    subgraph AWS_Route53
-        R53[Route53 DNS<br/>retrogamehub.com]
-    end
-    subgraph AWS_EKS_Cluster
-        ALB[Application Load Balancer<br/>SSL/TLS]
-        OAuth[OAuth2 Proxy<br/>GitHub Auth]
-        Kong[Kong API Gateway<br/>Rate Limiting, CORS]
-        subgraph Microservicios
-            Auth[Auth Service<br/>:3001]
-            User[User Service<br/>:3002]
-            Catalog[Game Catalog<br/>:3003]
-            Score[Score Service<br/>:3004]
-            Ranking[Ranking Service<br/>:3005]
-        end
-        Frontend[Frontend<br/>JS-DOS Emulator]
-    end
-    subgraph AWS_RDS
-        DB[(PostgreSQL<br/>Base de Datos)]
-    end
-    subgraph Monitorización
-        CW[CloudWatch<br/>Logs y Métricas]
-        Prom[Prometheus<br/>Métricas K8s]
-    end
-    U -->|HTTPS| R53
-    R53 --> CF
-    R53 --> ALB
-    CF --> S3
-    CF --> Frontend
-    ALB --> OAuth
-    OAuth -->|Token JWT| Kong
-    Kong --> Auth
-    Kong --> User
-    Kong --> Catalog
-    Kong --> Score
-    Kong --> Ranking
-    Kong --> Frontend
-    Auth --> DB
-    User --> DB
-    Catalog --> DB
-    Score --> DB
-    Ranking --> DB
-    Auth -.->|Logs| CW
-    Kong -.->|Métricas| Prom
-    EKS_Cluster -.->|Logs| CW
+graph TB subgraph Internet[Capa de Internet] CF[CloudFront CDN<br/>Activos estáticos y juegos] R53[Route53<br/>retrogamehub.com] end subgraph Ingreso[Capa de Ingreso - AWS] ALB[Application Load Balancer<br/>SSL/TLS Terminación] OAuth[OAuth2 Proxy<br/>GitHub Authentication] end subgraph Gateway[Capa API Gateway] Kong[Kong Gateway<br/>Rate Limiting, CORS, Routing] end subgraph Aplicacion[Capa de Aplicación - EKS] Auth[Auth Service:3001<br/>JWT, Registro, Login] User[User Service:3002<br/>Perfiles, Preferencias] Catalog[Game Catalog:3003<br/>Gestión de juegos] Score[Score Service:3004<br/>Puntuaciones] Ranking[Ranking Service:3005<br/>Leaderboards] Frontend[Frontend:80<br/>React + JS-DOS] end subgraph Datos[Capa de Datos] RDS[(RDS PostgreSQL<br/>Datos relacionales)] S3[(S3 Bucket<br/>Archivos .jsdos)] end subgraph Infra[Capa de Infraestructura] EKS[EKS Cluster<br/>Kubernetes 1.28] VPC[VPC<br/>Redes privadas] Secrets[Secrets Manager<br/>Credenciales] end R53 --> CF R53 --> ALB CF --> ALB ALB --> OAuth OAuth --> Kong Kong --> Auth Kong --> User Kong --> Catalog Kong --> Score Kong --> Ranking Kong --> Frontend Auth --> RDS User --> RDS Catalog --> RDS Catalog --> S3 Score --> RDS Ranking --> RDS Frontend --> S3 Auth -.-> EKS User -.-> EKS Catalog -.-> EKS Score -.-> EKS Ranking -.-> EKS Frontend -.-> EKS EKS -.-> VPC Auth -.-> Secrets User -.-> Secrets Catalog -.-> Secrets Score -.-> Secrets Ranking -.-> Secrets
 ```
 
 
 ---
 
-#### Documentar seguridad y gestión de secretos
+#### Documentación de monitorización y observabilidad
 
 **Categoría**: content  
-**Descripción**: No existe documentación sobre cómo se gestionan secretos (JWT secrets, DB passwords, OAuth tokens), políticas de seguridad, rotación de credenciales ni mejores prácticas.  
-**Razón**: Seguridad es crítica en producción. Falta documentación sobre gestión de credenciales, lo cual es riesgo de seguridad y bloquea despliegues seguros.  
+**Descripción**: El archivo infrastructure/monitoring.mdx está mencionado pero falta contenido detallado sobre métricas clave, dashboards, alertas y logs. Es crítico para producción documentar qué métricas monitorizar por servicio, umbrales de alerta, y cómo acceder a logs centralizados.  
+**Razón**: Sin observabilidad adecuada es imposible detectar y resolver problemas en producción. Los equipos necesitan saber qué monitorizar y cómo reaccionar ante alertas.  
 
-**Archivos a crear**: infrastructure/security.mdx, infrastructure/secrets-management.mdx  
-**Archivos a modificar**: infrastructure/overview.mdx  
+**Archivos a crear**: infrastructure/logging.mdx, infrastructure/alerting.mdx  
+**Archivos a modificar**: infrastructure/monitoring.mdx  
 
 ---
 
-#### Documentar estrategia de respaldo y recuperación ante desastres
+#### Procedimientos de recuperación ante desastres completos
 
 **Categoría**: content  
-**Descripción**: No hay documentación sobre backups de base de datos, estrategia de DR (Disaster Recovery), RPO/RTO, ni procedimientos de restauración.  
-**Razón**: En producción es obligatorio tener plan de DR documentado. Pérdida de datos o downtime prolongado son riesgos críticos sin documentación de recuperación.  
+**Descripción**: infrastructure/backup-recovery.mdx necesita expandirse con procedimientos específicos de disaster recovery: RPO/RTO definidos, procedimiento paso a paso de restauración de base de datos desde snapshot, recuperación de configuración de Kong desde Git, recreación de cluster EKS desde Terraform, y simulacros de DR.  
+**Razón**: En producción real, la capacidad de recuperarse de un desastre rápidamente es crítica. Los equipos necesitan procedimientos claros y probados, no solo teoría.  
 
-**Archivos a crear**: infrastructure/backup-recovery.mdx  
-**Archivos a modificar**: infrastructure/overview.mdx  
-
----
-
-
-### Prioridad Media 📌
-
-#### Consolidar documentación de API duplicada
-
-**Categoría**: structure  
-**Descripción**: Existe duplicación entre carpetas api-reference/auth/, api-reference/games/, etc. y services/. La estructura services/ documenta servicios desde perspectiva arquitectónica, mientras api-reference/ documenta endpoints. Falta claridad en separación.  
-**Razón**: Separación clara entre documentación de arquitectura y referencia de API mejora usabilidad. Desarrolladores backend leen services/, consumidores de API leen api-reference/.  
-
-**Archivos a crear**: api-reference/README.mdx  
-**Archivos a modificar**: services/auth-service.mdx, services/game-catalog.mdx, services/score-service.mdx, services/ranking-service.mdx, services/user-service.mdx  
+**Archivos a crear**: infrastructure/disaster-recovery-playbook.mdx  
+**Archivos a modificar**: infrastructure/backup-recovery.mdx  
 
 ---
 
 #### Diagrama de flujo de despliegue CI/CD completo
 
 **Categoría**: diagrams  
-**Descripción**: La documentación de CI/CD está fragmentada entre cicd/github-actions.mdx y cicd/gitops-workflow.mdx. Falta diagrama visual del pipeline completo desde commit hasta producción.  
-**Razón**: Pipeline CI/CD es complejo y visual ayuda a entender flujo completo. Nuevo desarrollador necesita ver proceso end-to-end de despliegue.  
+**Descripción**: Falta visualización clara del pipeline completo desde commit hasta producción, incluyendo GitHub Actions, construcción de imágenes Docker, push a ECR, actualización de manifiestos, sincronización de ArgoCD y validaciones.  
+**Razón**: Los equipos necesitan entender todo el flujo de CI/CD para diagnosticar problemas de despliegue y optimizar tiempos. Un diagrama visual es más efectivo que texto descriptivo.  
 
 **Archivos a modificar**: cicd/overview.mdx  
 
 **Diagrama propuesto**:
 ```mermaid
-graph LR
-    A[Git Commit<br/>main branch] --> B[GitHub Actions<br/>Trigger]
-    B --> C[Build & Test<br/>npm test]
-    C --> D[Docker Build<br/>multi-stage]
-    D --> E[Push Image<br/>AWS ECR]
-    E --> F[Update Manifest<br/>kubernetes repo]
-    F --> G[ArgoCD<br/>Detecta Cambio]
-    G --> H[Sync Cluster<br/>kubectl apply]
-    H --> I[Rolling Update<br/>Zero Downtime]
-    I --> J[Health Checks<br/>Liveness/Readiness]
-    J --> K{Deploy OK?}
-    K -->|Sí| L[Despliegue Completo]
-    K -->|No| M[Rollback Automático]
-    M --> N[Notificación Slack]
-    L --> O[Notificación Slack]
+graph LR A[Git Push a main] --> B[GitHub Actions Trigger] B --> C{Tests Unitarios} C -->|Failed| D[Notificar error] C -->|Success| E[Build Docker Image] E --> F[Scan de seguridad<br/>Trivy] F -->|Vulnerabilidades| D F -->|Clean| G[Push a ECR] G --> H[Actualizar imagen tag<br/>en repo kubernetes/] H --> I[Commit a repo kubernetes] I --> J[ArgoCD detecta cambio] J --> K{ArgoCD Sync} K --> L[Aplicar manifiestos<br/>a EKS] L --> M[Health Checks] M -->|Failed| N[Rollback automático] M -->|Success| O[Deployment completo] N --> D O --> P[Notificar éxito]
 ```
 
 
 ---
 
-#### Documentar límites y cuotas de API (rate limiting)
+
+### Prioridad Media 📌
+
+#### Guía de troubleshooting de producción real
 
 **Categoría**: content  
-**Descripción**: Se menciona rate limiting en Kong pero no hay documentación de límites específicos por endpoint, cuotas por usuario, ni manejo de errores 429.  
-**Razón**: Consumidores de API necesitan conocer límites para implementar lógica de retry correctamente. Evita sorpresas y mejora experiencia de desarrollo.  
+**Descripción**: troubleshooting.mdx se enfoca en problemas de desarrollo local. Falta documentación de problemas reales de producción: pods en CrashLoopBackOff, OOMKilled, problemas de conectividad entre servicios, latencia alta en base de datos, agotamiento de conexiones RDS, problemas de OAuth2.  
+**Razón**: El troubleshooting de producción es radicalmente diferente al local. Los equipos de ops necesitan guías específicas para diagnosticar y resolver incidentes bajo presión.  
 
-**Archivos a crear**: api-reference/rate-limits.mdx  
-**Archivos a modificar**: api-reference/introduction.mdx  
+**Archivos a crear**: troubleshooting-production.mdx  
+**Archivos a modificar**: troubleshooting.mdx  
 
 ---
 
-#### Diagrama de comunicación entre microservicios
+#### Diagrama de red y seguridad
 
 **Categoría**: diagrams  
-**Descripción**: No está claro cómo se comunican los servicios entre sí. Por ejemplo, cuando Score Service guarda un score, ¿cómo se actualiza Ranking Service? ¿Event-driven? ¿Llamadas síncronas?  
-**Razón**: Entender dependencias entre servicios es fundamental para debugging, planificación de cambios y entender impacto de fallos en cascada.  
+**Descripción**: Falta visualización de la topología de red: VPC, subnets públicas/privadas, security groups, NACLs, flujo de tráfico entre capas, y reglas de firewall. Esto es crítico para entender y troubleshootear problemas de conectividad.  
+**Razón**: La arquitectura de red es fundamental para seguridad y troubleshooting. Un diagrama visual permite entender rápidamente flujos permitidos y posibles puntos de fallo en conectividad.  
 
-**Archivos a modificar**: architecture.mdx  
+**Archivos a modificar**: infrastructure/networking.mdx  
 
 **Diagrama propuesto**:
 ```mermaid
-graph TD
-    subgraph Cliente
-        C[Cliente Frontend]
-    end
-    subgraph Kong_Gateway
-        K[Kong]
-    end
-    subgraph Servicios
-        A[Auth Service<br/>Independiente]
-        U[User Service<br/>Depende: Auth]
-        G[Game Catalog<br/>Independiente]
-        S[Score Service<br/>Depende: Auth, User]
-        R[Ranking Service<br/>Depende: Score]
-    end
-    C -->|JWT| K
-    K --> A
-    K --> U
-    K --> G
-    K --> S
-    K --> R
-    S -.->|Consulta Usuario| U
-    S -.->|Valida Token| A
-    R -.->|Lee Scores| S
-    style A fill:#90EE90
-    style G fill:#90EE90
-    style S fill:#FFB6C1
-    style R fill:#FFB6C1
-    style U fill:#87CEEB
+graph TB subgraph VPC[VPC 10.0.0.0/16] subgraph PublicSubnets[Subnets Públicas] PubA[Public Subnet A<br/>10.0.1.0/24<br/>AZ us-east-1a] PubB[Public Subnet B<br/>10.0.2.0/24<br/>AZ us-east-1b] ALB[ALB<br/>Security Group:<br/>0.0.0.0/0:443] end subgraph PrivateSubnets[Subnets Privadas] PrivA[Private Subnet A<br/>10.0.10.0/24<br/>AZ us-east-1a] PrivB[Private Subnet B<br/>10.0.11.0/24<br/>AZ us-east-1b] EKS[EKS Worker Nodes<br/>Security Group:<br/>ALB:8000-8080] end subgraph DataSubnets[Subnets de Datos] DataA[Data Subnet A<br/>10.0.20.0/24<br/>AZ us-east-1a] DataB[Data Subnet B<br/>10.0.21.0/24<br/>AZ us-east-1b] RDS[(RDS PostgreSQL<br/>Security Group:<br/>EKS:5432)] end IGW[Internet Gateway] NAT[NAT Gateway] end Internet[Internet] --> IGW IGW --> PubA IGW --> PubB PubA --> ALB PubB --> ALB PubA --> NAT NAT --> PrivA NAT --> PrivB ALB --> EKS EKS --> RDS
 ```
 
 
 ---
 
-#### Documentar proceso de subida de nuevos juegos
+#### Guía de desarrollo de nuevos microservicios
 
-**Categoría**: content  
-**Descripción**: No está documentado cómo se agregan juegos al catálogo: ¿dónde se suben archivos .jsdos?, ¿cómo se crea metadata?, ¿hay interfaz admin?, ¿es proceso manual?  
-**Razón**: Operación común que necesita documentación clara. Sin proceso definido, agregar juegos es ad-hoc y propenso a errores.  
+**Categoría**: new_section  
+**Descripción**: Falta documentación sobre cómo agregar un nuevo microservicio al sistema siguiendo los patrones establecidos. Esto incluye estructura de código, configuración de Kong, manifiestos K8s, CI/CD, y registro en ArgoCD.  
+**Razón**: Facilita que nuevos desarrolladores contribuyan manteniendo consistencia en patrones arquitectónicos, reduce tiempo de onboarding y evita divergencias en estándares de código e infraestructura.  
 
-**Archivos a crear**: operations/game-management.mdx  
-**Archivos a modificar**: services/game-catalog.mdx  
+**Archivos a crear**: development/new-microservice-guide.mdx  
 
 ---
 
-#### Estandarizar formato de frontmatter en archivos MDX
+#### Documentación de esquema de base de datos completo
 
-**Categoría**: quality  
-**Descripción**: Los archivos tienen frontmatter inconsistente: algunos usan 'icon: file-lines' genérico, otros tienen iconos específicos. Descripciones varían en longitud y detalle.  
-**Razón**: Consistencia mejora profesionalismo y usabilidad. Guía de estilo facilita contribuciones y mantiene calidad uniforme.  
+**Categoría**: content  
+**Descripción**: infrastructure/database-schema.mdx necesita expandirse con todas las tablas, relaciones, índices, constraints y ejemplos de queries comunes. Actualmente es muy básico.  
+**Razón**: El esquema de base de datos es la piedra angular del sistema. Desarrolladores necesitan entender relaciones para escribir queries eficientes y evitar inconsistencias de datos.  
 
-**Archivos a crear**: CONTRIBUTING.md  
+**Archivos a modificar**: infrastructure/database-schema.mdx  
+
+**Diagrama propuesto**:
+```mermaid
+erDiagram USERS ||--o{ SCORES : submits USERS { uuid id PK string username UK string email UK string password_hash timestamp created_at string display_name string avatar_url text bio } GAMES ||--o{ SCORES : tracks GAMES { int id PK string name string slug UK text description string jsdos_url string image_url timestamp created_at } SCORES { int id PK uuid user_id FK int game_id FK int score timestamp created_at }
+```
+
+
+---
+
+#### Guía de optimización de rendimiento
+
+**Categoría**: content  
+**Descripción**: Falta documentación sobre optimización: caching strategies, índices de BD recomendados, límites de recursos K8s apropiados, configuración de Kong para caching, optimización de imágenes Docker, y métricas de performance a monitorizar.  
+**Razón**: La optimización de rendimiento impacta directamente en experiencia de usuario y costos de infraestructura. Guías concretas ayudan a mantener el sistema eficiente conforme crece.  
+
+**Archivos a crear**: performance/optimization-guide.mdx  
+
+---
+
+#### Diagrama de flujo de autenticación OAuth2 detallado
+
+**Categoría**: diagrams  
+**Descripción**: Aunque existe diagrama de secuencia de autenticación, falta uno específico para el flujo OAuth2 con GitHub mostrando redirects, tokens, y rol del OAuth2 Proxy.  
+**Razón**: OAuth2 es complejo y los desarrolladores necesitan entender el flujo completo para troubleshootear problemas de autenticación y configurar correctamente callbacks y scopes.  
+
+**Archivos a modificar**: infrastructure/oauth2-authentication.mdx  
+
+**Diagrama propuesto**:
+```mermaid
+sequenceDiagram participant Usuario participant Navegador participant OAuth2Proxy participant GitHub participant AuthService participant Frontend Usuario->>Navegador: Accede a retrogamehub.com Navegador->>OAuth2Proxy: GET / OAuth2Proxy->>OAuth2Proxy: Verifica cookie de sesión alt Sin sesión OAuth2Proxy->>Navegador: Redirect a /oauth2/start Navegador->>OAuth2Proxy: GET /oauth2/start OAuth2Proxy->>GitHub: Redirect con client_id y scopes GitHub->>Usuario: Solicita autorización Usuario->>GitHub: Aprueba acceso GitHub->>OAuth2Proxy: Redirect con code OAuth2Proxy->>GitHub: POST /access_token con code GitHub->>OAuth2Proxy: access_token OAuth2Proxy->>GitHub: GET /user con token GitHub->>OAuth2Proxy: Datos usuario OAuth2Proxy->>OAuth2Proxy: Crea sesión cookie OAuth2Proxy->>Navegador: Set-Cookie + Redirect a / end Navegador->>Frontend: GET / con cookie Frontend->>AuthService: POST /api/auth/github con cookie header AuthService->>AuthService: Valida o crea usuario AuthService->>Frontend: JWT token Frontend->>Usuario: Aplicación cargada con sesión
+```
+
 
 ---
 
 
 ### Prioridad Baja 💡
 
-#### Documentar costos estimados de infraestructura AWS
+#### Guía de contribución y estándares de código
 
 **Categoría**: content  
-**Descripción**: No hay información sobre costos mensuales estimados de ejecutar la infraestructura (EKS, RDS, CloudFront, etc.).  
-**Razón**: Información financiera ayuda en planificación y toma de decisiones. Equipos necesitan estimar budget antes de despliegue.  
+**Descripción**: Falta documentación sobre cómo contribuir al proyecto: proceso de pull requests, estándares de código, testing requirements, convenciones de commits, code review checklist.  
+**Razón**: Estándares claros mejoran calidad de código, facilitan code reviews y reducen deuda técnica. Esencial para proyectos con múltiples contribuidores.  
 
-**Archivos a crear**: infrastructure/cost-estimation.mdx  
-**Archivos a modificar**: infrastructure/overview.mdx  
+**Archivos a crear**: development/contributing.mdx, development/code-standards.mdx  
 
 ---
 
-#### Documentar estrategia de testing
+#### Casos de uso y ejemplos end-to-end
 
 **Categoría**: content  
-**Descripción**: No hay documentación sobre tipos de tests (unitarios, integración, e2e), cobertura esperada, ni cómo ejecutar test suites.  
-**Razón**: Testing es práctica crítica pero no documentada. Desarrolladores necesitan saber qué tests escribir y cómo ejecutarlos.  
+**Descripción**: Falta documentación de casos de uso completos desde perspectiva de usuario: registro, login, jugar juego, guardar score, ver ranking. Con ejemplos de API calls y respuestas.  
+**Razón**: Ejemplos end-to-end ayudan a desarrolladores frontend y consumidores de API a entender flujos completos sin tener que leer documentación de cada endpoint por separado.  
 
-**Archivos a crear**: development/testing.mdx  
-**Archivos a modificar**: desarrollo-local.mdx  
+**Archivos a crear**: guides/end-to-end-examples.mdx  
 
 ---
 
-#### Diagrama de flujo de autenticación OAuth2 completo
+#### Limpieza de archivos obsoletos y esenciales de plantilla
 
-**Categoría**: diagrams  
-**Descripción**: sequence-diagrams.mdx tiene diagrama de autenticación pero falta detalle del flujo OAuth2 con GitHub (redirects, callbacks, exchange de tokens).  
-**Razón**: OAuth2 es complejo y diagrama detallado ayuda a entender flujo completo, especialmente útil para debugging de problemas de autenticación.  
-
-**Archivos a modificar**: sequence-diagrams.mdx  
-
-**Diagrama propuesto**:
-```mermaid
-sequenceDiagram
-    actor Usuario
-    participant Frontend
-    participant OAuth2Proxy
-    participant GitHub
-    participant AuthService
-    participant DB
-    Usuario->>Frontend: Click Login con GitHub
-    Frontend->>OAuth2Proxy: Redirect /oauth2/start
-    OAuth2Proxy->>GitHub: Redirect authorization_url<br/>client_id, scope, state
-    GitHub->>Usuario: Pantalla Autorización
-    Usuario->>GitHub: Autoriza Aplicación
-    GitHub->>OAuth2Proxy: Callback con code
-    OAuth2Proxy->>GitHub: POST /access_token<br/>code, client_secret
-    GitHub->>OAuth2Proxy: access_token
-    OAuth2Proxy->>GitHub: GET /user<br/>Bearer token
-    GitHub->>OAuth2Proxy: Datos usuario
-    OAuth2Proxy->>AuthService: POST /auth/github<br/>email, username, avatar
-    AuthService->>DB: Buscar o Crear Usuario
-    DB->>AuthService: Usuario ID
-    AuthService->>AuthService: Generar JWT<br/>HS256, exp 24h
-    AuthService->>OAuth2Proxy: JWT token
-    OAuth2Proxy->>Frontend: Set-Cookie: auth_token
-    Frontend->>Usuario: Redirigir a Dashboard
-```
+**Categoría**: quality  
+**Descripción**: Existen archivos que parecen ser de plantilla por defecto y no específicos del proyecto: essentials/markdown.mdx, essentials/code.mdx, essentials/settings.mdx, essentials/images.mdx, essentials/navigation.mdx, development.mdx (genérico de Mintlify).  
+**Razón**: Archivos de plantilla genéricos confunden a usuarios y no aportan valor específico al proyecto. Limpiarlos mejora claridad y profesionalismo de la documentación.  
 
 
 ---
 
-#### Agregar sección de troubleshooting por servicio
+#### Revisar y limpiar archivos de AI tools
 
-**Categoría**: new_section  
-**Descripción**: troubleshooting.mdx es genérico. Sería útil tener troubleshooting específico por servicio con problemas comunes y soluciones.  
-**Razón**: Troubleshooting específico por servicio acelera resolución de problemas. Problemas comunes documentados evitan escalaciones innecesarias.  
+**Categoría**: quality  
+**Descripción**: Los archivos ai-tools/claude-code.mdx, ai-tools/cursor.mdx, ai-tools/windsurf.mdx parecen documentar herramientas de IA usadas en desarrollo. Considerar si esto es relevante para usuarios finales de la documentación o si debe estar en docs internas de equipo.  
+**Razón**: Documentar herramientas internas puede distraer de la documentación técnica del sistema. Debe evaluarse relevancia y audiencia objetivo.  
 
-**Archivos a crear**: troubleshooting/auth-service.mdx, troubleshooting/score-service.mdx, troubleshooting/ranking-service.mdx  
-**Archivos a modificar**: troubleshooting.mdx  
+
+---
+
+#### Documentación de testing y QA
+
+**Categoría**: content  
+**Descripción**: Falta documentación sobre estrategia de testing: tests unitarios, de integración, end-to-end, cómo ejecutarlos localmente, coverage esperado, y proceso de QA antes de despliegue.  
+**Razón**: Testing robusto previene regresiones y bugs en producción. Documentar estrategia asegura que todos los contribuidores sigan las mismas prácticas de calidad.  
+
+**Archivos a crear**: development/testing-guide.mdx  
 
 ---
 
 
 ## 📁 Nuevas Secciones Propuestas
 
-### Operaciones
+### Guías de Operaciones
 
-Documentación de tareas operativas comunes: gestión de juegos, monitorización, escalado, mantenimiento  
-
-**Archivos**:
-- `operations/overview.mdx`: Operaciones - Visión General  
-- `operations/game-management.mdx`: Gestión de Catálogo de Juegos  
-- `operations/scaling.mdx`: Escalado y Dimensionamiento  
-- `operations/maintenance.mdx`: Mantenimiento Programado  
-
-### Arquitectura de Datos
-
-Documentación completa del modelo de datos, esquema de BD, migraciones y queries comunes  
+Sección dedicada a procedimientos operativos diarios: despliegues, rollbacks, escalado, mantenimiento de BD, rotación de secrets, y procedimientos de emergencia.  
 
 **Archivos**:
-- `data-architecture/overview.mdx`: Arquitectura de Datos - Visión General  
-- `data-architecture/schema.mdx`: Esquema de Base de Datos  
-- `data-architecture/migrations.mdx`: Migraciones de Base de Datos  
-- `data-architecture/queries.mdx`: Consultas Comunes  
+- `operations/daily-procedures.mdx`: Procedimientos Diarios de Operaciones  
+- `operations/scaling-guide.mdx`: Guía de Escalado de Servicios  
+- `operations/rollback-procedures.mdx`: Procedimientos de Rollback  
 
-### Monitorización y Observabilidad
+### Seguridad y Compliance
 
-Guías de monitorización, dashboards, alertas y análisis de logs  
+Documentación de políticas de seguridad, mejores prácticas, auditorías, gestión de vulnerabilidades y compliance con estándares.  
 
 **Archivos**:
-- `monitoring/overview.mdx`: Monitorización - Visión General  
-- `monitoring/metrics.mdx`: Métricas Clave  
-- `monitoring/alerts.mdx`: Configuración de Alertas  
-- `monitoring/logs.mdx`: Análisis de Logs  
+- `security/security-policies.mdx`: Políticas de Seguridad  
+- `security/vulnerability-management.mdx`: Gestión de Vulnerabilidades  
+- `security/audit-logging.mdx`: Auditoría y Logging de Seguridad  
+
+### Análisis de Costos
+
+Documentación sobre optimización de costos AWS, análisis de gasto por servicio, estrategias de ahorro y forecasting.  
+
+**Archivos**:
+- `cost-management/cost-breakdown.mdx`: Desglose de Costos AWS  
+- `cost-management/optimization-strategies.mdx`: Estrategias de Optimización de Costos  
 
 
 ## 📈 Diagramas Requeridos
 
-### Diagrama de Componentes y Dependencias
+### Mapa de dependencias entre microservicios
 
 **Tipo**: component  
-**Ubicación**: architecture.mdx - nueva sección Componentes Detallados  
-**Descripción**: Muestra todos los componentes del sistema con sus dependencias externas (AWS services, librerías) y puertos de comunicación  
+**Ubicación**: architecture.mdx  
+**Descripción**: Diagrama que muestra qué servicios dependen de otros, qué bases de datos usan, qué secrets necesitan, y qué puertos exponen. Ayuda a entender el impacto de cambios.  
 
-graph TB
-    subgraph Frontend
-        FE[React App<br/>Port 3000]
-        JSDOS[JS-DOS Emulator<br/>v7.x]
-    end
-    subgraph Backend_Services
-        Auth[Auth Service<br/>Node.js + Express<br/>Port 3001]
-        User[User Service<br/>Node.js + Express<br/>Port 3002]
-        Catalog[Catalog Service<br/>Node.js + Express<br/>Port 3003]
-        Score[Score Service<br/>Node.js + Express<br/>Port 3004]
-        Ranking[Ranking Service<br/>Node.js + Express<br/>Port 3005]
-    end
-    subgraph Dependencias_NPM
-        JWT[jsonwebtoken]
-        Bcrypt[bcrypt]
-        PG[pg - PostgreSQL Client]
-        Express[express]
-        Cors[cors]
-    end
-    subgraph AWS_Services
-        RDS[(RDS PostgreSQL<br/>Port 5432)]
-        S3[S3 Bucket<br/>Game Assets]
-        Secrets[Secrets Manager]
-        CW[CloudWatch Logs]
-    end
-    FE --> JSDOS
-    Auth --> JWT
-    Auth --> Bcrypt
-    Auth --> PG
-    Auth --> Express
-    User --> PG
-    User --> Express
-    Catalog --> PG
-    Score --> PG
-    Ranking --> PG
-    PG --> RDS
-    Catalog --> S3
-    Auth --> Secrets
-    Auth --> CW
-    User --> CW
-    Catalog --> CW
-    Score --> CW
-    Ranking --> CW
+graph TD Frontend[Frontend:80
 
-### Flujo Completo de Guardado de Score
+### Diagrama
 
-**Tipo**: sequence  
-**Ubicación**: sequence-diagrams.mdx - nueva sección Guardado de Score  
-**Descripción**: Muestra interacción completa cuando usuario guarda un score: desde frontend hasta actualización de ranking  
+**Tipo**: N/A  
+**Ubicación**: N/A  
+**Descripción**:   
 
-sequenceDiagram
-    actor Jugador
-    participant Frontend
-    participant Kong
-    participant ScoreService
-    participant RankingService
-    participant DB
-    Jugador->>Frontend: Termina Juego<br/>Score: 9500
-    Frontend->>Frontend: Captura Score<br/>gameId, score
-    Frontend->>Kong: POST /api/scores<br/>Bearer JWT<br/>{gameId, score, metadata}
-    Kong->>Kong: Valida Rate Limit<br/>Verifica JWT
-    Kong->>ScoreService: Forward Request
-    ScoreService->>ScoreService: Extrae userId de JWT
-    ScoreService->>DB: BEGIN TRANSACTION
-    ScoreService->>DB: SELECT score FROM scores<br/>WHERE userId AND gameId
-    DB->>ScoreService: currentScore: 8000
-    ScoreService->>ScoreService: Comparar<br/>9500 > 8000
-    ScoreService->>DB: UPDATE scores<br/>SET score=9500<br/>WHERE userId AND gameId
-    DB->>ScoreService: Updated 1 row
-    ScoreService->>DB: COMMIT TRANSACTION
-    ScoreService->>RankingService: POST /internal/recalculate<br/>{gameId}
-    RankingService->>DB: SELECT TOP 100<br/>ORDER BY score DESC
-    DB->>RankingService: Lista ordenada
-    RankingService->>DB: UPDATE rankings<br/>SET rank positions
-    RankingService->>ScoreService: 200 OK
-    ScoreService->>Kong: 200 OK<br/>{score: 9500, rank: 3}
-    Kong->>Frontend: 200 OK
-    Frontend->>Jugador: Mostrar Nuevo Rank #3
+### Diagrama
 
-### Flujo de Decisión de Rate Limiting en Kong
+**Tipo**: N/A  
+**Ubicación**: N/A  
+**Descripción**:   
 
-**Tipo**: flow  
-**Ubicación**: api-reference/rate-limits.mdx  
-**Descripción**: Diagrama de flujo mostrando cómo Kong aplica rate limiting según tipo de usuario y endpoint  
+### Diagrama
 
-flowchart TD
-    A[Request Entrante
+**Tipo**: N/A  
+**Ubicación**: N/A  
+**Descripción**:   
 
 
 
