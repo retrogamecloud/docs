@@ -48,7 +48,7 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
     - **Data Service**: Procesamiento y almacenamiento de datos
     - **Notification Service**: Sistema de notificaciones en tiempo real
     - **Integration Service**: Conexiones con servicios externos
-    
+
     ```mermaid
     graph TD
         A[API Gateway] --> B[Auth Service]
@@ -56,15 +56,16 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
         A --> D[Notification Service]
         A --> E[Integration Service]
     ```
+
   </Accordion>
-  
+
   <Accordion title="Base de Datos y Almacenamiento">
     **Componentes de Datos:**
     - **PostgreSQL**: Base de datos principal
     - **Redis**: Cache y sesiones
     - **MongoDB**: Datos no estructurados
     - **S3**: Almacenamiento de archivos
-    
+
     ```sql
     -- Ejemplo de esquema principal
     CREATE TABLE users (
@@ -73,14 +74,15 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
         created_at TIMESTAMP DEFAULT NOW()
     );
     ```
+
   </Accordion>
-  
+
   <Accordion title="Sistema de Colas y Eventos">
     **Message Brokers:**
     - **RabbitMQ**: Cola de mensajes principal
     - **Apache Kafka**: Streaming de eventos
     - **WebSockets**: Comunicación en tiempo real
-    
+
     ```javascript
     // Ejemplo de configuración de eventos
     const eventConfig = {
@@ -88,6 +90,7 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
       exchanges: ['direct', 'topic', 'fanout']
     };
     ```
+
   </Accordion>
 </AccordionGroup>
 
@@ -106,15 +109,16 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
         environment:
           - NODE_ENV=production
           - DATABASE_URL=${DATABASE_URL}
-      
+
       database:
         image: postgres:14
         environment:
           - POSTGRES_DB=app_db
           - POSTGRES_USER=${DB_USER}
     ```
+
   </Tab>
-  
+
   <Tab title="Kubernetes">
     **K8s Deployment:**
     ```yaml
@@ -138,8 +142,9 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
             ports:
             - containerPort: 3000
     ```
+
   </Tab>
-  
+
   <Tab title="Cloud Infrastructure">
     **AWS Architecture:**
     - **ECS/EKS**: Orquestación de contenedores
@@ -170,7 +175,8 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
     curl -H "Authorization: Bearer YOUR_TOKEN" \
          https://api.example.com/endpoint
     ```
-    
+
+
     **Estructura del JWT:**
     ```json
     {
@@ -186,21 +192,23 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
       }
     }
     ```
+
   </Accordion>
-  
+
   <Accordion title="API Key Authentication">
     Para integraciones de servicios específicos
     ```bash
     curl -H "X-API-Key: YOUR_API_KEY" \
          https://api.example.com/endpoint
     ```
-    
+
+
     **Scopes disponibles:**
     - `read:users` - Lectura de usuarios
     - `write:data` - Escritura de datos
     - `admin:all` - Acceso administrativo
   </Accordion>
-  
+
   <Accordion title="OAuth 2.0 / OpenID Connect">
     Para integraciones con terceros
     ```javascript
@@ -210,6 +218,7 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
       scopes: ['openid', 'profile', 'email']
     };
     ```
+
   </Accordion>
 </AccordionGroup>
 
@@ -223,7 +232,7 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
     - `/api/v1/auth` - Autenticación y autorización
     - `/api/v1/notifications` - Sistema de notificaciones
   </Step>
-  
+
   <Step title="GraphQL Endpoint">
     **Unified Data Layer:**
     - Single endpoint: `/graphql`
@@ -231,7 +240,7 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
     - Flexible query structure
     - Type-safe operations
   </Step>
-  
+
   <Step title="Webhooks y Eventos">
     **Real-time Integration:**
     - Event-driven architecture
@@ -239,7 +248,7 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
     - Retry mechanisms y dead letter queues
     - Event sourcing patterns
   </Step>
-  
+
   <Step title="Integraciones Externas">
     **Third-party APIs:**
     - Payment processors
@@ -259,15 +268,16 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
     {
       "response_time": {
         "p50": "120ms",
-        "p95": "300ms", 
+        "p95": "300ms",
         "p99": "800ms"
       },
       "throughput": "1000 req/sec",
       "error_rate": "0.1%"
     }
     ```
+
   </Tab>
-  
+
   <Tab title="Infrastructure Metrics">
     ```yaml
     resources:
@@ -275,14 +285,15 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
       memory_usage: "80%"
       disk_usage: "45%"
       network_io: "100MB/s"
-    
+
     databases:
       postgres_connections: 85
       redis_memory: "2GB"
       query_performance: "avg 50ms"
     ```
+
   </Tab>
-  
+
   <Tab title="Business Metrics">
     ```javascript
     const businessMetrics = {
@@ -292,6 +303,7 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
       uptime: "99.9%"
     };
     ```
+
   </Tab>
 </Tabs>
 
@@ -314,6 +326,7 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
   "response_time_ms": 150,
   "message": "Request processed successfully"
 }
+
 ```
 
 ## Próximos Pasos

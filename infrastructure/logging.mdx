@@ -78,14 +78,19 @@ graph TB
 <Card title="Definición y Umbrales" icon="clock">
 Tiempo que toma procesar una request, distinguiendo entre requests exitosos y fallidos.
 
-**Umbrales críticos:**
+* *Umbrales críticos:**
+
 - P50 < 200ms (requests normales)
+
 - P95 < 500ms (experiencia de usuario)
+
 - P99 < 1s (casos extremos)
 </Card>
 
 ```yaml
+
 # Configuración Prometheus
+
 - alert: HighLatency
   expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 0.5
   for: 2m
@@ -94,6 +99,7 @@ Tiempo que toma procesar una request, distinguiendo entre requests exitosos y fa
   annotations:
     summary: "High latency detected on {{ $labels.service }}"
     description: "95th percentile latency is {{ $value }}s"
+
 ```
 
 ### 4.6.3.2 Traffic (Tráfico)
@@ -101,17 +107,22 @@ Tiempo que toma procesar una request, distinguiendo entre requests exitosos y fa
 <Card title="Medición de Demanda" icon="activity">
 Medida de la demanda en el sistema, típicamente requests por segundo.
 
-**Métricas clave:**
+* *Métricas clave:**
+
 - RPS por endpoint
+
 - Distribución por método HTTP
+
 - Patrones de uso por hora/día
 </Card>
 
 ```prometheus
+
 # Queries importantes
 rate(http_requests_total[5m])
 sum(rate(http_requests_total[5m])) by (method, endpoint)
 increase(http_requests_total[1h])
+
 ```
 
 ### 4.6.3.3 Errors (Errores)
@@ -119,13 +130,17 @@ increase(http_requests_total[1h])
 <Card title="Tasa de Fallos" icon="alert-triangle">
 Tasa de requests que fallan, expresada como fracción de todas las requests.
 
-**Categorías:**
+* *Categorías:**
+
 - HTTP 4xx (errores de cliente)
+
 - HTTP 5xx (errores de servidor)
+
 - Timeouts y circuit breaker trips
 </Card>
 
 ```yaml
+
 - alert: HighErrorRate
   expr: |
     (
@@ -139,6 +154,7 @@ Tasa de requests que fallan, expresada como fracción de todas las requests.
   annotations:
     summary: "High error rate on {{ $labels.service }}"
     description: "Error rate is {{ $value | humanizePercentage }}"
+
 ```
 
 ### 4.6.3.4 Saturation (Saturación)
@@ -146,10 +162,14 @@ Tasa de requests que fallan, expresada como fracción de todas las requests.
 <Card title="Utilización de Recursos" icon="cpu">
 Medida de la "plenitud" del servicio. Recursos más limitados como memoria, I/O, conexiones.
 
-**Recursos monitoreados:**
+* *Recursos monitoreados:**
+
 - CPU utilization
+
 - Memory usage
+
 - Database connections
+
 - Queue depth
 </Card>
 
@@ -177,6 +197,7 @@ Medida de la "plenitud" del servicio. Recursos más limitados como memoria, I/O,
     "db_queries": 2
   }
 }
+
 ```
 
 ### 4.6.4.2 Configuración Fluent Bit
@@ -219,6 +240,7 @@ data:
         log_group_name /aws/eks/retrogame/application
         log_stream_prefix application-
         auto_create_group true
+
 ```
 
 ## 4.6.5 Dashboards Esenciales
@@ -277,6 +299,7 @@ data:
     ]
   }
 }
+
 ```
 
 ### 4.6.5.2 Dashboard de Business Metrics
@@ -296,6 +319,7 @@ data:
     # Desconexiones por problemas de red
     rate(gaming_disconnections_total{reason="network"}[5m])
     ```
+
   </Tab>
   <Tab title="User Experience">
     ```prometheus
@@ -311,6 +335,7 @@ data:
     # Uso de features premium
     rate(premium_feature_usage_total[1h]) by (feature)
     ```
+
   </Tab>
   <Tab title="Infrastructure">
     ```prometheus
@@ -326,6 +351,7 @@ data:
     # Costo por hora
     aws_billing_estimated_charges by (service)
     ```
+
   </Tab>
 </Tabs>
 
@@ -367,6 +393,7 @@ spec:
           name: otlp-grpc
         - containerPort: 4318
           name: otlp-http
+
 ```
 
 ### 4.6.6.2 Instrumentación OpenTelemetry
@@ -396,7 +423,7 @@ spec:
 
     async function processUserData(userId) {
       const tracer = trace.getTracer('user-service');
-      
+
       return tracer.startActiveSpan('process-user-data', async (span) => {
         try {
           span.setAttributes({
@@ -405,19 +432,19 @@ spec:
           });
 
           const userData = await fetchUserFromDB(userId);
-          span.addEvent('user-data-fetched', { 
-            'user.type': userData.type 
+          span.addEvent('user-data-fetched', {
+            'user.type': userData.type
           });
 
           const processed = await processData(userData);
           span.setStatus({ code: SpanStatusCode.OK });
-          
+
           return processed;
         } catch (error) {
           span.recordException(error);
-          span.setStatus({ 
-            code: SpanStatusCode.ERROR, 
-            message: error.message 
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: error.message
           });
           throw error;
         } finally {
@@ -426,6 +453,7 @@ spec:
       });
     }
     ```
+
   </Tab>
   <Tab title="Go">
     ```go
@@ -434,7 +462,7 @@ spec:
     import (
         "context"
         "log"
-        
+
         "go.opentelemetry.io/otel"
         "go.opentelemetry.io/otel/attribute"
         "go.opentelemetry.io/otel/exporters/jaeger"
@@ -459,31 +487,32 @@ spec:
                 semconv.ServiceVersionKey.String("1.0.0"),
             )),
         )
-        
+
         otel.SetTracerProvider(tp)
     }
 
     func processGameSession(ctx context.Context, sessionID string) error {
         tracer := otel.Tracer("gaming-service")
-        
+
         ctx, span := tracer.Start(ctx, "process-game-session")
         defer span.End()
-        
+
         span.SetAttributes(
             attribute.String("session.id", sessionID),
             attribute.String("operation.type", "game-processing"),
         )
-        
+
         // Procesar lógica de juego
         if err := startGameEngine(ctx, sessionID); err != nil {
             span.RecordError(err)
             return err
         }
-        
+
         span.AddEvent("game-engine-started")
         return nil
     }
     ```
+
   </Tab>
   <Tab title="Python">
     ```python
@@ -492,4 +521,5 @@ spec:
     from opentelemetry.sdk.trace.export import BatchSpan
 </Tab>
 </Tabs>
+
 ```

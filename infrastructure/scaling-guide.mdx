@@ -17,6 +17,7 @@ Esta guía describe las estrategias de escalado para cada componente de RetroGam
 <Tab title="Horizontal Pod Autoscaler">
 
 ```yaml
+
 # hpa-auth-service.yaml
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -56,12 +57,14 @@ spec:
       - type: Percent
         value: 50
         periodSeconds: 60
+
 ```
 
 </Tab>
 <Tab title="Vertical Pod Autoscaler">
 
 ```yaml
+
 # vpa-game-catalog.yaml
 apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
@@ -85,12 +88,14 @@ spec:
         cpu: 2
         memory: 2Gi
       controlledResources: ["cpu", "memory"]
+
 ```
 
 </Tab>
 <Tab title="Cluster Autoscaler">
 
 ```yaml
+
 # cluster-autoscaler.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -127,6 +132,7 @@ spec:
         - --balance-similar-node-groups
         - --scale-down-delay-after-add=10m
         - --scale-down-unneeded-time=10m
+
 ```
 
 </Tab>
@@ -142,6 +148,7 @@ El HPA escala pods basándose en métricas de CPU y memoria, mientras que el VPA
 <Tab title="RDS Aurora Escalado">
 
 ```yaml
+
 # terraform/rds-scaling.tf
 resource "aws_rds_cluster" "aurora_cluster" {
   cluster_identifier      = "retrogame-aurora-cluster"
@@ -153,7 +160,7 @@ resource "aws_rds_cluster" "aurora_cluster" {
   master_password        = var.db_password
   backup_retention_period = 5
   preferred_backup_window = "07:00-09:00"
-  
+
   serverlessv2_scaling_configuration {
     max_capacity = 64
     min_capacity = 0.5
@@ -187,31 +194,33 @@ resource "aws_appautoscaling_policy" "aurora_scale_up" {
     }
   }
 }
+
 ```
 
 </Tab>
 <Tab title="ElastiCache Escalado">
 
 ```yaml
+
 # terraform/elasticache-scaling.tf
 resource "aws_elasticache_replication_group" "redis_cluster" {
   replication_group_id         = "retrogame-redis"
   description                  = "Redis cluster for RetroGameCloud"
-  
+
   node_type                    = "cache.r7g.large"
   port                         = 6379
   parameter_group_name         = "default.redis7"
-  
+
   num_cache_clusters           = 3
   automatic_failover_enabled   = true
   multi_az_enabled            = true
-  
+
   subnet_group_name           = aws_elasticache_subnet_group.redis_subnet_group.name
   security_group_ids          = [aws_security_group.redis.id]
-  
+
   at_rest_encryption_enabled  = true
   transit_encryption_enabled  = true
-  
+
   tags = {
     Environment = var.environment
     Project     = "RetroGameCloud"
@@ -226,6 +235,7 @@ resource "aws_appautoscaling_target" "redis_target" {
   scalable_dimension = "elasticache:replication-group:Replicas"
   service_namespace  = "elasticache"
 }
+
 ```
 
 </Tab>
@@ -237,12 +247,13 @@ resource "aws_appautoscaling_target" "redis_target" {
 <Tab title="CloudFront Configuración">
 
 ```yaml
+
 # terraform/cloudfront-scaling.tf
 resource "aws_cloudfront_distribution" "game_assets_distribution" {
   origin {
     domain_name = aws_s3_bucket.game_assets.bucket_regional_domain_name
     origin_id   = "S3-${aws_s3_bucket.game_assets.id}"
-    
+
     s3_origin_config {
       origin_access_identity = aws_cloudfront_origin_access_identity.oai.cloudfront_access_identity_path
     }
@@ -288,12 +299,14 @@ resource "aws_cloudfront_distribution" "game_assets_distribution" {
     Project     = "RetroGameCloud"
   }
 }
+
 ```
 
 </Tab>
 <Tab title="S3 Transfer Acceleration">
 
 ```yaml
+
 # terraform/s3-scaling.tf
 resource "aws_s3_bucket" "game_assets" {
   bucket = "retrogame-assets-${var.environment}"
@@ -342,6 +355,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "game_assets_lifecycle" {
     }
   }
 }
+
 ```
 
 </Tab>
@@ -355,6 +369,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "game_assets_lifecycle" {
 <Tab title="Microservicios">
 
 ```yaml
+
 # monitoring/service-metrics.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -375,7 +390,7 @@ data:
           max: 200ms
         error_rate:
           max: 1%
-      
+
       game-catalog-service:
         cpu:
           scale_up: 75
@@ -387,7 +402,7 @@ data:
           max: 1000
         cache_hit_rate:
           min: 85%
-      
+
       streaming-service:
         cpu:
           scale_up: 60
@@ -399,7 +414,7 @@ data:
           max: 10Gbps
         concurrent_streams:
           max: 1000
-      
+
       save-state-service:
         cpu:
           scale_up: 65
@@ -411,12 +426,14 @@ data:
           max: 1000_iops
         write_latency:
           max: 10ms
+
 ```
 
 </Tab>
 <Tab title="Base de Datos">
 
 ```yaml
+
 # monitoring/database-metrics.yaml
 database:
   aurora_cluster:
@@ -430,7 +447,7 @@ database:
       max: 20ms
     write_latency:
       max: 50ms
-    
+
   redis_cluster:
     memory_utilization:
       scale_up: 80
@@ -442,12 +459,14 @@ database:
       max: 100MB/s
     evictions:
       max: 100/minute
+
 ```
 
 </Tab>
 <Tab title="Infraestructura">
 
 ```yaml
+
 # monitoring/infrastructure-metrics.yaml
 infrastructure:
   eks_nodes:
@@ -460,7 +479,7 @@ infrastructure:
     disk_utilization:
       warning: 80
       critical: 90
-    
+
   load_balancer:
     active_connections:
       max: 10000
@@ -468,7 +487,7 @@ infrastructure:
       max: 500ms
     healthy_hosts:
       min: 2
-    
+
   cloudfront:
     cache_hit_rate:
       min: 85%
@@ -476,6 +495,7 @@ infrastructure:
       max: 1000ms
     error_rate:
       max: 0.5%
+
 ```
 
 </Tab>
@@ -487,6 +507,7 @@ infrastructure:
 <Tab title="PrometheusRule">
 
 ```yaml
+
 # monitoring/scaling-alerts.yaml
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
@@ -510,7 +531,7 @@ spec:
       annotations:
         summary: "High CPU usage detected"
         description: "Pod {{ $labels.pod }} has CPU usage above 80% for 5 minutes"
-    
+
     - alert: HighMemoryUsage
       expr: |
         (
@@ -526,4 +547,5 @@ spec:
         description: "Pod {{ $labels.pod }} has memory usage above 85% for 5
 </Tab>
 </Tabs>
+
 ```

@@ -90,9 +90,10 @@ graph TB
 
     IAM -.-> AUTH
     COGNITO -.-> AUTH
-    
+
     GAME --> S3
     USER --> S3
+
 ```
 
 ## 4.2. Gestión de Secretos
@@ -102,15 +103,16 @@ graph TB
 Configuración para secretos críticos como credenciales de base de datos y claves de API:
 
 ```yaml
+
 # terraform/secrets.tf
 resource "aws_secretsmanager_secret" "database_credentials" {
   name        = "retrogame/database/credentials"
   description = "Database credentials for RetroGameCloud"
-  
+
   replica {
     region = "us-west-2"
   }
-  
+
   tags = {
     Environment = var.environment
     Service     = "database"
@@ -124,6 +126,7 @@ resource "aws_secretsmanager_secret_version" "database_credentials" {
     password = var.db_password
   })
 }
+
 ```
 
 ### 4.2.2. Parameter Store
@@ -131,12 +134,13 @@ resource "aws_secretsmanager_secret_version" "database_credentials" {
 Para configuraciones no sensibles y parámetros de aplicación:
 
 ```yaml
+
 # terraform/parameter-store.tf
 resource "aws_ssm_parameter" "api_config" {
   name  = "/retrogame/api/config"
   type  = "StringList"
   value = "production,us-east-1,443"
-  
+
   tags = {
     Environment = var.environment
   }
@@ -147,11 +151,13 @@ resource "aws_ssm_parameter" "jwt_config" {
   type  = "String"
   value = "24h"
 }
+
 ```
 
 ### 4.2.3. Implementación en Kubernetes
 
 ```yaml
+
 # k8s/secrets/secret-provider-class.yaml
 apiVersion: secrets-store.csi.x-k8s.io/v1
 kind: SecretProviderClass
@@ -179,6 +185,7 @@ spec:
       key: username
     - objectName: "db-password"
       key: password
+
 ```
 
 ## 4.3. OWASP Top 10 - Implementación
@@ -207,7 +214,7 @@ export class PermissionGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    const hasPermission = requiredPermissions.some(permission => 
+    const hasPermission = requiredPermissions.some(permission =>
       user.permissions?.includes(permission)
     );
 
@@ -229,6 +236,7 @@ export class AdminController {
     // Lógica del endpoint
   }
 }
+
 ```
 
 ### 4.3.2. A02 - Cryptographic Failures
@@ -260,10 +268,10 @@ export class EncryptionService {
   } {
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipher(this.algorithm, key);
-    
+
     let encrypted = cipher.update(data, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    
+
     const authTag = cipher.getAuthTag();
 
     return {
@@ -273,6 +281,7 @@ export class EncryptionService {
     };
   }
 }
+
 ```
 
 ### 4.3.3. A03 - Injection
@@ -336,6 +345,7 @@ export class UserRepository {
       .execute();
   }
 }
+
 ```
 
 ### 4.3.4. A04 - Insecure Design
@@ -361,7 +371,7 @@ export class RateLimitGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const rateLimitConfig = this.reflector.get<{requests: number, windowMs: number}>('rateLimit', context.getHandler());
-    
+
     if (!rateLimitConfig) {
       return true;
     }
@@ -371,7 +381,7 @@ export class RateLimitGuard implements CanActivate {
     const key = `rate_limit:${clientIp}:${context.getHandler().name}`;
 
     const current = await this.redisService.incr(key);
-    
+
     if (current === 1) {
       await this.redisService.expire(key, Math.ceil(rateLimitConfig.windowMs / 1000));
     }
@@ -394,11 +404,13 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 }
+
 ```
 
 ### 4.3.5. A05 - Security Misconfiguration
 
 ```yaml
+
 # k8s/network-policies/deny-all-default.yaml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -410,7 +422,9 @@ spec:
   policyTypes:
   - Ingress
   - Egress
----
+
+- --
+
 # k8s/network-policies/allow-api-traffic.yaml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -447,6 +461,7 @@ spec:
     ports:
     - protocol: TCP
       port: 6379
+
 ```
 
 ### 4.3.6. A06 - Vulnerable Components
@@ -464,9 +479,11 @@ spec:
     "snyk": "^1.1200.0"
   }
 }
+
 ```
 
 ```yaml
+
 # .github/workflows/security-scan.yml
 name: Security Scan
 on:
@@ -480,32 +497,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '18'
         cache: 'npm'
-        
+
     - name: Install dependencies
       run: npm ci
-      
+
     - name: Run npm audit
       run: npm audit --audit-level=high
-      
+
     - name: Run Snyk security scan
       uses: snyk/actions/node@master
       env:
         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       with:
         args: --severity-threshold=high
-        
+
     - name: Container Security Scan
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: 'retrogame:${{ github.sha }}'
         format: 'sarif'
         output: 'trivy-results.sarif'
+
 ```
 
 ## 4.4. Políticas de Seguridad IAM
@@ -533,4 +551,5 @@ jobs:
       "Sid": "S3GameAssetsAccess",
       "Effect": "Allow",
       "Action": [
+
 ```

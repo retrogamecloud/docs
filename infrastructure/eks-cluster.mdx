@@ -139,6 +139,7 @@ module "eks" {
 
   tags = var.tags
 }
+
 ```
 
 ```hcl variables.tf
@@ -159,6 +160,7 @@ variable "environment" {
   type        = string
   default     = "production"
 }
+
 ```
 
 ```hcl kms.tf
@@ -176,6 +178,7 @@ resource "aws_kms_alias" "eks" {
   name          = "alias/${var.cluster_name}-eks"
   target_key_id = aws_kms_key.eks.key_id
 }
+
 ```
 
 </CodeGroup>
@@ -185,18 +188,26 @@ resource "aws_kms_alias" "eks" {
 ### 4.3.4.1. Main Node Group
 
 <Card title="Configuración Principal" icon="server">
+
 - **Tipo de instancia**: t3.medium
+
 - **Capacidad**: 2-10 nodos (3 deseados)
+
 - **Tipo de capacidad**: ON_DEMAND
+
 - **Propósito**: Cargas de trabajo generales
 </Card>
 
 ### 4.3.4.2. Gaming Node Group
 
 <Card title="Configuración de Gaming" icon="gamepad">
+
 - **Tipo de instancia**: c5.large
+
 - **Capacidad**: 1-5 nodos (2 deseados)
+
 - **Tipo de capacidad**: SPOT
+
 - **Propósito**: Servidores de juegos dedicados
 </Card>
 
@@ -238,15 +249,18 @@ kind: ClusterRole
 metadata:
   name: retro-game-hub-admin
 rules:
+
 - apiGroups: ["*"]
   resources: ["*"]
   verbs: ["*"]
----
+
+- --
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: retro-game-hub-admin-binding
 subjects:
+
 - kind: User
   name: admin@retrogamehub.com
   apiGroup: rbac.authorization.k8s.io
@@ -254,6 +268,7 @@ roleRef:
   kind: ClusterRole
   name: retro-game-hub-admin
   apiGroup: rbac.authorization.k8s.io
+
 ```
 
 ### 4.3.6.2. Service Accounts
@@ -268,6 +283,7 @@ metadata:
   namespace: kube-system
   annotations:
     eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/AmazonEKSLoadBalancerControllerRole
+
 ```
 
 ```yaml external-dns.yaml
@@ -278,6 +294,7 @@ metadata:
   namespace: kube-system
   annotations:
     eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/ExternalDNSRole
+
 ```
 
 </CodeGroup>
@@ -289,18 +306,27 @@ metadata:
 El cluster EKS envía logs a CloudWatch en los siguientes grupos:
 
 - `/aws/eks/{cluster-name}/cluster/api`
+
 - `/aws/eks/{cluster-name}/cluster/audit`
+
 - `/aws/eks/{cluster-name}/cluster/authenticator`
+
 - `/aws/eks/{cluster-name}/cluster/controllerManager`
+
 - `/aws/eks/{cluster-name}/cluster/scheduler`
 
 ### 4.3.7.2. Métricas
 
 <Card title="Container Insights" icon="chart-line">
-**AWS Container Insights** proporciona métricas detalladas de:
+
+* *AWS Container Insights** proporciona métricas detalladas de:
+
 - CPU y memoria por nodo y pod
+
 - Utilización de red
+
 - Almacenamiento
+
 - Performance de aplicaciones
 </Card>
 
@@ -343,6 +369,7 @@ spec:
         - --skip-nodes-with-local-storage=false
         - --expander=least-waste
         - --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/retro-game-hub
+
 ```
 
 ### 4.3.8.2. Horizontal Pod Autoscaler
@@ -356,7 +383,9 @@ HPA se configura por aplicación usando métricas de CPU, memoria y métricas pe
 ### 4.3.9.1. Backups
 
 - **Velero**: Backup automatizado de recursos de Kubernetes
+
 - **EBS Snapshots**: Backup de volúmenes persistentes
+
 - **Configuración**: Respaldada en Git y Terraform state
 
 ### 4.3.9.2. Procedimiento de Recuperación

@@ -244,6 +244,7 @@ graph TB
     class ALB1,ALB2,NAT1,NAT2,NAT3,IGW network
     class WAF_RULES,BASTION1,BASTION2 security
     class CW,CW_ALARMS,SNS,XRAY monitoring
+
 ```
 
 ## Arquitectura de Red Detallada
@@ -284,6 +285,7 @@ sequenceDiagram
     EKS-->>ALB: 11. API Response
     ALB-->>CF: 12. Response
     CF-->>User: 13. Final Response
+
 ```
 
 ## Componentes Principales
@@ -291,41 +293,52 @@ sequenceDiagram
 ### 1. Capa de Red Global
 
 #### Route 53
+
 - **Dominios**: retrogame.cloud, api.retrogame.cloud, cdn.retrogame.cloud
+
 - **Health Checks**: Monitoreo de endpoints críticos
+
 - **Routing Policies**: Latency-based para mejor performance
 
 #### CloudFront CDN
+
 - **Web Distribution**: Assets estáticos, cache 24h
+
 - **API Distribution**: Contenido dinámico, cache 5min
+
 - **Assets Distribution**: Archivos de juego, cache 7 días
 
 #### AWS WAF
+
 - **Rate Limiting**: 1000 requests/5min por IP
+
 - **SQL Injection Protection**: Pattern matching
+
 - **DDoS Mitigation**: Integración con Shield
 
 ### 2. Capa de Compute
 
 #### EKS Cluster
+
 ```yaml
 Cluster Configuration:
   Version: 1.24
   Endpoint: Private
   Logging: API, Audit, Authenticator
-  
+
 Node Groups:
   - Name: primary-nodes
     Instance Type: t3.large
     Min Size: 2
     Max Size: 10
     Desired: 3
-    
+
   - Name: batch-nodes
     Instance Type: c5.xlarge
     Min Size: 0
     Max Size: 5
     Desired: 1
+
 ```
 
 #### Pod Distribution
@@ -341,6 +354,7 @@ Node Groups:
 ### 3. Capa de Datos
 
 #### RDS PostgreSQL
+
 ```yaml
 Primary (us-east-1a):
   Engine: PostgreSQL 14.6
@@ -354,17 +368,20 @@ Read Replica (us-east-1b):
   Instance: db.t3.medium
   Lag: < 100ms
   Auto Failover: enabled
+
 ```
 
 #### ElastiCache Redis
+
 ```yaml
 Primary Node (us-east-1a):
   Engine: Redis 7.0
   Instance: cache.t3.micro
   Memory: 1GB
-  
+
 Replica Node (us-east-1b):
   Engine: Redis 7.0
   Instance: cache.t3.micro
   Replication:
+
 ```

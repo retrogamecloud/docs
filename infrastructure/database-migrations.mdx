@@ -1,6 +1,8 @@
 ---
 title: 6.8. Migraciones de Base de Datos
-description: Guía completa para ejecutar migraciones de esquema en RDS PostgreSQL de forma segura, con estrategias de versionado, procedimientos de rollback y despliegues sin downtime
+description: Guía completa para ejecutar migraciones de esquema en RDS PostgreSQL
+  de forma segura, con estrategias de versionado, procedimientos de rollback y despliegues
+  sin downtime
 icon: database
 ---
 
@@ -18,8 +20,11 @@ Todas las migraciones deben probarse exhaustivamente en entornos locales y stagi
 Utilizamos **Flyway** como herramienta principal para el versionado y ejecución de migraciones de esquema:
 
 - Versionado automático de scripts SQL
+
 - Seguimiento del estado de migraciones
+
 - Validación de checksums
+
 - Soporte para rollbacks
 
 ### Configuración Docker
@@ -38,6 +43,7 @@ services:
     environment:
       - FLYWAY_BASELINE_ON_MIGRATE=true
       - FLYWAY_VALIDATE_ON_MIGRATE=true
+
 ```
 
 ## Estructura de Migraciones
@@ -48,29 +54,43 @@ Las migraciones siguen una estructura estricta:
 
 <Tabs>
 <Tab title="Migraciones hacia adelante">
+
 ```
+
 V{version}__{descripción}.sql
 
 Ejemplos:
+
 - V001__initial_schema.sql
+
 - V002__add_user_achievements.sql
+
 - V003__create_game_scores_index.sql
+
 ```
+
 </Tab>
 <Tab title="Migraciones de rollback">
+
 ```
+
 U{version}__{descripción}.sql
 
 Ejemplos:
+
 - U002__remove_user_achievements.sql
+
 - U003__drop_game_scores_index.sql
+
 ```
+
 </Tab>
 </Tabs>
 
 ### Estructura de Directorios
 
 ```
+
 migrations/
 ├── schema/
 │   ├── V001__initial_schema.sql
@@ -84,6 +104,7 @@ migrations/
 │   └── V101__migrate_user_preferences.sql
 └── hotfixes/
     └── V999__emergency_fix_user_scores.sql
+
 ```
 
 ## Ejemplos de Migraciones Reales
@@ -92,12 +113,14 @@ migrations/
 
 <Tabs>
 <Tab title="V001__initial_schema.sql">
+
 ```sql
--- Crear extensiones necesarias
+
+- - Crear extensiones necesarias
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Tabla de usuarios
+- - Tabla de usuarios
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -107,7 +130,7 @@ CREATE TABLE users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Tabla de juegos
+- - Tabla de juegos
 CREATE TABLE games (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     title VARCHAR(255) NOT NULL,
@@ -121,7 +144,7 @@ CREATE TABLE games (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Tabla de puntuaciones
+- - Tabla de puntuaciones
 CREATE TABLE game_scores (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -131,7 +154,7 @@ CREATE TABLE game_scores (
     UNIQUE(user_id, game_id)
 );
 
--- Índices para optimización
+- - Índices para optimización
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_games_platform ON games(platform);
@@ -139,11 +162,15 @@ CREATE INDEX idx_games_genre ON games(genre);
 CREATE INDEX idx_game_scores_user_id ON game_scores(user_id);
 CREATE INDEX idx_game_scores_game_id ON game_scores(game_id);
 CREATE INDEX idx_game_scores_score ON game_scores(score DESC);
+
 ```
+
 </Tab>
 <Tab title="Rollback - Drop inicial">
+
 ```sql
--- U001__drop_initial_schema.sql
+
+- - U001__drop_initial_schema.sql
 DROP INDEX IF EXISTS idx_game_scores_score;
 DROP INDEX IF EXISTS idx_game_scores_game_id;
 DROP INDEX IF EXISTS idx_game_scores_user_id;
@@ -158,7 +185,9 @@ DROP TABLE IF EXISTS users;
 
 DROP EXTENSION IF EXISTS "pgcrypto";
 DROP EXTENSION IF EXISTS "uuid-ossp";
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -166,8 +195,10 @@ DROP EXTENSION IF EXISTS "uuid-ossp";
 
 <Tabs>
 <Tab title="V002__add_user_achievements.sql">
+
 ```sql
--- Crear tabla de logros
+
+- - Crear tabla de logros
 CREATE TABLE achievements (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) UNIQUE NOT NULL,
@@ -178,7 +209,7 @@ CREATE TABLE achievements (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Crear tabla de logros de usuario
+- - Crear tabla de logros de usuario
 CREATE TABLE user_achievements (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -188,36 +219,42 @@ CREATE TABLE user_achievements (
     UNIQUE(user_id, achievement_id)
 );
 
--- Agregar columna de puntos totales a usuarios
+- - Agregar columna de puntos totales a usuarios
 ALTER TABLE users ADD COLUMN total_achievement_points INTEGER DEFAULT 0;
 
--- Índices para logros
+- - Índices para logros
 CREATE INDEX idx_achievements_category ON achievements(category);
 CREATE INDEX idx_user_achievements_user_id ON user_achievements(user_id);
 CREATE INDEX idx_user_achievements_unlocked_at ON user_achievements(unlocked_at);
 
--- Insertar logros iniciales
-INSERT INTO achievements (name, description, points, category) VALUES 
+- - Insertar logros iniciales
+INSERT INTO achievements (name, description, points, category) VALUES
 ('Primer Juego', 'Juega tu primer juego retro', 10, 'gaming'),
 ('Gamer Dedicado', 'Juega 10 juegos diferentes', 50, 'gaming'),
 ('Puntuación Alta', 'Consigue más de 10,000 puntos en cualquier juego', 25, 'score'),
 ('Veterano', 'Lleva 30 días registrado', 100, 'loyalty');
+
 ```
+
 </Tab>
 <Tab title="U002__remove_user_achievements.sql">
+
 ```sql
--- Eliminar índices
+
+- - Eliminar índices
 DROP INDEX IF EXISTS idx_user_achievements_unlocked_at;
 DROP INDEX IF EXISTS idx_user_achievements_user_id;
 DROP INDEX IF EXISTS idx_achievements_category;
 
--- Eliminar columna agregada
+- - Eliminar columna agregada
 ALTER TABLE users DROP COLUMN IF EXISTS total_achievement_points;
 
--- Eliminar tablas
+- - Eliminar tablas
 DROP TABLE IF EXISTS user_achievements;
 DROP TABLE IF EXISTS achievements;
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -225,32 +262,39 @@ DROP TABLE IF EXISTS achievements;
 
 <Tabs>
 <Tab title="V003__optimize_game_queries.sql">
+
 ```sql
--- Crear índice compuesto para queries frecuentes
-CREATE INDEX CONCURRENTLY idx_games_platform_genre 
-ON games(platform, genre) 
+
+- - Crear índice compuesto para queries frecuentes
+CREATE INDEX CONCURRENTLY idx_games_platform_genre
+ON games(platform, genre)
 WHERE platform IS NOT NULL AND genre IS NOT NULL;
 
--- Índice parcial para juegos activos
-CREATE INDEX CONCURRENTLY idx_games_active 
-ON games(created_at) 
+- - Índice parcial para juegos activos
+CREATE INDEX CONCURRENTLY idx_games_active
+ON games(created_at)
 WHERE file_url IS NOT NULL;
 
--- Índice para ranking de puntuaciones
-CREATE INDEX CONCURRENTLY idx_game_scores_ranking 
+- - Índice para ranking de puntuaciones
+CREATE INDEX CONCURRENTLY idx_game_scores_ranking
 ON game_scores(game_id, score DESC, achieved_at DESC);
 
--- Estadísticas para el optimizador
+- - Estadísticas para el optimizador
 ANALYZE games;
 ANALYZE game_scores;
+
 ```
+
 </Tab>
 <Tab title="U003__remove_game_optimizations.sql">
+
 ```sql
 DROP INDEX CONCURRENTLY IF EXISTS idx_game_scores_ranking;
 DROP INDEX CONCURRENTLY IF EXISTS idx_games_active;
 DROP INDEX CONCURRENTLY IF EXISTS idx_games_platform_genre;
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -260,6 +304,7 @@ DROP INDEX CONCURRENTLY IF EXISTS idx_games_platform_genre;
 
 <Tabs>
 <Tab title="test-migrations.sh">
+
 ```bash
 #!/bin/bash
 set -e
@@ -303,11 +348,15 @@ flyway -url=jdbc:postgresql://$DB_HOST:5432/$DB_NAME \
        migrate
 
 echo "✨ Todos los tests pasaron correctamente!"
+
 ```
+
 </Tab>
 <Tab title="integrity-tests.sql">
+
 ```sql
--- Tests de integridad de datos
+
+- - Tests de integridad de datos
 DO $$
 DECLARE
     user_count INTEGER;
@@ -319,57 +368,61 @@ BEGIN
     IF user_count = 0 THEN
         RAISE EXCEPTION 'No users found after migration';
     END IF;
-    
+
     -- Verificar que existan juegos
     SELECT COUNT(*) INTO game_count FROM games;
     IF game_count = 0 THEN
         RAISE EXCEPTION 'No games found after migration';
     END IF;
-    
+
     -- Verificar integridad referencial
-    SELECT COUNT(*) INTO orphaned_scores 
-    FROM game_scores gs 
-    LEFT JOIN users u ON gs.user_id = u.id 
-    LEFT JOIN games g ON gs.game_id = g.id 
+    SELECT COUNT(*) INTO orphaned_scores
+    FROM game_scores gs
+    LEFT JOIN users u ON gs.user_id = u.id
+    LEFT JOIN games g ON gs.game_id = g.id
     WHERE u.id IS NULL OR g.id IS NULL;
-    
+
     IF orphaned_scores > 0 THEN
         RAISE EXCEPTION 'Found % orphaned scores', orphaned_scores;
     END IF;
-    
+
     RAISE NOTICE '✅ Integrity tests passed - Users: %, Games: %', user_count, game_count;
 END $$;
+
 ```
+
 </Tab>
 </Tabs>
 
 ### Performance Testing
 
 ```sql
--- performance-test.sql
-EXPLAIN (ANALYZE, BUFFERS) 
-SELECT g.title, gs.score, u.username 
+
+- - performance-test.sql
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT g.title, gs.score, u.username
 FROM games g
 JOIN game_scores gs ON g.id = gs.game_id
 JOIN users u ON gs.user_id = u.id
-WHERE g.platform = 'NES' 
-ORDER BY gs.score DESC 
+WHERE g.platform = 'NES'
+ORDER BY gs.score DESC
 LIMIT 10;
 
--- Verificar que el query use índices apropiados
+- - Verificar que el query use índices apropiados
 DO $$
 DECLARE
     query_plan TEXT;
 BEGIN
     SELECT query_plan INTO query_plan FROM (
-        EXPLAIN (FORMAT JSON) 
+        EXPLAIN (FORMAT JSON)
         SELECT * FROM games WHERE platform = 'NES' AND genre = 'Action'
     ) AS plan_data;
-    
+
     IF query_plan NOT LIKE '%Index%' THEN
         RAISE WARNING 'Query may not be using indexes optimally';
     END IF;
 END $$;
+
 ```
 
 ## Estrategias Zero-Downtime
@@ -378,8 +431,10 @@ END $$;
 
 <Tabs>
 <Tab title="Preparación Blue-Green">
+
 ```bash
 #!/bin/bash
+
 # blue-green-migration.sh
 
 BLUE_DB="retrogame-prod"
@@ -409,11 +464,15 @@ echo "✅ Validando migración..."
 ./validate-green-environment.sh
 
 echo "🎯 Green environment listo para switch"
+
 ```
+
 </Tab>
 <Tab title="Switch Traffic">
+
 ```bash
 #!/bin/bash
+
 # switch-traffic.sh
 
 echo "🔄 Cambiando tráfico de Blue a Green..."
@@ -446,18 +505,23 @@ for i in {1..5}; do
 done
 
 echo "✅ Switch completado exitosamente"
+
 ```
+
 </Tab>
 </Tabs>
 
 ### Migraciones Compatibles hacia Atrás
 
 ```sql
--- Ejemplo: Agregar columna sin romper versiones anteriores
--- V004__add_user_avatar.sql
 
--- Paso 1: Agregar columna como nullable
+- - Ejemplo: Agregar columna sin romper versiones anteriores
+
+- - V004__add_user_avatar.sql
+
+- - Paso 1: Agregar columna como nullable
 ALTER TABLE users ADD COLUMN avatar_url TEXT;
 
--- Paso 2:
+- - Paso 2:
+
 ```
