@@ -1,146 +1,137 @@
 # 🤖 Análisis Inteligente de Documentación
 
-**Fecha**: 2025-11-23 18:44:22  
+**Fecha**: 2025-11-23 19:10:52  
 **Generado por**: Claude Sonnet 4.5  
-**Puntuación General**: 7.8/10
+**Puntuación General**: 8.2/10
 
 ## 📊 Resumen Ejecutivo
 
-Documentación sólida con 50 archivos. Requiere consolidación de duplicados en troubleshooting, API reference y database. Faltan diagramas AWS.
+Documentación sólida (7/10 criterios). Necesita: consolidar duplicados API, completar diagramas AWS, mejorar DR con escenarios reales
 
 ## 🎯 Mejoras Prioritarias
 
 
 ### Prioridad Alta ⚡
 
-#### Consolidar documentación de base de datos duplicada
+#### Consolidar documentación API duplicada
 
 **Categoría**: structure  
-**Descripción**: Fusionar database.mdx, database-complete.mdx y database-schema.mdx en un único archivo authoritative. Eliminar redundancia y mantener versión completa.  
-**Razón**: 3 archivos documentan lo mismo. Consolidar en database-complete.mdx como fuente única.  
+**Descripción**: Fusionar api-reference/auth-service.mdx con docs/api/auth-register.mdx y eliminar duplicados en endpoints de autenticación  
+**Razón**: Elimina duplicación entre /api-reference y /docs/api, mejora navegación  
 
-**Archivos a modificar**: infrastructure/database-complete.mdx  
-
----
-
-#### Consolidar troubleshooting disperso
-
-**Categoría**: structure  
-**Descripción**: Fusionar troubleshooting.mdx raíz con troubleshooting/index.mdx. Eliminar duplicación y mantener estructura organizada por categorías en carpeta.  
-**Razón**: Contenido duplicado entre raíz y carpeta. Mantener solo versión organizada en carpeta.  
-
-**Archivos a modificar**: troubleshooting/index.mdx  
+**Archivos a modificar**: api-reference/auth-service.mdx  
 
 ---
 
-#### Eliminar endpoints genéricos de API reference
-
-**Categoría**: structure  
-**Descripción**: Borrar api-reference/endpoint/* (get, create, delete, webhook). Son plantillas sin personalizar que no corresponden a servicios reales del sistema.  
-**Razón**: Endpoints genéricos no reflejan arquitectura real. Mantener solo endpoints específicos.  
-
-
----
-
-#### Consolidar documentación de migraciones de BD
-
-**Categoría**: structure  
-**Descripción**: Fusionar database-migrations.mdx y database-migrations-guide.mdx en un único archivo completo con procedimientos y ejemplos.  
-**Razón**: Contenido solapado sobre migraciones. Unificar en guía completa.  
-
-**Archivos a modificar**: infrastructure/database-migrations-guide.mdx  
-
----
-
-#### Añadir numeración 4.X a todos los archivos de infrastructure/
-
-**Categoría**: content  
-**Descripción**: Aplicar numeración consistente 4.1, 4.2, etc. a todos los archivos de infrastructure/ que carecen de prefijo numérico en títulos.  
-**Razón**: Consistencia en numeración X.Y. requerida para score 9+. Sección 4 = Infraestructura.  
-
-**Archivos a modificar**: infrastructure/overview.mdx, infrastructure/eks-cluster.mdx, infrastructure/networking.mdx, infrastructure/database-complete.mdx, infrastructure/monitoring.mdx, infrastructure/security.mdx, infrastructure/backup-recovery.mdx, infrastructure/disaster-recovery-playbook.mdx, infrastructure/runbooks.mdx, infrastructure/secrets-management.mdx, infrastructure/logging.mdx, infrastructure/observabilidad.mdx, infrastructure/alerting.mdx, infrastructure/scaling-guide.mdx, infrastructure/cost-optimization.mdx  
-
----
-
-#### Crear diagrama de topología AWS completo en aws-topology.mdx
+#### Añadir diagrama topología AWS completo
 
 **Categoría**: diagrams  
-**Descripción**: Añadir diagrama Mermaid detallado mostrando VPC, subnets, EKS, RDS, ElastiCache, ALB, Route53, CloudFront y flujos de red.  
-**Razón**: Falta visualización completa de infraestructura AWS. Crítico para arquitectos.  
+**Descripción**: Completar infrastructure/aws-topology.mdx con diagrama Mermaid detallado: VPC, subnets, EKS, RDS, ElastiCache, ALB, Route53, CloudFront  
+**Razón**: Criterio #2: diagramas AWS completos para score 9.0+  
 
 **Archivos a modificar**: infrastructure/aws-topology.mdx  
+
+---
+
+#### Enriquecer DR con escenarios específicos
+
+**Categoría**: content  
+**Descripción**: Ampliar infrastructure/disaster-recovery-playbook.mdx: RTO/RPO por servicio, runbooks de recuperación EKS/RDS/Redis, simulacros trimestrales  
+**Razón**: Criterio #6: DR enterprise con métricas y procedimientos ejecutables  
+
+**Archivos a modificar**: infrastructure/disaster-recovery-playbook.mdx  
+
+---
+
+#### Completar ejemplos curl en endpoints API
+
+**Categoría**: content  
+**Descripción**: Añadir ejemplos curl completos con headers JWT, payloads y respuestas en api-reference/auth/*.mdx, scores/*.mdx, games/*.mdx, rankings/*.mdx  
+**Razón**: Criterio #3: APIs con ejemplos ejecutables completos  
+
+**Archivos a modificar**: api-reference/auth/login.mdx, api-reference/auth/register.mdx, api-reference/scores/submit.mdx, api-reference/games/list.mdx  
 
 ---
 
 
 ### Prioridad Media 📌
 
-#### Consolidar documentación de API duplicada
+#### Eliminar directorio docs/api redundante
 
 **Categoría**: structure  
-**Descripción**: Fusionar api-reference/backend-main.mdx, infrastructure-docs.mdx e infrastructure.mdx. Eliminar redundancia y mantener estructura clara.  
-**Razón**: Múltiples archivos documentan estructura de API. Consolidar en introduction.mdx.  
+**Descripción**: Mover contenido útil de docs/api/ a api-reference/ y eliminar directorio docs/ completo para simplificar estructura  
+**Razón**: Estructura más limpia, evita confusión entre /docs y /api-reference  
 
-**Archivos a modificar**: api-reference/introduction.mdx  
-
----
-
-#### Añadir schemas OpenAPI completos a endpoints de API
-
-**Categoría**: content  
-**Descripción**: Incluir request/response schemas JSON Schema en auth/login.mdx, auth/register.mdx, scores/submit.mdx, games/list.mdx con validaciones.  
-**Razón**: Schemas OpenAPI completos requeridos para score 9+. Facilita integración.  
-
-**Archivos a modificar**: api-reference/auth/login.mdx, api-reference/auth/register.mdx, api-reference/scores/submit.mdx, api-reference/games/list.mdx  
 
 ---
 
-#### Completar disaster-recovery-playbook con RTO/RPO y tests
+#### Añadir diagrama flujo CI/CD completo
 
-**Categoría**: content  
-**Descripción**: Añadir objetivos RTO/RPO específicos, procedimientos de test trimestral y checklist de validación post-recuperación.  
-**Razón**: DR debe ser testeable con métricas claras. Crítico para producción enterprise.  
+**Categoría**: diagrams  
+**Descripción**: Crear diagrama Mermaid en cicd/github-actions.mdx: commit → build → test → scan → push ECR → ArgoCD sync → deploy EKS → smoke tests  
+**Razón**: Visualiza pipeline completo para desarrolladores y operaciones  
 
-**Archivos a modificar**: infrastructure/disaster-recovery-playbook.mdx  
+**Archivos a modificar**: cicd/github-actions.mdx  
 
 ---
 
-#### Añadir guía de onboarding paso a paso en development/
+#### Añadir sección troubleshooting a cada servicio
 
 **Categoría**: content  
-**Descripción**: Completar onboarding-guide.mdx con checklist día 1-30, accesos necesarios, setup completo y primeras tareas para nuevos devs.  
-**Razón**: Guía end-to-end para nuevos desarrolladores requerida para score 9+.  
+**Descripción**: Incluir subsección Problemas Comunes en services/*.mdx: errores típicos, logs relevantes, soluciones rápidas específicas del servicio  
+**Razón**: Mejora experiencia desarrollador, reduce tiempo resolución incidencias  
 
-**Archivos a modificar**: development/onboarding-guide.mdx  
+**Archivos a modificar**: services/auth-service.mdx, services/user-service.mdx, services/game-catalog.mdx, services/score-service.mdx, services/ranking-service.mdx  
+
+---
+
+#### Estandarizar formato numeración en títulos
+
+**Categoría**: quality  
+**Descripción**: Verificar que TODOS los archivos .mdx usen formato X.Y. Título en frontmatter title, corregir inconsistencias detectadas  
+**Razón**: Criterio #8: numeración consistente en toda la documentación  
+
+**Archivos a modificar**: frontend/overview.mdx, frontend/jsdos-integration.mdx, ai-tools/claude-code.mdx  
 
 ---
 
 
 ### Prioridad Baja 💡
 
-#### Eliminar archivos de reporte temporal
+#### Añadir métricas SLI/SLO por servicio
 
-**Categoría**: quality  
-**Descripción**: Borrar AUTO_FIXES_REPORT.md, BROKEN_LINKS_REPORT.md, STRUCTURE_CHANGELOG.md y CHANGELOG_WIKI_2025-11-20.md. Son reportes temporales.  
-**Razón**: Reportes temporales no pertenecen a documentación final. Mantener limpieza.  
+**Categoría**: content  
+**Descripción**: Documentar en services/overview.mdx: latencia p95, disponibilidad objetivo, tasa error aceptable por microservicio  
+**Razón**: Establece expectativas claras de rendimiento y calidad de servicio  
 
+**Archivos a modificar**: services/overview.mdx  
+
+---
+
+#### Crear diagrama arquitectura frontend
+
+**Categoría**: diagrams  
+**Descripción**: Añadir diagrama en frontend/overview.mdx: React components, js-dos integration, API calls, state management, routing  
+**Razón**: Completa visión arquitectura completa incluyendo capa presentación  
+
+**Archivos a modificar**: frontend/overview.mdx  
 
 ---
 
 
 ## 📈 Diagramas Requeridos
 
-- Diagrama de topología AWS completa con VPC, subnets y servicios
-- Diagrama de flujo de datos entre microservicios y bases de datos
-- Diagrama de arquitectura de seguridad con capas y controles
-- Diagrama de pipeline CI/CD completo desde commit hasta producción
+- Topología AWS completa con VPC/subnets/security groups
+- Flujo CI/CD end-to-end con GitHub Actions y ArgoCD
+- Arquitectura frontend React con integración js-dos
+- Diagrama recuperación desastres con tiempos RTO/RPO
 
 ## ⚡ Quick Wins
 
-- Eliminar 4 endpoints genéricos de api-reference/endpoint/  
-- Borrar 4 archivos de reportes temporales en raíz  
-- Consolidar database.mdx y database-schema.mdx en database-complete.mdx  
-- Fusionar troubleshooting.mdx raíz con troubleshooting/index.mdx  
+- Añadir ejemplos curl a 15 endpoints API existentes  
+- Eliminar directorio docs/api duplicado  
+- Estandarizar numeración en 3 archivos frontend/ai-tools  
+- Completar diagrama AWS en aws-topology.mdx existente  
 
 
 ---

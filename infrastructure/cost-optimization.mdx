@@ -1,6 +1,7 @@
 ---
 title: 4.10. Optimización de Costos AWS
-description: Guía completa para monitorizar y optimizar los costos operativos de RetroGameCloud en AWS
+description: Guía completa para monitorizar y optimizar los costos operativos de RetroGameCloud
+  en AWS
 icon: coins
 ---
 
@@ -15,38 +16,48 @@ Esta guía proporciona estrategias específicas para optimizar los costos de inf
 <Tabs>
 <Tab title="EKS y Compute">
 
-**Amazon EKS Cluster**
+* *Amazon EKS Cluster**
 
 - Control Plane: $73/mes por cluster
+
 - Worker Nodes (3x t3.medium): ~$65/mes
+
 - Load Balancer: ~$18/mes
+
 - **Total EKS**: ~$156/mes
 
-**Potencial de Ahorro**: 40-70% con Reserved/Spot Instances
+* *Potencial de Ahorro**: 40-70% con Reserved/Spot Instances
 </Tab>
 <Tab title="RDS PostgreSQL">
 
-**Base de Datos**
+* *Base de Datos**
 
 - RDS PostgreSQL (db.t3.micro): ~$13/mes
+
 - Multi-AZ: +100% (~$26/mes total)
+
 - Snapshots automatizados: ~$5/mes
+
 - **Total RDS**: ~$31/mes
 
-**Potencial de Ahorro**: 38% con Reserved Instances
+* *Potencial de Ahorro**: 38% con Reserved Instances
 </Tab>
 <Tab title="Almacenamiento y CDN">
 
-**Amazon S3**
+* *Amazon S3**
 
 - Almacenamiento Standard: ~$23/TB/mes
+
 - ROMs y assets de juegos: estimado 50GB (~$1.15/mes)
+
 - Transferencia de datos: ~$0.09/GB
 
-**CloudFront CDN**
+* *CloudFront CDN**
 
 - Primeros 1TB gratis/mes
+
 - Costos adicionales: $0.085/GB
+
 - **Total estimado**: ~$15-30/mes según tráfico
 </Tab>
 </Tabs>
@@ -54,6 +65,7 @@ Esta guía proporciona estrategias específicas para optimizar los costos de inf
 ### Herramientas de Monitorización
 
 ```yaml
+
 # AWS Cost Explorer Query Example
 cost_analysis:
   services:
@@ -66,6 +78,7 @@ cost_analysis:
     - service: "Amazon S3"
       monthly_cost: "$15"
       optimization_potential: "60% (Intelligent Tiering)"
+
 ```
 
 ## 4.10.2. Estrategias de Optimización
@@ -76,9 +89,10 @@ cost_analysis:
 Las Reserved Instances pueden reducir los costos de compute hasta un 40% comparado con instancias On-Demand.
 </Note>
 
-**Implementación para Worker Nodes:**
+* *Implementación para Worker Nodes:**
 
 ```bash
+
 # Análisis de uso actual
 aws ce get-usage-and-cost \
   --time-period Start=2024-01-01,End=2024-02-01 \
@@ -91,11 +105,12 @@ aws ce get-reservation-purchase-recommendation \
   --service EC2-Instance \
   --lookback-period-in-days 30 \
   --term-in-years 1
+
 ```
 
 ### Spot Instances para Cargas No Críticas
 
-**Configuración Spot Fleet para Workers:**
+* *Configuración Spot Fleet para Workers:**
 
 ```yaml
 apiVersion: karpenter.sh/v1alpha5
@@ -117,19 +132,22 @@ spec:
   providerRef:
     name: nodepool
   ttlSecondsAfterEmpty: 30
+
 ```
 
 ### Optimización de Almacenamiento S3
 
-**Intelligent Tiering para ROMs:**
+* *Intelligent Tiering para ROMs:**
 
 ```bash
+
 # Configurar Intelligent Tiering
 aws s3api put-bucket-intelligent-tiering-configuration \
   --bucket retrogamecloud-roms \
   --id entire-bucket \
   --intelligent-tiering-configuration \
   Id=entire-bucket,Status=Enabled,Filter={},Tiering={Days=1,AccessTier=ARCHIVE_ACCESS},{Days=90,AccessTier=DEEP_ARCHIVE_ACCESS}
+
 ```
 
 ## 4.10.3. Automatización de Cost Management
@@ -169,6 +187,7 @@ aws s3api put-bucket-intelligent-tiering-configuration \
     }
   ]
 }
+
 ```
 
 ### Lambda para Optimización Automática
@@ -184,16 +203,16 @@ def lambda_handler(event, context):
     """
     ec2 = boto3.client('ec2')
     rds = boto3.client('rds')
-    
+
     # Identificar instancias subutilizadas
     unused_instances = identify_unused_instances(ec2)
-    
+
     # Escalar RDS según uso
     optimize_rds_instances(rds)
-    
+
     # Cleanup de snapshots antiguos
     cleanup_old_snapshots(ec2, rds)
-    
+
     return {
         'statusCode': 200,
         'body': json.dumps('Optimización completada')
@@ -202,10 +221,10 @@ def lambda_handler(event, context):
 def identify_unused_instances(ec2_client):
     """Identifica instancias EC2 con baja utilización"""
     cloudwatch = boto3.client('cloudwatch')
-    
+
     instances = ec2_client.describe_instances()
     unused = []
-    
+
     for reservation in instances['Reservations']:
         for instance in reservation['Instances']:
             if instance['State']['Name'] == 'running':
@@ -224,13 +243,14 @@ def identify_unused_instances(ec2_client):
                     Period=3600,
                     Statistics=['Average']
                 )
-                
+
                 if cpu_metrics['Datapoints']:
                     avg_cpu = sum(dp['Average'] for dp in cpu_metrics['Datapoints']) / len(cpu_metrics['Datapoints'])
                     if avg_cpu < 10:  # CPU menor al 10%
                         unused.append(instance['InstanceId'])
-    
+
     return unused
+
 ```
 
 ## 4.10.4. Métricas y Dashboards
@@ -266,6 +286,7 @@ def identify_unused_instances(ec2_client):
     }
   ]
 }
+
 ```
 
 ### Terraform para Cost Anomaly Detection
@@ -287,11 +308,11 @@ resource "aws_ce_anomaly_detector" "retrogamecloud_anomaly" {
 resource "aws_ce_anomaly_subscription" "retrogamecloud_anomaly_subscription" {
   name      = "retrogamecloud-anomaly-subscription"
   frequency = "DAILY"
-  
+
   monitor_arn_list = [
     aws_ce_anomaly_detector.retrogamecloud_anomaly.arn
   ]
-  
+
   subscriber {
     type    = "EMAIL"
     address = "admin@retrogamecloud.com"
@@ -307,6 +328,7 @@ resource "aws_ce_anomaly_subscription" "retrogamecloud_anomaly_subscription" {
     }
   }
 }
+
 ```
 
 ## 4.10.5. Plan de Reducción de Costos
@@ -315,26 +337,38 @@ resource "aws_ce_anomaly_subscription" "retrogamecloud_anomaly_subscription" {
 
 <Steps>
 <Step title="Semana 1: Análisis Base">
+
 - Implementar Cost Explorer detallado
+
 - Configurar AWS Budgets y alertas
+
 - Analizar patrones de uso actuales
 </Step>
 
 <Step title="Semana 2-3: Optimizaciones Inmediatas">
+
 - Migrar a Reserved Instances para cargas predecibles
+
 - Implementar Spot Instances para workers no críticos
+
 - Configurar S3 Intelligent Tiering
 </Step>
 
 <Step title="Semana 4: Automatización">
+
 - Desplegar Lambda de optimización automática
+
 - Configurar Cost Anomaly Detection
+
 - Implementar auto-scaling mejorado
 </Step>
 
 <Step title="Evaluación Mensual">
+
 - Revisar métricas de ahorro
+
 - Ajustar estrategias según patrones de uso
+
 - Optimizar configuraciones basadas en datos
 </Step>
 </Steps>
@@ -342,10 +376,15 @@ resource "aws_ce_anomaly_subscription" "retrogamecloud_anomaly_subscription" {
 ### ROI Esperado
 
 <Warning>
-**Proyección de Ahorro Mensual:**
+
+* *Proyección de Ahorro Mensual:**
+
 - EKS Compute: $62-109 (40-70% de $156)
+
 - RDS Reserved: $12 (38% de $31)
+
 - S3 Intelligent Tiering: $9 (60% de $15)
+
 - **Total ahorro estimado: $83-130/mes**
 </Warning>
 
@@ -376,11 +415,13 @@ resource "aws_ce_anomaly_subscription" "retrogamecloud_anomaly_subscription" {
     }
   ]
 }
+
 ```
 
 ### Tagging Strategy para Cost Allocation
 
 ```yaml
+
 # Terraform tagging example
 locals {
   common_tags = {
@@ -394,13 +435,14 @@ locals {
 
 resource "aws_instance" "worker_node" {
   # ... configuración de instancia
-  
+
   tags = merge(local.common_tags, {
     Name = "rgc-worker-${count.index}"
     Role = "kubernetes-worker"
     Tier = "compute"
   })
 }
+
 ```
 
 Con estas estrategias de optimización, RetroGameCloud puede reducir significativamente sus costos de AWS mientras mantiene la performance y disponibilidad del servicio.

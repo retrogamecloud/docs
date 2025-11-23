@@ -77,179 +77,151 @@ sequenceDiagram
     Ranking->>Redis: Store new ranking
     Redis-->>Ranking: Cached
 
-    Scores-->>Client: Score submitted
-
-    Note over Client,Redis: Next ranking request uses fresh cache
-    Client->>Ranking: GET /rankings/games/:slug
-    Ranking->>Redis: Check cache
-    Redis-->>Ranking: Fresh data
-    Ranking-->>Client: Updated ranking
-
+    Scores-->>Client: Success response
 ```
 
-### Estrategia de Invalidación de Cache
+## Problemas Comunes
 
-<CardGroup cols={2}>
-  <Card title="Keys Afectados" icon="key">
-    **Por Score**: `ranking:game:{slug}:*`
+<Warning>
+Esta sección cubre los errores más frecuentes del servicio de rankings y sus soluciones rápidas.
+</Warning>
 
-    **Global**: `ranking:global:*`
+### Cache Redis Desincronizado
 
-    **Temporal**: `ranking:*:daily`, `ranking:*:weekly`
-  </Card>
+**Error**: Los rankings mostrados no coinciden con los datos reales de la base de datos.
 
-  <Card title="Patrón de Update" icon="refresh">
-    1. **Invalidar** cache existente
-    2. **Recalcular** ranking en DB
-    3. **Pre-cache** top rankings
-    4. **Notificar** clientes via WebSocket
-  </Card>
-</CardGroup>
-
-## Funcionalidades Principales
-
-- **Rankings por juego**: Top 10 mejores scores por cada juego
-
-- **Ranking global**: Mejores jugadores entre todos los juegos
-
-- **Cache inteligente**: Redis para consultas frecuentes
-
-- **Actualización automática**: Sync con nuevos scores
-
-- **Filtros temporales**: Rankings diarios, semanales, mensuales
-
-## Endpoints Principales
-
-El servicio expone los siguientes endpoints REST:
-
-<CardGroup cols={2}>
-  <Card title="Rankings por Juego" icon="gamepad-2">
-    `GET /api/rankings/games/:gameSlug`
-
-    Obtiene el top 10 de un juego específico
-  </Card>
-
-  <Card title="Ranking Global" icon="globe">
-    `GET /api/rankings/global`
-
-    Mejores jugadores entre todos los juegos
-  </Card>
-</CardGroup>
-
-<CardGroup cols={2}>
-  <Card title="Rankings Temporales" icon="calendar">
-    `GET /api/rankings/games/:gameSlug/period/:period`
-
-    Rankings por período (daily, weekly, monthly)
-  </Card>
-
-  <Card title="Posición del Usuario" icon="user">
-    `GET /api/rankings/games/:gameSlug/user/:userId`
-
-    Posición específica de un usuario
-  </Card>
-</CardGroup>
-
-## Optimizaciones de Performance
-
-### Cache Strategy
-
-<CardGroup cols={2}>
-  <Card title="Hot Data" icon="fire">
-    **Top 10**: Cache permanente con TTL de 1 hora
-
-    **Invalidación**: Solo por nuevos scores en top 10
-  </Card>
-
-  <Card title="Cold Data" icon="snowflake">
-    **Rankings completos**: Cache bajo demanda
-
-    **TTL**: 15 minutos para rankings extensos
-  </Card>
-</CardGroup>
-
-### Estructura de Cache Redis
-
-```yaml
-
-# Rankings por juego (top 10)
-ranking:game:{gameSlug}:top10
-  - Sorted Set con scores y userIds
-  - TTL: 3600 segundos
-
-# Ranking global
-ranking:global:top10
-  - Sorted Set con scores agregados
-  - TTL: 3600 segundos
-
-# Rankings temporales
-ranking:game:{gameSlug}:daily:{date}
-ranking:game:{gameSlug}:weekly:{week}
-ranking:game:{gameSlug}:monthly:{month}
-  - TTL variable según período
-
+**Logs relevantes**:
+```bash
+[WARN] Cache hit for game:123 but data inconsistent
+[ERROR] Redis key ranking:game:123 contains stale data
 ```
 
-## Eventos y Sincronización
+**Soluciones rápidas**:
+<Steps>
+  <Step title="Limpieza manual del cache">
+    ```bash
+    # Conectar a Redis
+    redis-cli -h localhost -p 6379
+    
+    # Limpiar rankings específicos
+    DEL ranking:game:*
+    DEL ranking:global
+    ```
+  </Step>
+  <Step title="Recálculo forzado">
+    ```bash
+    curl -X POST http://localhost:3005/admin/recalculate-rankings \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{"gameId": "all"}'
+    ```
+  </Step>
+</Steps>
 
-### Event Handling
+### Eventos Perdidos de Scores
 
-<CardGroup cols={2}>
-  <Card title="Eventos Entrantes" icon="arrow-down">
-    **new_score**: Nuevo score guardado
+**Error**: Los nuevos scores no actualizan automáticamente los rankings.
 
-    **score_updated**: Score existente actualizado
-
-    **user_banned**: Usuario baneado del ranking
-  </Card>
-
-  <Card title="Eventos Salientes" icon="arrow-up">
-    **ranking_updated**: Ranking recalculado
-
-    **new_leader**: Nuevo líder en ranking
-
-    **position_changed**: Cambio de posición significativo
-  </Card>
-</CardGroup>
-
-### WebSocket Notifications
-
-Para actualizaciones en tiempo real a los clientes:
-
-```javascript
-// Notificación de nuevo líder
-{
-  type: 'ranking_update',
-  gameSlug: 'snake-game',
-  event: 'new_leader',
-  data: {
-    userId: '123',
-    username: 'PlayerOne',
-    score: 15000,
-    previousLeader: 'PlayerTwo'
-  }
-}
-
+**Logs relevantes**:
+```bash
+[ERROR] Failed to process score event: Connection refused
+[WARN] Event queue backup detected: 15 pending events
+[ERROR] RabbitMQ connection lost, events not processed
 ```
 
-## Monitoreo y Métricas
+**Soluciones rápidas**:
+<Steps>
+  <Step title="Verificar cola de eventos">
+    ```bash
+    # Revisar estado de RabbitMQ
+    rabbitmqctl list_queues name messages
+    
+    # Buscar cola de rankings
+    rabbitmqctl list_queues | grep ranking
+    ```
+  </Step>
+  <Step title="Procesar eventos pendientes">
+    ```bash
+    # Endpoint para procesar eventos pendientes
+    curl -X POST http://localhost:3005/admin/process-pending-events \
+      -H "Authorization: Bearer $ADMIN_TOKEN"
+    ```
+  </Step>
+</Steps>
 
-<CardGroup cols={3}>
-  <Card title="Cache Performance" icon="chart-line">
-    - Hit rate de Redis
-    - Tiempo de invalidación
-    - Frecuencia de updates
-  </Card>
+### Performance Degradada
 
-  <Card title="Ranking Stats" icon="chart-bar">
-    - Rankings más consultados
-    - Frecuencia de cambios
-    - Top jugadores activos
-  </Card>
+**Error**: Consultas de rankings muy lentas, timeouts frecuentes.
 
-  <Card title="System Health" icon="heart-pulse">
-    - Latencia de endpoints
-    - Errores de sync
-    - Memoria Redis utilizada
-  </Card>
-</CardGroup>
+**Logs relevantes**:
+```bash
+[WARN] Ranking query took 5.2s for game:456
+[ERROR] Database connection pool exhausted
+[SLOW] SELECT from rankings WHERE game_id=? took 8934ms
+```
+
+**Soluciones rápidas**:
+<Steps>
+  <Step title="Verificar índices de base de datos">
+    ```sql
+    -- Verificar índices existentes
+    SELECT indexname FROM pg_indexes WHERE tablename = 'rankings';
+    
+    -- Crear índices faltantes si es necesario
+    CREATE INDEX CONCURRENTLY idx_rankings_game_score 
+    ON rankings(game_id, score DESC);
+    ```
+  </Step>
+  <Step title="Optimizar cache">
+    ```bash
+    # Verificar uso de memoria Redis
+    redis-cli info memory
+    
+    # Establecer TTL apropiado
+    redis-cli EXPIRE ranking:game:popular_game 3600
+    ```
+  </Step>
+</Steps>
+
+### Datos Corruptos en Rankings
+
+**Error**: Rankings muestran puntuaciones imposibles o jugadores duplicados.
+
+**Logs relevantes**:
+```bash
+[ERROR] Duplicate player_id in ranking calculation
+[WARN] Score validation failed: negative score detected
+[ERROR] Ranking integrity check failed for game:789
+```
+
+**Soluciones rápidas**:
+<Steps>
+  <Step title="Validación de integridad">
+    ```sql
+    -- Buscar duplicados
+    SELECT player_id, game_id, COUNT(*) 
+    FROM rankings 
+    GROUP BY player_id, game_id 
+    HAVING COUNT(*) > 1;
+    
+    -- Buscar scores inválidos
+    SELECT * FROM rankings WHERE score < 0 OR score > 999999;
+    ```
+  </Step>
+  <Step title="Limpieza y reconstrucción">
+    ```bash
+    # API para reconstruir rankings desde scores válidos
+    curl -X POST http://localhost:3005/admin/rebuild-rankings \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -d '{"gameId": "789", "validateScores": true}'
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+**Monitoreo proactivo**: Configura alertas para detectar estos problemas antes de que afecten a los usuarios:
+- Cache hit ratio < 80%
+- Tiempo de respuesta > 2 segundos
+- Eventos pendientes > 10
+- Discrepancias entre cache y DB
+</Tip>

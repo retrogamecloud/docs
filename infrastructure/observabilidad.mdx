@@ -40,6 +40,7 @@ graph TD
     G --> J[Dashboard Unificado]
     H --> J
     I --> J
+
 ```
 
 ## 4.10.3. Golden Signals por Servicio
@@ -49,68 +50,81 @@ graph TD
 <Tabs>
 <Tab title="Latencia">
 
-**Latencia**: Tiempo que tarda en procesarse una solicitud
+* *Latencia**: Tiempo que tarda en procesarse una solicitud
 
 - **P50**: 50% de las solicitudes
+
 - **P95**: 95% de las solicitudes
+
 - **P99**: 99% de las solicitudes
 
-**Ejemplo de consulta Prometheus**:
+* *Ejemplo de consulta Prometheus**:
 
 ```promql
 histogram_quantile(0.95,
   sum(rate(http_request_duration_seconds_bucket{service="game-catalog"}[5m])) by (le)
 )
+
 ```
 
 </Tab>
 
 <Tab title="Tráfico">
 
-**Tráfico**: Demanda del sistema (RPS, QPM)
+* *Tráfico**: Demanda del sistema (RPS, QPM)
 
 - **RPS**: Requests per Second
+
 - **QPM**: Queries per Minute
+
 - **Throughput**: Operaciones por unidad de tiempo
 
-**Ejemplo de consulta**:
+* *Ejemplo de consulta**:
 
 ```promql
 sum(rate(http_requests_total{service="auth"}[1m]))
+
 ```
 
 </Tab>
 
 <Tab title="Errores">
 
-**Errores**: Tasa de solicitudes fallidas
+* *Errores**: Tasa de solicitudes fallidas
 
 - **Códigos 4xx**: Errores del cliente
+
 - **Códigos 5xx**: Errores del servidor
+
 - **Timeouts**: Solicitudes que exceden el tiempo límite
 
-**Ejemplo de consulta**:
+* *Ejemplo de consulta**:
 
 ```promql
 sum(rate(http_requests_total{status=~"5.."}[5m])) /
 sum(rate(http_requests_total[5m])) * 100
+
 ```
 
 </Tab>
 
 <Tab title="Saturación">
 
-**Saturación**: Utilización de recursos del sistema
+* *Saturación**: Utilización de recursos del sistema
 
 - **CPU**: Porcentaje de uso del procesador
+
 - **Memoria**: Uso de RAM y swap
+
 - **Disco**: I/O y espacio disponible
+
 - **Red**: Ancho de banda utilizado
 
-**Ejemplo de consulta**:
+* *Ejemplo de consulta**:
 
 ```promql
 100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+
 ```
 
 </Tab>
@@ -129,15 +143,16 @@ metrics:
     type: "counter"
     labels: ["method", "status"]
     description: "Total login attempts"
-    
+
   - name: "auth_token_validation_duration"
     type: "histogram"
     buckets: [0.001, 0.01, 0.1, 1.0]
     description: "Token validation duration"
-    
+
   - name: "auth_active_sessions"
     type: "gauge"
     description: "Currently active user sessions"
+
 ```
 
 #### Umbrales de Alerta
@@ -148,11 +163,12 @@ alerts:
     expr: "rate(auth_login_attempts_total{status='failed'}[5m]) > 10"
     for: "2m"
     severity: "warning"
-    
+
   - alert: "AuthServiceDown"
     expr: "up{service='auth'} == 0"
     for: "30s"
     severity: "critical"
+
 ```
 
 </AccordionItem>
@@ -167,19 +183,21 @@ metrics:
     type: "counter"
     labels: ["genre", "platform"]
     description: "Game search requests"
-    
+
   - name: "catalog_game_metadata_cache_hits"
     type: "counter"
     description: "Cache hit rate for game metadata"
-    
+
   - name: "catalog_database_query_duration"
     type: "histogram"
     description: "Database query execution time"
+
 ```
 
 #### Dashboard Queries
 
 ```promql
+
 # Top géneros buscados
 topk(10,
   sum by (genre) (rate(catalog_games_search_requests[1h]))
@@ -188,6 +206,7 @@ topk(10,
 # Cache hit ratio
 sum(rate(catalog_game_metadata_cache_hits[5m])) /
 sum(rate(catalog_game_metadata_cache_requests[5m])) * 100
+
 ```
 
 </AccordionItem>
@@ -202,15 +221,16 @@ metrics:
     type: "counter"
     labels: ["game_id", "status"]
     description: "Save game operations"
-    
+
   - name: "progress_sync_conflicts"
     type: "counter"
     description: "Sync conflicts between devices"
-    
+
   - name: "progress_storage_size_bytes"
     type: "gauge"
     labels: ["user_id"]
     description: "Storage used per user"
+
 ```
 
 #### Alertas de Negocio
@@ -221,11 +241,12 @@ alerts:
     expr: "rate(progress_sync_conflicts[10m]) > 1"
     for: "5m"
     severity: "warning"
-    
+
   - alert: "SaveOperationFailures"
     expr: "rate(progress_save_operations{status='failed'}[5m]) > 0.1"
     for: "2m"
     severity: "critical"
+
 ```
 
 </AccordionItem>
@@ -236,6 +257,7 @@ alerts:
 ### 4.10.4.1. Configuración Principal
 
 ```yaml
+
 # prometheus.yml
 global:
   scrape_interval: 15s
@@ -267,30 +289,34 @@ scrape_configs:
     static_configs:
     - targets: ['kong-admin:8001']
     metrics_path: '/metrics'
-    
+
   - job_name: 'redis-cluster'
     static_configs:
     - targets:
       - 'redis-node-1:6379'
       - 'redis-node-2:6379'
       - 'redis-node-3:6379'
+
 ```
 
 ### 4.10.4.2. Recording Rules
 
 ```yaml
+
 # rules/recording-rules.yml
 groups:
+
 - name: retrogame.rules
   rules:
   - record: retrogame:http_request_rate5m
     expr: sum(rate(http_requests_total[5m])) by (service, method, status)
-    
+
   - record: retrogame:http_request_p95_latency
     expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (service, le))
-    
+
   - record: retrogame:error_rate
     expr: sum(rate(http_requests_total{status=~"5.."}[5m])) by (service) / sum(rate(http_requests_total[5m])) by (service)
+
 ```
 
 ## 4.10.5. Alerting con AlertManager
@@ -298,6 +324,7 @@ groups:
 ### 4.10.5.1. Configuración de AlertManager
 
 ```yaml
+
 # alertmanager.yml
 global:
   smtp_smarthost: 'localhost:587'
@@ -320,6 +347,7 @@ route:
     receiver: 'warning-alerts'
 
 receivers:
+
 - name: 'web.hook'
   webhook_configs:
   - url: 'http://127.0.0.1:5001/'
@@ -339,13 +367,16 @@ receivers:
   - channel: '#alerts-warning'
     title: 'WARNING: {{ .GroupLabels.alertname }}'
     text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+
 ```
 
 ### 4.10.5.2. Reglas de Alertas
 
 ```yaml
+
 # rules/alert-rules.yml
 groups:
+
 - name: retrogame.alerts
   rules:
   - alert: ServiceDown
@@ -383,6 +414,7 @@ groups:
     annotations:
       summary: "High database connections"
       description: "Database connections are at {{ $value }}% of maximum"
+
 ```
 
 ## 4.10.6. Logging Estructurado
@@ -411,11 +443,13 @@ groups:
     "provider": "google"
   }
 }
+
 ```
 
 ### 4.10.6.2. Configuración Fluentd
 
 ```yaml
+
 # fluentd.conf
 <source>
   @type tail
@@ -461,6 +495,7 @@ groups:
     overflow_action block
   </buffer>
 </match>
+
 ```
 
 ## 4.10.7. Distributed Tracing
@@ -468,6 +503,7 @@ groups:
 ### 4.10.7.1. Configuración Jaeger
 
 ```yaml
+
 # jaeger-all-in-one.yml
 apiVersion: apps/v1
 kind: Deployment
@@ -502,6 +538,7 @@ spec:
           value: "elasticsearch"
         - name: ES_SERVER_URLS
           value: "http://elasticsearch:9200"
+
 ```
 
 ### 4.10.7.2. Instrumentación de Servicios
@@ -514,4 +551,5 @@ spec:
 const { NodeSDK } = require('@opentelemetry/sdk-
 </Tab>
 </Tabs>
+
 ```

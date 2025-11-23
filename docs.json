@@ -55,7 +55,7 @@
               "index",
               "quickstart"
             ],
-            "description": "Visión general del proyecto RetroGameHub y guía de inicio rápido para comenzar a utilizar la plataforma"
+            "description": "Visión general del proyecto RetroGameHub y guía de inicio rápido para empezar a utilizar la plataforma"
           },
           {
             "group": "2. Conceptos y Arquitectura",
@@ -67,7 +67,7 @@
             "description": "Arquitectura del sistema, patrones de diseño y diagramas de secuencia de los flujos principales de la aplicación"
           },
           {
-            "group": "3. Desarrollo Local",
+            "group": "3. Guías de Desarrollo",
             "icon": "code",
             "pages": [
               "desarrollo-local",
@@ -75,7 +75,7 @@
               "development/e2e-testing",
               "troubleshooting"
             ],
-            "description": "Configuración del entorno de desarrollo local, variables de entorno, testing end-to-end y resolución de problemas comunes"
+            "description": "Configuración del entorno de desarrollo local, variables de entorno, pruebas end-to-end y resolución de problemas comunes"
           },
           {
             "group": "4. Frontend",
@@ -96,10 +96,10 @@
               "services/score-service",
               "services/ranking-service"
             ],
-            "description": "Documentación técnica de los microservicios: autenticación, gestión de usuarios, catálogo de juegos, puntuaciones y rankings"
+            "description": "Documentación técnica de los microservicios: autenticación, gestión de usuarios, catálogo de juegos, puntuaciones y clasificaciones"
           },
           {
-            "group": "6. Seguridad y Autenticación",
+            "group": "6. Seguridad",
             "icon": "shield",
             "pages": [
               "infrastructure/oauth2-authentication"
@@ -107,7 +107,7 @@
             "description": "Implementación de OAuth2 con GitHub y Google, gestión de tokens JWT y políticas de seguridad de la aplicación"
           },
           {
-            "group": "7. Infraestructura en AWS",
+            "group": "7. Infraestructura AWS",
             "icon": "cloud",
             "pages": [
               "infrastructure/overview",
@@ -120,10 +120,10 @@
               "infrastructure/route53-ssl",
               "infrastructure/monitoring"
             ],
-            "description": "Infraestructura completa en AWS: clúster EKS, redes VPC, bases de datos RDS, Redis, CDN CloudFront, Route53, SSL y herramientas de monitorización"
+            "description": "Infraestructura completa en AWS: clúster EKS, redes VPC, bases de datos RDS, Redis, CDN CloudFront, Route53, SSL y monitorización"
           },
           {
-            "group": "8. CI/CD y Despliegue",
+            "group": "8. Despliegue y CI/CD",
             "icon": "rocket",
             "pages": [
               "cicd/overview",
@@ -145,7 +145,7 @@
               "api-reference/backend-main",
               "api-reference/kong-config"
             ],
-            "description": "Arquitectura backend completa, convenciones de la API REST y configuración del API Gateway Kong para enrutamiento"
+            "description": "Arquitectura backend completa, convenciones de la API REST y configuración del API Gateway Kong"
           },
           {
             "group": "2. Autenticación",
@@ -164,7 +164,7 @@
             "pages": [
               "api-reference/user-service"
             ],
-            "description": "API de gestión de perfiles de usuario, actualización de datos personales y configuración de preferencias del jugador"
+            "description": "API de gestión de perfiles de usuario, actualización de datos personales y configuración de preferencias"
           },
           {
             "group": "4. Catálogo de Juegos",
@@ -174,10 +174,10 @@
               "api-reference/games/list",
               "api-reference/games/get"
             ],
-            "description": "API del catálogo: listado de juegos disponibles, búsqueda con filtros avanzados y consulta de detalles de cada juego"
+            "description": "API del catálogo: listado de juegos disponibles, búsqueda con filtros y consulta de detalles de cada juego"
           },
           {
-            "group": "5. Puntuaciones y Rankings",
+            "group": "5. Puntuaciones y Clasificaciones",
             "icon": "trophy",
             "pages": [
               "api-reference/score-service",
@@ -187,7 +187,7 @@
               "api-reference/rankings/global",
               "api-reference/rankings/by-game"
             ],
-            "description": "API de puntuaciones y clasificaciones: envío y consulta de resultados, tablas de clasificación globales y rankings por juego"
+            "description": "API de puntuaciones: envío y consulta de resultados, tablas de clasificación globales y rankings por juego"
           },
           {
             "group": "6. Especificaciones Técnicas",

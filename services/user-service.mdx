@@ -42,31 +42,22 @@ El servicio de usuarios gestiona los perfiles, preferencias y estadísticas de l
 ### Gestión de Perfiles
 
 - Creación y actualización de perfiles de usuario
-
 - Subida y gestión de avatares personalizados
-
 - Biografías y información personal
-
 - Sistema de verificación de cuentas
 
 ### Sistema de Estadísticas
 
 - Tracking automático de actividad de juego
-
 - Cálculo de rankings globales y por juego
-
 - Historial detallado de scores y logros
-
 - Métricas de tiempo de juego
 
 ### Configuración y Preferencias
 
 - Personalización de interfaz (tema, idioma)
-
 - Configuración de privacidad granular
-
 - Gestión de notificaciones
-
 - Preferencias de juego
 
 ## Endpoints Principales
@@ -78,121 +69,130 @@ El servicio de usuarios gestiona los perfiles, preferencias y estadísticas de l
 </Card>
 
 <Card title="PUT /api/users/:username" icon="pen" href="/api-reference/user-service/update-user-profile">
-  Actualizar perfil de usuario (requiere autenticación)
+  Actualizar perfil de usuario
 </Card>
 
-<Card title="DELETE /api/users/:username" icon="trash" href="/api-reference/user-service/delete-user">
-  Eliminar cuenta de usuario
+<Card title="POST /api/users/avatar" icon="image" href="/api-reference/user-service/upload-avatar">
+  Subir avatar de usuario
 </Card>
 
-### Estadísticas y Scores
-
-<Card title="GET /api/users/:username/scores" icon="trophy" href="/api-reference/user-service/get-user-scores">
-  Obtener todos los scores de un usuario
-</Card>
+### Estadísticas y Rankings
 
 <Card title="GET /api/users/:username/stats" icon="chart-line" href="/api-reference/user-service/get-user-stats">
-  Estadísticas detalladas del usuario
+  Obtener estadísticas de usuario
 </Card>
 
-<Card title="GET /api/users/:username/achievements" icon="medal" href="/api-reference/user-service/get-user-achievements">
-  Logros y badges del usuario
+<Card title="GET /api/rankings/:gameType" icon="trophy" href="/api-reference/user-service/get-rankings">
+  Obtener rankings por tipo de juego
 </Card>
 
 ### Configuración
 
-<Card title="GET /api/users/:username/preferences" icon="gear" href="/api-reference/user-service/get-user-preferences">
-  Obtener preferencias del usuario
+<Card title="GET/PUT /api/users/:username/preferences" icon="cog" href="/api-reference/user-service/user-preferences">
+  Gestionar preferencias de usuario
 </Card>
 
-<Card title="PUT /api/users/:username/preferences" icon="sliders" href="/api-reference/user-service/update-user-preferences">
-  Actualizar configuración y preferencias
-</Card>
+## Problemas Comunes
 
-## Vista Rápida de Endpoints
+### Error: Usuario no encontrado (404)
 
-### GET /api/users/:username
+**Síntomas:**
+- Error al obtener perfil de usuario
+- Usuario inexistente en base de datos
 
-Obtiene el perfil público de un usuario con estadísticas básicas.
-
-<CodeGroup>
-
-```bash Request
-curl http://api.retrogamecloud.com/api/users/player1
-
+**Logs relevantes:**
+```bash
+[ERROR] User not found: username 'player123' does not exist in database
+[WARN] Attempted access to non-existent user profile
 ```
 
-```json Response 200
-{
-  "id": 123,
-  "username": "player1",
-  "display_name": "Player One",
-  "email": "player1@example.com",
-  "avatar_url": "https://cdn.retrogamecloud.com/avatars/player1.jpg",
-  "bio": "Retro gaming enthusiast since 1990",
-  "created_at": "2025-01-15T10:00:00.000Z",
-  "stats": {
-    "total_games_played": 8,
-    "total_score": 1250000,
-    "highest_score": 285000,
-    "favorite_game": "DOOM",
-    "global_rank": 15
-  }
-}
+**Soluciones rápidas:**
+1. Verificar que el username sea correcto
+2. Comprobar que la cuenta no haya sido eliminada
+3. Revisar sincronización con Auth Service
 
+### Error: Fallo en subida de avatar
+
+**Síntomas:**
+- Avatar no se actualiza
+- Error 413 (archivo muy grande)
+- Error de formato de imagen
+
+**Logs relevantes:**
+```bash
+[ERROR] Avatar upload failed: File size exceeds 5MB limit
+[ERROR] Invalid image format: only JPG, PNG, GIF allowed
+[WARN] S3 bucket connection timeout
 ```
 
-</CodeGroup>
+**Soluciones rápidas:**
+1. Verificar tamaño del archivo (máximo 5MB)
+2. Confirmar formato válido (JPG, PNG, GIF)
+3. Revisar conexión con almacenamiento S3
+4. Limpiar cache de avatares: `redis-cli DEL avatar:*`
 
-### GET /api/users/:username/scores
+### Error: Estadísticas desactualizadas
 
-Obtiene el historial de scores de un usuario específico.
+**Síntomas:**
+- Rankings no reflejan juegos recientes
+- Estadísticas congeladas
+- Diferencias entre servicios
 
-<CodeGroup>
-
-```bash Request
-curl http://api.retrogamecloud.com/api/users/player1/scores?limit=10
-
+**Logs relevantes:**
+```bash
+[ERROR] Stats sync failed: Game Service unreachable
+[WARN] Ranking calculation timeout after 30s
+[INFO] Stats cache invalidated for user: player123
 ```
 
-```json Response 200
-[
-  {
-    "game": "DOOM",
-    "game_slug": "doom",
-    "score": 285000,
-    "rank": 2,
-    "created_at": "2025-11-15T14:30:00.000Z",
-    "updated_at": "2025-11-18T10:15:00.000Z"
-  },
-  {
-    "game": "Duke Nukem 3D",
-    "game_slug": "duke3d",
-    "score": 150000,
-    "rank": 5,
-    "created_at": "2025-11-16T09:00:00.000Z",
-    "updated_at": "2025-11-16T09:00:00.000Z"
-  }
-]
+**Soluciones rápidas:**
+1. Verificar conexión con Game Service
+2. Forzar recálculo de estadísticas:
+   ```bash
+   curl -X POST http://localhost:3002/api/admin/recalculate-stats
+   ```
+3. Limpiar cache de rankings: `redis-cli FLUSHDB 2`
+4. Revisar job de sincronización en cola de tareas
 
+### Error: Preferencias no se guardan
+
+**Síntomas:**
+- Configuración se resetea al recargar
+- Error 422 en validación
+- Preferencias no persisten
+
+**Logs relevantes:**
+```bash
+[ERROR] Invalid preference value: theme must be 'light', 'dark', or 'auto'
+[WARN] Database constraint violation on preferences update
+[ERROR] Redis session store unavailable
 ```
 
-</CodeGroup>
+**Soluciones rápidas:**
+1. Validar formato de preferencias según esquema
+2. Verificar conexión a base de datos PostgreSQL
+3. Revisar disponibilidad de Redis para sesiones
+4. Comprobar permisos de escritura del usuario
 
-## Documentación Completa
+### Performance: Consultas lentas en rankings
 
-Para información detallada sobre todos los endpoints, parámetros, respuestas y ejemplos de uso, consulta la [Referencia Completa de la API del Servicio de Usuarios](/api-reference/user-service).
+**Síntomas:**
+- Timeout en carga de rankings
+- Alto uso de CPU/memoria
+- Respuestas lentas en endpoints de estadísticas
 
-## Integración con Otros Servicios
+**Logs relevantes:**
+```bash
+[WARN] Slow query detected: ranking calculation took 15.2s
+[INFO] Database connection pool exhausted
+[ERROR] Query timeout: rankings for game_type 'puzzle'
+```
 
-El servicio de usuarios se integra estrechamente con:
-
-- **[Auth Service](/services/auth-service)**: Autenticación y autorización
-
-- **[Game Service](/services/game-service)**: Tracking de actividad de juego
-
-- **[Score Service](/services/score-service)**: Gestión de puntuaciones y rankings
-
-<Note>
-Todos los endpoints que modifican datos de usuario requieren autenticación válida mediante token JWT.
-</Note>
+**Soluciones rápidas:**
+1. Verificar índices en tablas de estadísticas
+2. Aumentar pool de conexiones PostgreSQL
+3. Activar cache de rankings:
+   ```bash
+   redis-cli SET "ranking:puzzle:cache" "enabled" EX 3600
+   ```
+4. Considerar paginación en rankings grandes

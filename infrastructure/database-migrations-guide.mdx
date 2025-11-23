@@ -1,6 +1,7 @@
 ---
 title: 8.5. Migraciones de Base de Datos
-description: Guía completa para crear, probar y aplicar migraciones de esquema de forma segura en producción
+description: Guía completa para crear, probar y aplicar migraciones de esquema de
+  forma segura en producción
 icon: database
 ---
 
@@ -23,6 +24,7 @@ graph LR
     H -->|Sí| I[Migración Completa]
     H -->|No| J[Rollback Automático]
     J --> K[Investigar Fallos]
+
 ```
 
 ## Herramientas de Migración por Servicio
@@ -44,7 +46,7 @@ export class AddUserPreferences1234567890123 implements MigrationInterface {
             isNullable: true,
             default: "'{}'::jsonb"
         }));
-        
+
         // Agregar índice GIN para búsquedas eficientes en JSONB
         await queryRunner.query(
             `CREATE INDEX "IDX_users_preferences" ON "users" USING gin ("preferences")`
@@ -56,10 +58,13 @@ export class AddUserPreferences1234567890123 implements MigrationInterface {
         await queryRunner.dropColumn('users', 'preferences');
     }
 }
+
 ```
 
-**Generación de migraciones:**
+* *Generación de migraciones:**
+
 ```bash
+
 # Generar migración automáticamente
 npm run migration:generate -- -n AddUserPreferences
 
@@ -71,6 +76,7 @@ npm run migration:run
 
 # Revertir última migración
 npm run migration:revert
+
 ```
 
 </Tab>
@@ -92,11 +98,11 @@ module.exports = {
       using: 'gin',
       name: 'games_tags_gin_idx'
     });
-    
+
     // Migración de datos existentes
     await queryInterface.sequelize.query(`
-      UPDATE games 
-      SET tags = ARRAY[category] 
+      UPDATE games
+      SET tags = ARRAY[category]
       WHERE tags IS NULL AND category IS NOT NULL
     `);
   },
@@ -106,10 +112,13 @@ module.exports = {
     await queryInterface.removeColumn('games', 'tags');
   }
 };
+
 ```
 
-**Comandos Sequelize:**
+* *Comandos Sequelize:**
+
 ```bash
+
 # Crear migración
 npx sequelize-cli migration:generate --name add-game-tags
 
@@ -118,16 +127,18 @@ npx sequelize-cli db:migrate
 
 # Revertir migración
 npx sequelize-cli db:migrate:undo
+
 ```
 
 </Tab>
 <Tab title="Raw SQL (Analytics)">
 
 ```sql
--- migrations/20231201_001_add_user_activity_partitioning.sql
+
+- - migrations/20231201_001_add_user_activity_partitioning.sql
 BEGIN;
 
--- Crear tabla particionada por fecha
+- - Crear tabla particionada por fecha
 CREATE TABLE user_activity_new (
     id BIGSERIAL,
     user_id INTEGER NOT NULL,
@@ -136,31 +147,34 @@ CREATE TABLE user_activity_new (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 ) PARTITION BY RANGE (created_at);
 
--- Crear particiones mensuales
+- - Crear particiones mensuales
 CREATE TABLE user_activity_2023_12 PARTITION OF user_activity_new
     FOR VALUES FROM ('2023-12-01') TO ('2024-01-01');
-    
+
 CREATE TABLE user_activity_2024_01 PARTITION OF user_activity_new
     FOR VALUES FROM ('2024-01-01') TO ('2024-02-01');
 
--- Migrar datos existentes
-INSERT INTO user_activity_new 
+- - Migrar datos existentes
+INSERT INTO user_activity_new
 SELECT * FROM user_activity WHERE created_at >= '2023-12-01';
 
--- Crear índices
+- - Crear índices
 CREATE INDEX ON user_activity_new (user_id, created_at);
 CREATE INDEX ON user_activity_new USING gin (metadata);
 
--- Intercambiar tablas
+- - Intercambiar tablas
 ALTER TABLE user_activity RENAME TO user_activity_old;
 ALTER TABLE user_activity_new RENAME TO user_activity;
 
 COMMIT;
+
 ```
 
-**Script de aplicación:**
+* *Script de aplicación:**
+
 ```bash
 #!/bin/bash
+
 # apply-migration.sh
 set -e
 
@@ -171,6 +185,7 @@ echo "Aplicando migración: $MIGRATION_FILE"
 psql $DATABASE_URL -f $MIGRATION_FILE
 
 echo "Migración completada exitosamente"
+
 ```
 
 </Tab>
@@ -200,8 +215,8 @@ export class AddEmailColumn implements MigrationInterface {
 export class PopulateEmailColumn implements MigrationInterface {
     async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`
-            UPDATE users 
-            SET email = username || '@example.com' 
+            UPDATE users
+            SET email = username || '@example.com'
             WHERE email IS NULL
         `);
     }
@@ -215,20 +230,23 @@ export class MakeEmailNotNull implements MigrationInterface {
         );
     }
 }
+
 ```
 
 </Tab>
 <Tab title="Columnas con Valores por Defecto">
 
 ```sql
--- Migración segura con valor por defecto
-ALTER TABLE games 
-ADD COLUMN status VARCHAR(20) 
-DEFAULT 'active' 
+
+- - Migración segura con valor por defecto
+ALTER TABLE games
+ADD COLUMN status VARCHAR(20)
+DEFAULT 'active'
 NOT NULL;
 
--- Crear índice de forma concurrente (PostgreSQL)
+- - Crear índice de forma concurrente (PostgreSQL)
 CREATE INDEX CONCURRENTLY idx_games_status ON games(status);
+
 ```
 
 </Tab>
@@ -243,11 +261,11 @@ export class DropDeprecatedColumn implements MigrationInterface {
     async up(queryRunner: QueryRunner): Promise<void> {
         // Verificar que la columna no está siendo usada
         const result = await queryRunner.query(`
-            SELECT COUNT(*) as count 
-            FROM information_schema.columns 
+            SELECT COUNT(*) as count
+            FROM information_schema.columns
             WHERE table_name = 'users' AND column_name = 'old_field'
         `);
-        
+
         if (result[0].count > 0) {
             await queryRunner.dropColumn('users', 'old_field');
         }
@@ -261,21 +279,23 @@ export class DropDeprecatedColumn implements MigrationInterface {
         }));
     }
 }
+
 ```
 
 ### 3. Renombrar Tablas/Columnas
 
 ```sql
--- Estrategia de vistas para renombrar tablas
+
+- - Estrategia de vistas para renombrar tablas
 BEGIN;
 
--- Crear nueva tabla con estructura deseada
+- - Crear nueva tabla con estructura deseada
 CREATE TABLE user_profiles AS SELECT * FROM users WHERE false;
 
--- Crear vista con nombre antiguo
+- - Crear vista con nombre antiguo
 CREATE VIEW users AS SELECT * FROM user_profiles;
 
--- Migrar datos en lotes
+- - Migrar datos en lotes
 DO $$
 DECLARE
     batch_size INTEGER := 10000;
@@ -283,20 +303,21 @@ DECLARE
     row_count INTEGER;
 BEGIN
     LOOP
-        INSERT INTO user_profiles 
-        SELECT * FROM users_old 
-        ORDER BY id 
+        INSERT INTO user_profiles
+        SELECT * FROM users_old
+        ORDER BY id
         LIMIT batch_size OFFSET offset_val;
-        
+
         GET DIAGNOSTICS row_count = ROW_COUNT;
         EXIT WHEN row_count = 0;
-        
+
         offset_val := offset_val + batch_size;
         PERFORM pg_sleep(0.1); -- Pausa para no sobrecargar
     END LOOP;
 END $$;
 
 COMMIT;
+
 ```
 
 ## Migraciones de Datos Grandes
@@ -312,26 +333,27 @@ export class MigrateUserDataInBatches implements MigrationInterface {
 
         while (hasMoreData) {
             const result = await queryRunner.query(`
-                UPDATE users 
+                UPDATE users
                 SET normalized_email = LOWER(email)
                 WHERE id IN (
-                    SELECT id FROM users 
-                    WHERE normalized_email IS NULL 
-                    ORDER BY id 
+                    SELECT id FROM users
+                    WHERE normalized_email IS NULL
+                    ORDER BY id
                     LIMIT ${batchSize}
                 )
             `);
 
             hasMoreData = result.affectedRows === batchSize;
-            
+
             // Pausa para no sobrecargar la base de datos
             await new Promise(resolve => setTimeout(resolve, 100));
-            
+
             console.log(`Procesados ${offset + result.affectedRows} registros`);
             offset += batchSize;
         }
     }
 }
+
 ```
 
 ### Migración Asíncrona con Cola
@@ -344,7 +366,7 @@ export class DataMigrationWorker {
         const offset = batchId * batchSize;
 
         await this.queryRunner.query(`
-            UPDATE users 
+            UPDATE users
             SET profile_data = jsonb_build_object(
                 'preferences', old_preferences,
                 'settings', old_settings
@@ -362,7 +384,7 @@ export class QueueDataMigration implements MigrationInterface {
         const result = await queryRunner.query(`
             SELECT COUNT(*) as count FROM users WHERE profile_data IS NULL
         `);
-        
+
         const totalRecords = result[0].count;
         const batchSize = 1000;
         const totalBatches = Math.ceil(totalRecords / batchSize);
@@ -376,6 +398,7 @@ export class QueueDataMigration implements MigrationInterface {
         }
     }
 }
+
 ```
 
 ## Procedimientos de Rollback
@@ -384,6 +407,7 @@ export class QueueDataMigration implements MigrationInterface {
 
 ```bash
 #!/bin/bash
+
 # rollback-migration.sh
 set -e
 
@@ -395,7 +419,7 @@ echo "Iniciando rollback de migración: $MIGRATION_NAME"
 # Verificar salud del servicio
 if ! curl -f http://localhost:3000/health; then
     echo "Servicio no responde, iniciando rollback..."
-    
+
     # Rollback de base de datos
     case $SERVICE_NAME in
         "user-service")
@@ -409,10 +433,10 @@ if ! curl -f http://localhost:3000/health; then
             exit 1
             ;;
     esac
-    
+
     # Reiniciar servicio
     systemctl restart $SERVICE_NAME
-    
+
     # Verificar recuperación
     sleep 10
     if curl -f http://localhost:3000/health; then
@@ -422,26 +446,29 @@ if ! curl -f http://localhost:3000/health; then
         exit 1
     fi
 fi
+
 ```
 
 ### Rollback Manual con Punto de Restauración
 
 ```sql
--- Crear punto de restauración antes de migración
+
+- - Crear punto de restauración antes de migración
 BEGIN;
 SAVEPOINT before_migration;
 
--- Aplicar migración
+- - Aplicar migración
 ALTER TABLE games ADD COLUMN rating_avg DECIMAL(3,2);
 UPDATE games SET rating_avg = (
     SELECT AVG(rating) FROM game_reviews WHERE game_id = games.id
 );
 
--- En caso de problemas, rollback al punto de restauración
+- - En caso de problemas, rollback al punto de restauración
 ROLLBACK TO SAVEPOINT before_migration;
 
--- Si todo está bien, confirmar cambios
+- - Si todo está bien, confirmar cambios
 COMMIT;
+
 ```
 
 ## Monitoreo y Alertas
@@ -461,8 +488,8 @@ const migrationChecks: MigrationCheck[] = [
     {
         name: 'Verificar nueva columna',
         query: `
-            SELECT COUNT(*) as count 
-            FROM information_schema.columns 
+            SELECT COUNT(*) as count
+            FROM information_schema.columns
             WHERE table_name = 'users' AND column_name = 'preferences'
         `,
         validator: (result) => result[0].count === 1
@@ -470,8 +497,8 @@ const migrationChecks: MigrationCheck[] = [
     {
         name: 'Verificar datos migrados',
         query: `
-            SELECT COUNT(*) as count 
-            FROM users 
+            SELECT COUNT(*) as count
+            FROM users
             WHERE preferences IS NOT NULL
         `,
         validator: (result) => result[0].count > 0
@@ -479,9 +506,9 @@ const migrationChecks: MigrationCheck[] = [
     {
         name: 'Verificar índice creado',
         query: `
-            SELECT COUNT(*) as count 
-            FROM pg_indexes 
-            WHERE tablename = 'users' 
+            SELECT COUNT(*) as count
+            FROM pg_indexes
+            WHERE tablename = 'users'
             AND indexname = 'IDX_users_preferences'
         `,
         validator: (result) => result[0].count === 1
@@ -504,6 +531,7 @@ async function runPostMigrationChecks(): Promise<boolean> {
     }
     return true;
 }
+
 ```
 
 ### Métricas de Migración
@@ -523,6 +551,7 @@ export class MigrationMetrics {
             migration: migrationName,
             service: process.env.SERVICE_NAME
         });
-        
+
         await this.metricsService.histogram('database.migration.
+
 ```

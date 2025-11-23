@@ -71,139 +71,180 @@ sequenceDiagram
 ### 🎯 Gestión de Puntuaciones
 
 - Almacenamiento del mejor score por usuario/juego
+- Validación automática contra records anteriores
+- Sistema de rankings dinámico
+- Cache inteligente para optimizar consultas
 
-- Validación automática contra scores existentes
-
-- Historial de mejoras de puntuaciones
-
-### 🏆 Sistema de Rankings
+### 🏆 Sistema de Leaderboards
 
 - Rankings globales por juego
+- Posiciones calculadas en tiempo real
+- Cache de rankings para respuesta rápida
+- Invalidación automática al actualizar scores
 
-- Comparativas entre usuarios
+### ⚡ Optimizaciones de Rendimiento
 
-- Estadísticas de rendimiento
+- Cache distribuido con Redis
+- Queries optimizadas con índices compuestos
+- Invalidación selectiva de cache
+- Paginación eficiente en rankings
 
-### 📊 Analytics de Jugador
+## Problemas Comunes
 
-- Progress tracking individual
+### 🚨 Cache Desactualizado
 
-- Métricas de mejora
+**Problema:** Los rankings no reflejan scores recientes
 
-- Logros desbloqueados
+**Síntomas:**
+```bash
+# Usuario reporta score no visible en leaderboard
+curl -H "Authorization: Bearer $TOKEN" /api/leaderboard/game123
+# Respuesta muestra datos obsoletos
+```
 
-### ⚡ Cache Inteligente
+**Logs a revisar:**
+```bash
+# Buscar errores de invalidación de cache
+docker logs score-service | grep "Cache invalidation failed"
+docker logs redis | grep "COMMAND FAILED"
+```
 
-- Invalidación selectiva por usuario y juego
+**Solución rápida:**
+```bash
+# Limpiar cache manualmente
+redis-cli DEL "game_leaderboard:*"
+redis-cli DEL "user_scores:*"
 
-- Rankings precalculados en Redis
+# Reiniciar servicio si persiste
+docker restart score-service
+```
 
-- TTL automático para rankings globales
+### 🔄 Scores Duplicados
 
-## Estrategia de Cache
+**Problema:** Múltiples entries del mismo usuario/juego
 
-<CardGroup cols={2}>
-  <Card title="User Scores Cache" icon="user">
-    **Key Pattern:** `user_scores:{userId}`
+**Síntomas:**
+```sql
+-- Verificar duplicados
+SELECT user_id, game_id, COUNT(*) 
+FROM scores 
+GROUP BY user_id, game_id 
+HAVING COUNT(*) > 1;
+```
 
-    **TTL:** 1 hora
+**Logs relevantes:**
+```bash
+# Buscar race conditions
+docker logs score-service | grep "Constraint violation"
+docker logs score-service | grep "Transaction conflict"
+```
 
-    **Invalidación:** Al actualizar score
-  </Card>
+**Solución:**
+```sql
+-- Limpiar duplicados manteniendo el mejor score
+WITH ranked_scores AS (
+  SELECT *, ROW_NUMBER() OVER (
+    PARTITION BY user_id, game_id 
+    ORDER BY score DESC, created_at DESC
+  ) as rn
+  FROM scores
+)
+DELETE FROM scores 
+WHERE id IN (
+  SELECT id FROM ranked_scores WHERE rn > 1
+);
+```
 
-  <Card title="Game Leaderboards" icon="trophy">
-    **Key Pattern:** `game_leaderboard:{gameId}`
+### 🐌 Rankings Lentos
 
-    **TTL:** 15 minutos
+**Problema:** Leaderboards tardan en cargar
 
-    **Invalidación:** Al cambiar top rankings
-  </Card>
-</CardGroup>
+**Síntomas:**
+```bash
+# Timeout en consultas de ranking
+curl -w "%{time_total}" /api/leaderboard/popular-game
+# > 5 segundos de respuesta
+```
 
-## Endpoints
+**Logs a reviever:**
+```bash
+# Queries lentas
+docker logs score-service | grep "Query took"
+docker logs postgresql | grep "slow query"
+```
 
-El servicio expone los siguientes endpoints principales:
+**Solución inmediata:**
+```sql
+-- Verificar índices
+EXPLAIN ANALYZE SELECT * FROM scores 
+WHERE game_id = 'game123' 
+ORDER BY score DESC LIMIT 100;
 
-<CardGroup cols={2}>
-  <Card title="Guardar Puntuación" icon="save" href="/api-reference/scores/save-score">
-    `POST /api/scores`
+-- Recrear índices si es necesario
+REINDEX INDEX idx_scores_game_score;
+```
 
-    Guarda o actualiza la puntuación de un jugador
-  </Card>
+### 🔐 Errores de Autenticación
 
-  <Card title="Scores de Usuario" icon="user" href="/api-reference/scores/get-user-scores">
-    `GET /api/scores/user/:userId`
+**Problema:** Scores no se guardan por token inválido
 
-    Obtiene todas las puntuaciones de un usuario
-  </Card>
+**Síntomas:**
+```bash
+# Error 401 al enviar score
+POST /api/scores
+Authorization: Bearer expired_token
+# Response: {"error": "Token expired"}
+```
 
-  <Card title="Ranking Global" icon="trophy" href="/api-reference/scores/get-leaderboard">
-    `GET /api/scores/leaderboard/:game`
+**Logs típicos:**
+```bash
+docker logs score-service | grep "JWT verification failed"
+docker logs score-service | grep "Invalid token"
+```
 
-    Rankings globales por juego
-  </Card>
+**Solución:**
+```bash
+# Verificar conectividad con auth service
+curl http://auth-service:5001/health
 
-  <Card title="Comparar Scores" icon="balance-scale" href="/api-reference/scores/compare-scores">
-    `GET /api/scores/compare`
+# Revisar configuración JWT
+docker exec score-service env | grep JWT
+```
 
-    Compara puntuaciones entre usuarios
-  </Card>
-</CardGroup>
+### 📊 Inconsistencias en Rankings
 
-## Proceso de Invalidación de Cache
+**Problema:** Posiciones incorrectas en leaderboard
 
-### Triggers de Invalidación
+**Síntomas:**
+```bash
+# Usuario con score alto aparece en posición baja
+GET /api/leaderboard/game123
+# Usuario con 10000 puntos en posición 50
+```
 
-<Steps>
-  <Step title="Submit de Nueva Puntuación">
-    Cuando un usuario envía un score, se verifica si supera su mejor marca actual
-  </Step>
+**Solución de emergencia:**
+```bash
+# Forzar recálculo de rankings
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
+  /api/admin/recalculate-rankings/game123
 
-  <Step title="Validación de Mejora">
-    Si el nuevo score es mejor, se actualiza la base de datos PostgreSQL
-  </Step>
+# O via base de datos
+docker exec -it postgresql psql -d gamedb -c \
+  "SELECT user_id, score, 
+   ROW_NUMBER() OVER (ORDER BY score DESC) as position 
+   FROM scores WHERE game_id = 'game123';"
+```
 
-  <Step title="Cache de Usuario">
-    Se invalida `user_scores:{userId}` para refrescar las puntuaciones personales
-  </Step>
+## API Endpoints
 
-  <Step title="Cache de Leaderboard">
-    Se invalida `game_leaderboard:{gameId}` si el score afecta el top ranking
-  </Step>
+### POST /api/scores
+Enviar nuevo score
 
-  <Step title="Recálculo de Posiciones">
-    El ranking engine recalcula las posiciones y actualiza el cache con nuevos datos
-  </Step>
-</Steps>
+### GET /api/leaderboard/:gameId
+Obtener ranking de un juego
 
-### Optimizaciones de Performance
+### GET /api/user-scores/:userId
+Obtener scores de un usuario
 
-- **Lazy Loading:** Rankings se recalculan solo cuando son solicitados
-
-- **Batch Updates:** Múltiples scores se procesan en lotes durante picos de tráfico
-
-- **Conditional Invalidation:** Solo se invalidan caches que realmente se ven afectados
-
-## Consideraciones de Escalabilidad
-
-<Warning>
-Durante eventos con alto volumen de submits (torneos), el sistema implementa:
-
-- **Queue System:** Redis Bull para procesar scores en background
-
-- **Rate Limiting:** Máximo 10 submits por minuto por usuario
-
-- **Partial Cache Updates:** Solo se actualizan posiciones relevantes en rankings
-</Warning>
-
-## Monitoreo
-
-El servicio incluye métricas específicas para:
-
-- Cache hit ratio por tipo de consulta
-
-- Tiempo de invalidación de rankings
-
-- Frecuencia de actualizaciones de score por juego
-
-- Latencia de recálculos de posiciones
+### POST /api/admin/recalculate-rankings/:gameId
+Recalcular rankings (admin only)

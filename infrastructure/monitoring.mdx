@@ -73,20 +73,23 @@ graph TD
     V --> T
 
     style V fill:#f9f,stroke:#333,stroke-width:2px
+
 ```
 
 ## 4.7.3. Golden Signals Implementation
 
 ### 4.7.3.1. Latencia (Latency)
+
 ```yaml
+
 # prometheus-rules.yaml
 groups:
   - name: golden-signals-latency
     rules:
       - record: retrogame:request_duration_seconds:rate5m
         expr: |
-          histogram_quantile(0.95, 
-            sum(rate(http_request_duration_seconds_bucket[5m])) 
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m]))
             by (service, method, le)
           )
 
@@ -100,37 +103,41 @@ groups:
         annotations:
           summary: "High latency on {{ $labels.service }}"
           description: "95th percentile latency is {{ $value }}s"
+
 ```
 
 ### 4.7.3.2. Tráfico (Traffic)
+
 ```yaml
   - name: golden-signals-traffic
     rules:
       - record: retrogame:request_rate:rate5m
         expr: |
-          sum(rate(http_requests_total[5m])) 
+          sum(rate(http_requests_total[5m]))
           by (service, method, status)
 
       - alert: TrafficSpike
         expr: |
           (
-            retrogame:request_rate:rate5m > 
+            retrogame:request_rate:rate5m >
             (retrogame:request_rate:rate1h offset 1h) * 2
           )
         for: 5m
         labels:
           severity: info
+
 ```
 
 ### 4.7.3.3. Errores (Errors)
+
 ```yaml
   - name: golden-signals-errors
     rules:
       - record: retrogame:error_rate:rate5m
         expr: |
-          sum(rate(http_requests_total{status=~"5.."}[5m])) 
-          by (service) / 
-          sum(rate(http_requests_total[5m])) 
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+          by (service) /
+          sum(rate(http_requests_total[5m]))
           by (service)
 
       - alert: HighErrorRate
@@ -138,28 +145,32 @@ groups:
         for: 2m
         labels:
           severity: critical
+
 ```
 
 ### 4.7.3.4. Saturación (Saturation)
+
 ```yaml
   - name: golden-signals-saturation
     rules:
       - alert: HighCPU
         expr: |
-          avg(rate(container_cpu_usage_seconds_total[5m])) 
+          avg(rate(container_cpu_usage_seconds_total[5m]))
           by (pod) > 0.8
         for: 5m
 
       - alert: HighMemory
         expr: |
-          container_memory_usage_bytes / 
+          container_memory_usage_bytes /
           container_spec_memory_limit_bytes > 0.85
         for: 2m
+
 ```
 
 ## 4.7.4. Instrumentación de Microservicios
 
 ### 4.7.4.1. Node.js Prometheus Client
+
 ```javascript
 // src/shared/monitoring/prometheus.js
 const prometheus = require('prom-client');
@@ -169,7 +180,7 @@ class PrometheusMetrics {
   constructor() {
     // Registry personalizado
     this.register = new prometheus.Registry();
-    
+
     // Métricas por defecto
     prometheus.collectDefaultMetrics({
       register: this.register,
@@ -226,10 +237,10 @@ class PrometheusMetrics {
   middleware() {
     return (req, res, next) => {
       const start = Date.now();
-      
+
       res.on('finish', () => {
         const duration = (Date.now() - start) / 1000;
-        
+
         const labels = {
           service: process.env.SERVICE_NAME,
           method: req.method,
@@ -265,9 +276,11 @@ class PrometheusMetrics {
 }
 
 module.exports = new PrometheusMetrics();
+
 ```
 
 ### 4.7.4.2. Middleware Express
+
 ```javascript
 // src/shared/monitoring/middleware.js
 const prometheusMetrics = require('./prometheus');
@@ -296,7 +309,7 @@ const monitoringMiddleware = (req, res, next) => {
       status: res.statusCode,
       responseTime: Date.now() - req.startTime
     });
-    
+
     return originalSend.call(this, data);
   };
 
@@ -308,11 +321,13 @@ module.exports = {
   monitoring: monitoringMiddleware,
   prometheus: prometheusMetrics.middleware()
 };
+
 ```
 
 ## 4.7.5. Distributed Tracing con Jaeger
 
 ### 4.7.5.1. Configuración OpenTelemetry
+
 ```javascript
 // src/shared/tracing/tracer.js
 const { NodeSDK } = require('@opentelemetry/sdk-node');
@@ -352,9 +367,11 @@ const sdk = new NodeSDK({
 sdk.start();
 
 module.exports = sdk;
+
 ```
 
 ### 4.7.5.2. Custom Spans
+
 ```javascript
 // src/shared/tracing/spans.js
 const { trace, context } = require('@opentelemetry/api');
@@ -390,11 +407,13 @@ class TracingHelper {
 }
 
 module.exports = TracingHelper;
+
 ```
 
 ## 4.7.6. Logging Estructurado
 
 ### 4.7.6.1. Winston Logger
+
 ```javascript
 // src/shared/monitoring/logger.js
 const winston = require('winston');
@@ -425,7 +444,7 @@ const logger = winston.createLogger({
         winston.format.simple()
       )
     }),
-    
+
     new CloudWatchLogsTransport({
       logGroupName: `/retrogame/${process.env.SERVICE_NAME}`,
       logStreamName: `${process.env.SERVICE_NAME}-${new Date().getTime()}`,
@@ -436,11 +455,13 @@ const logger = winston.createLogger({
 });
 
 module.exports = logger;
+
 ```
 
 ## 4.7.7. Dashboards Grafana
 
 ### 4.7.7.1. Service Overview Dashboard
+
 ```json
 {
   "dashboard": {
@@ -478,4 +499,5 @@ module.exports = logger;
                 { "color": "green", "value": null },
                 { "color": "yellow", "value": 0.01 },
                 { "color": "red", "value": 0.05
+
 ```
