@@ -153,6 +153,22 @@ jobs:
             echo "analysis_completed=false" >> $GITHUB_OUTPUT
           fi
       
+      - name: Auto-implement Improvements
+        if: steps.analysis.outputs.analysis_completed == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "🤖 Implementando mejoras propuestas automáticamente..."
+          python .github/scripts/auto-implement-improvements.py \
+            --docs-path . \
+            --repos-path .analysis-repos \
+            --max-improvements 5 \
+            --report AUTO_IMPLEMENTED_REPORT.md
+          
+          if [ -f "AUTO_IMPLEMENTED_REPORT.md" ]; then
+            echo "✅ Mejoras implementadas - AUTO_IMPLEMENTED_REPORT.md generado"
+          fi
+      
       - name: Reorganize Documentation Structure
         if: steps.analysis.outputs.analysis_completed == 'true' && inputs.reorganize_structure != 'false'
         env:
@@ -188,10 +204,10 @@ jobs:
           
           # Añadir TODOS los archivos generados y modificados
           git add docs.json IMPROVEMENTS.md STRUCTURE_CHANGELOG.md analysis-results.json 2>/dev/null || true
-          git add AUTO_FIXES_REPORT.md BROKEN_LINKS_REPORT.md UNDOCUMENTED_APIS_REPORT.md 2>/dev/null || true
+          git add AUTO_FIXES_REPORT.md BROKEN_LINKS_REPORT.md UNDOCUMENTED_APIS_REPORT.md AUTO_IMPLEMENTED_REPORT.md 2>/dev/null || true
           git add broken-links.json undocumented-apis.json generated-diagrams.json incremental-analysis.json 2>/dev/null || true
           git add .analysis-cache.json 2>/dev/null || true
-          git add api-reference/ docs/ cicd/ infrastructure/ services/ frontend/ 2>/dev/null || true
+          git add api-reference/ docs/ cicd/ infrastructure/ services/ frontend/ architecture/ 2>/dev/null || true
           git add *.mdx 2>/dev/null || true
           
           if git diff --staged --quiet; then
@@ -204,6 +220,7 @@ jobs:
               -m "- APIs analizadas con AST" \
               -m "- Diagramas generados automáticamente" \
               -m "- Análisis incremental con cache" \
+              -m "- MEJORAS IMPLEMENTADAS AUTOMÁTICAMENTE" \
               -m "" \
               -m "Generado automáticamente por Claude Sonnet 4.5"
             
