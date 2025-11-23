@@ -82,6 +82,14 @@ class ImprovementImplementer:
         
         prompt = f"""Eres un experto en documentación técnica. Tu objetivo es CONSOLIDAR, REORGANIZAR y MEJORAR la documentación existente, NO crear archivos nuevos innecesarios.
 
+## ⚠️ REGLA CRÍTICA: CONTENIDO COMPLETO
+
+**NUNCA TRUNCAR**: Debes generar el contenido COMPLETO del archivo. Si el contenido es largo:
+- Genera TODO el contenido necesario
+- NO uses "..." o comentarios como "resto del contenido"
+- NO abrevies secciones importantes
+- Si necesitas más espacio, prioriza calidad sobre brevedad pero SIN truncar
+
 ## ESTRATEGIA PRIORITARIA
 
 1. **CONSOLIDAR contenido duplicado** - Fusionar archivos que tratan el mismo tema
@@ -170,7 +178,7 @@ ASEGURA que cada <Tab> tenga su </Tab> antes de </Tabs>.
         try:
             message = self.client.messages.create(
                 model="claude-sonnet-4-20250514",
-                max_tokens=4096,
+                max_tokens=16000,  # Aumentado de 4096 a 16000 para evitar truncamiento
                 messages=[{"role": "user", "content": prompt}]
             )
             
@@ -191,9 +199,71 @@ ASEGURA que cada <Tab> tenga su </Tab> antes de </Tabs>.
             print(f"❌ Error generando contenido: {e}")
             return None
     
+    def validate_mdx_tabs(self, content: str) -> tuple[bool, str]:
+        """Valida que todos los <Tab> tengan su </Tab> correspondiente"""
+        lines = content.split('\n')
+        tab_stack = []
+        tabs_open = 0
+        
+        for i, line in enumerate(lines, 1):
+            # Contar <Tabs> y </Tabs>
+            if '<Tabs>' in line or '<Tabs ' in line:
+                tabs_open += 1
+            if '</Tabs>' in line:
+                tabs_open -= 1
+            
+            # Contar <Tab> y </Tab>
+            if '<Tab ' in line or '<Tab>' in line:
+                tab_stack.append(i)
+            if '</Tab>' in line:
+                if not tab_stack:
+                    return False, f"Línea {i}: </Tab> sin <Tab> correspondiente"
+                tab_stack.pop()
+        
+        if tab_stack:
+            return False, f"<Tab> sin cerrar en líneas: {tab_stack}"
+        
+        if tabs_open != 0:
+            return False, f"<Tabs> sin cerrar (balance: {tabs_open})"
+        
+        return True, "OK"
+    
     def create_file(self, filepath: Path, content: str) -> bool:
         """Crea un archivo con contenido"""
         try:
+            # Validar sintaxis MDX antes de escribir
+            is_valid, error_msg = self.validate_mdx_tabs(content)
+            if not is_valid:
+                print(f"   ⚠️  Validación MDX falló: {error_msg}")
+                print(f"   🔧 Intentando corregir automáticamente...")
+                
+                # Intentar corrección simple: agregar </Tab> faltantes antes de </Tabs>
+                if "<Tab" in content and "</Tabs>" in content:
+                    lines = content.split('\n')
+                    fixed_lines = []
+                    tab_count = 0
+                    
+                    for line in lines:
+                        if '<Tab ' in line or '<Tab>' in line:
+                            tab_count += 1
+                        if '</Tab>' in line:
+                            tab_count -= 1
+                        if '</Tabs>' in line and tab_count > 0:
+                            # Agregar </Tab> faltantes
+                            for _ in range(tab_count):
+                                fixed_lines.append('  </Tab>')
+                            tab_count = 0
+                        fixed_lines.append(line)
+                    
+                    content = '\n'.join(fixed_lines)
+                    is_valid, error_msg = self.validate_mdx_tabs(content)
+                    
+                    if is_valid:
+                        print(f"   ✅ Corrección automática exitosa")
+                    else:
+                        print(f"   ❌ No se pudo corregir: {error_msg}")
+                        return False
+            
             filepath.parent.mkdir(parents=True, exist_ok=True)
             
             with open(filepath, 'w', encoding='utf-8') as f:
@@ -346,7 +416,7 @@ Plataforma de juegos retro con:
             try:
                 message = self.client.messages.create(
                     model="claude-sonnet-4-20250514",
-                    max_tokens=4096,
+                    max_tokens=16000,  # Aumentado de 4096 a 16000 para evitar truncamiento
                     messages=[{"role": "user", "content": enhanced_prompt}]
                 )
                 

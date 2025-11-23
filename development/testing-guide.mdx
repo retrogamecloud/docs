@@ -1,7 +1,6 @@
 ---
 title: Testing y QA
-description: 'Estrategia completa de testing para RetroGameCloud: unitarios, integración,
-  E2E y proceso de QA'
+description: 'Estrategia completa de testing para RetroGameCloud: unitarios, integración, E2E y proceso de QA'
 icon: flask-vial
 ---
 
@@ -23,8 +22,35 @@ graph TD
     style B fill:#4ecdc4
     style C fill:#45b7d1
     style D fill:#96ceb4
-
 ```
+
+### Cobertura de Testing
+
+<CardGroup cols={2}>
+  <Card title="Unitarios" icon="flask">
+    **80%+ coverage**
+    
+    Tests rápidos de lógica de negocio individual
+  </Card>
+  
+  <Card title="Integración" icon="plug">
+    **Componentes críticos**
+    
+    Interacción entre servicios y bases de datos
+  </Card>
+  
+  <Card title="E2E" icon="robot">
+    **Flujos principales**
+    
+    Simulación completa de usuario final
+  </Card>
+  
+  <Card title="Carga" icon="chart-line">
+    **Performance**
+    
+    Tests de resistencia y escalabilidad
+  </Card>
+</CardGroup>
 
 ## Tests Unitarios
 
@@ -34,127 +60,204 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
 
 <Tabs>
   <Tab title="package.json">
-    ```json
-    {
-      "scripts": {
-        "test": "jest",
-        "test:watch": "jest --watch",
-        "test:coverage": "jest --coverage",
-        "test:ci": "jest --coverage --watchAll=false"
-      },
-      "jest": {
-        "testEnvironment": "node",
-        "collectCoverageFrom": [
-          "src/**/*.{js,ts}",
-          "!src/**/*.test.{js,ts}",
-          "!src/config/**"
-        ],
-        "coverageThreshold": {
-          "global": {
-            "branches": 80,
-            "functions": 80,
-            "lines": 80,
-            "statements": 80
-          }
-        }
+```json
+{
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --coverage --watchAll=false"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "src/**/*.{js,ts}",
+      "!src/**/*.test.{js,ts}",
+      "!src/config/**"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 80,
+        "functions": 80,
+        "lines": 80,
+        "statements": 80
       }
     }
-    ```
-
+  }
+}
+```
   </Tab>
 
   <Tab title="jest.config.js">
-    ```javascript
-    module.exports = {
-      preset: 'ts-jest',
-      testEnvironment: 'node',
-      roots: ['<rootDir>/src'],
-      testMatch: ['**/__tests__/**/*.test.(ts|js)'],
-      collectCoverageFrom: [
-        'src/**/*.{ts,js}',
-        '!src/**/*.d.ts',
-        '!src/types/**',
-        '!src/config/**'
-      ],
-      setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts']
-    };
-    ```
-
+```javascript
+module.exports = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  roots: ['<rootDir>/src'],
+  testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
+  transform: {
+    '^.+\\.ts$': 'ts-jest',
+  },
+  collectCoverageFrom: [
+    'src/**/*.{js,ts}',
+    '!src/**/*.d.ts',
+    '!src/**/*.test.ts',
+  ],
+  coverageDirectory: 'coverage',
+  verbose: true,
+};
+```
   </Tab>
 </Tabs>
 
-### Ejemplo de Test Unitario
+### Ejemplos de Tests Unitarios
 
-```javascript
-// src/services/__tests__/authService.test.ts
-import { AuthService } from '../authService';
-import { UserModel } from '../../models/User';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+<Tabs>
+  <Tab title="Service Test">
+```typescript
+// tests/unit/score.service.test.ts
+import { ScoreService } from '../../src/services/score.service';
+import { ScoreRepository } from '../../src/repositories/score.repository';
 
-jest.mock('../../models/User');
-jest.mock('bcryptjs');
-jest.mock('jsonwebtoken');
+jest.mock('../../src/repositories/score.repository');
 
-describe('AuthService', () => {
-  let authService: AuthService;
+describe('ScoreService', () => {
+  let scoreService: ScoreService;
+  let mockRepository: jest.Mocked<ScoreRepository>;
 
   beforeEach(() => {
-    authService = new AuthService();
-    jest.clearAllMocks();
+    mockRepository = new ScoreRepository() as jest.Mocked<ScoreRepository>;
+    scoreService = new ScoreService(mockRepository);
   });
 
-  describe('login', () => {
-    it('should authenticate user with valid credentials', async () => {
-      const mockUser = {
-        id: 1,
-        email: 'test@example.com',
-        password: 'hashedPassword'
+  describe('submitScore', () => {
+    it('should submit a valid score', async () => {
+      const scoreData = {
+        userId: 'user-123',
+        gameId: 'pac-man',
+        score: 25000,
+        timestamp: new Date(),
       };
 
-      (UserModel.findByEmail as jest.Mock).mockResolvedValue(mockUser);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      (jwt.sign as jest.Mock).mockReturnValue('mock-token');
-
-      const result = await authService.login('test@example.com', 'password');
-
-      expect(result).toEqual({
-        success: true,
-        token: 'mock-token',
-        user: { id: 1, email: 'test@example.com' }
+      mockRepository.create.mockResolvedValue({
+        id: 'score-456',
+        ...scoreData,
       });
+
+      const result = await scoreService.submitScore(scoreData);
+
+      expect(result).toHaveProperty('id');
+      expect(result.score).toBe(25000);
+      expect(mockRepository.create).toHaveBeenCalledWith(scoreData);
     });
 
-    it('should reject invalid credentials', async () => {
-      (UserModel.findByEmail as jest.Mock).mockResolvedValue(null);
+    it('should reject invalid scores', async () => {
+      const invalidScore = {
+        userId: 'user-123',
+        gameId: 'pac-man',
+        score: -100,
+        timestamp: new Date(),
+      };
 
-      const result = await authService.login('invalid@example.com', 'password');
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe('Invalid credentials');
+      await expect(
+        scoreService.submitScore(invalidScore)
+      ).rejects.toThrow('Score must be positive');
     });
   });
 });
-
 ```
+  </Tab>
+
+  <Tab title="Utility Test">
+```typescript
+// tests/unit/validators.test.ts
+import { validateGameId, validateUserId } from '../../src/utils/validators';
+
+describe('Validators', () => {
+  describe('validateGameId', () => {
+    it('should accept valid game IDs', () => {
+      expect(validateGameId('pac-man')).toBe(true);
+      expect(validateGameId('super-mario-bros')).toBe(true);
+    });
+
+    it('should reject invalid game IDs', () => {
+      expect(validateGameId('')).toBe(false);
+      expect(validateGameId('invalid@game')).toBe(false);
+      expect(validateGameId(null)).toBe(false);
+    });
+  });
+
+  describe('validateUserId', () => {
+    it('should accept valid UUIDs', () => {
+      expect(validateUserId('123e4567-e89b-12d3-a456-426614174000')).toBe(true);
+    });
+
+    it('should reject invalid formats', () => {
+      expect(validateUserId('not-a-uuid')).toBe(false);
+      expect(validateUserId('12345')).toBe(false);
+    });
+  });
+});
+```
+  </Tab>
+</Tabs>
 
 ## Tests de Integración
 
 ### Configuración con Supertest
 
-```javascript
-// src/test/integration/auth.test.ts
+<Tabs>
+  <Tab title="API Integration Test">
+```typescript
+// tests/integration/auth.api.test.ts
 import request from 'supertest';
-import app from '../../app';
-import { setupTestDB, cleanupTestDB } from '../helpers/database';
+import { app } from '../../src/app';
+import { setupTestDatabase, teardownTestDatabase } from '../helpers/db';
 
-describe('Auth Integration Tests', () => {
+describe('Authentication API', () => {
   beforeAll(async () => {
-    await setupTestDB();
+    await setupTestDatabase();
   });
 
   afterAll(async () => {
-    await cleanupTestDB();
+    await teardownTestDatabase();
+  });
+
+  describe('POST /api/auth/register', () => {
+    it('should register a new user', async () => {
+      const response = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'newuser@test.com',
+          password: 'SecurePass123!',
+          username: 'newuser',
+        })
+        .expect(201);
+
+      expect(response.body).toHaveProperty('userId');
+      expect(response.body).toHaveProperty('token');
+      expect(response.body.email).toBe('newuser@test.com');
+    });
+
+    it('should reject duplicate emails', async () => {
+      await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'duplicate@test.com',
+          password: 'Pass123!',
+          username: 'user1',
+        })
+        .expect(201);
+
+      await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'duplicate@test.com',
+          password: 'Pass123!',
+          username: 'user2',
+        })
+        .expect(409);
+    });
   });
 
   describe('POST /api/auth/login', () => {
@@ -163,340 +266,416 @@ describe('Auth Integration Tests', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: 'password123'
+          password: 'TestPass123!',
         })
         .expect(200);
 
       expect(response.body).toHaveProperty('token');
-      expect(response.body.user.email).toBe('test@example.com');
+      expect(response.body).toHaveProperty('refreshToken');
     });
 
     it('should reject invalid credentials', async () => {
-      const response = await request(app)
+      await request(app)
         .post('/api/auth/login')
         .send({
-          email: 'invalid@example.com',
-          password: 'wrongpassword'
+          email: 'test@example.com',
+          password: 'WrongPassword',
         })
         .expect(401);
-
-      expect(response.body.error).toBe('Invalid credentials');
     });
   });
 });
-
 ```
+  </Tab>
 
-## Tests End-to-End (E2E)
+  <Tab title="Database Integration">
+```typescript
+// tests/integration/score.repository.test.ts
+import { ScoreRepository } from '../../src/repositories/score.repository';
+import { setupTestDatabase, teardownTestDatabase } from '../helpers/db';
+
+describe('ScoreRepository Integration', () => {
+  let repository: ScoreRepository;
+
+  beforeAll(async () => {
+    await setupTestDatabase();
+    repository = new ScoreRepository();
+  });
+
+  afterAll(async () => {
+    await teardownTestDatabase();
+  });
+
+  beforeEach(async () => {
+    await repository.clear();
+  });
+
+  it('should save and retrieve scores', async () => {
+    const score = await repository.create({
+      userId: 'user-123',
+      gameId: 'pac-man',
+      score: 15000,
+      timestamp: new Date(),
+    });
+
+    const retrieved = await repository.findById(score.id);
+
+    expect(retrieved).toBeDefined();
+    expect(retrieved.score).toBe(15000);
+    expect(retrieved.gameId).toBe('pac-man');
+  });
+
+  it('should get top scores for a game', async () => {
+    await repository.create({
+      userId: 'user-1',
+      gameId: 'pac-man',
+      score: 30000,
+      timestamp: new Date(),
+    });
+
+    await repository.create({
+      userId: 'user-2',
+      gameId: 'pac-man',
+      score: 25000,
+      timestamp: new Date(),
+    });
+
+    const topScores = await repository.getTopScores('pac-man', 10);
+
+    expect(topScores).toHaveLength(2);
+    expect(topScores[0].score).toBe(30000);
+    expect(topScores[1].score).toBe(25000);
+  });
+});
+```
+  </Tab>
+</Tabs>
+
+## Tests End-to-End
 
 ### Configuración con Playwright
 
 <Tabs>
   <Tab title="playwright.config.ts">
-    ```typescript
-    import { defineConfig, devices } from '@playwright/test';
+```typescript
+import { defineConfig, devices } from '@playwright/test';
 
-    export default defineConfig({
-      testDir: './tests/e2e',
-      fullyParallel: true,
-      forbidOnly: !!process.env.CI,
-      retries: process.env.CI ? 2 : 0,
-      workers: process.env.CI ? 1 : undefined,
-      reporter: [['html'], ['json', { outputFile: 'test-results.json' }]],
-      use: {
-        baseURL: 'http://localhost:3000',
-        trace: 'on-first-retry',
-        screenshot: 'only-on-failure'
-      },
-      projects: [
-        {
-          name: 'chromium',
-          use: { ...devices['Desktop Chrome'] }
-        },
-        {
-          name: 'firefox',
-          use: { ...devices['Desktop Firefox'] }
-        },
-        {
-          name: 'webkit',
-          use: { ...devices['Desktop Safari'] }
-        },
-        {
-          name: 'Mobile Chrome',
-          use: { ...devices['Pixel 5'] }
-        }
-      ],
-      webServer: {
-        command: 'npm run dev',
-        url: 'http://localhost:3000',
-        reuseExistingServer: !process.env.CI
-      }
-    });
-    ```
-
+export default defineConfig({
+  testDir: './tests/e2e',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
+  use: {
+    baseURL: process.env.BASE_URL || 'http://localhost:3000',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
+  ],
+});
+```
   </Tab>
 
-  <Tab title="test-setup.ts">
-    ```typescript
-    // tests/e2e/setup/test-setup.ts
-    import { test as baseTest } from '@playwright/test';
-    import { AuthPage } from '../pages/auth.page';
-    import { GameLibraryPage } from '../pages/game-library.page';
-    import { RoomPage } from '../pages/room.page';
-
-    type TestFixtures = {
-      authPage: AuthPage;
-      gameLibraryPage: GameLibraryPage;
-      roomPage: RoomPage;
-    };
-
-    export const test = baseTest.extend<TestFixtures>({
-      authPage: async ({ page }, use) => {
-        const authPage = new AuthPage(page);
-        await use(authPage);
-      },
-      gameLibraryPage: async ({ page }, use) => {
-        const gameLibraryPage = new GameLibraryPage(page);
-        await use(gameLibraryPage);
-      },
-      roomPage: async ({ page }, use) => {
-        const roomPage = new RoomPage(page);
-        await use(roomPage);
-      }
-    });
-
-    export { expect } from '@playwright/test';
-    ```
-
-  </Tab>
-</Tabs>
-
-### Page Object Models
-
-<Tabs>
-  <Tab title="auth.page.ts">
-    ```typescript
-    // tests/e2e/pages/auth.page.ts
-    import { Page, Locator } from '@playwright/test';
-
-    export class AuthPage {
-      readonly page: Page;
-      readonly emailInput: Locator;
-      readonly passwordInput: Locator;
-      readonly loginButton: Locator;
-      readonly registerButton: Locator;
-      readonly errorMessage: Locator;
-
-      constructor(page: Page) {
-        this.page = page;
-        this.emailInput = page.locator('[data-testid="email-input"]');
-        this.passwordInput = page.locator('[data-testid="password-input"]');
-        this.loginButton = page.locator('[data-testid="login-button"]');
-        this.registerButton = page.locator('[data-testid="register-button"]');
-        this.errorMessage = page.locator('[data-testid="error-message"]');
-      }
-
-      async goto() {
-        await this.page.goto('/auth/login');
-      }
-
-      async login(email: string, password: string) {
-        await this.emailInput.fill(email);
-        await this.passwordInput.fill(password);
-        await this.loginButton.click();
-      }
-
-      async register(userData: {
-        email: string;
-        password: string;
-        username: string;
-      }) {
-        await this.page.goto('/auth/register');
-        await this.page.locator('[data-testid="username-input"]').fill(userData.username);
-        await this.emailInput.fill(userData.email);
-        await this.passwordInput.fill(userData.password);
-        await this.registerButton.click();
-      }
-
-      async isLoggedIn() {
-        await this.page.waitForURL('/dashboard');
-        return this.page.url().includes('/dashboard');
-      }
-    }
-    ```
-
-  </Tab>
-
-  <Tab title="game-library.page.ts">
-    ```typescript
-    // tests/e2e/pages/game-library.page.ts
-    import { Page, Locator } from '@playwright/test';
-
-    export class GameLibraryPage {
-      readonly page: Page;
-      readonly searchInput: Locator;
-      readonly gameCards: Locator;
-      readonly filterByGenre: Locator;
-      readonly createRoomButton: Locator;
-
-      constructor(page: Page) {
-        this.page = page;
-        this.searchInput = page.locator('[data-testid="game-search"]');
-        this.gameCards = page.locator('[data-testid="game-card"]');
-        this.filterByGenre = page.locator('[data-testid="genre-filter"]');
-        this.createRoomButton = page.locator('[data-testid="create-room-btn"]');
-      }
-
-      async goto() {
-        await this.page.goto('/games');
-      }
-
-      async searchGame(gameName: string) {
-        await this.searchInput.fill(gameName);
-        await this.page.waitForTimeout(500); // Debounce
-      }
-
-      async selectGame(gameTitle: string) {
-        await this.page.locator(`[data-testid="game-card"][data-game="${gameTitle}"]`).click();
-      }
-
-      async filterByGenre(genre: string) {
-        await this.filterByGenre.selectOption(genre);
-      }
-
-      async createRoom(gameTitle: string) {
-        await this.selectGame(gameTitle);
-        await this.createRoomButton.click();
-      }
-    }
-    ```
-
-  </Tab>
-
-  <Tab title="room.page.ts">
-    ```typescript
-    // tests/e2e/pages/room.page.ts
-    import { Page, Locator } from '@playwright/test';
-
-    export class RoomPage {
-      readonly page: Page;
-      readonly gameCanvas: Locator;
-      readonly chatInput: Locator;
-      readonly sendMessageButton: Locator;
-      readonly playersList: Locator;
-      readonly leaveRoomButton: Locator;
-
-      constructor(page: Page) {
-        this.page = page;
-        this.gameCanvas = page.locator('[data-testid="game-canvas"]');
-        this.chatInput = page.locator('[data-testid="chat-input"]');
-        this.sendMessageButton = page.locator('[data-testid="send-message"]');
-        this.playersList = page.locator('[data-testid="players-list"]');
-        this.leaveRoomButton = page.locator('[data-testid="leave-room"]');
-      }
-
-      async sendChatMessage(message: string) {
-        await this.chatInput.fill(message);
-        await this.sendMessageButton.click();
-      }
-
-      async waitForGameToLoad() {
-        await this.gameCanvas.waitFor({ state: 'visible' });
-        await this.page.waitForTimeout(2000); // Esperar carga del juego
-      }
-
-      async pressGameKey(key: string) {
-        await this.gameCanvas.focus();
-        await this.page.keyboard.press(key);
-      }
-
-      async leaveRoom() {
-        await this.leaveRoomButton.click();
-      }
-
-      async getPlayerCount() {
-        return await this.playersList.locator('[data-testid="player"]').count();
-      }
-    }
-    ```
-
-  </Tab>
-</Tabs>
-
-### Casos de Prueba E2E por Servicio
-
-<Tabs>
   <Tab title="auth.spec.ts">
-    ```typescript
-    // tests/e2e/auth.spec.ts
-    import { test, expect } from './setup/test-setup';
+```typescript
+import { test, expect } from '@playwright/test';
 
-    test.describe('Authentication', () => {
-      test('should login with valid credentials', async ({ authPage }) => {
-        await authPage.goto();
-        await authPage.login('test@example.com', 'password123');
+test.describe('Authentication Flow', () => {
+  test('should complete full registration flow', async ({ page }) => {
+    await page.goto('/register');
 
-        expect(await authPage.isLoggedIn()).toBe(true);
-      });
+    await page.fill('[data-testid="email-input"]', 'e2e@test.com');
+    await page.fill('[data-testid="username-input"]', 'e2euser');
+    await page.fill('[data-testid="password-input"]', 'SecurePass123!');
+    await page.click('[data-testid="register-button"]');
 
-      test('should show error with invalid credentials', async ({ authPage }) => {
-        await authPage.goto();
-        await authPage.login('invalid@example.com', 'wrongpassword');
+    await expect(page).toHaveURL('/dashboard');
+    await expect(page.locator('[data-testid="welcome-message"]'))
+      .toContainText('Welcome, e2euser');
+  });
 
-        await expect(authPage.errorMessage).toBeVisible();
-        await expect(authPage.errorMessage).toContainText('Invalid credentials');
-      });
+  test('should login with existing user', async ({ page }) => {
+    await page.goto('/login');
 
-      test('should register new user', async ({ authPage }) => {
-        const userData = {
-          email: 'newuser@example.com',
-          password: 'newpassword123',
-          username: 'newuser'
-        };
+    await page.fill('[data-testid="email-input"]', 'test@example.com');
+    await page.fill('[data-testid="password-input"]', 'TestPass123!');
+    await page.click('[data-testid="login-button"]');
 
-        await authPage.register(userData);
-        expect(await authPage.isLoggedIn()).toBe(true);
-      });
+    await expect(page).toHaveURL('/dashboard');
+  });
 
-      test('should prevent registration with existing email', async ({ authPage }) => {
-        const userData = {
-          email: 'test@example.com', // Email ya existente
-          password: 'password123',
-          username: 'testuser'
-        };
+  test('should handle OAuth2 GitHub login', async ({ page }) => {
+    await page.goto('/login');
+    await page.click('[data-testid="github-login-button"]');
 
-        await authPage.register(userData);
-        await expect(authPage.errorMessage).toContainText('Email already exists');
+    // En entorno de test, mockear OAuth callback
+    await page.route('**/api/auth/github/callback*', route => {
+      route.fulfill({
+        status: 200,
+        body: JSON.stringify({
+          token: 'mock-jwt-token',
+          userId: 'github-user-123',
+        }),
       });
     });
-    ```
 
+    await expect(page).toHaveURL('/dashboard');
+  });
+});
+```
   </Tab>
 
   <Tab title="game-library.spec.ts">
-    ```typescript
-    // tests/e2e/game-library.spec.ts
-    import { test, expect } from './setup/test-setup';
+```typescript
+import { test, expect } from '@playwright/test';
 
-    test.describe('Game Library', () => {
-      test.beforeEach(async ({ authPage }) => {
-        await authPage.goto();
-        await authPage.login('test@example.com', 'password123');
-      });
+test.describe('Game Library', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('[data-testid="email-input"]', 'test@example.com');
+    await page.fill('[data-testid="password-input"]', 'TestPass123!');
+    await page.click('[data-testid="login-button"]');
+    await page.waitForURL('/dashboard');
+  });
 
-      test('should display game library', async ({ gameLibraryPage }) => {
-        await gameLibraryPage.goto();
+  test('should display game library', async ({ page }) => {
+    await page.goto('/games');
 
-        await expect(gameLibraryPage.gameCards.first()).toBeVisible();
-        expect(await gameLibraryPage.gameCards.count()).toBeGreaterThan(0);
-      });
+    await expect(page.locator('[data-testid="game-card"]').first()).toBeVisible();
+    const gameCount = await page.locator('[data-testid="game-card"]').count();
+    expect(gameCount).toBeGreaterThan(0);
+  });
 
-      test('should search games', async ({ gameLibraryPage
-</Tab>
-</Tab>
-</Tab>
-</Tab>
-</Tab>
+  test('should search games', async ({ page }) => {
+    await page.goto('/games');
+    await page.fill('[data-testid="search-input"]', 'pac-man');
+    await page.waitForTimeout(500);
+
+    const results = await page.locator('[data-testid="game-card"]').count();
+    expect(results).toBeGreaterThan(0);
+
+    await expect(page.locator('[data-testid="game-card"]').first())
+      .toContainText('Pac-Man');
+  });
+
+  test('should launch game emulator', async ({ page }) => {
+    await page.goto('/games');
+    await page.click('[data-testid="game-card"]:has-text("Pac-Man")');
+
+    await expect(page).toHaveURL(/\/games\/pac-man/);
+    await expect(page.locator('[data-testid="emulator-canvas"]')).toBeVisible();
+
+    await page.click('[data-testid="play-button"]');
+    await expect(page.locator('[data-testid="emulator-running"]')).toBeVisible();
+  });
+});
+```
+  </Tab>
 </Tabs>
 
+## Tests de Carga
+
+### Configuración con k6
+
+<Tabs>
+  <Tab title="load-test.js">
+```javascript
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+
+export let options = {
+  stages: [
+    { duration: '2m', target: 100 },
+    { duration: '5m', target: 100 },
+    { duration: '2m', target: 200 },
+    { duration: '5m', target: 200 },
+    { duration: '2m', target: 0 },
+  ],
+  thresholds: {
+    http_req_duration: ['p(99)<1500'],
+    http_req_failed: ['rate<0.1'],
+  },
+};
+
+export default function () {
+  let response = http.get('https://api.retrogamehub.games/games');
+
+  check(response, {
+    'status is 200': (r) => r.status === 200,
+    'response time < 500ms': (r) => r.timings.duration < 500,
+  });
+
+  sleep(1);
+}
 ```
+  </Tab>
+
+  <Tab title="spike-test.js">
+```javascript
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+
+export let options = {
+  stages: [
+    { duration: '10s', target: 100 },
+    { duration: '1m', target: 1400 },
+    { duration: '10s', target: 100 },
+  ],
+};
+
+export default function () {
+  const baseUrl = 'https://api.retrogamehub.games';
+
+  let responses = http.batch([
+    ['GET', `${baseUrl}/games`],
+    ['GET', `${baseUrl}/rankings/global`],
+    ['GET', `${baseUrl}/games/pac-man`],
+  ]);
+
+  responses.forEach(response => {
+    check(response, {
+      'status is 200': (r) => r.status === 200,
+    });
+  });
+
+  sleep(1);
+}
+```
+  </Tab>
+</Tabs>
+
+## Integración Continua
+
+### GitHub Actions Workflow
+
+```yaml
+name: Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - run: npm ci
+      - run: npm run test:ci
+      - uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/coverage-final.json
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - run: npm ci
+      - run: npm run test:integration
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - run: npm ci
+      - run: npx playwright install --with-deps
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+```
+
+## Mejores Prácticas
+
+<AccordionGroup>
+  <Accordion title="Nomenclatura de Tests">
+    - **describe**: Agrupa tests relacionados
+    - **it/test**: Describe comportamiento esperado
+    - Usar frases descriptivas: `"should return 404 when game not found"`
+  </Accordion>
+
+  <Accordion title="Aislamiento de Tests">
+    - Cada test debe ser independiente
+    - Usar `beforeEach` para setup
+    - Limpiar estado en `afterEach`
+    - No depender del orden de ejecución
+  </Accordion>
+
+  <Accordion title="Mocking y Stubs">
+    - Mockear dependencias externas (APIs, DB)
+    - Usar factories para datos de prueba
+    - Evitar over-mocking de lógica interna
+  </Accordion>
+
+  <Accordion title="Coverage Goals">
+    - **Unitarios**: 80%+ coverage
+    - **Integración**: Flujos críticos completos
+    - **E2E**: Happy paths y edge cases principales
+  </Accordion>
+</AccordionGroup>
+
+## Comandos Útiles
+
+```bash
+# Tests unitarios
+npm run test              # Ejecutar todos los tests
+npm run test:watch        # Modo watch
+npm run test:coverage     # Con reporte de coverage
+
+# Tests de integración
+npm run test:integration
+
+# Tests E2E
+npm run test:e2e          # Todos los navegadores
+npm run test:e2e:chrome   # Solo Chrome
+npm run test:e2e:headed   # Con interfaz visible
+
+# Tests de carga
+k6 run tests/load/load-test.js
+k6 run tests/load/spike-test.js --vus 1000 --duration 1m
+```
+
+<Note>
+Para ejecutar los tests E2E localmente, asegúrate de tener el entorno de desarrollo corriendo en `http://localhost:3000`.
+</Note>
+
+---
+
+Esta estrategia de testing garantiza la calidad y estabilidad de RetroGameCloud en cada despliegue.

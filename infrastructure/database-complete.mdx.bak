@@ -1,0 +1,510 @@
+---
+title: 4.3. Base de Datos Completa
+description: 'Documentación completa de la base de datos PostgreSQL: esquema, migraciones,
+  configuración y administración'
+icon: database
+---
+
+# 4.3. Base de Datos Completa
+
+Esta guía consolidada cubre todos los aspectos de la base de datos PostgreSQL utilizada en RetroGameCloud, incluyendo configuración, esquema, migraciones y administración.
+
+## 4.3.1. Configuración de Base de Datos
+
+### Amazon RDS PostgreSQL
+
+<Note>
+RetroGameCloud utiliza Amazon RDS PostgreSQL 14.x con configuración Multi-AZ para alta disponibilidad.
+</Note>
+
+<Tabs>
+<Tab title="Configuración RDS">
+
+```yaml
+
+# infrastructure/rds-config.yml
+Database:
+  Engine: postgres
+  Version: "14.9"
+  InstanceClass: db.r6g.large
+  AllocatedStorage: 100
+  StorageType: gp3
+  MultiAZ: true
+  BackupRetentionPeriod: 7
+  DeletionProtection: true
+
+ParameterGroup:
+  shared_preload_libraries: "pg_stat_statements"
+  max_connections: 200
+  work_mem: "16MB"
+  maintenance_work_mem: "256MB"
+  checkpoint_completion_target: 0.9
+
+```
+
+</Tab>
+<Tab title="Variables de Entorno">
+
+```bash
+
+# Configuración común
+DATABASE_URL=postgresql://username:password@host:5432/retrogame_db
+DB_HOST=retrogame-postgres.cluster-xxx.eu-west-1.rds.amazonaws.com
+DB_PORT=5432
+DB_NAME=retrogame_db
+DB_SSL_MODE=require
+
+# Por microservicio
+AUTH_DB_NAME=retrogame_auth
+USER_DB_NAME=retrogame_users
+GAME_DB_NAME=retrogame_games
+SCORE_DB_NAME=retrogame_scores
+
+```
+
+</Tab>
+</Tabs>
+
+### 4.3.2. Configuración de Conexiones
+
+```javascript
+// config/database.js
+const { Pool } = require('pg');
+
+const dbConfig = {
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  ssl: {
+    rejectUnauthorized: false
+  },
+  max: 20, // máximo de conexiones en el pool
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+};
+
+const pool = new Pool(dbConfig);
+
+// Health check
+pool.on('connect', () => {
+  console.log('Connected to PostgreSQL database');
+});
+
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+  process.exit(-1);
+});
+
+module.exports = {
+  query: (text, params) => pool.query(text, params),
+  getClient: () => pool.connect(),
+  pool
+};
+
+```
+
+## 4.3.3. Esquema de Base de Datos
+
+### Diagrama de Entidad-Relación
+
+```mermaid
+erDiagram
+    USERS {
+        uuid id PK
+        string username UK
+        string email UK
+        string password_hash
+        jsonb preferences
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    GAMES {
+        uuid id PK
+        string title
+        string slug UK
+        text description
+        jsonb metadata
+        string rom_path
+        enum status
+        timestamp created_at
+    }
+
+    GAME_SESSIONS {
+        uuid id PK
+        uuid user_id FK
+        uuid game_id FK
+        jsonb save_state
+        integer play_time
+        timestamp started_at
+        timestamp last_played
+    }
+
+    SCORES {
+        uuid id PK
+        uuid user_id FK
+        uuid game_id FK
+        integer score
+        jsonb metadata
+        timestamp achieved_at
+    }
+
+    ACHIEVEMENTS {
+        uuid id PK
+        uuid game_id FK
+        string name
+        text description
+        jsonb criteria
+        string icon_url
+    }
+
+    USER_ACHIEVEMENTS {
+        uuid id PK
+        uuid user_id FK
+        uuid achievement_id FK
+        timestamp unlocked_at
+    }
+
+    USERS ||--o{ GAME_SESSIONS : plays
+    USERS ||--o{ SCORES : achieves
+    USERS ||--o{ USER_ACHIEVEMENTS : unlocks
+    GAMES ||--o{ GAME_SESSIONS : has
+    GAMES ||--o{ SCORES : records
+    GAMES ||--o{ ACHIEVEMENTS : contains
+    ACHIEVEMENTS ||--o{ USER_ACHIEVEMENTS : awarded
+
+```
+
+### 4.3.4. Scripts de Creación de Tablas
+
+<Tabs>
+<Tab title="Usuarios y Autenticación">
+
+```sql
+
+- - users.sql
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    avatar_url TEXT,
+    preferences JSONB DEFAULT '{}',
+    is_active BOOLEAN DEFAULT true,
+    email_verified BOOLEAN DEFAULT false,
+    last_login TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE user_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) NOT NULL,
+    device_info JSONB,
+    ip_address INET,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+- - Índices para usuarios
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_user_sessions_token ON user_sessions(token_hash);
+CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id);
+
+```
+
+</Tab>
+<Tab title="Juegos y Metadatos">
+
+```sql
+
+- - games.sql
+CREATE TYPE game_status AS ENUM ('active', 'inactive', 'maintenance');
+CREATE TYPE console_type AS ENUM ('nes', 'snes', 'gameboy', 'genesis', 'arcade');
+
+CREATE TABLE games (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT,
+    console console_type NOT NULL,
+    genre VARCHAR(100),
+    year_released INTEGER,
+    publisher VARCHAR(100),
+    developer VARCHAR(100),
+    rom_path TEXT NOT NULL,
+    cover_image_url TEXT,
+    screenshot_urls TEXT[],
+    metadata JSONB DEFAULT '{}',
+    status game_status DEFAULT 'active',
+    play_count INTEGER DEFAULT 0,
+    average_rating DECIMAL(3,2) DEFAULT 0.00,
+    file_size BIGINT,
+    checksum VARCHAR(64),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE game_categories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(100) UNIQUE NOT NULL,
+    description TEXT,
+    color VARCHAR(7), -- Hex color
+    icon VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE game_category_mappings (
+    game_id UUID REFERENCES games(id) ON DELETE CASCADE,
+    category_id UUID REFERENCES game_categories(id) ON DELETE CASCADE,
+    PRIMARY KEY (game_id, category_id)
+);
+
+- - Índices para juegos
+CREATE INDEX idx_games_slug ON games(slug);
+CREATE INDEX idx_games_console ON games(console);
+CREATE INDEX idx_games_status ON games(status);
+CREATE INDEX idx_games_genre ON games(genre);
+CREATE INDEX idx_games_title_search ON games USING gin(to_tsvector('english', title));
+
+```
+
+</Tab>
+<Tab title="Sesiones y Puntuaciones">
+
+```sql
+
+- - game_sessions.sql
+CREATE TABLE game_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    game_id UUID REFERENCES games(id) ON DELETE CASCADE,
+    save_state JSONB,
+    save_state_url TEXT, -- S3 URL para estados grandes
+    play_time INTEGER DEFAULT 0, -- en segundos
+    level_reached INTEGER,
+    lives_remaining INTEGER,
+    session_metadata JSONB DEFAULT '{}',
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_played TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    is_completed BOOLEAN DEFAULT false
+);
+
+CREATE TABLE scores (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    game_id UUID REFERENCES games(id) ON DELETE CASCADE,
+    score INTEGER NOT NULL,
+    level_reached INTEGER,
+    play_time INTEGER, -- tiempo jugado para alcanzar la puntuación
+    metadata JSONB DEFAULT '{}', -- información adicional del juego
+    is_verified BOOLEAN DEFAULT false,
+    achieved_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE leaderboards (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    game_id UUID REFERENCES games(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    score_type VARCHAR(50) DEFAULT 'high_score', -- high_score, low_time, etc.
+    is_active BOOLEAN DEFAULT true,
+    reset_frequency VARCHAR(20), -- daily, weekly, monthly, never
+    last_reset TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+- - Índices para sesiones y puntuaciones
+CREATE INDEX idx_game_sessions_user_game ON game_sessions(user_id, game_id);
+CREATE INDEX idx_game_sessions_last_played ON game_sessions(last_played);
+CREATE INDEX idx_scores_game_score ON scores(game_id, score DESC);
+CREATE INDEX idx_scores_user_game ON scores(user_id, game_id);
+
+```
+
+</Tab>
+<Tab title="Logros y Estadísticas">
+
+```sql
+
+- - achievements.sql
+CREATE TYPE achievement_type AS ENUM ('score', 'time', 'level', 'special', 'collection');
+
+CREATE TABLE achievements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    game_id UUID REFERENCES games(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    type achievement_type NOT NULL,
+    criteria JSONB NOT NULL, -- condiciones para desbloquear
+    points INTEGER DEFAULT 0,
+    icon_url TEXT,
+    rarity VARCHAR(20) DEFAULT 'common', -- common, uncommon, rare, epic, legendary
+    is_secret BOOLEAN DEFAULT false,
+    unlock_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE user_achievements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    achievement_id UUID REFERENCES achievements(id) ON DELETE CASCADE,
+    progress JSONB DEFAULT '{}',
+    unlocked_at TIMESTAMP WITH TIME ZONE,
+    notification_sent BOOLEAN DEFAULT false,
+    UNIQUE(user_id, achievement_id)
+);
+
+CREATE TABLE user_statistics (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    total_play_time INTEGER DEFAULT 0,
+    total_games_played INTEGER DEFAULT 0,
+    total_score BIGINT DEFAULT 0,
+    achievements_unlocked INTEGER DEFAULT 0,
+    favorite_console console_type,
+    streak_days INTEGER DEFAULT 0,
+    last_activity TIMESTAMP WITH TIME ZONE,
+    statistics JSONB DEFAULT '{}',
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+- - Índices para logros
+CREATE INDEX idx_achievements_game ON achievements(game_id);
+CREATE INDEX idx_user_achievements_user ON user_achievements(user_id);
+CREATE INDEX idx_user_achievements_unlocked ON user_achievements(unlocked_at);
+CREATE INDEX idx_user_statistics_user ON user_statistics(user_id);
+
+```
+
+</Tab>
+</Tabs>
+
+## 4.3.5. Migraciones
+
+### Sistema de Migraciones
+
+```javascript
+// migrations/migrator.js
+const fs = require('fs');
+const path = require('path');
+const { pool } = require('../config/database');
+
+class Migrator {
+  constructor() {
+    this.migrationsPath = path.join(__dirname, 'migrations');
+  }
+
+  async createMigrationsTable() {
+    const query = `
+      CREATE TABLE IF NOT EXISTS migrations (
+        id SERIAL PRIMARY KEY,
+        filename VARCHAR(255) NOT NULL UNIQUE,
+        executed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `;
+    await pool.query(query);
+  }
+
+  async getExecutedMigrations() {
+    const result = await pool.query('SELECT filename FROM migrations ORDER BY id');
+    return result.rows.map(row => row.filename);
+  }
+
+  async executeMigration(filename) {
+    const migrationPath = path.join(this.migrationsPath, filename);
+    const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(migrationSQL);
+      await client.query('INSERT INTO migrations (filename) VALUES ($1)', [filename]);
+      await client.query('COMMIT');
+      console.log(`Migration executed: ${filename}`);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async migrate() {
+    await this.createMigrationsTable();
+
+    const migrationFiles = fs.readdirSync(this.migrationsPath)
+      .filter(file => file.endsWith('.sql'))
+      .sort();
+
+    const executedMigrations = await this.getExecutedMigrations();
+    const pendingMigrations = migrationFiles.filter(file =>
+      !executedMigrations.includes(file)
+    );
+
+    for (const migration of pendingMigrations) {
+      await this.executeMigration(migration);
+    }
+
+    console.log(`Migrations completed. ${pendingMigrations.length} migrations executed.`);
+  }
+}
+
+module.exports = Migrator;
+
+```
+
+### Ejemplos de Migraciones
+
+<Tabs>
+<Tab title="Initial Schema">
+
+```sql
+
+- - migrations/001_initial_schema.sql
+
+- - Crear extensiones necesarias
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+- - Crear tipos enumerados
+CREATE TYPE game_status AS ENUM ('active', 'inactive', 'maintenance');
+CREATE TYPE console_type AS ENUM ('nes', 'snes', 'gameboy', 'genesis', 'arcade');
+CREATE TYPE achievement_type AS ENUM ('score', 'time', 'level', 'special', 'collection');
+
+- - Tabla de usuarios
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    preferences JSONB DEFAULT '{}',
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+- - Tabla de juegos
+CREATE TABLE games (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT,
+    console console_type NOT NULL,
+</Tab>
+</Tab>
+</Tab>
+</Tab>
+</Tab>
+</Tabs>
+
+```

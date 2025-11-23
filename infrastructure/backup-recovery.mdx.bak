@@ -1,0 +1,550 @@
+---
+title: 4.1 Estrategia de Respaldo y Recuperación Ante Desastres
+description: Documentación completa sobre backups, disaster recovery, RPO/RTO y procedimientos
+  de restauración para RetroGameCloud
+icon: shield-check
+---
+
+# 4.1 Estrategia de Respaldo y Recuperación ante Desastres
+
+<Note>
+Esta documentación cubre la estrategia completa de backup y disaster recovery (DR) para la plataforma RetroGameCloud, incluyendo objetivos de recuperación, procedimientos automatizados y runbooks de emergencia.
+</Note>
+
+## 4.1.1 Objetivos de Recuperación
+
+### RPO (Recovery Point Objective)
+
+- **Base de Datos Principal**: 1 hora máximo
+
+- **Archivos de Juegos (S3)**: 24 horas máximo
+
+- **Configuraciones de Kubernetes**: 1 hora máximo
+
+- **Configuración Kong Gateway**: 1 hora máximo
+
+### RTO (Recovery Time Objective)
+
+- **Servicios Críticos**: 4 horas máximo
+
+- **Base de Datos**: 2 horas máximo
+
+- **Frontend y CDN**: 30 minutos máximo
+
+- **API Gateway**: 1 hora máximo
+
+## 4.1.2 Configuración de Backups Automatizados
+
+### Base de Datos RDS PostgreSQL
+
+<Tabs>
+<Tab title="Configuración Terraform">
+
+```hcl
+resource "aws_db_instance" "retrogamecloud_db" {
+  identifier = "retrogamecloud-prod"
+
+  # Configuración de backups automatizados
+  backup_retention_period = 7
+  backup_window          = "03:00-04:00"
+  maintenance_window     = "sun:04:00-sun:05:00"
+
+  # Snapshots finales
+  final_snapshot_identifier = "retrogamecloud-final-snapshot"
+  skip_final_snapshot      = false
+
+  # Cifrado
+  storage_encrypted = true
+
+  # Multi-AZ para alta disponibilidad
+  multi_az = true
+
+  # Monitoreo mejorado
+  monitoring_interval = 60
+  monitoring_role_arn = aws_iam_role.rds_enhanced_monitoring.arn
+
+  tags = {
+    Environment = "production"
+    Backup      = "automated"
+  }
+}
+
+# Snapshots manuales programados
+resource "aws_lambda_function" "db_snapshot" {
+  filename      = "db_snapshot.zip"
+  function_name = "retrogamecloud-manual-snapshot"
+  role         = aws_iam_role.lambda_snapshot_role.arn
+  handler      = "index.handler"
+  runtime      = "python3.9"
+  timeout      = 300
+
+  environment {
+    variables = {
+      DB_INSTANCE_ID = aws_db_instance.retrogamecloud_db.id
+    }
+  }
+}
+
+# EventBridge para programar snapshots
+resource "aws_cloudwatch_event_rule" "daily_snapshot" {
+  name                = "daily-db-snapshot"
+  description         = "Trigger daily database snapshots"
+  schedule_expression = "cron(0 6 * * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "lambda_target" {
+  rule      = aws_cloudwatch_event_rule.daily_snapshot.name
+  target_id = "TriggerLambdaFunction"
+  arn       = aws_lambda_function.db_snapshot.arn
+}
+
+```
+
+</Tab>
+<Tab title="Script Lambda Snapshot">
+
+```python
+import boto3
+import json
+from datetime import datetime, timezone
+
+def lambda_handler(event, context):
+    rds = boto3.client('rds')
+
+    db_instance_id = os.environ['DB_INSTANCE_ID']
+    timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d-%H-%M-%S')
+    snapshot_id = f"{db_instance_id}-manual-{timestamp}"
+
+    try:
+        response = rds.create_db_snapshot(
+            DBSnapshotIdentifier=snapshot_id,
+            DBInstanceIdentifier=db_instance_id,
+            Tags=[
+                {
+                    'Key': 'Type',
+                    'Value': 'Manual'
+                },
+                {
+                    'Key': 'CreatedBy',
+                    'Value': 'Lambda'
+                },
+                {
+                    'Key': 'Environment',
+                    'Value': 'production'
+                }
+            ]
+        )
+
+        return {
+            'statusCode': 200,
+            'body': json.dumps({
+                'message': f'Snapshot {snapshot_id} created successfully',
+                'snapshot_arn': response['DBSnapshot']['DBSnapshotArn']
+            })
+        }
+    except Exception as e:
+        print(f"Error creating snapshot: {str(e)}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': str(e)})
+        }
+
+```
+
+</Tab>
+</Tabs>
+
+### Almacenamiento S3 - Cross-Region Replication
+
+<Tabs>
+<Tab title="Configuración Terraform">
+
+```hcl
+
+# Bucket principal
+resource "aws_s3_bucket" "game_assets" {
+  bucket = "retrogamecloud-assets-prod"
+}
+
+# Bucket de respaldo en región secundaria
+resource "aws_s3_bucket" "game_assets_backup" {
+  bucket   = "retrogamecloud-assets-backup"
+  provider = aws.backup_region
+}
+
+# Configuración de versionado
+resource "aws_s3_bucket_versioning" "game_assets_versioning" {
+  bucket = aws_s3_bucket.game_assets.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# Replicación cross-region
+resource "aws_s3_bucket_replication_configuration" "replication" {
+  role   = aws_iam_role.replication.arn
+  bucket = aws_s3_bucket.game_assets.id
+
+  rule {
+    id     = "ReplicateAll"
+    status = "Enabled"
+
+    destination {
+      bucket        = aws_s3_bucket.game_assets_backup.arn
+      storage_class = "STANDARD_IA"
+
+      encryption_configuration {
+        replica_kms_key_id = aws_kms_key.backup_region_key.arn
+      }
+    }
+  }
+
+  depends_on = [aws_s3_bucket_versioning.game_assets_versioning]
+}
+
+# Lifecycle policies para optimización de costos
+resource "aws_s3_bucket_lifecycle_configuration" "lifecycle" {
+  bucket = aws_s3_bucket.game_assets.id
+
+  rule {
+    id     = "game_assets_lifecycle"
+    status = "Enabled"
+
+    noncurrent_version_transition {
+      noncurrent_days = 30
+      storage_class   = "STANDARD_IA"
+    }
+
+    noncurrent_version_transition {
+      noncurrent_days = 90
+      storage_class   = "GLACIER"
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = 365
+    }
+  }
+}
+
+```
+
+</Tab>
+</Tabs>
+
+### Backups de Kubernetes con Velero
+
+<Tabs>
+<Tab title="Configuración Helm">
+
+```yaml
+
+# values-velero.yaml
+velero:
+  configuration:
+    provider: aws
+    backupStorageLocation:
+      bucket: retrogamecloud-velero-backups
+      config:
+        region: us-east-1
+        s3ForcePathStyle: false
+    volumeSnapshotLocation:
+      config:
+        region: us-east-1
+
+  credentials:
+    useSecret: true
+    existingSecret: velero-credentials
+
+  schedules:
+    daily:
+      disabled: false
+      schedule: "0 2 * * *"
+      template:
+        ttl: "720h"  # 30 días
+        includedNamespaces:
+        - retrogamecloud
+        - kong
+        - monitoring
+        storageLocation: default
+        volumeSnapshotLocations:
+        - default
+
+    weekly:
+      disabled: false
+      schedule: "0 3 * * 0"  # Domingos
+      template:
+        ttl: "2160h"  # 90 días
+        includedNamespaces:
+        - retrogamecloud
+        - kong
+        - monitoring
+
+  deployRestic: true
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+```
+
+</Tab>
+<Tab title="Script de Instalación">
+
+```bash
+#!/bin/bash
+
+# install-velero.sh
+
+set -e
+
+NAMESPACE="velero"
+BUCKET_NAME="retrogamecloud-velero-backups"
+REGION="us-east-1"
+
+echo "Installing Velero for Kubernetes backup..."
+
+# Crear namespace
+kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+
+# Crear bucket S3 si no existe
+aws s3api create-bucket \
+  --bucket $BUCKET_NAME \
+  --region $REGION \
+  --create-bucket-configuration LocationConstraint=$REGION
+
+# Crear política IAM para Velero
+cat > velero-policy.json << EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeVolumes",
+                "ec2:DescribeSnapshots",
+                "ec2:CreateTags",
+                "ec2:CreateVolume",
+                "ec2:CreateSnapshot",
+                "ec2:DeleteSnapshot"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:DeleteObject",
+                "s3:PutObject",
+                "s3:AbortMultipartUpload",
+                "s3:ListMultipartUploadParts"
+            ],
+            "Resource": [
+                "arn:aws:s3:::$BUCKET_NAME/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::$BUCKET_NAME"
+            ]
+        }
+    ]
+}
+EOF
+
+# Aplicar política
+aws iam create-policy \
+  --policy-name VeleroBackupPolicy \
+  --policy-document file://velero-policy.json
+
+# Instalar Velero usando Helm
+helm repo add vmware-tanzu https://vmware-tanzu.github.io/helm-charts/
+helm repo update
+
+helm upgrade --install velero vmware-tanzu/velero \
+  --namespace $NAMESPACE \
+  --values values-velero.yaml \
+  --wait
+
+echo "Velero installed successfully!"
+
+```
+
+</Tab>
+</Tabs>
+
+## 4.1.3 Procedimientos de Recuperación
+
+### Recuperación de Base de Datos
+
+<Tabs>
+<Tab title="Desde Snapshot Automático">
+
+```bash
+#!/bin/bash
+
+# restore-db-from-snapshot.sh
+
+set -e
+
+DB_INSTANCE_ID="retrogamecloud-prod"
+SNAPSHOT_ID="$1"
+NEW_INSTANCE_ID="retrogamecloud-restored-$(date +%Y%m%d-%H%M%S)"
+
+if [ -z "$SNAPSHOT_ID" ]; then
+  echo "Usage: $0 <snapshot-id>"
+  echo "Available snapshots:"
+  aws rds describe-db-snapshots \
+    --db-instance-identifier $DB_INSTANCE_ID \
+    --query 'DBSnapshots[*].[DBSnapshotIdentifier,SnapshotCreateTime]' \
+    --output table
+  exit 1
+fi
+
+echo "Restoring database from snapshot: $SNAPSHOT_ID"
+
+# Restaurar desde snapshot
+aws rds restore-db-instance-from-db-snapshot \
+  --db-instance-identifier $NEW_INSTANCE_ID \
+  --db-snapshot-identifier $SNAPSHOT_ID \
+  --db-instance-class db.t3.medium \
+  --multi-az \
+  --storage-encrypted \
+  --vpc-security-group-ids sg-xxxxxxxxx \
+  --db-subnet-group-name retrogamecloud-db-subnet-group
+
+echo "Waiting for database to be available..."
+aws rds wait db-instance-available --db-instance-identifier $NEW_INSTANCE_ID
+
+# Obtener endpoint de la nueva instancia
+NEW_ENDPOINT=$(aws rds describe-db-instances \
+  --db-instance-identifier $NEW_INSTANCE_ID \
+  --query 'DBInstances[0].Endpoint.Address' \
+  --output text)
+
+echo "Database restored successfully!"
+echo "New endpoint: $NEW_ENDPOINT"
+echo "Update your application configuration to use the new endpoint."
+
+```
+
+</Tab>
+<Tab title="Point-in-Time Recovery">
+
+```bash
+#!/bin/bash
+
+# point-in-time-restore.sh
+
+set -e
+
+DB_INSTANCE_ID="retrogamecloud-prod"
+RESTORE_TIME="$1"
+NEW_INSTANCE_ID="retrogamecloud-pitr-$(date +%Y%m%d-%H%M%S)"
+
+if [ -z "$RESTORE_TIME" ]; then
+  echo "Usage: $0 <restore-time-utc>"
+  echo "Format: YYYY-MM-DDTHH:MM:SSZ"
+  echo "Example: 2024-01-15T10:30:00Z"
+  exit 1
+fi
+
+echo "Performing point-in-time restore to: $RESTORE_TIME"
+
+# Verificar que el tiempo esté dentro del período de retención
+LATEST_RESTORE_TIME=$(aws rds describe-db-instances \
+  --db-instance-identifier $DB_INSTANCE_ID \
+  --query 'DBInstances[0].LatestRestorableTime' \
+  --output text)
+
+echo "Latest restorable time: $LATEST_RESTORE_TIME"
+
+# Restaurar a punto específico en el tiempo
+aws rds restore-db-instance-to-point-in-time \
+  --source-db-instance-identifier $DB_INSTANCE_ID \
+  --target-db-instance-identifier $NEW_INSTANCE_ID \
+  --restore-time $RESTORE_TIME \
+  --db-instance-class db.t3.medium \
+  --multi-az \
+  --vpc-security-group-ids sg-xxxxxxxxx \
+  --db-subnet-group-name retrogamecloud-db-subnet-group
+
+echo "Point-in-time restore initiated. Instance ID: $NEW_INSTANCE_ID"
+
+```
+
+</Tab>
+</Tabs>
+
+### Recuperación de Aplicaciones Kubernetes
+
+<Tabs>
+<Tab title="Restauración con Velero">
+
+```bash
+#!/bin/bash
+
+# restore-k8s-backup.sh
+
+set -e
+
+BACKUP_NAME="$1"
+NAMESPACE="retrogamecloud"
+
+if [ -z "$BACKUP_NAME" ]; then
+  echo "Usage: $0 <backup-name>"
+  echo "Available backups:"
+  velero backup get
+  exit 1
+fi
+
+echo "Restoring Kubernetes backup: $BACKUP_NAME"
+
+# Crear restore desde backup
+velero restore create \
+  --from-backup $BACKUP_NAME \
+  --restore-volumes=true \
+  --wait
+
+# Verificar estado del restore
+RESTORE_NAME=$(velero restore get --selector velero.io/backup-name=$BACKUP_NAME -o name | head -n1)
+
+echo "Restore created: $RESTORE_NAME"
+echo "Checking restore status..."
+
+velero restore describe $RESTORE_NAME
+
+# Verificar pods después del restore
+echo "Checking pod status in namespace $NAMESPACE..."
+kubectl get pods -n $NAMESPACE
+
+```
+
+</Tab>
+<Tab title="Restauración Selectiva">
+
+```bash
+#!/bin/bash
+
+# selective-restore.sh
+
+set -e
+
+BACKUP_NAME="$1"
+RESOURCE_TYPE="$2"
+RESOURCE
+</Tab>
+</Tab>
+</Tab>
+</Tab>
+</Tab>
+</Tabs>
+
+```

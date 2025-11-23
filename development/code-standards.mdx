@@ -1,604 +1,552 @@
 ---
-title: Guía de Contribución y Estándares de Código
-description: 'Proceso completo para contribuir al proyecto RetroGameCloud: pull requests,
-  estándares de código, testing y revisiones'
-icon: code-pull-request
+title: Estándares de Código
+description: 'Guía de estándares de código, convenciones y mejores prácticas para RetroGameCloud'
+icon: code
 ---
 
-# Guía de Contribución y Estándares de Código
+# Estándares de Código
 
-Esta guía define el proceso completo para contribuir al proyecto RetroGameCloud, incluyendo estándares de código, requisitos de testing y el flujo de trabajo de desarrollo.
+Esta guía establece los estándares de código, convenciones de nomenclatura y mejores prácticas para mantener un código base consistente y mantenible en RetroGameCloud.
 
-## Proceso de Contribución
+## Filosofía de Código
 
-### 1. Preparación del Entorno
+<CardGroup cols={2}>
+  <Card title="Clean Code" icon="broom">
+    Código legible y auto-documentado
+  </Card>
+  
+  <Card title="SOLID Principles" icon="cube">
+    Principios de diseño orientado a objetos
+  </Card>
+  
+  <Card title="DRY" icon="clone">
+    Don't Repeat Yourself
+  </Card>
+  
+  <Card title="KISS" icon="heart">
+    Keep It Simple, Stupid
+  </Card>
+</CardGroup>
 
-<Tabs>
-  <Tab title="Configuración Inicial">
-    ```bash
-    # Fork del repositorio y clonado
-    git clone https://github.com/tu-usuario/retro-game-cloud.git
-    cd retro-game-cloud
+## Convenciones de Nomenclatura
 
-    # Configuración de upstream
-    git remote add upstream https://github.com/original/retro-game-cloud.git
-
-    # Instalación de dependencias
-    npm install
-
-    # Configuración de hooks de pre-commit
-    npm run prepare
-    ```
-
-    <Note>
-    La instalación debería completarse sin errores. Si encuentras problemas con dependencias, verifica que estés usando Node.js 18+ y npm 9+.
-    </Note>
-
-  </Tab>
-
-  <Tab title="Variables de Entorno">
-    ```bash
-    # Copia el archivo de ejemplo
-    cp .env.example .env.local
-
-    # Configuración mínima para desarrollo
-    NODE_ENV=development
-    DATABASE_URL=postgresql://localhost:5432/retrogame_dev
-    JWT_SECRET=your-dev-secret
-    AWS_REGION=eu-west-1
-    ```
-
-    **Salida esperada en `.env.local`:**
-    ```env
-    NODE_ENV=development
-    DATABASE_URL=postgresql://localhost:5432/retrogame_dev
-    JWT_SECRET=your-dev-secret
-    AWS_REGION=eu-west-1
-    NEXTAUTH_URL=http://localhost:3000
-    ```
-
-  </Tab>
-</Tabs>
-
-### 2. Creación de Branches
-
-<Note>
-Siempre crea tu branch desde `main` actualizado y usa nomenclatura descriptiva.
-</Note>
-
-```bash
-
-# Actualizar main
-git checkout main
-git pull upstream main
-
-# Crear nueva rama con nomenclatura estándar
-git checkout -b feature/nueva-funcionalidad
-
-# Para correcciones de bugs
-git checkout -b fix/correccion-bug
-
-# Para actualizaciones de documentación
-git checkout -b docs/actualizacion-readme
-
-```
-
-* *Verificación del branch:**
-
-```bash
-
-# Confirmar que estás en el branch correcto
-git branch --show-current
-
-# Output: feature/nueva-funcionalidad
-
-```
-
-## Convenciones de Commits
-
-### Formato Estándar
-
-Utilizamos [Conventional Commits](https://www.conventionalcommits.org/es/) con el siguiente formato:
-
-```text
-<tipo>(<ámbito>): <descripción>
-
-[cuerpo opcional]
-
-[pie opcional]
-
-```
-
-### Tipos de Commit
-
-<Card title="Tipos Principales" icon="git-branch">
-
-- `feat`: Nueva funcionalidad
-
-- `fix`: Corrección de errores
-
-- `docs`: Cambios en documentación
-
-- `style`: Cambios de formato (espacios, comas, etc.)
-
-- `refactor`: Refactorización de código
-
-- `test`: Añadir o modificar tests
-
-- `chore`: Tareas de mantenimiento
-</Card>
-
-### Ejemplos de Commits
-
-```bash
-
-# Funcionalidad nueva
-git commit -m "feat(auth): implementar autenticación con Google OAuth"
-
-# Corrección de bug
-git commit -m "fix(api): corregir validación de datos en endpoint /games"
-
-# Documentación
-git commit -m "docs(readme): actualizar instrucciones de instalación"
-
-# Refactorización
-git commit -m "refactor(utils): simplificar función de validación de ROMs"
-
-```
-
-## Estándares de Código
-
-### JavaScript/TypeScript
+### Variables y Funciones
 
 <Tabs>
-  <Tab title="Naming Conventions">
-    ```typescript
-    // ✅ Correcto - camelCase para variables y funciones
-    const gameTitle = "Super Mario Bros";
-    const calculateScore = (points: number) => points * 2;
+  <Tab title="TypeScript/JavaScript">
+```typescript
+// ✅ CORRECTO: camelCase para variables y funciones
+const userName = 'John Doe';
+const userAge = 25;
 
-    // ✅ Correcto - PascalCase para clases y componentes
-    class GameManager {
-      private playerCount: number;
-    }
-
-    // ✅ Correcto - UPPER_SNAKE_CASE para constantes
-    const MAX_PLAYERS = 4;
-    const API_ENDPOINTS = {
-      GAMES: '/api/games',
-      USERS: '/api/users'
-    } as const;
-
-    // ❌ Incorrecto
-    const game_title = "Super Mario Bros"; // snake_case
-    const CalculateScore = () => {}; // PascalCase para función
-    ```
-
-    **Resultado esperado en el linter:**
-    ```bash
-    ✓ No naming convention violations found
-    ```
-
-  </Tab>
-
-  <Tab title="Estructura de Funciones">
-    ```typescript
-    // ✅ Correcto - Función bien estructurada
-    /**
-     * Calcula el puntaje final del jugador
-     * @param baseScore - Puntaje base obtenido
-     * @param multiplier - Multiplicador por dificultad
-     * @param timeBonus - Bonus por tiempo restante
-     * @returns Puntaje final calculado
-     */
-    export const calculateFinalScore = (
-      baseScore: number,
-      multiplier: number = 1,
-      timeBonus: number = 0
-    ): number => {
-      // Validar inputs
-      if (baseScore < 0 || multiplier < 0) {
-        throw new Error('Score values cannot be negative');
-      }
-
-      // Cálculo principal
-      const multipliedScore = baseScore * multiplier;
-      const finalScore = multipliedScore + timeBonus;
-
-      return Math.round(finalScore);
-    };
-
-    // Ejemplo de uso
-    const playerScore = calculateFinalScore(1000, 1.5, 200);
-    // Expected output: 1700
-    ```
-
-  </Tab>
-
-  <Tab title="Manejo de Errores">
-    ```typescript
-    // ✅ Correcto - Manejo de errores consistente
-    export const fetchGameData = async (gameId: string): Promise<Game> => {
-      try {
-        // Validación de input
-        if (!gameId || gameId.trim() === '') {
-          throw new ValidationError('Game ID is required');
-        }
-
-        // Llamada a API
-        const response = await fetch(`/api/games/${gameId}`);
-
-        // Manejo de respuestas HTTP
-        if (!response.ok) {
-          throw new APIError(
-            `Failed to fetch game: ${response.status} ${response.statusText}`
-          );
-        }
-
-        const gameData = await response.json();
-        return gameData;
-
-      } catch (error) {
-        // Log estructurado
-        console.error('Error fetching game data:', {
-          gameId,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-
-        // Re-throw para que el caller pueda manejar
-        throw error;
-      }
-    };
-
-    // Uso con manejo de errores
-    try {
-      const game = await fetchGameData('mario-bros-3');
-      console.log(`Loaded game: ${game.title}`);
-    } catch (error) {
-      // Handle error appropriately
-    }
-    ```
-
-  </Tab>
-</Tabs>
-
-### React Components
-
-```tsx
-// ✅ Componente bien estructurado
-interface GameCardProps {
-  /** Datos del juego a mostrar */
-  game: Game;
-  /** Callback cuando se selecciona el juego */
-  onSelect?: (gameId: string) => void;
-  /** Mostrar información adicional */
-  showDetails?: boolean;
+function calculateScore(points: number): number {
+  return points * 10;
 }
 
-/**
- * Tarjeta que muestra información de un juego retro
- */
-export const GameCard: React.FC<GameCardProps> = ({
-  game,
-  onSelect,
-  showDetails = false
-}) => {
-  // Hooks al inicio
-  const [isLoading, setIsLoading] = useState(false);
+// ❌ INCORRECTO
+const UserName = 'John Doe';  // PascalCase solo para clases
+const user_name = 'John Doe'; // snake_case no se usa en JS/TS
+```
+  </Tab>
 
-  // Event handlers
-  const handleCardClick = useCallback(() => {
-    if (onSelect) {
-      setIsLoading(true);
-      onSelect(game.id);
-    }
-  }, [game.id, onSelect]);
+  <Tab title="Python">
+```python
+# ✅ CORRECTO: snake_case para variables y funciones
+user_name = "John Doe"
+user_age = 25
 
-  // Early returns para casos especiales
+def calculate_score(points: int) -> int:
+    return points * 10
+
+# ❌ INCORRECTO
+userName = "John Doe"  # camelCase no es pythonic
+UserName = "John Doe"  # PascalCase solo para clases
+```
+  </Tab>
+</Tabs>
+
+### Clases e Interfaces
+
+<Tabs>
+  <Tab title="TypeScript">
+```typescript
+// ✅ CORRECTO: PascalCase para clases e interfaces
+class UserService {
+  private readonly repository: UserRepository;
+
+  constructor(repository: UserRepository) {
+    this.repository = repository;
+  }
+
+  async findById(id: string): Promise<User> {
+    return this.repository.findById(id);
+  }
+}
+
+interface GameScore {
+  userId: string;
+  gameId: string;
+  score: number;
+  timestamp: Date;
+}
+
+// ❌ INCORRECTO
+class userService {} // debe ser PascalCase
+interface gameScore {} // debe ser PascalCase
+```
+  </Tab>
+
+  <Tab title="Python">
+```python
+# ✅ CORRECTO: PascalCase para clases
+class UserService:
+    def __init__(self, repository: UserRepository):
+        self.repository = repository
+
+    async def find_by_id(self, user_id: str) -> User:
+        return await self.repository.find_by_id(user_id)
+
+# ❌ INCORRECTO
+class user_service:  # debe ser PascalCase
+    pass
+```
+  </Tab>
+</Tabs>
+
+### Constantes
+
+```typescript
+// ✅ CORRECTO: SCREAMING_SNAKE_CASE para constantes
+const MAX_RETRY_ATTEMPTS = 3;
+const API_BASE_URL = 'https://api.retrogamehub.games';
+const DEFAULT_TIMEOUT_MS = 5000;
+
+// ❌ INCORRECTO
+const maxRetryAttempts = 3;  // debe ser SCREAMING_SNAKE_CASE
+const apiBaseUrl = 'https://api.example.com';
+```
+
+## Estructura de Archivos
+
+### Organización por Feature
+
+```
+src/
+├── features/
+│   ├── auth/
+│   │   ├── services/
+│   │   │   └── auth.service.ts
+│   │   ├── controllers/
+│   │   │   └── auth.controller.ts
+│   │   ├── models/
+│   │   │   └── user.model.ts
+│   │   ├── repositories/
+│   │   │   └── user.repository.ts
+│   │   └── tests/
+│   │       ├── auth.service.test.ts
+│   │       └── auth.controller.test.ts
+│   ├── games/
+│   │   ├── services/
+│   │   ├── controllers/
+│   │   └── models/
+│   └── scores/
+│       ├── services/
+│       ├── controllers/
+│       └── models/
+├── shared/
+│   ├── utils/
+│   ├── middleware/
+│   └── types/
+└── config/
+    ├── database.ts
+    ├── redis.ts
+    └── aws.ts
+```
+
+## Mejores Prácticas por Lenguaje
+
+### TypeScript/Node.js
+
+<Tabs>
+  <Tab title="Async/Await">
+```typescript
+// ✅ CORRECTO: Usar async/await
+async function getUserScores(userId: string): Promise<Score[]> {
+  try {
+    const scores = await scoreRepository.findByUserId(userId);
+    return scores;
+  } catch (error) {
+    logger.error('Error fetching scores', { userId, error });
+    throw new DatabaseError('Failed to fetch scores');
+  }
+}
+
+// ❌ INCORRECTO: Promises anidadas
+function getUserScores(userId: string): Promise<Score[]> {
+  return scoreRepository.findByUserId(userId)
+    .then(scores => {
+      return scores;
+    })
+    .catch(error => {
+      logger.error('Error', error);
+      throw error;
+    });
+}
+```
+  </Tab>
+
+  <Tab title="Error Handling">
+```typescript
+// ✅ CORRECTO: Errores tipados y específicos
+class NotFoundError extends Error {
+  constructor(resource: string, id: string) {
+    super(`${resource} with id ${id} not found`);
+    this.name = 'NotFoundError';
+  }
+}
+
+async function getGame(id: string): Promise<Game> {
+  const game = await gameRepository.findById(id);
+  
   if (!game) {
-    return <div>No game data available</div>;
+    throw new NotFoundError('Game', id);
   }
+  
+  return game;
+}
 
-  // Render principal
-  return (
-    <div
-      className="game-card"
-      onClick={handleCardClick}
-      role="button"
-      tabIndex={0}
-    >
-      <img
-        src={game.coverUrl}
-        alt={`${game.title} cover`}
-        loading="lazy"
-      />
-      <h3>{game.title}</h3>
-
-      {showDetails && (
-        <div className="game-details">
-          <p>Platform: {game.platform}</p>
-          <p>Year: {game.releaseYear}</p>
-        </div>
-      )}
-
-      {isLoading && <LoadingSpinner />}
-    </div>
-  );
-};
-
+// ❌ INCORRECTO: Errores genéricos
+async function getGame(id: string): Promise<Game | null> {
+  try {
+    return await gameRepository.findById(id);
+  } catch (e) {
+    console.log('Error:', e);  // No usar console.log
+    return null;  // Oculta el error
+  }
+}
 ```
+  </Tab>
 
-## Testing Requirements
-
-### Unit Tests
-
+  <Tab title="Dependency Injection">
 ```typescript
-// ✅ Test bien estructurado
-import { calculateFinalScore } from '../utils/scoring';
+// ✅ CORRECTO: Inyección de dependencias
+class ScoreService {
+  constructor(
+    private readonly repository: ScoreRepository,
+    private readonly cache: CacheService,
+    private readonly eventBus: EventBus
+  ) {}
 
-describe('calculateFinalScore', () => {
-  // Test case básico
-  it('should calculate correct final score with all parameters', () => {
-    // Arrange
-    const baseScore = 1000;
-    const multiplier = 1.5;
-    const timeBonus = 200;
-
-    // Act
-    const result = calculateFinalScore(baseScore, multiplier, timeBonus);
-
-    // Assert
-    expect(result).toBe(1700);
-  });
-
-  // Test edge cases
-  it('should handle zero values correctly', () => {
-    expect(calculateFinalScore(0, 1, 0)).toBe(0);
-  });
-
-  it('should throw error for negative base score', () => {
-    expect(() => calculateFinalScore(-100, 1, 0))
-      .toThrow('Score values cannot be negative');
-  });
-
-  // Test con valores por defecto
-  it('should use default multiplier when not provided', () => {
-    const result = calculateFinalScore(1000);
-    expect(result).toBe(1000); // multiplier = 1, timeBonus = 0
-  });
-});
-
-```
-
-* *Ejecutar tests:**
-
-```bash
-
-# Ejecutar todos los tests
-npm test
-
-# Output esperado:
-
-# PASS  src/utils/__tests__/scoring.test.ts
-
-# calculateFinalScore
-
-# ✓ should calculate correct final score (2 ms)
-
-# ✓ should handle zero values correctly (1 ms)
-
-# ✓ should throw error for negative values (1 ms)
-
-```
-
-### Integration Tests
-
-```typescript
-// ✅ Test de integración para API
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { GamesList } from '../GamesList';
-import { mockApiResponse } from '../../__mocks__/api';
-
-// Mock del API
-jest.mock('../../services/api', () => ({
-  fetchGames: jest.fn(() => Promise.resolve(mockApiResponse.games))
-}));
-
-describe('GamesList Integration', () => {
-  beforeEach(() => {
-    // Reset mocks antes de cada test
-    jest.clearAllMocks();
-  });
-
-  it('should fetch and display games on mount', async () => {
-    // Arrange & Act
-    render(<GamesList />);
-
-    // Assert - Loading state
-    expect(screen.getByText('Loading games...')).toBeInTheDocument();
-
-    // Assert - Data loaded
-    await waitFor(() => {
-      expect(screen.getByText('Super Mario Bros')).toBeInTheDocument();
-      expect(screen.getByText('The Legend of Zelda')).toBeInTheDocument();
-    });
-
-    // Verify API was called
-    expect(fetchGames).toHaveBeenCalledTimes(1);
-  });
-
-  it('should handle game selection', async () => {
-    // Arrange
-    const onGameSelect = jest.fn();
-    render(<GamesList onGameSelect={onGameSelect} />);
-
-    // Wait for games to load
-    await waitFor(() => {
-      expect(screen.getByText('Super Mario Bros')).toBeInTheDocument();
-    });
-
-    // Act - Click on game
-    fireEvent.click(screen.getByText('Super Mario Bros'));
-
-    // Assert
-    expect(onGameSelect).toHaveBeenCalledWith('mario-bros-1');
-  });
-});
-
-```
-
-## Pre-commit Hooks
-
-El proyecto incluye hooks automáticos que se ejecutan antes de cada commit:
-
-```json
-// package.json - Configuración de husky
-{
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged",
-      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
-    }
-  },
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx}": [
-      "eslint --fix",
-      "prettier --write",
-      "git add"
-    ],
-    "*.{json,md,mdx}": [
-      "prettier --write",
-      "git add"
-    ]
+  async submitScore(data: SubmitScoreDto): Promise<Score> {
+    const score = await this.repository.create(data);
+    await this.cache.invalidate(`scores:${data.gameId}`);
+    await this.eventBus.publish('score.submitted', score);
+    return score;
   }
 }
 
+// ❌ INCORRECTO: Dependencias hardcoded
+class ScoreService {
+  async submitScore(data: SubmitScoreDto): Promise<Score> {
+    const repository = new ScoreRepository();  // ❌ No testeable
+    const cache = Redis.getInstance();  // ❌ Acoplamiento alto
+    // ...
+  }
+}
 ```
+  </Tab>
+</Tabs>
 
-* *Ejemplo de ejecución:**
+### Python
 
-```bash
-git commit -m "feat(games): add game filtering functionality"
+<Tabs>
+  <Tab title="Type Hints">
+```python
+# ✅ CORRECTO: Usar type hints
+from typing import List, Optional
+from datetime import datetime
 
-# Output esperado:
+def calculate_ranking(
+    scores: List[dict],
+    limit: int = 10
+) -> List[dict]:
+    """
+    Calcula el ranking de jugadores basado en scores.
+    
+    Args:
+        scores: Lista de scores con user_id y points
+        limit: Número máximo de resultados
+        
+    Returns:
+        Lista ordenada de rankings
+    """
+    sorted_scores = sorted(
+        scores,
+        key=lambda x: x['points'],
+        reverse=True
+    )
+    return sorted_scores[:limit]
 
-# ✓ Preparing...
-
-# ✓ Running tasks...
-
-# ✓ Applying modifications...
-
-# ✓ Cleaning up...
-
-# [feature/game-filtering abc1234] feat(games): add game filtering functionality
-
+# ❌ INCORRECTO: Sin type hints
+def calculate_ranking(scores, limit=10):
+    return sorted(scores, key=lambda x: x['points'], reverse=True)[:limit]
 ```
+  </Tab>
 
-## Pull Request Process
+  <Tab title="Context Managers">
+```python
+# ✅ CORRECTO: Usar context managers
+async def get_user_data(user_id: str) -> dict:
+    async with db_pool.acquire() as conn:
+        async with conn.cursor() as cursor:
+            await cursor.execute(
+                "SELECT * FROM users WHERE id = %s",
+                (user_id,)
+            )
+            return await cursor.fetchone()
 
-### 1. Checklist Pre-PR
-
-```markdown
-
-## Checklist antes de crear PR
-
-- [ ] ✅ Código sigue las convenciones establecidas
-
-- [ ] ✅ Tests añadidos/actualizados (coverage > 80%)
-
-- [ ] ✅ Documentación actualizada si es necesario
-
-- [ ] ✅ No hay warnings en ESLint/TypeScript
-
-- [ ] ✅ Build pasa correctamente (`npm run build`)
-
-- [ ] ✅ Tests pasan (`npm test`)
-
+# ❌ INCORRECTO: Gestión manual de recursos
+async def get_user_data(user_id: str) -> dict:
+    conn = await db_pool.acquire()
+    cursor = await conn.cursor()
+    await cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+    result = await cursor.fetchone()
+    await cursor.close()  # Puede olvidarse
+    await conn.close()  # Puede olvidarse
+    return result
 ```
+  </Tab>
+</Tabs>
 
-### 2. Template de PR
+## Code Review Guidelines
 
-```markdown
-
-## Descripción
-
-Brief descripción de los cambios realizados.
-
-## Tipo de cambio
-
-- [ ] 🐛 Bug fix
-
-- [ ] ✨ Nueva funcionalidad
-
-- [ ] 💥 Breaking change
-
-- [ ] 📚 Documentación
-
-## Testing
-
-Describe las pruebas realizadas:
-
-```bash
-
-# Comandos de testing ejecutados
-npm test -- --coverage
-npm run e2e
-
-# Resultados esperados
-All tests passing ✅
-Coverage: 85% ✅
-
-```
-
-## Screenshots (si aplica)
-
-Antes/Después de cambios en UI.
-
-## Notas adicionales
-
-Cualquier información adicional para los revisores.
-
-```
-
-### 3. Proceso de Review
+### Checklist del Reviewer
 
 <Steps>
-  <Step title="Automated Checks">
-    GitHub Actions ejecutará automáticamente:
-    ```yaml
-    # .github/workflows/pr-checks.yml (ejemplo)
-    name: PR Checks
-    on: [pull_request]
-
-    jobs:
-      test:
-        runs-on: ubuntu-latest
-        steps:
-          - uses: actions/checkout@v3
-          - uses: actions/setup-node@v3
-            with:
-              node-version: '18'
-          - run: npm ci
-          - run: npm run lint
-          - run: npm test -- --coverage
-          - run: npm run build
-    ```
-
+  <Step title="Funcionalidad">
+    - ¿El código hace lo que se supone que debe hacer?
+    - ¿Los edge cases están manejados correctamente?
+    - ¿Los tests cubren los casos principales?
   </Step>
 
-  <Step title="Code Review">
-    Los maintainers revisarán:
-    - Calidad del código
-    - Cobertura de tests
-    - Documentación
-    - Breaking changes
+  <Step title="Diseño">
+    - ¿El código sigue principios SOLID?
+    - ¿Las responsabilidades están bien separadas?
+    - ¿Hay código duplicado que pueda extraerse?
   </Step>
 
-  <Step title="Merge">
-    Una vez aprobado, el PR será merged usando "Squash and merge".
+  <Step title="Legibilidad">
+    - ¿Los nombres de variables/funciones son descriptivos?
+    - ¿El código es auto-documentado o necesita comentarios?
+    - ¿La lógica compleja está explicada?
+  </Step>
+
+  <Step title="Performance">
+    - ¿Hay operaciones O(n²) que puedan optimizarse?
+    - ¿Se están cacheando datos cuando corresponde?
+    - ¿Las queries de DB están optimizadas?
+  </Step>
+
+  <Step title="Seguridad">
+    - ¿Los inputs están validados?
+    - ¿Hay riesgos de SQL injection o XSS?
+    - ¿Los secretos están en variables de entorno?
   </Step>
 </Steps>
 
-## Debugging Guidelines
+### Proceso de PR
 
-### Logging Standards
+```mermaid
+graph LR
+    A[Crear Branch] --> B[Desarrollo]
+    B --> C[Tests Locales]
+    C --> D[Push & PR]
+    D --> E{CI Checks}
+    E -->|❌| F[Fix Issues]
+    F --> C
+    E -->|✅| G[Code Review]
+    G -->|Changes Requested| H[Ajustes]
+    H --> C
+    G -->|Approved| I[Merge]
+    
+    style I fill:#28a745
+    style F fill:#dc3545
+```
+
+## Herramientas de Linting
+
+### ESLint Configuration
+
+```json
+{
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:prettier/recommended"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint", "prettier"],
+  "rules": {
+    "@typescript-eslint/explicit-function-return-type": "warn",
+    "@typescript-eslint/no-explicit-any": "error",
+    "@typescript-eslint/no-unused-vars": "error",
+    "no-console": "warn",
+    "prettier/prettier": "error"
+  }
+}
+```
+
+### Prettier Configuration
+
+```json
+{
+  "semi": true,
+  "trailingComma": "es5",
+  "singleQuote": true,
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "arrowParens": "avoid"
+}
+```
+
+### Python (Ruff + Black)
+
+```toml
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "W", "I", "N"]
+ignore = ["E501"]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+```
+
+## Git Commit Messages
+
+### Convenciones
+
+```bash
+# Formato
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+
+# Tipos
+feat:     Nueva funcionalidad
+fix:      Corrección de bug
+docs:     Cambios en documentación
+style:    Formato (no afecta lógica)
+refactor: Refactorización de código
+test:     Agregar o modificar tests
+chore:    Mantenimiento (deps, config)
+perf:     Mejoras de performance
+
+# Ejemplos
+feat(auth): agregar autenticación con GitHub OAuth
+fix(scores): corregir cálculo de ranking global
+docs(api): actualizar documentación de endpoints
+refactor(game-service): extraer lógica de validación
+test(auth-service): agregar tests de integración
+```
+
+### Ejemplo de Buen Commit
+
+```
+feat(ranking): implementar cache de leaderboards
+
+- Agregar Redis cache para rankings globales y por juego
+- TTL de 5 minutos para rankings dinámicos
+- Invalidar cache automáticamente al enviar nuevo score
+- Reducir latencia de GET /rankings de 350ms a 45ms
+
+Closes #234
+```
+
+## Documentación de Código
+
+### JSDoc/TSDoc
+
+```typescript
+/**
+ * Calcula el ranking global de jugadores basado en sus scores totales.
+ *
+ * @param {string} gameId - ID del juego para filtrar scores
+ * @param {number} limit - Número máximo de resultados (default: 100)
+ * @param {Date} startDate - Fecha inicio del período (opcional)
+ * @returns {Promise<RankingEntry[]>} Array de entradas de ranking ordenadas
+ * @throws {NotFoundError} Si el gameId no existe
+ * @throws {DatabaseError} Si hay error de conexión a DB
+ *
+ * @example
+ * ```typescript
+ * const ranking = await calculateRanking('pac-man', 10);
+ * console.log(ranking[0]); // Top player
+ * ```
+ */
+async function calculateRanking(
+  gameId: string,
+  limit: number = 100,
+  startDate?: Date
+): Promise<RankingEntry[]> {
+  // Implementation
+}
+```
+
+### Python Docstrings
+
+```python
+def calculate_ranking(
+    game_id: str,
+    limit: int = 100,
+    start_date: Optional[datetime] = None
+) -> List[RankingEntry]:
+    """
+    Calcula el ranking global de jugadores basado en sus scores totales.
+    
+    Args:
+        game_id: ID del juego para filtrar scores
+        limit: Número máximo de resultados (default: 100)
+        start_date: Fecha inicio del período (opcional)
+        
+    Returns:
+        Lista de entradas de ranking ordenadas por score
+        
+    Raises:
+        NotFoundError: Si el game_id no existe
+        DatabaseError: Si hay error de conexión a DB
+        
+    Example:
+        >>> ranking = calculate_ranking('pac-man', limit=10)
+        >>> print(ranking[0])
+        RankingEntry(user_id='123', score=50000, rank=1)
+    """
+    # Implementation
+```
+
+## Recursos
+
+<CardGroup cols={2}>
+  <Card title="Clean Code" icon="book" href="https://www.amazon.com/Clean-Code-Handbook-Software-Craftsmanship/dp/0132350882">
+    Robert C. Martin
+  </Card>
+  
+  <Card title="Refactoring" icon="arrows-rotate" href="https://refactoring.com/">
+    Martin Fowler
+  </Card>
+  
+  <Card title="TypeScript Handbook" icon="code" href="https://www.typescriptlang.org/docs/handbook/intro.html">
+    Documentación oficial
+  </Card>
+  
+  <Card title="Python Style Guide" icon="python" href="https://peps.python.org/pep-0008/">
+    PEP 8
+  </Card>
+</CardGroup>
+
+---
+
+Mantener estos estándares garantiza un código base consistente, mantenible y escalable para todo el equipo de RetroGameCloud.

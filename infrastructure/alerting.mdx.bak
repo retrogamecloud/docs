@@ -1,0 +1,558 @@
+---
+title: 4.5 Monitorización y Observabilidad
+description: 'Stack completo de observabilidad para RetroGameCloud: métricas, logs,
+  alertas y dashboards'
+icon: chart-line
+---
+
+# 4.5 Monitorización y Observabilidad
+
+RetroGameCloud implementa un stack completo de observabilidad que combina herramientas nativas de AWS con soluciones open source para garantizar la visibilidad total del sistema en producción.
+
+## 4.5.1 Stack de Observabilidad
+
+<Card title="Componentes Principales" icon="stack">
+
+- **CloudWatch Logs**: Agregación centralizada de logs
+
+- **CloudWatch Metrics**: Métricas de infraestructura AWS
+
+- **Prometheus**: Recolección de métricas de aplicación
+
+- **Grafana**: Dashboards y visualización
+
+- **CloudWatch Alarms**: Sistema de alertas
+
+- **AWS X-Ray**: Trazado distribuido
+</Card>
+
+## 4.5.2 Métricas de Negocio por Servicio
+
+### 4.5.2.1 Auth Service
+
+<Tabs>
+<Tab title="Métricas Clave">
+
+```yaml
+
+# Métricas críticas del servicio de autenticación
+auth_registrations_total:
+  description: "Total de registros de usuarios"
+  type: "counter"
+  labels: ["status", "provider"]
+
+auth_login_attempts_total:
+  description: "Intentos de login"
+  type: "counter"
+  labels: ["status", "method"]
+
+auth_token_validation_duration:
+  description: "Duración de validación de tokens"
+  type: "histogram"
+  buckets: [0.1, 0.5, 1.0, 2.0, 5.0]
+
+auth_active_sessions:
+  description: "Sesiones activas concurrentes"
+  type: "gauge"
+
+```
+
+</Tab>
+<Tab title="Umbrales de Alerta">
+
+- **Tasa de fallos de login > 15%**: Posible ataque de fuerza bruta
+
+- **Duración de validación p95 > 500ms**: Degradación del rendimiento
+
+- **Registros/hora < 10**: Posible problema en el flujo de registro
+
+- **Sesiones activas > 10000**: Revisar capacidad del sistema
+</Tab>
+</Tabs>
+
+### 4.5.2.2 Game Catalog Service
+
+<Tabs>
+<Tab title="Métricas Clave">
+
+```yaml
+
+# Métricas del catálogo de juegos
+game_catalog_searches_total:
+  description: "Búsquedas realizadas en el catálogo"
+  type: "counter"
+  labels: ["category", "platform"]
+
+game_downloads_total:
+  description: "Descargas de ROMs"
+  type: "counter"
+  labels: ["game_id", "platform", "user_region"]
+
+game_metadata_processing_duration:
+  description: "Tiempo de procesamiento de metadata"
+  type: "histogram"
+  buckets: [1.0, 5.0, 10.0, 30.0, 60.0]
+
+catalog_index_size:
+  description: "Tamaño del índice de búsqueda"
+  type: "gauge"
+
+```
+
+</Tab>
+<Tab title="Umbrales de Alerta">
+
+- **Búsquedas sin resultados > 30%**: Posible problema con índice
+
+- **Tiempo de descarga p95 > 30s**: Revisar ancho de banda
+
+- **Procesamiento metadata p99 > 2min**: Optimizar pipeline
+
+- **Tamaño índice crecimiento > 50%/semana**: Revisar estrategia de limpieza
+</Tab>
+</Tabs>
+
+### 4.5.2.3 Game Session Service
+
+<Tabs>
+<Tab title="Métricas Clave">
+
+```yaml
+
+# Métricas de sesiones de juego
+game_sessions_started_total:
+  description: "Sesiones de juego iniciadas"
+  type: "counter"
+  labels: ["platform", "game_id", "user_tier"]
+
+game_session_duration:
+  description: "Duración de sesiones de juego"
+  type: "histogram"
+  buckets: [60, 300, 900, 1800, 3600, 7200]
+
+concurrent_game_sessions:
+  description: "Sesiones concurrentes activas"
+  type: "gauge"
+  labels: ["platform"]
+
+game_state_saves_total:
+  description: "Estados de juego guardados"
+  type: "counter"
+  labels: ["game_id", "save_type"]
+
+```
+
+</Tab>
+<Tab title="Umbrales de Alerta">
+
+- **Sesiones concurrentes > 1000**: Escalar recursos de compute
+
+- **Duración media < 5min**: Posibles problemas de experiencia
+
+- **Fallos de guardado > 5%**: Revisar almacenamiento
+
+- **Latencia de inicio > 10s**: Optimizar tiempo de arranque
+</Tab>
+</Tabs>
+
+## 4.5.3 Configuración de Prometheus
+
+<Tabs>
+<Tab title="Configuración Principal">
+
+```yaml
+
+# prometheus.yml
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['auth-service:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'game-catalog-service'
+    static_configs:
+      - targets: ['catalog-service:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'game-session-service'
+    static_configs:
+      - targets: ['session-service:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+```
+
+</Tab>
+<Tab title="Reglas de Alertas">
+
+```yaml
+
+# rules/retrogamecloud.yml
+groups:
+  - name: retrogamecloud.rules
+    rules:
+    - alert: HighErrorRate
+      expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Alta tasa de errores en {{ $labels.service }}"
+        description: "{{ $labels.service }} tiene una tasa de errores del {{ $value }}%"
+
+    - alert: HighResponseTime
+      expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 0.5
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Tiempo de respuesta alto en {{ $labels.service }}"
+        description: "P95 de tiempo de respuesta: {{ $value }}s"
+
+    - alert: DatabaseConnectionsHigh
+      expr: pg_stat_activity_count > 80
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Alto número de conexiones a base de datos"
+        description: "{{ $value }} conexiones activas"
+
+```
+
+</Tab>
+</Tabs>
+
+## 4.5.4 Dashboards de Grafana
+
+### 4.5.4.1 Dashboard de Infraestructura
+
+<Card title="Métricas de Sistema" icon="server">
+
+```json
+{
+  "dashboard": {
+    "title": "RetroGameCloud - Infrastructure Overview",
+    "panels": [
+      {
+        "title": "CPU Usage by Service",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "avg(rate(container_cpu_usage_seconds_total[5m])) by (container_name) * 100"
+          }
+        ]
+      },
+      {
+        "title": "Memory Usage",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "container_memory_usage_bytes / container_spec_memory_limit_bytes * 100"
+          }
+        ]
+      },
+      {
+        "title": "Network I/O",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(container_network_receive_bytes_total[5m])"
+          }
+        ]
+      }
+    ]
+  }
+}
+
+```
+
+</Card>
+
+### 4.5.4.2 Dashboard de Aplicación
+
+<Card title="Métricas de Negocio" icon="gamepad-2">
+
+```json
+{
+  "dashboard": {
+    "title": "RetroGameCloud - Application Metrics",
+    "panels": [
+      {
+        "title": "Active Game Sessions",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(concurrent_game_sessions)"
+          }
+        ]
+      },
+      {
+        "title": "User Registrations (24h)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "increase(auth_registrations_total[24h])"
+          }
+        ]
+      },
+      {
+        "title": "Game Downloads by Platform",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "sum(rate(game_downloads_total[1h])) by (platform)"
+          }
+        ]
+      }
+    ]
+  }
+}
+
+```
+
+</Card>
+
+## 4.5.5 Configuración de Alertas
+
+### 4.5.5.1 AlertManager
+
+<Tabs>
+<Tab title="Configuración">
+
+```yaml
+
+# alertmanager.yml
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@retrogamecloud.com'
+
+route:
+  group_by: ['alertname']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'web.hook'
+
+receivers:
+
+- name: 'web.hook'
+  email_configs:
+  - to: 'devops@retrogamecloud.com'
+    subject: 'RetroGameCloud Alert: {{ .GroupLabels.alertname }}'
+    body: |
+      {{ range .Alerts }}
+      Alert: {{ .Annotations.summary }}
+      Description: {{ .Annotations.description }}
+      {{ end }}
+
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/...'
+    channel: '#alerts'
+    title: 'RetroGameCloud Alert'
+    text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'service']
+
+```
+
+</Tab>
+<Tab title="Plantillas de Notificación">
+
+```html
+<!-- email.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RetroGameCloud Alert</title>
+</head>
+<body>
+    <h2>🚨 RetroGameCloud System Alert</h2>
+
+    {{ range .Alerts }}
+    <div style="border: 1px solid #ddd; padding: 10px; margin: 10px 0;">
+        <h3>{{ .Annotations.summary }}</h3>
+        <p><strong>Severity:</strong> {{ .Labels.severity }}</p>
+        <p><strong>Service:</strong> {{ .Labels.service }}</p>
+        <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+        <p><strong>Started:</strong> {{ .StartsAt }}</p>
+    </div>
+    {{ end }}
+
+    <p>
+        <a href="http://grafana.retrogamecloud.com">View Dashboards</a> |
+        <a href="http://prometheus.retrogamecloud.com">View Metrics</a>
+    </p>
+</body>
+</html>
+
+```
+
+</Tab>
+</Tabs>
+
+### 4.5.5.2 Escalado de Alertas
+
+<Card title="Niveles de Escalado" icon="triangle-alert">
+
+* *Nivel 1 - Warning (0-15 min)**
+
+- Notificación Slack al canal #alerts
+
+- Email a equipo de desarrollo
+
+* *Nivel 2 - Critical (15-30 min)**
+
+- Llamada automática al on-call engineer
+
+- Notificación a gerencia técnica
+
+- Activación de runbooks automáticos
+
+* *Nivel 3 - Emergency (30+ min)**
+
+- Escalado a CTO
+
+- Notificación a stakeholders de negocio
+
+- Activación de plan de contingencia
+
+</Card>
+
+## 4.5.6 Logging Centralizado
+
+### 4.5.6.1 CloudWatch Logs
+
+<Tabs>
+<Tab title="Configuración de Logs">
+
+```json
+{
+  "logConfiguration": {
+    "logDriver": "awslogs",
+    "options": {
+      "awslogs-group": "/ecs/retrogamecloud",
+      "awslogs-region": "us-west-2",
+      "awslogs-stream-prefix": "ecs"
+    }
+  },
+  "logGroups": [
+    {
+      "name": "/aws/lambda/auth-service",
+      "retentionInDays": 30
+    },
+    {
+      "name": "/aws/ecs/game-catalog",
+      "retentionInDays": 14
+    },
+    {
+      "name": "/aws/ecs/game-sessions",
+      "retentionInDays": 7
+    }
+  ]
+}
+
+```
+
+</Tab>
+<Tab title="Filtros de Logs">
+
+```bash
+
+# Ejemplos de filtros útiles
+
+# Errores críticos
+{ ($.level = "ERROR") && ($.service = "auth-service") }
+
+# Logins fallidos
+{ ($.event = "login_failed") && ($.attempts > 3) }
+
+# Sesiones de juego largas
+{ ($.event = "session_end") && ($.duration > 7200) }
+
+# Errores de base de datos
+{ $.message = "database*error*" }
+
+```
+
+</Tab>
+</Tabs>
+
+### 4.5.6.2 Formato de Logs Estructurados
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "level": "INFO",
+  "service": "auth-service",
+  "requestId": "req-123456789",
+  "userId": "user-987654321",
+  "event": "user_login",
+  "duration": 150,
+  "metadata": {
+    "ip": "192.168.1.1",
+    "userAgent": "RetroGameCloud-App/1.0.0",
+    "provider": "google"
+  },
+  "message": "User successfully authenticated"
+}
+
+```
+
+## 4.5.7 Trazado Distribuido con X-Ray
+
+<Tabs>
+<Tab title="Configuración">
+
+```python
+
+# Instrumentación Python
+import aws_xray_sdk.core
+from aws_xray_sdk.core import xray_recorder
+
+@xray_recorder.capture('auth_service.validate_token')
+def validate_token(token):
+    # Lógica de validación
+    subsegment = xray_recorder.current_subsegment()
+    subsegment.put_annotation('token_type', 'JWT')
+    subsegment.put_metadata('token_claims', claims)
+
+    return validation_result
+
+# Middleware para Express.js
+const AWSXRay = require('aws-xray-sdk-core');
+const express = require('express');
+
+const app = express();
+app.use(AWSXRay.express.openSegment('GameCatalogService'));
+
+app.get('/games/:id', (req, res) => {
+  const segment = AWS
+</Tab>
+</Tab>
+</Tab>
+</Tab>
+</Tab>
+</Tabs>
+
+```
