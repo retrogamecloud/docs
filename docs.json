@@ -66,7 +66,15 @@
             "description": "Visión general de la arquitectura del sistema, patrones de diseño y diagramas de secuencia de los flujos principales"
           },
           {
-            "group": "3. Microservicios",
+            "group": "3. Aplicación Frontend",
+            "pages": [
+              "frontend/overview",
+              "frontend/jsdos-integration"
+            ],
+            "description": "Arquitectura de la aplicación React, estructura de componentes e integración del emulador js-dos para juegos retro"
+          },
+          {
+            "group": "4. Microservicios",
             "pages": [
               "services/auth-service",
               "services/user-service",
@@ -75,14 +83,6 @@
               "services/ranking-service"
             ],
             "description": "Documentación técnica detallada de cada microservicio: autenticación, usuarios, catálogo de juegos, puntuaciones y rankings"
-          },
-          {
-            "group": "4. Aplicación Frontend",
-            "pages": [
-              "frontend/overview",
-              "frontend/jsdos-integration"
-            ],
-            "description": "Arquitectura de la aplicación React, estructura de componentes e integración del emulador js-dos para juegos retro"
           },
           {
             "group": "5. Seguridad y Autenticación",
@@ -172,15 +172,21 @@
             "description": "Tablas de clasificación globales, rankings específicos por juego, estadísticas y posicionamiento de jugadores"
           },
           {
-            "group": "6. Especificaciones Técnicas",
+            "group": "6. Infraestructura y Configuración",
+            "pages": [
+              "api-reference/kong-config",
+              "api-reference/kubernetes-manifests",
+              "api-reference/infrastructure-docs"
+            ],
+            "description": "Configuración de Kong Gateway como API Gateway, manifiestos de Kubernetes para orquestación y documentación completa de infraestructura como código"
+          },
+          {
+            "group": "7. Especificaciones Técnicas",
             "pages": [
               "api-reference/backend-main",
-              "api-reference/frontend",
-              "api-reference/infrastructure-docs",
-              "api-reference/kong-config",
-              "api-reference/kubernetes-manifests"
+              "api-reference/frontend"
             ],
-            "description": "Documentación técnica completa del sistema: arquitectura backend, frontend, infraestructura como código, configuración de Kong Gateway y manifiestos de Kubernetes"
+            "description": "Documentación técnica completa de la arquitectura backend y especificaciones de la aplicación frontend"
           }
         ]
       }
