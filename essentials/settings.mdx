@@ -1,7 +1,8 @@
 ---
-title: 'Global Settings'
-description: 'Mintlify gives you complete control over the look and feel of your documentation using the docs.json file'
-icon: 'gear'
+title: Global Settings
+description: Mintlify gives you complete control over the look and feel of your documentation
+  using the docs.json file
+icon: gear
 ---
 
 Every Mintlify site needs a `docs.json` file with the core configuration settings. Learn more about the [properties](#properties) below.
@@ -103,7 +104,7 @@ Example: `mintlify`
     </ResponseField>
     <ResponseField name="url" type="string">
     If `link`: What the button links to.
-    
+
     If `github`: Link to the repository to load GitHub information from.
     </ResponseField>
     <ResponseField name="name" type="string">
@@ -228,41 +229,45 @@ Example: `mintlify`
 <ResponseField name="openapi" type="string | string[]">
   A string or an array of strings of URL(s) or relative path(s) pointing to your
   OpenAPI file.
-  
+
   Examples:
   <CodeGroup>
     ```json Absolute
     "openapi": "https://example.com/openapi.json"
     ```
+
     ```json Relative
     "openapi": "/openapi.json"
     ```
+
     ```json Multiple
     "openapi": ["https://example.com/openapi1.json", "/openapi2.json", "/openapi3.json"]
     ```
+
   </CodeGroup>
 
 </ResponseField>
 
 <ResponseField name="footerSocials" type="FooterSocials">
   An object of social media accounts where the key:property pair represents the social media platform and the account url.
-  
-  Example: 
+
+  Example:
   ```json
   {
     "x": "https://x.com/mintlify",
     "website": "https://mintlify.com"
   }
   ```
+
   <Expandable title="FooterSocials">
     <ResponseField name="[key]" type="string">
     One of the following values `website`, `facebook`, `x`, `discord`, `slack`, `github`, `linkedin`, `instagram`, `hacker-news`
-    
+
     Example: `x`
     </ResponseField>
     <ResponseField name="property" type="string">
     The URL to the social platform.
-    
+
     Example: `https://x.com/mintlify`
     </ResponseField>
   </Expandable>
@@ -290,7 +295,7 @@ Example: `mintlify`
     </ResponseField>
     <ResponseField name="isHidden" type="boolean" default="false">
       Set to true to hide the dark/light mode toggle. You can combine `isHidden` with `default` to force your docs to only use light or dark mode. For example:
-      
+
       <CodeGroup>
       ```json Only Dark Mode
       "modeToggle": {
@@ -305,6 +310,7 @@ Example: `mintlify`
         "isHidden": true
       }
       ```
+
       </CodeGroup>
 
     </ResponseField>
