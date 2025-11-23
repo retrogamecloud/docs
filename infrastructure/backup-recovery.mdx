@@ -1,7 +1,8 @@
 ---
-title: "Estrategia de Respaldo y Recuperación ante Desastres"
-description: "Documentación completa sobre backups, disaster recovery, RPO/RTO y procedimientos de restauración para RetroGameCloud"
-icon: "shield-check"
+title: Estrategia de Respaldo y Recuperación Ante Desastres
+description: Documentación completa sobre backups, disaster recovery, RPO/RTO y procedimientos
+  de restauración para RetroGameCloud
+icon: shield-check
 ---
 
 # Estrategia de Respaldo y Recuperación ante Desastres
@@ -13,13 +14,19 @@ Esta documentación cubre la estrategia completa de backup y disaster recovery (
 ## Objetivos de Recuperación
 
 ### RPO (Recovery Point Objective)
+
 - **Base de Datos Principal**: 15 minutos máximo
+
 - **Archivos de Juegos (S3)**: 24 horas máximo
+
 - **Configuraciones de Kubernetes**: 1 hora máximo
 
 ### RTO (Recovery Time Objective)
+
 - **Servicios Críticos**: 30 minutos máximo
+
 - **Base de Datos**: 15 minutos máximo
+
 - **Frontend y CDN**: 10 minutos máximo
 
 ## Configuración de Backups Automatizados
@@ -28,29 +35,30 @@ Esta documentación cubre la estrategia completa de backup y disaster recovery (
 
 <Tabs>
 <Tab title="Configuración Terraform">
+
 ```hcl
 resource "aws_db_instance" "retrogamecloud_db" {
   identifier = "retrogamecloud-prod"
-  
+
   # Configuración de backups automatizados
   backup_retention_period = 30
   backup_window          = "03:00-04:00"
   maintenance_window     = "sun:04:00-sun:05:00"
-  
+
   # Snapshots finales
   final_snapshot_identifier = "retrogamecloud-final-snapshot"
   skip_final_snapshot      = false
-  
+
   # Cifrado
   storage_encrypted = true
-  
+
   # Multi-AZ para alta disponibilidad
   multi_az = true
-  
+
   # Monitoreo mejorado
   monitoring_interval = 60
   monitoring_role_arn = aws_iam_role.rds_enhanced_monitoring.arn
-  
+
   tags = {
     Environment = "production"
     Backup      = "automated"
@@ -71,9 +79,12 @@ resource "aws_cloudwatch_event_rule" "weekly_snapshot" {
   description         = "Trigger manual snapshot weekly"
   schedule_expression = "cron(0 2 ? * SUN *)"
 }
+
 ```
+
 </Tab>
 <Tab title="Script de Snapshot Manual">
+
 ```python
 import boto3
 import datetime
@@ -81,11 +92,11 @@ import json
 
 def handler(event, context):
     rds = boto3.client('rds')
-    
+
     # Generar identificador único
     timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     snapshot_id = f"retrogamecloud-manual-{timestamp}"
-    
+
     try:
         response = rds.create_db_snapshot(
             DBSnapshotIdentifier=snapshot_id,
@@ -96,25 +107,28 @@ def handler(event, context):
                 {'Key': 'CreatedBy', 'Value': 'Lambda'}
             ]
         )
-        
+
         return {
             'statusCode': 200,
             'body': json.dumps(f'Snapshot {snapshot_id} creado exitosamente')
         }
-        
+
     except Exception as e:
         print(f'Error creando snapshot: {str(e)}')
         return {
             'statusCode': 500,
             'body': json.dumps(f'Error: {str(e)}')
         }
+
 ```
+
 </Tab>
 </Tabs>
 
 ### Backups de S3 (Archivos de Juegos)
 
 ```yaml
+
 # s3-backup-policy.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -144,6 +158,7 @@ data:
         }
       ]
     }
+
 ```
 
 <Warning>
@@ -156,8 +171,10 @@ Los archivos de juegos en DEEP_ARCHIVE requieren 12 horas para restauración. Pl
 
 <Tabs>
 <Tab title="Desde Backup Automatizado">
+
 ```bash
 #!/bin/bash
+
 # restore-from-automated-backup.sh
 
 DB_INSTANCE="retrogamecloud-prod"
@@ -183,14 +200,14 @@ while true; do
         --db-instance-identifier $NEW_INSTANCE \
         --query 'DBInstances[0].DBInstanceStatus' \
         --output text)
-    
+
     echo "📊 Estado: $STATUS"
-    
+
     if [ "$STATUS" = "available" ]; then
         echo "✅ Base de datos restaurada y disponible"
         break
     fi
-    
+
     sleep 30
 done
 
@@ -201,11 +218,15 @@ ENDPOINT=$(aws rds describe-db-instances \
     --output text)
 
 echo "🔗 Endpoint de la DB restaurada: $ENDPOINT"
+
 ```
+
 </Tab>
 <Tab title="Desde Snapshot Manual">
+
 ```bash
 #!/bin/bash
+
 # restore-from-snapshot.sh
 
 SNAPSHOT_ID=$1
@@ -229,13 +250,16 @@ aws rds restore-db-instance-from-db-snapshot \
 
 echo "✅ Restauración desde snapshot iniciada"
 echo "📋 Nueva instancia: $NEW_INSTANCE"
+
 ```
+
 </Tab>
 </Tabs>
 
 ### Actualización de Configuración de Microservicios
 
 ```yaml
+
 # db-config-update.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -246,7 +270,8 @@ data:
   DATABASE_HOST: "retrogamecloud-restore-20240115.cluster-xyz.eu-west-1.rds.amazonaws.com"
   DATABASE_PORT: "5432"
   DATABASE_NAME: "retrogamecloud"
----
+
+- --
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -262,6 +287,7 @@ spec:
             configMapKeyRef:
               name: database-config
               key: DATABASE_HOST
+
 ```
 
 ## Pruebas de Disaster Recovery
@@ -269,9 +295,13 @@ spec:
 ### Programa de Pruebas Mensuales
 
 <Card title="Cronograma de Pruebas DR" icon="calendar">
+
 - **Primera semana**: Prueba de restauración de BD (ambiente de staging)
+
 - **Segunda semana**: Prueba de failover de aplicación
+
 - **Tercera semana**: Prueba de restauración completa de S3
+
 - **Cuarta semana**: Simulacro completo de DR
 </Card>
 
@@ -279,6 +309,7 @@ spec:
 
 ```python
 #!/usr/bin/env python3
+
 # dr-test.py
 
 import boto3
@@ -294,74 +325,74 @@ class DRTester:
     def __init__(self):
         self.rds = boto3.client('rds')
         self.s3 = boto3.client('s3')
-        
+
     def test_db_backup_restore(self):
         """Prueba la restauración de base de datos"""
         logger.info("🧪 Iniciando prueba de restauración de BD")
-        
+
         # Crear snapshot de prueba
         test_snapshot = f"dr-test-{datetime.now().strftime('%Y%m%d%H%M')}"
-        
+
         try:
             self.rds.create_db_snapshot(
                 DBSnapshotIdentifier=test_snapshot,
                 DBInstanceIdentifier='retrogamecloud-staging'
             )
-            
+
             # Esperar a que se complete
             waiter = self.rds.get_waiter('db_snapshot_completed')
             waiter.wait(DBSnapshotIdentifier=test_snapshot)
-            
+
             logger.info(f"✅ Snapshot de prueba creado: {test_snapshot}")
-            
+
             # Restaurar desde snapshot
             restore_instance = f"dr-test-restore-{int(time.time())}"
             self.rds.restore_db_instance_from_db_snapshot(
                 DBInstanceIdentifier=restore_instance,
                 DBSnapshotIdentifier=test_snapshot
             )
-            
+
             # Verificar restauración
             waiter = self.rds.get_waiter('db_instance_available')
             waiter.wait(DBInstanceIdentifier=restore_instance)
-            
+
             logger.info(f"✅ Instancia restaurada: {restore_instance}")
-            
+
             # Cleanup
             self.rds.delete_db_instance(
                 DBInstanceIdentifier=restore_instance,
                 SkipFinalSnapshot=True
             )
-            
+
             self.rds.delete_db_snapshot(
                 DBSnapshotIdentifier=test_snapshot
             )
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"❌ Error en prueba de BD: {e}")
             return False
-    
+
     def test_application_failover(self):
         """Prueba el failover de aplicación"""
         logger.info("🧪 Iniciando prueba de failover de aplicación")
-        
+
         try:
             # Simular fallo escalando a 0 réplicas
             subprocess.run([
                 "kubectl", "scale", "deployment", "game-catalog-service",
                 "--replicas=0", "-n", "retrogamecloud-staging"
             ], check=True)
-            
+
             time.sleep(10)
-            
+
             # Restaurar servicio
             subprocess.run([
                 "kubectl", "scale", "deployment", "game-catalog-service",
                 "--replicas=3", "-n", "retrogamecloud-staging"
             ], check=True)
-            
+
             # Verificar que los pods estén ready
             subprocess.run([
                 "kubectl", "wait", "--for=condition=ready", "pod",
@@ -369,21 +400,21 @@ class DRTester:
                 "-n", "retrogamecloud-staging",
                 "--timeout=300s"
             ], check=True)
-            
+
             logger.info("✅ Failover de aplicación completado")
             return True
-            
+
         except Exception as e:
             logger.error(f"❌ Error en failover: {e}")
             return False
-    
+
     def run_full_test(self):
         """Ejecuta suite completa de pruebas DR"""
         results = {
             'db_restore': self.test_db_backup_restore(),
             'app_failover': self.test_application_failover()
         }
-        
+
         logger.info(f"📊 Resultados de pruebas DR: {results}")
         return all(results.values())
 
@@ -391,6 +422,7 @@ if __name__ == "__main__":
     tester = DRTester()
     success = tester.run_full_test()
     exit(0 if success else 1)
+
 ```
 
 ## Runbook de Recuperación de Desastres
@@ -402,17 +434,18 @@ flowchart TD
     A[🚨 Alerta de BD] --> B{¿BD completamente inaccesible?}
     B -->|Sí| C[Activar modo mantenimiento]
     B -->|No| D[Investigar y reparar]
-    
+
     C --> E[Identificar último backup válido]
     E --> F[Restaurar desde backup/snapshot]
     F --> G[Actualizar DNS/Config]
     G --> H[Verificar integridad datos]
     H --> I[Reactivar servicios]
     I --> J[Monitorear y validar]
-    
+
     D --> K{¿Reparación exitosa?}
     K -->|Sí| J
     K -->|No| C
+
 ```
 
 #### Checklist de Recuperación de BD
@@ -436,6 +469,7 @@ Tiempo estimado: 15-30 minutos
    # Comando de emergencia - usar con precaución
    ./scripts/emergency-db-restore.sh --latest-snapshot
    ```
+
    - [ ] Ejecutar script de restauración
    - [ ] Monitorear progreso de restauración
    - [ ] Verificar integridad de datos restaurados

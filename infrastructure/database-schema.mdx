@@ -1,7 +1,8 @@
 ---
-title: "Esquema y Arquitectura de Base de Datos"
-description: "Documentación completa del modelo de datos PostgreSQL, incluyendo esquemas, relaciones, índices y estrategias de respaldo"
-icon: "database"
+title: Esquema y Arquitectura de Base de Datos
+description: Documentación completa del modelo de datos PostgreSQL, incluyendo esquemas,
+  relaciones, índices y estrategias de respaldo
+icon: database
 ---
 
 ## Visión General
@@ -20,7 +21,7 @@ erDiagram
     USERS ||--o{ RANKINGS : aparece
     GAMES ||--o{ SCORES : tiene
     GAMES ||--o{ RANKINGS : tiene
-    
+
     USERS {
         uuid id PK
         varchar username UK
@@ -33,7 +34,7 @@ erDiagram
         timestamp updated_at
         boolean is_active
     }
-    
+
     GAMES {
         uuid id PK
         varchar slug UK
@@ -47,7 +48,7 @@ erDiagram
         timestamp updated_at
         boolean is_active
     }
-    
+
     SCORES {
         uuid id PK
         uuid user_id FK
@@ -57,7 +58,7 @@ erDiagram
         timestamp achieved_at
         timestamp created_at
     }
-    
+
     RANKINGS {
         uuid id PK
         uuid game_id FK
@@ -66,6 +67,7 @@ erDiagram
         int score
         timestamp updated_at
     }
+
 ```
 
 ## Esquemas de Tablas
@@ -88,6 +90,7 @@ erDiagram
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
     ```
+
   </Tab>
   <Tab title="Índices">
     ```sql
@@ -96,11 +99,12 @@ erDiagram
     CREATE UNIQUE INDEX idx_users_email ON users(email);
     CREATE INDEX idx_users_is_active ON users(is_active);
     CREATE INDEX idx_users_created_at ON users(created_at);
-    
+
     -- Índice compuesto para búsquedas activas
-    CREATE INDEX idx_users_active_created ON users(is_active, created_at) 
+    CREATE INDEX idx_users_active_created ON users(is_active, created_at)
     WHERE is_active = true;
     ```
+
   </Tab>
   <Tab title="Triggers">
     ```sql
@@ -113,20 +117,26 @@ erDiagram
     END;
     $$ language 'plpgsql';
 
-    CREATE TRIGGER update_users_updated_at 
-        BEFORE UPDATE ON users 
+    CREATE TRIGGER update_users_updated_at
+        BEFORE UPDATE ON users
         FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     ```
+
   </Tab>
 </Tabs>
 
-**Descripción**: Almacena información de usuarios registrados en la plataforma.
+* *Descripción**: Almacena información de usuarios registrados en la plataforma.
 
-**Campos clave**:
+* *Campos clave**:
+
 - `username`: Identificador único legible por humanos
+
 - `email`: Email único para autenticación
+
 - `password_hash`: Hash seguro de la contraseña (bcrypt)
+
 - `display_name`: Nombre mostrado públicamente
+
 - `avatar_url`: URL de la imagen de perfil almacenada en S3
 
 ### Tabla: games
@@ -148,6 +158,7 @@ erDiagram
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
     ```
+
   </Tab>
   <Tab title="Índices">
     ```sql
@@ -156,33 +167,39 @@ erDiagram
     CREATE INDEX idx_games_category ON games(category);
     CREATE INDEX idx_games_year ON games(year);
     CREATE INDEX idx_games_is_active ON games(is_active);
-    
+
     -- Índice para búsqueda de texto completo
     CREATE INDEX idx_games_name_trgm ON games USING gin(name gin_trgm_ops);
-    
+
     -- Índice compuesto para catálogo activo
-    CREATE INDEX idx_games_active_category ON games(is_active, category, year) 
+    CREATE INDEX idx_games_active_category ON games(is_active, category, year)
     WHERE is_active = true;
     ```
+
   </Tab>
   <Tab title="Constraints">
     ```sql
     -- Validaciones de dominio
-    ALTER TABLE games ADD CONSTRAINT chk_games_year 
+    ALTER TABLE games ADD CONSTRAINT chk_games_year
     CHECK (year >= 1970 AND year <= EXTRACT(YEAR FROM CURRENT_DATE));
-    
-    ALTER TABLE games ADD CONSTRAINT chk_games_category 
+
+    ALTER TABLE games ADD CONSTRAINT chk_games_category
     CHECK (category IN ('arcade', 'adventure', 'action', 'puzzle', 'rpg', 'strategy', 'simulation'));
     ```
+
   </Tab>
 </Tabs>
 
-**Descripción**: Catálogo de juegos disponibles en la plataforma.
+* *Descripción**: Catálogo de juegos disponibles en la plataforma.
 
-**Campos clave**:
+* *Campos clave**:
+
 - `slug`: Identificador URL-friendly único
+
 - `jsdos_url`: URL del archivo de juego en S3 para JS-DOS
+
 - `thumbnail_url`: Miniatura del juego
+
 - `category`: Categoría del juego (enum)
 
 ### Tabla: scores
@@ -200,31 +217,36 @@ erDiagram
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
     ```
+
   </Tab>
   <Tab title="Índices">
     ```sql
     -- Índices de clave foránea
     CREATE INDEX idx_scores_user_id ON scores(user_id);
     CREATE INDEX idx_scores_game_id ON scores(game_id);
-    
+
     -- Índices para rankings
     CREATE INDEX idx_scores_game_score ON scores(game_id, score DESC);
     CREATE INDEX idx_scores_user_game ON scores(user_id, game_id);
-    
+
     -- Índice para mejor puntuación por usuario/juego
     CREATE UNIQUE INDEX idx_scores_user_game_max ON scores(user_id, game_id, score DESC);
-    
+
     -- Índice GIN para metadata JSONB
     CREATE INDEX idx_scores_metadata ON scores USING GIN(metadata);
     ```
+
   </Tab>
 </Tabs>
 
-**Descripción**: Almacena todas las puntuaciones obtenidas por los usuarios.
+* *Descripción**: Almacena todas las puntuaciones obtenidas por los usuarios.
 
-**Campos clave**:
+* *Campos clave**:
+
 - `score`: Puntuación numérica (entero positivo)
+
 - `metadata`: Datos adicionales en JSON (tiempo de juego, nivel alcanzado, etc.)
+
 - `achieved_at`: Momento exacto en que se obtuvo la puntuación
 
 <Warning>
@@ -247,20 +269,22 @@ erDiagram
         UNIQUE(game_id, rank)
     );
     ```
+
   </Tab>
   <Tab title="Índices">
     ```sql
     -- Índice principal para rankings
     CREATE INDEX idx_rankings_game_rank ON rankings(game_id, rank);
     CREATE INDEX idx_rankings_user_id ON rankings(user_id);
-    
+
     -- Índice para top rankings
     CREATE INDEX idx_rankings_top ON rankings(game_id, rank) WHERE rank <= 100;
     ```
+
   </Tab>
 </Tabs>
 
-**Descripción**: Tabla desnormalizada con los rankings actuales por juego.
+* *Descripción**: Tabla desnormalizada con los rankings actuales por juego.
 
 <Note>
   Esta tabla se actualiza mediante un proceso batch que calcula los rankings basándose en las mejores puntuaciones de cada usuario.
@@ -272,7 +296,7 @@ erDiagram
 
 ```sql
 CREATE MATERIALIZED VIEW user_best_scores AS
-SELECT 
+SELECT
     user_id,
     game_id,
     MAX(score) as best_score,
@@ -282,9 +306,10 @@ SELECT
 FROM scores
 GROUP BY user_id, game_id;
 
--- Índices para la vista materializada
+- - Índices para la vista materializada
 CREATE UNIQUE INDEX idx_user_best_scores_pk ON user_best_scores(user_id, game_id);
 CREATE INDEX idx_user_best_scores_game ON user_best_scores(game_id, best_score DESC);
+
 ```
 
 ### Consultas Frecuentes
@@ -293,7 +318,7 @@ CREATE INDEX idx_user_best_scores_game ON user_best_scores(game_id, best_score D
   <Tab title="Top 10 Rankings">
     ```sql
     -- Top 10 jugadores por juego
-    SELECT 
+    SELECT
         u.username,
         u.display_name,
         r.score,
@@ -303,11 +328,12 @@ CREATE INDEX idx_user_best_scores_game ON user_best_scores(game_id, best_score D
     WHERE r.game_id = $1 AND r.rank <= 10
     ORDER BY r.rank;
     ```
+
   </Tab>
   <Tab title="Historial Usuario">
     ```sql
     -- Historial de puntuaciones de un usuario
-    SELECT 
+    SELECT
         g.name as game_name,
         g.slug,
         s.score,
@@ -319,11 +345,12 @@ CREATE INDEX idx_user_best_scores_game ON user_best_scores(game_id, best_score D
     ORDER BY s.achieved_at DESC
     LIMIT 50;
     ```
+
   </Tab>
   <Tab title="Estadísticas Juego">
     ```sql
     -- Estadísticas generales de un juego
-    SELECT 
+    SELECT
         COUNT(DISTINCT user_id) as total_players,
         COUNT(*) as total_scores,
         MAX(score) as highest_score,
@@ -332,6 +359,7 @@ CREATE INDEX idx_user_best_scores_game ON user_best_scores(game_id, best_score D
     FROM scores
     WHERE game_id = $1;
     ```
+
   </Tab>
 </Tabs>
 
@@ -340,54 +368,57 @@ CREATE INDEX idx_user_best_scores_game ON user_best_scores(game_id, best_score D
 ### Configuración RDS PostgreSQL
 
 ```yaml
+
 # terraform/rds.tf
 resource "aws_db_instance" "retrogamecloud_db" {
   identifier = "retrogamecloud-prod"
-  
+
   # Configuración del motor
   engine         = "postgres"
   engine_version = "15.4"
   instance_class = "db.t3.medium"
-  
+
   # Almacenamiento
   allocated_storage     = 100
   max_allocated_storage = 1000
   storage_encrypted     = true
   storage_type         = "gp3"
-  
+
   # Base de datos
   db_name  = "retrogamecloud"
   username = var.db_master_username
   password = var.db_master_password
-  
+
   # Redes y seguridad
   vpc_security_group_ids = [aws_security_group.rds.id]
   db_subnet_group_name   = aws_db_subnet_group.main.name
-  
+
   # Respaldos
   backup_retention_period = 7
   backup_window          = "03:00-04:00"
   maintenance_window     = "sun:04:00-sun:05:00"
-  
+
   # Monitorización
   monitoring_interval = 60
   enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
-  
+
   # Protección
   deletion_protection = true
   skip_final_snapshot = false
   final_snapshot_identifier = "retrogamecloud-final-snapshot"
-  
+
   tags = {
     Name = "RetroGameCloud Production DB"
     Environment = "production"
   }
 }
+
 ```
 
 ### Variables de Conexión
 
 ```bash
+
 # Variables de entorno para microservicios
 DB_HOST=retrogamecloud-prod.cluster-xyz.eu-west-1.rds.amazonaws.com
 DB_PORT=5432
@@ -396,6 +427,7 @@ DB_USER=app_user
 DB_PASSWORD=${DB_PASSWORD} # Desde AWS Secrets Manager
 DB_MAX_CONNECTIONS=20
 DB_CONNECTION_TIMEOUT=30
+
 ```
 
 ## Estrategias de Respaldo y Recuperación
@@ -412,6 +444,7 @@ DB_CONNECTION_TIMEOUT=30
 ### Procedimiento de Recuperación
 
 ```bash
+
 # Restaurar desde snapshot
 aws rds restore-db-instance-from-db-snapshot \
   --db-instance-identifier retrogamecloud-restored \
@@ -419,7 +452,7 @@ aws rds restore-db-instance-from-db-snapshot \
 
 # Verificar integridad de datos
 psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "
-SELECT 
+SELECT
   schemaname,
   tablename,
   n_tup_ins as inserts,
@@ -427,6 +460,7 @@ SELECT
   n_tup_del as deletes
 FROM pg_stat_user_tables;
 "
+
 ```
 
 ## Migraciones de Base de Datos
@@ -434,6 +468,7 @@ FROM pg_stat_user_tables;
 ### Estructura de Migraciones
 
 ```
+
 migrations/
 ├── 001_initial_schema.up.sql
 ├── 001_initial_schema.down.sql
@@ -441,6 +476,7 @@ migrations/
 ├── 002_add_user_profiles.down.sql
 ├── 003_optimize_indexes.up.sql
 └── 003_optimize_indexes.down.sql
+
 ```
 
 ### Ejemplo de Migración
@@ -453,14 +489,14 @@ migrations/
 
     -- Añadir nueva columna
     ALTER TABLE games ADD COLUMN difficulty_level INTEGER DEFAULT 1;
-    
+
     -- Añadir constraint
-    ALTER TABLE games ADD CONSTRAINT chk_difficulty_level 
+    ALTER TABLE games ADD CONSTRAINT chk_difficulty_level
     CHECK (difficulty_level BETWEEN 1 AND 5);
-    
+
     -- Crear índice
     CREATE INDEX idx_games_difficulty ON games(difficulty_level);
-    
+
     -- Actualizar datos existentes
     UPDATE games SET difficulty_level = 2 WHERE category = 'arcade';
     UPDATE games SET difficulty_level = 3 WHERE category =
