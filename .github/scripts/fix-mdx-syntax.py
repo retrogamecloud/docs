@@ -8,60 +8,41 @@ from pathlib import Path
 from typing import List, Tuple
 
 def fix_unclosed_tabs(content: str) -> Tuple[str, List[str]]:
-    """Fix unclosed <Tab> and <Tabs> tags"""
+    """Fix unclosed <Tab> and <Tabs> tags - SMART version"""
     fixes = []
     lines = content.split('\n')
     fixed_lines = []
     
-    tabs_stack = []  # Stack to track <Tabs> depth
-    tab_stack = []   # Stack to track <Tab> depth
+    tabs_stack = []  # Stack to track <Tabs> positions
+    tab_stack = []   # Stack to track <Tab> positions
     
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        original_line = line
-        
+    for i, line in enumerate(lines):
         # Count <Tabs> and </Tabs>
-        tabs_opens = line.count('<Tabs>')
-        tabs_closes = line.count('</Tabs>')
-        
-        for _ in range(tabs_opens):
+        if '<Tabs>' in line:
             tabs_stack.append(i)
-        for _ in range(tabs_closes):
+        if '</Tabs>' in line:
+            # Before closing Tabs, check if there are unclosed Tabs
+            if tab_stack:
+                # Insert missing </Tab> before </Tabs>
+                for _ in range(len(tab_stack)):
+                    fixed_lines.append('</Tab>')
+                    fixes.append(f"Added missing </Tab> before </Tabs> at line {i+1}")
+                tab_stack.clear()
+            
             if tabs_stack:
                 tabs_stack.pop()
         
-        # Count <Tab ...> and </Tab>
-        # Match <Tab> or <Tab title="..."> but not </Tab>
+        # Count <Tab ...> (but not self-closing or already closed)
         tab_pattern = r'<Tab(?:\s+[^/>]*)?(?<!/)>(?!\s*</Tab>)'
-        tab_opens = len(re.findall(tab_pattern, line))
-        tab_closes = line.count('</Tab>')
-        
-        for _ in range(tab_opens):
+        if re.search(tab_pattern, line):
             tab_stack.append(i)
-        for _ in range(tab_closes):
+        
+        # Count </Tab>
+        if '</Tab>' in line:
             if tab_stack:
                 tab_stack.pop()
         
         fixed_lines.append(line)
-        i += 1
-        
-        # If we just closed the last <Tabs> but have open <Tab>s, close them
-        if tabs_closes > 0 and not tabs_stack and tab_stack:
-            # Insert missing </Tab> before the </Tabs>
-            num_unclosed = len(tab_stack)
-            # Go back and insert before the </Tabs> line
-            last_line = fixed_lines[-1]
-            if '</Tabs>' in last_line:
-                # Remove the line with </Tabs>
-                fixed_lines.pop()
-                # Add closing </Tab>s
-                for _ in range(num_unclosed):
-                    fixed_lines.append('</Tab>')
-                    fixes.append(f"Added missing </Tab> before </Tabs> at line {i}")
-                # Re-add the </Tabs>
-                fixed_lines.append(last_line)
-                tab_stack.clear()
     
     # At the end, close any remaining open tags
     if tab_stack:
