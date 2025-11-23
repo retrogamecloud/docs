@@ -1,6 +1,7 @@
 ---
 title: 5.2 Guía de Contribución
-description: 'Proceso completo para contribuir al proyecto RetroGameCloud: estándares de código, pull requests y revisiones'
+description: 'Proceso completo para contribuir al proyecto RetroGameCloud: estándares
+  de código, pull requests y revisiones'
 icon: users
 ---
 
@@ -23,6 +24,7 @@ Esta guía establece los estándares y procesos para contribuir al proyecto Retr
     # Configura el repositorio upstream
     git remote add upstream https://github.com/original/retrogamecloud.git
     ```
+
   </Tab>
 
   <Tab title="Configuración Local">
@@ -36,6 +38,7 @@ Esta guía establece los estándares y procesos para contribuir al proyecto Retr
     # Ejecuta tests para verificar setup
     npm test
     ```
+
   </Tab>
 </Tabs>
 
@@ -46,6 +49,7 @@ Siempre crea tu branch desde `main` actualizado y usa nombres descriptivos.
 </Warning>
 
 ```bash
+
 # Actualiza main
 git checkout main
 git pull upstream main
@@ -58,6 +62,7 @@ git checkout -b fix/correccion-bug
 
 # o
 git checkout -b docs/actualizar-documentacion
+
 ```
 
 ### 3. Desarrollo y Commits
@@ -67,22 +72,30 @@ git checkout -b docs/actualizar-documentacion
 Utilizamos [Conventional Commits](https://www.conventionalcommits.org/) con los siguientes tipos:
 
 <Card title="Tipos de Commits" icon="git-branch">
+
 - **feat:** Nueva funcionalidad
+
 - **fix:** Corrección de bugs
+
 - **docs:** Cambios en documentación
+
 - **style:** Cambios de formato (no afectan lógica)
+
 - **refactor:** Refactoring de código
+
 - **test:** Añadir o modificar tests
+
 - **chore:** Tareas de mantenimiento
 </Card>
 
-**Ejemplos de commits:**
+* *Ejemplos de commits:**
 
 ```bash
 git commit -m "feat(auth): añadir autenticación OAuth2"
 git commit -m "fix(game-catalog): corregir filtro por categoría"
 git commit -m "docs(api): actualizar documentación de endpoints"
 git commit -m "test(user-service): añadir tests unitarios"
+
 ```
 
 ## 5.2.2 Estándares de Código
@@ -108,6 +121,7 @@ git commit -m "test(user-service): añadir tests unitarios"
       }
     };
     ```
+
   </Tab>
 
   <Tab title="prettier.config.js">
@@ -121,12 +135,14 @@ git commit -m "test(user-service): añadir tests unitarios"
       useTabs: false
     };
     ```
+
   </Tab>
 </Tabs>
 
 ### Reglas de TypeScript
 
 <Card title="Buenas Prácticas TypeScript" icon="code">
+
 ```typescript
 // ✅ Correcto
 interface GameData {
@@ -144,7 +160,9 @@ const fetchGame = async (id: string): Promise<GameData> => {
 const fetchGame = async (id: any) => {
   // sin tipos definidos
 };
+
 ```
+
 </Card>
 
 ### Estructura de Componentes React
@@ -159,9 +177,9 @@ interface GameCardProps {
   onGameSelect: (game: GameData) => void;
 }
 
-export const GameCard: FC<GameCardProps> = ({ 
-  gameId, 
-  onGameSelect 
+export const GameCard: FC<GameCardProps> = ({
+  gameId,
+  onGameSelect
 }) => {
   const [game, setGame] = useState<GameData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -191,6 +209,7 @@ export const GameCard: FC<GameCardProps> = ({
     </div>
   );
 };
+
 ```
 
 ## 5.2.3 Testing
@@ -213,6 +232,7 @@ export const GameCard: FC<GameCardProps> = ({
       ],
     };
     ```
+
   </Tab>
 
   <Tab title="Ejemplo de Test">
@@ -237,7 +257,7 @@ export const GameCard: FC<GameCardProps> = ({
 
       it('should render game information', async () => {
         const onGameSelect = jest.fn();
-        
+
         render(
           <GameCard gameId="1" onGameSelect={onGameSelect} />
         );
@@ -250,7 +270,7 @@ export const GameCard: FC<GameCardProps> = ({
 
       it('should call onGameSelect when clicked', async () => {
         const onGameSelect = jest.fn();
-        
+
         render(
           <GameCard gameId="1" onGameSelect={onGameSelect} />
         );
@@ -262,6 +282,7 @@ export const GameCard: FC<GameCardProps> = ({
       });
     });
     ```
+
   </Tab>
 </Tabs>
 
@@ -306,6 +327,7 @@ describe('Game API Integration', () => {
     expect(getResponse.body.genre).toBe(gameData.genre);
   });
 });
+
 ```
 
 ## 5.2.4 Pull Request Process
@@ -313,26 +335,35 @@ describe('Game API Integration', () => {
 ### 1. Pre-requisitos
 
 <Card title="Checklist antes del PR" icon="check-circle">
+
 - [ ] Código sigue las convenciones establecidas
+
 - [ ] Tests pasan (`npm test`)
+
 - [ ] Linting sin errores (`npm run lint`)
+
 - [ ] Build exitoso (`npm run build`)
+
 - [ ] Documentación actualizada si es necesario
+
 - [ ] Branch actualizado con `main`
 </Card>
 
 ### 2. Creación del Pull Request
 
 ```bash
+
 # Push de tu branch
 git push origin feat/nueva-funcionalidad
 
 # Crear PR desde GitHub UI
+
 ```
 
-**Template de PR:**
+* *Template de PR:**
 
 ```markdown
+
 ## 📋 Descripción
 
 Descripción clara y concisa de los cambios realizados.
@@ -340,14 +371,19 @@ Descripción clara y concisa de los cambios realizados.
 ## 🔧 Tipo de cambio
 
 - [ ] Bug fix (cambio que corrige un issue)
+
 - [ ] Nueva feature (cambio que añade funcionalidad)
+
 - [ ] Breaking change (cambio que rompe compatibilidad)
+
 - [ ] Documentación
 
 ## 🧪 Testing
 
 - [ ] Tests unitarios añadidos/actualizados
+
 - [ ] Tests de integración verificados
+
 - [ ] Testing manual completado
 
 ## 📸 Screenshots (si aplica)
@@ -355,10 +391,15 @@ Descripción clara y concisa de los cambios realizados.
 ## 🔍 Checklist
 
 - [ ] Código sigue style guidelines
+
 - [ ] Self-review completado
+
 - [ ] Comentarios añadidos en código complejo
+
 - [ ] Documentación actualizada
+
 - [ ] Tests pasan
+
 ```
 
 ### 3. Proceso de Revisión
@@ -383,35 +424,50 @@ Descripción clara y concisa de los cambios realizados.
 ### Para el Autor
 
 <Card title="Antes de solicitar review" icon="user-edit">
+
 - Revisa tu propio código primero
+
 - Ejecuta tests localmente
+
 - Añade contexto en la descripción del PR
+
 - Mantén PRs pequeños y enfocados
+
 - Documenta decisiones complejas
 </Card>
 
 ### Para el Reviewer
 
 <Card title="Qué revisar" icon="eye">
+
 - **Funcionalidad:** ¿El código hace lo que debe hacer?
+
 - **Legibilidad:** ¿Es fácil de entender?
+
 - **Mantenibilidad:** ¿Es fácil de modificar en el futuro?
+
 - **Performance:** ¿Hay optimizaciones evidentes?
+
 - **Seguridad:** ¿Existen vulnerabilidades potenciales?
+
 - **Tests:** ¿La cobertura es adecuada?
 </Card>
 
 ### Comentarios Constructivos
 
 ```markdown
+
 # ✅ Bueno
 Considera usar `useMemo` aquí para optimizar el renderizado:
+
 ```suggestion
 const expensiveValue = useMemo(() => computeValue(data), [data]);
+
 ```
 
 # ❌ Malo
 Este código está mal.
+
 ```
 
 ## 5.2.6 Documentación de Cambios
@@ -421,31 +477,45 @@ Este código está mal.
 Mantén actualizado el archivo `CHANGELOG.md`:
 
 ```markdown
+
 ## [1.2.0] - 2024-01-15
 
 ### Added
+
 - Nueva funcionalidad de categorías de juegos
+
 - Filtros avanzados en catálogo
+
 - API endpoint para estadísticas
 
 ### Changed
+
 - Mejorado rendimiento del componente GameList
+
 - Actualizada interfaz de usuario del dashboard
 
 ### Fixed
+
 - Corregido bug en autenticación OAuth
+
 - Solucionado problema de memoria en game streaming
 
 ### Deprecated
+
 - Endpoint `/api/v1/games` (usar `/api/v2/games`)
+
 ```
 
 ### README Updates
 
 Actualiza documentación relevante cuando:
+
 - Añadas nuevas funcionalidades
+
 - Cambies APIs públicas
+
 - Modifiques configuración
+
 - Añadas nuevas dependencias
 
 ## 5.2.7 Resolución de Conflictos
@@ -453,6 +523,7 @@ Actualiza documentación relevante cuando:
 ### Conflictos de Merge
 
 ```bash
+
 # Actualizar branch con main
 git checkout feat/mi-feature
 git fetch upstream
@@ -464,14 +535,19 @@ git rebase --continue
 
 # Force push (cuidado)
 git push origin feat/mi-feature --force-with-lease
+
 ```
 
 ### Mejores Prácticas
 
 <Warning>
+
 - Nunca hagas force push a `main`
+
 - Usa `--force-with-lease` en lugar de `--force`
+
 - Comunica cambios breaking en el equipo
+
 - Mantén PRs actualizados con main
 </Warning>
 

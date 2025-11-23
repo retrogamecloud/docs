@@ -1,6 +1,7 @@
 ---
 title: Testing y QA
-description: 'Estrategia completa de testing para RetroGameCloud: unitarios, integración, E2E y proceso de QA'
+description: 'Estrategia completa de testing para RetroGameCloud: unitarios, integración,
+  E2E y proceso de QA'
 icon: flask-vial
 ---
 
@@ -22,6 +23,7 @@ graph TD
     style B fill:#4ecdc4
     style C fill:#45b7d1
     style D fill:#96ceb4
+
 ```
 
 ## Tests Unitarios
@@ -58,6 +60,7 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
       }
     }
     ```
+
   </Tab>
 
   <Tab title="jest.config.js">
@@ -76,6 +79,7 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
       setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts']
     };
     ```
+
   </Tab>
 </Tabs>
 
@@ -131,6 +135,7 @@ describe('AuthService', () => {
     });
   });
 });
+
 ```
 
 ## Tests de Integración
@@ -179,6 +184,7 @@ describe('Auth Integration Tests', () => {
     });
   });
 });
+
 ```
 
 ## Tests End-to-End (E2E)
@@ -227,6 +233,7 @@ describe('Auth Integration Tests', () => {
       }
     });
     ```
+
   </Tab>
 
   <Tab title="test-setup.ts">
@@ -260,6 +267,7 @@ describe('Auth Integration Tests', () => {
 
     export { expect } from '@playwright/test';
     ```
+
   </Tab>
 </Tabs>
 
@@ -316,6 +324,7 @@ describe('Auth Integration Tests', () => {
       }
     }
     ```
+
   </Tab>
 
   <Tab title="game-library.page.ts">
@@ -361,6 +370,7 @@ describe('Auth Integration Tests', () => {
       }
     }
     ```
+
   </Tab>
 
   <Tab title="room.page.ts">
@@ -409,6 +419,7 @@ describe('Auth Integration Tests', () => {
       }
     }
     ```
+
   </Tab>
 </Tabs>
 
@@ -424,14 +435,14 @@ describe('Auth Integration Tests', () => {
       test('should login with valid credentials', async ({ authPage }) => {
         await authPage.goto();
         await authPage.login('test@example.com', 'password123');
-        
+
         expect(await authPage.isLoggedIn()).toBe(true);
       });
 
       test('should show error with invalid credentials', async ({ authPage }) => {
         await authPage.goto();
         await authPage.login('invalid@example.com', 'wrongpassword');
-        
+
         await expect(authPage.errorMessage).toBeVisible();
         await expect(authPage.errorMessage).toContainText('Invalid credentials');
       });
@@ -459,6 +470,7 @@ describe('Auth Integration Tests', () => {
       });
     });
     ```
+
   </Tab>
 
   <Tab title="game-library.spec.ts">
@@ -474,7 +486,7 @@ describe('Auth Integration Tests', () => {
 
       test('should display game library', async ({ gameLibraryPage }) => {
         await gameLibraryPage.goto();
-        
+
         await expect(gameLibraryPage.gameCards.first()).toBeVisible();
         expect(await gameLibraryPage.gameCards.count()).toBeGreaterThan(0);
       });
@@ -482,4 +494,5 @@ describe('Auth Integration Tests', () => {
       test('should search games', async ({ gameLibraryPage
 </Tab>
 </Tabs>
+
 ```

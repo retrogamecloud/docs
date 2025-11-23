@@ -1,6 +1,8 @@
 ---
 title: 6.2. Topología de Infraestructura AWS
-description: Topología completa de la infraestructura AWS para RetroGameCloud incluyendo VPC, subnets, security groups y servicios distribuidos en múltiples AZ con flujos de tráfico detallados
+description: Topología completa de la infraestructura AWS para RetroGameCloud incluyendo
+  VPC, subnets, security groups y servicios distribuidos en múltiples AZ con flujos
+  de tráfico detallados
 icon: diagram-project
 ---
 
@@ -37,7 +39,7 @@ graph TB
 
     subgraph Region[🌍 us-east-1 Virginia]
         subgraph VPC[🏢 VPC RetroGameCloud<br/>CIDR: 10.0.0.0/16]
-            
+
             subgraph IGW_ZONE[Internet Gateway Zone]
                 IGW[🌐 Internet Gateway]
             end
@@ -48,7 +50,7 @@ graph TB
                     NAT1[🔄 NAT Gateway 1<br/>Elastic IP]
                     BASTION1[🔐 Bastion Host 1]
                 end
-                
+
                 subgraph PRIV1[🔒 Private Subnet<br/>10.0.11.0/24]
                     subgraph EKS1[☸️ EKS Node Group 1<br/>t3.large instances]
                         subgraph PODS1[Pod Network]
@@ -60,7 +62,7 @@ graph TB
                         end
                     end
                 end
-                
+
                 subgraph DATA1[💾 Data Subnet<br/>10.0.21.0/24]
                     RDS1[(🗄️ RDS PostgreSQL<br/>Primary Instance<br/>Multi-AZ)]
                     REDIS1[(⚡ ElastiCache Redis<br/>Primary Node<br/>Cluster Mode)]
@@ -73,7 +75,7 @@ graph TB
                     NAT2[🔄 NAT Gateway 2<br/>Elastic IP]
                     BASTION2[🔐 Bastion Host 2]
                 end
-                
+
                 subgraph PRIV2[🔒 Private Subnet<br/>10.0.12.0/24]
                     subgraph EKS2[☸️ EKS Node Group 2<br/>t3.large instances]
                         subgraph PODS2[Pod Network]
@@ -85,7 +87,7 @@ graph TB
                         end
                     end
                 end
-                
+
                 subgraph DATA2[💾 Data Subnet<br/>10.0.22.0/24]
                     RDS2[(🗄️ RDS PostgreSQL<br/>Read Replica)]
                     REDIS2[(⚡ ElastiCache Redis<br/>Replica Node)]
@@ -96,7 +98,7 @@ graph TB
                 subgraph PUB3[🌐 Public Subnet<br/>10.0.3.0/24]
                     NAT3[🔄 NAT Gateway 3<br/>Elastic IP]
                 end
-                
+
                 subgraph PRIV3[🔒 Private Subnet<br/>10.0.13.0/24]
                     subgraph EKS3[☸️ EKS Node Group 3<br/>t3.medium instances]
                         subgraph PODS3[Pod Network]
@@ -137,67 +139,67 @@ graph TB
     U --> DNS_MAIN
     U --> DNS_API
     U --> DNS_CDN
-    
+
     DNS_MAIN --> CF_WEB
     DNS_API --> CF_API
     DNS_CDN --> CF_ASSETS
-    
+
     CF_WEB --> WAF
     CF_API --> WAF
-    
+
     WAF --> IGW
     IGW --> ALB1
     IGW --> ALB2
-    
+
     ALB1 --> KONG1
     ALB2 --> KONG2
     ALB1 --> KONG2
     ALB2 --> KONG1
-    
+
     KONG1 --> AUTH1
     KONG1 --> GAME1
     KONG1 --> USER1
     KONG1 --> WS1
-    
+
     KONG2 --> AUTH2
     KONG2 --> GAME2
     KONG2 --> USER2
     KONG2 --> WS2
-    
+
     AUTH1 --> RDS1
     AUTH1 --> REDIS1
     AUTH2 --> RDS1
     AUTH2 --> REDIS2
-    
+
     GAME1 --> S3_GAMES
     GAME1 --> S3_SAVES
     GAME2 --> S3_GAMES
     GAME2 --> S3_SAVES
-    
+
     USER1 --> RDS1
     USER2 --> RDS1
-    
+
     RDS1 --> RDS2
     REDIS1 --> REDIS2
-    
+
     DEV --> BASTION1
     DEV --> BASTION2
     BASTION1 --> EKS1
     BASTION2 --> EKS2
-    
+
     PODS1 --> NAT1
     PODS2 --> NAT2
     PODS3 --> NAT3
-    
+
     NAT1 --> IGW
     NAT2 --> IGW
     NAT3 --> IGW
-    
+
     %% Monitoring connections
     MONITOR --> PODS1
     MONITOR --> PODS2
     LOG --> S3_LOGS
-    
+
     %% External service connections
     AUTH1 --> SES
     AUTH2 --> SES
@@ -207,20 +209,21 @@ graph TB
     KONG2 --> COGNITO
     PODS1 --> SECRETS
     PODS2 --> SECRETS
-    
+
     classDef publicSubnet fill:#e1f5fe
     classDef privateSubnet fill:#f3e5f5
     classDef dataSubnet fill:#fff3e0
     classDef storage fill:#e8f5e8
     classDef security fill:#ffebee
     classDef external fill:#fafafa
-    
+
     class PUB1,PUB2,PUB3 publicSubnet
     class PRIV1,PRIV2,PRIV3 privateSubnet
     class DATA1,DATA2 dataSubnet
     class STORAGE storage
     class SECURITY security
     class EXTERNAL external
+
 ```
 
 ## Flujos de Tráfico Principales
@@ -251,6 +254,7 @@ sequenceDiagram
     Kong->>ALB: API Response
     ALB->>CF: Response
     CF->>User: Cached/Fresh Content
+
 ```
 
 ### 2. Flujo de Tráfico de API
@@ -283,6 +287,7 @@ sequenceDiagram
     Kong->>ALB: Response
     ALB->>CF: Response
     CF->>App: API Response
+
 ```
 
 ## Arquitectura de Red Detallada
@@ -304,15 +309,18 @@ sequenceDiagram
 ### Security Groups Configuration
 
 #### ALB Security Group
+
 ```yaml
 Inbound Rules:
   - Port 80 (HTTP): 0.0.0.0/0
   - Port 443 (HTTPS): 0.0.0.0/0
 Outbound Rules:
   - Port 8000-8080: EKS Security Group
+
 ```
 
 #### EKS Security Group
+
 ```yaml
 Inbound Rules:
   - Port 8000-8080: ALB Security Group
@@ -320,42 +328,60 @@ Inbound Rules:
   - All Traffic: EKS Security Group (self)
 Outbound Rules:
   - All Traffic: 0.0.0.0/0
+
 ```
 
 #### RDS Security Group
+
 ```yaml
 Inbound Rules:
   - Port 5432: EKS Security Group
   - Port 5432: Bastion Security Group
 Outbound Rules:
   - None
+
 ```
 
 #### Redis Security Group
+
 ```yaml
 Inbound Rules:
   - Port 6379: EKS Security Group
 Outbound Rules:
   - None
+
 ```
 
 ## Distribución de Servicios por AZ
 
 ### Availability Zone 1a (Primary)
+
 - **Compute**: EKS Node Group con 3 instancias t3.large
+
 - **Services**: Kong Gateway, Auth Service, Game Service, User Service
+
 - **Database**: RDS PostgreSQL Primary (Multi-AZ)
+
 - **Cache**: ElastiCache Redis Primary
+
 - **Network**: Primary ALB, NAT Gateway
 
 ### Availability Zone 1b (Secondary)
+
 - **Compute**: EKS Node Group con 3 instancias t3.large
+
 - **Services**: Kong Gateway, Auth Service, Game Service, User Service
+
 - **Database**: RDS Read Replica
+
 - **Cache**: ElastiCache Redis Replica
+
 - **Network**: Secondary ALB, NAT Gateway
 
 ### Availability Zone 1c (Monitoring)
+
 - **Compute**: EKS Node Group con 2 instancias t3.medium
+
 - **Services**: Prometheus, Grafana, ElasticSearch, Logstash, Kibana
+
 - **Network**: NAT Gateway

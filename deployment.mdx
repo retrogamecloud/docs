@@ -16,27 +16,27 @@ graph TB
         DEV[Desarrolladores]
         GIT[Git Repository]
     end
-    
+
     subgraph "CI/CD Pipeline"
         GHA[GitHub Actions]
         BUILD[Build & Test]
         SCAN[Security Scan]
         REG[Container Registry]
     end
-    
+
     subgraph "GitOps"
         ARGO[ArgoCD]
         HELM[Helm Charts]
         K8S[Kubernetes]
     end
-    
+
     subgraph "AWS Infrastructure"
         EKS[EKS Cluster]
         RDS[(RDS PostgreSQL)]
         S3[S3 Bucket]
         CF[CloudFront]
     end
-    
+
     DEV --> GIT
     GIT --> GHA
     GHA --> BUILD
@@ -49,6 +49,7 @@ graph TB
     EKS --> RDS
     EKS --> S3
     S3 --> CF
+
 ```
 
 ## 🔧 Pre-requisitos
@@ -56,6 +57,7 @@ graph TB
 ### Herramientas Requeridas
 
 ```bash
+
 # AWS CLI
 aws --version  # >= 2.x
 
@@ -73,11 +75,13 @@ docker --version  # >= 24.0
 
 # ArgoCD CLI
 argocd version  # >= 2.9
+
 ```
 
 ### Credenciales y Configuración
 
 ```bash
+
 # Configurar credenciales AWS
 aws configure
 
@@ -89,6 +93,7 @@ export AWS_REGION="eu-west-1"
 export CLUSTER_NAME="retrogame-eks-cluster"
 export DOMAIN="retrogamehub.games"
 export ARGOCD_NAMESPACE="argocd"
+
 ```
 
 ### Permisos AWS Necesarios
@@ -113,26 +118,30 @@ export ARGOCD_NAMESPACE="argocd"
     }
   ]
 }
+
 ```
 
----
+- --
 
 ## 🏗️ Fase 1: Infraestructura con Terraform
 
 ### 1.1 Configuración Inicial
 
 ```bash
+
 # Clonar repositorio de infraestructura
 git clone https://github.com/retrogamecloud/infrastructure.git
 cd infrastructure
 
 # Crear archivo de variables
 cp terraform.tfvars.example terraform.tfvars
+
 ```
 
 ### 1.2 Variables de Terraform
 
 ```hcl
+
 # terraform.tfvars
 aws_region = "eu-west-1"
 environment = "production"
@@ -153,6 +162,7 @@ max_nodes = 10
 db_instance_class = "db.t3.micro"
 db_name = "retrogamedb"
 db_username = "postgres"
+
 # ⚠️ Usar AWS Secrets Manager en producción
 db_password = "CHANGE_ME_IN_PRODUCTION"
 
@@ -169,11 +179,13 @@ tags = {
   Project     = "retrogame-hub"
   ManagedBy   = "terraform"
 }
+
 ```
 
 ### 1.3 Desplegar Infraestructura
 
 ```bash
+
 # Inicializar Terraform
 terraform init
 
@@ -187,26 +199,30 @@ terraform apply
 terraform output eks_cluster_endpoint
 terraform output rds_endpoint
 terraform output s3_bucket_name
+
 ```
 
 ### 1.4 Configurar kubectl
 
 ```bash
+
 # Configurar acceso al cluster
 aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
 
 # Verificar conexión
 kubectl cluster-info
 kubectl get nodes
+
 ```
 
----
+- --
 
 ## 🚀 Fase 2: Configuración de ArgoCD
 
 ### 2.1 Instalación de ArgoCD
 
 ```bash
+
 # Crear namespace
 kubectl create namespace argocd
 
@@ -252,11 +268,13 @@ helm install argocd argo/argo-cd \
   --namespace argocd \
   --values argocd-values.yaml \
   --version 5.51.6
+
 ```
 
 ### 2.2 Configurar Acceso a ArgoCD
 
 ```bash
+
 # Esperar a que ArgoCD esté listo
 kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
 
@@ -269,11 +287,13 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443 &
 
 # Login con ArgoCD CLI
 argocd login localhost:8080 --username admin --password $ARGOCD_INITIAL_PASSWORD --insecure
+
 ```
 
 ### 2.3 Configurar Repositorios Git
 
 ```bash
+
 # Agregar repositorio de aplicaciones
 argocd repo add https://github.com/retrogamecloud/retrogame-hub.git \
   --type git \
@@ -286,9 +306,10 @@ argocd repo add https://github.com/retrogamecloud/helm-charts.git \
 
 # Listar repositorios
 argocd repo list
+
 ```
 
----
+- --
 
 ## 🔄 Fase 3: Pipeline CI/CD con GitHub Actions
 
@@ -297,6 +318,7 @@ argocd repo list
 En GitHub, configurar los siguientes secrets:
 
 ```bash
+
 # AWS Credentials
 AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY
@@ -311,11 +333,13 @@ KUBE_CONFIG_DATA  # Base64 encoded kubeconfig
 # ArgoCD
 ARGOCD_SERVER
 ARGOCD_TOKEN
+
 ```
 
 ### 3.2 Pipeline Principal
 
 ```yaml
+
 # .github/workflows/ci-cd.yml
 name: CI/CD Pipeline
 
@@ -434,10 +458,10 @@ jobs:
         run: |
           cd gitops
           IMAGE_TAG=$(echo "${{ needs.build-and-push.outputs.image-tag }}" | grep -o 'main-[a-f0-9]\{7\}')
-          
+
           # Update Helm values
           sed -i "s|tag:.*|tag: ${IMAGE_TAG}|g" apps/retrogame-hub/values-production.yaml
-          
+
           # Commit changes
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -450,11 +474,13 @@ jobs:
           argocd login ${{ secrets.ARGOCD_SERVER }} --auth-token ${{ secrets.ARGOCD_TOKEN }}
           argocd app sync retrogame-hub --prune
           argocd app wait retrogame-hub --timeout 300
+
 ```
 
 ### 3.3 Pipeline de Release
 
 ```yaml
+
 # .github/workflows/release.yml
 name: Release
 
@@ -498,23 +524,25 @@ jobs:
           # Update production GitOps configuration
           git clone https://${{ secrets.GITOPS_TOKEN }}@github.com/retrogamecloud/gitops-configs.git
           cd gitops-configs
-          
+
           sed -i "s|tag:.*|tag: ${{ github.event.release.tag_name }}|g" apps/retrogame-hub/values-production.yaml
-          
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Release ${{ github.event.release.tag_name }} to production"
           git push
+
 ```
 
----
+- --
 
 ## 🎯 Fase 4: Configuración de Aplicaciones ArgoCD
 
 ### 4.1 Estructura de Repositorio GitOps
 
 ```
+
 gitops-configs/
 ├── apps/
 │   └── retrogame-hub/
@@ -536,4 +564,5 @@ gitops-configs/
 │   └── retrogame-hub/
 │       ├── Chart.yaml
 │       ├
+
 ```

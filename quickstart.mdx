@@ -1,5 +1,5 @@
 ---
-title: 1. Inicio Rápido
+title: 1.1 Inicio Rápido
 description: Despliega Retro Game Hub en AWS en menos de 30 minutos
 icon: rocket
 ---
@@ -71,195 +71,111 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
     - Acceso para cambiar nameservers
 
     <Note>
-      El proyecto usa Route53 para gestionar DNS automáticamente
+      El proyecto usa Route53 para gestión de DNS. Si no tienes dominio, se creará uno automáticamente usando xip.io
     </Note>
   </Accordion>
 </AccordionGroup>
 
-## Despliegue Paso a Paso
+## Despliegue en 3 Pasos
 
-<Steps>
-  <Step title="Clonar el Repositorio">
-    ```bash
-    git clone https://github.com/tu-usuario/retro-game-hub.git
-    cd retro-game-hub
-    ```
-  </Step>
+### Paso 1: Clonar el Repositorio
 
-  <Step title="Configurar Variables">
-    Copia y edita el archivo de variables:
-    
-    ```bash
-    cp terraform/terraform.tfvars.example terraform/terraform.tfvars
-    ```
-    
-    Edita las variables principales:
-    
-    ```hcl
-    # terraform.tfvars
-    project_name = "retro-game-hub"
-    environment  = "production"
-    aws_region   = "eu-west-1"
-    
-    # Tu dominio (opcional)
-    domain_name = "tudominio.com"
-    
-    # Configuración del cluster
-    eks_node_instance_types = ["t3.medium"]
-    eks_node_desired_size   = 2
-    ```
-  </Step>
+```bash
+git clone https://github.com/tu-usuario/retro-game-hub.git
+cd retro-game-hub/infrastructure
+```
 
-  <Step title="Desplegar Infraestructura">
-    ```bash
-    cd terraform
-    
-    # Inicializar Terraform
-    terraform init
-    
-    # Revisar el plan
-    terraform plan
-    
-    # Aplicar cambios
-    terraform apply -auto-approve
-    ```
-    
-    <Warning>
-      Este paso toma ~15-20 minutos. El cluster EKS es lo que más tiempo consume.
-    </Warning>
-  </Step>
+### Paso 2: Configurar Variables
 
-  <Step title="Configurar kubectl">
-    ```bash
-    # Obtener configuración del cluster
-    aws eks update-kubeconfig --region eu-west-1 --name retro-game-hub-eks
-    
-    # Verificar conexión
-    kubectl get nodes
-    ```
-  </Step>
+```bash
+# Copiar archivo de configuración
+cp terraform.tfvars.example terraform.tfvars
 
-  <Step title="Desplegar Aplicaciones">
-    ```bash
-    # Aplicar manifiestos de Kubernetes
-    kubectl apply -f k8s/
-    
-    # Verificar pods
-    kubectl get pods -A
-    ```
-  </Step>
+# Editar con tus valores
+nano terraform.tfvars
+```
 
-  <Step title="Acceder a la Aplicación">
-    Obtén la URL del Load Balancer:
-    
-    ```bash
-    kubectl get service frontend-service -o wide
-    ```
-    
-    O si configuraste un dominio, accede directamente a: `https://tudominio.com`
-  </Step>
-</Steps>
+<CodeGroup>
+```hcl terraform.tfvars
+# Configuración básica
+region = "eu-west-1"
+project_name = "retro-game-hub"
+environment = "prod"
 
-## Verificación del Despliegue
+# Dominio (opcional)
+domain_name = "tudominio.com"  # o déjalo vacío
 
-Una vez completado el despliegue, verifica que todo funciona correctamente:
+# Base de datos
+db_password = "tu-password-seguro"
 
-<Tabs>
-  <Tab title="Web Interface">
-    Accede a la interfaz web y verifica:
-    - ✅ La página principal carga correctamente
-    - ✅ Puedes navegar por el catálogo de juegos
-    - ✅ Los juegos se ejecutan en el emulador
-    - ✅ El sistema de autenticación funciona
-  </Tab>
-  
-  <Tab title="API Health">
-    Verifica que todas las APIs respondan:
-    
-    ```bash
-    # Health check del API Gateway
-    curl https://api.tudominio.com/health
-    
-    # Verificar servicios
-    kubectl get pods -l app=api-gateway
-    kubectl get pods -l app=game-service
-    kubectl get pods -l app=user-service
-    ```
-  </Tab>
-  
-  <Tab title="Base de Datos">
-    Conecta a la base de datos para verificar:
-    
-    ```bash
-    # Obtener endpoint de RDS
-    terraform output rds_endpoint
-    
-    # Conectar usando psql
-    psql -h [RDS_ENDPOINT] -U postgres -d retrogamehub
-    ```
-  </Tab>
-</Tabs>
+# Configuración EKS
+cluster_name = "retro-game-hub-cluster"
+node_group_instance_types = ["t3.medium"]
+node_group_desired_size = 2
+node_group_max_size = 4
+node_group_min_size = 1
+```
+</CodeGroup>
 
-## Siguientes Pasos
+### Paso 3: Desplegar Infraestructura
 
-¡Felicitaciones! 🎉 Tu plataforma Retro Game Hub está lista. Ahora puedes:
+```bash
+# Inicializar Terraform
+terraform init
+
+# Planificar despliegue
+terraform plan
+
+# Aplicar cambios
+terraform apply -auto-approve
+```
+
+<Warning>
+  El despliegue toma aproximadamente **20-25 minutos**. No interrumpas el proceso.
+</Warning>
+
+## Configurar kubectl
+
+Una vez completado el despliegue:
+
+```bash
+# Configurar acceso al cluster
+aws eks update-kubeconfig --region eu-west-1 --name retro-game-hub-cluster
+
+# Verificar conexión
+kubectl get nodes
+```
+
+## Verificar Despliegue
+
+```bash
+# Ver todos los pods
+kubectl get pods -A
+
+# Ver servicios
+kubectl get svc -n retro-game-hub
+
+# Obtener URL de acceso
+kubectl get ingress -n retro-game-hub
+```
+
+<Tip>
+  **¡Listo!** Tu plataforma Retro Game Hub está funcionando. Accede usando la URL mostrada en el ingress.
+</Tip>
+
+## Próximos Pasos
 
 <CardGroup cols={2}>
-  <Card title="2. Arquitectura" icon="sitemap" href="/architecture">
-    Comprende la arquitectura y componentes del sistema
+  <Card title="Configuración Avanzada" icon="gear" href="/configuration">
+    Personaliza tu instalación
   </Card>
-  <Card title="3. Servicios" icon="cubes" href="/services">
-    Explora los microservicios y sus funcionalidades
+  <Card title="Añadir Juegos" icon="gamepad" href="/games/adding-games">
+    Subir tus ROMs favoritas
   </Card>
-  <Card title="5. Desarrollo" icon="code" href="/development">
-    Configura tu entorno de desarrollo local
+  <Card title="Monitoreo" icon="chart-line" href="/monitoring">
+    Dashboard de métricas
   </Card>
-  <Card title="6. CI/CD" icon="rocket" href="/cicd">
-    Implementa pipelines de despliegue automático
+  <Card title="Troubleshooting" icon="wrench" href="/troubleshooting">
+    Resolver problemas comunes
   </Card>
 </CardGroup>
-
-## Solución de Problemas
-
-<AccordionGroup>
-  <Accordion icon="warning" title="Error en el despliegue de EKS">
-    Si el cluster EKS no se crea correctamente:
-    
-    ```bash
-    # Verificar logs de CloudFormation
-    aws cloudformation describe-stack-events --stack-name eksctl-retro-game-hub-cluster
-    
-    # Limpiar y reintentar
-    terraform destroy -target=module.eks
-    terraform apply -target=module.eks
-    ```
-  </Accordion>
-
-  <Accordion icon="network-wired" title="Problemas de conectividad">
-    Si los pods no pueden comunicarse:
-    
-    ```bash
-    # Verificar security groups
-    kubectl describe pod [POD_NAME]
-    
-    # Revisar logs de red
-    kubectl logs -l app=aws-load-balancer-controller -n kube-system
-    ```
-  </Accordion>
-
-  <Accordion icon="database" title="Errores de base de datos">
-    Si hay problemas con RDS:
-    
-    ```bash
-    # Verificar conectividad desde un pod
-    kubectl run test-db --image=postgres:13 --rm -it -- psql -h [RDS_ENDPOINT] -U postgres
-    
-    # Revisar security groups de RDS
-    aws rds describe-db-instances --db-instance-identifier retro-game-hub-db
-    ```
-  </Accordion>
-</AccordionGroup>
-
-<Note>
-  **¿Necesitas ayuda?** Consulta la sección de [8. Operaciones](/operations) para monitoreo y mantenimiento avanzado.
-</Note>

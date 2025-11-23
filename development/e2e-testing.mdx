@@ -1,6 +1,7 @@
 ---
 title: 8.2. Tests End-to-End
-description: Estrategia completa de testing E2E para validar flujos críticos de usuario en RetroGameCloud
+description: Estrategia completa de testing E2E para validar flujos críticos de usuario
+  en RetroGameCloud
 icon: play
 ---
 
@@ -17,16 +18,20 @@ Los tests E2E son ejecutados automáticamente en cada pull request y deployment,
 <Tabs>
 <Tab title="Playwright">
 
-**Playwright** es nuestra herramienta principal para tests de interfaz de usuario:
+* *Playwright** es nuestra herramienta principal para tests de interfaz de usuario:
 
 - Tests en múltiples navegadores (Chrome, Firefox, Safari)
+
 - Paralelización automática
+
 - Screenshots y videos en caso de fallos
+
 - API robusta para interacciones complejas
 
 ```bash
 npm install @playwright/test
 npx playwright install
+
 ```
 
 ### Configuración Playwright
@@ -76,20 +81,24 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
   },
 });
+
 ```
 
 </Tab>
 <Tab title="Cypress">
 
-**Cypress** como alternativa para casos específicos:
+* *Cypress** como alternativa para casos específicos:
 
 - Debugging visual interactivo
+
 - Time travel debugging
+
 - Network stubbing avanzado
 
 ```bash
 npm install cypress --save-dev
 npx cypress open
+
 ```
 
 ### Configuración Cypress
@@ -116,20 +125,24 @@ export default defineConfig({
     }
   },
 })
+
 ```
 
 </Tab>
 <Tab title="Newman">
 
-**Newman** ejecuta nuestras colecciones de Postman para validar APIs:
+* *Newman** ejecuta nuestras colecciones de Postman para validar APIs:
 
 - Validación de contratos de API
+
 - Tests de integración entre servicios
+
 - Verificación de flujos OAuth2
 
 ```bash
 npm install -g newman
 newman run postman-collection.json -e environment.json
+
 ```
 
 </Tab>
@@ -160,7 +173,7 @@ Este test valida el ciclo completo desde el registro hasta la aparición en el r
    await page.fill('[data-testid="email"]', 'test@example.com');
    await page.fill('[data-testid="password"]', 'SecurePass123!');
    await page.click('[data-testid="login-button"]');
-   
+
    // Verificar redirección exitosa
    await expect(page).toHaveURL('/dashboard');
    ```
@@ -169,7 +182,7 @@ Este test valida el ciclo completo desde el registro hasta la aparición en el r
    ```javascript
    await page.click('[data-testid="games-menu"]');
    await page.waitForSelector('[data-testid="game-card"]');
-   
+
    // Verificar carga de juegos
    const gameCount = await page.locator('[data-testid="game-card"]').count();
    expect(gameCount).toBeGreaterThan(0);
@@ -179,7 +192,7 @@ Este test valida el ciclo completo desde el registro hasta la aparición en el r
    ```javascript
    await page.click('[data-testid="game-card"]:first-child');
    await page.click('[data-testid="play-button"]');
-   
+
    // Esperar carga del emulador
    await page.waitForSelector('[data-testid="emulator-canvas"]');
    ```
@@ -189,7 +202,7 @@ Este test valida el ciclo completo desde el registro hasta la aparición en el r
    // Simular gameplay (usando eventos de teclado)
    await page.keyboard.press('ArrowRight');
    await page.keyboard.press('Space');
-   
+
    // Esperar actualización de score
    await page.waitForFunction(() => {
      const scoreElement = document.querySelector('[data-testid="score"]');
@@ -207,29 +220,30 @@ Valida el flujo completo de compra desde la selección hasta la confirmación.
 test('flujo completo de compra', async ({ page }) => {
   // Setup: Usuario logueado
   await loginUser(page, 'buyer@test.com', 'password');
-  
+
   // Navegar a tienda
   await page.click('[data-testid="store-menu"]');
-  
+
   // Seleccionar paquete de créditos
   await page.click('[data-testid="credits-package-100"]');
   await page.click('[data-testid="buy-now-button"]');
-  
+
   // Completar información de pago
   await page.fill('[data-testid="card-number"]', '4242424242424242');
   await page.fill('[data-testid="expiry"]', '12/25');
   await page.fill('[data-testid="cvc"]', '123');
-  
+
   // Procesar pago
   await page.click('[data-testid="pay-button"]');
-  
+
   // Verificar confirmación
   await expect(page.locator('[data-testid="payment-success"]')).toBeVisible();
-  
+
   // Verificar actualización de créditos
   const creditsBalance = await page.locator('[data-testid="credits-balance"]').textContent();
   expect(parseInt(creditsBalance)).toBeGreaterThanOrEqual(100);
 });
+
 ```
 
 ### E2E-003: Sistema de Ranking
@@ -243,20 +257,21 @@ test('actualización de ranking tras nuevo score', async ({ page }) => {
   // Obtener ranking inicial
   await page.goto('/rankings');
   const initialRanking = await page.locator('[data-testid="ranking-position"]').first().textContent();
-  
+
   // Jugar y conseguir nuevo high score
   await playGameAndAchieveScore(page, 'pac-man', 15000);
-  
+
   // Verificar actualización en tiempo real
   await page.goto('/rankings');
   await page.waitForFunction((expectedScore) => {
     const topScore = document.querySelector('[data-testid="top-score"]');
     return topScore && parseInt(topScore.textContent) >= expectedScore;
   }, 15000);
-  
+
   // Verificar notificación de nuevo record
   await expect(page.locator('[data-testid="new-record-notification"]')).toBeVisible();
 });
+
 ```
 
 ## Tests por Microservicio
@@ -271,42 +286,43 @@ test('actualización de ranking tras nuevo score', async ({ page }) => {
 describe('User Service E2E', () => {
   test('registro completo con validaciones', async ({ page }) => {
     await page.goto('/register');
-    
+
     // Test validaciones frontend
     await page.click('[data-testid="register-button"]');
     await expect(page.locator('[data-testid="username-error"]')).toContainText('Username is required');
-    
+
     // Test usuario duplicado
     await fillRegistrationForm(page, {
       username: 'existinguser',
       email: 'existing@test.com',
       password: 'Password123!'
     });
-    
+
     await expect(page.locator('[data-testid="error-message"]')).toContainText('User already exists');
-    
+
     // Test registro exitoso
     await fillRegistrationForm(page, {
       username: 'newuser' + Date.now(),
       email: `new${Date.now()}@test.com`,
       password: 'Password123!'
     });
-    
+
     await expect(page).toHaveURL('/dashboard');
   });
-  
+
   test('flujo de recuperación de contraseña', async ({ page }) => {
     await page.goto('/forgot-password');
     await page.fill('[data-testid="email"]', 'test@example.com');
     await page.click('[data-testid="send-reset-button"]');
-    
+
     await expect(page.locator('[data-testid="success-message"]')).toContainText('Reset link sent');
-    
+
     // Verificar email enviado (usando mail service mock)
     const emailSent = await checkEmailSent('test@example.com', 'Password Reset');
     expect(emailSent).toBe(true);
   });
 });
+
 ```
 
 </Tab>
@@ -315,24 +331,25 @@ describe('User Service E2E', () => {
 ```javascript
 test('actualización de perfil completa', async ({ page }) => {
   await loginUser(page, 'testuser@test.com');
-  
+
   await page.goto('/profile');
-  
+
   // Actualizar información básica
   await page.fill('[data-testid="display-name"]', 'New Display Name');
   await page.fill('[data-testid="bio"]', 'Updated bio information');
-  
+
   // Cambiar avatar
   await page.setInputFiles('[data-testid="avatar-upload"]', 'test-assets/avatar.png');
   await page.waitForSelector('[data-testid="avatar-preview"]');
-  
+
   // Guardar cambios
   await page.click('[data-testid="save-profile-button"]');
-  
+
   // Verificar persistencia
   await page.reload();
   await expect(page.locator('[data-testid="display-name"]')).toHaveValue('New Display Name');
 });
+
 ```
 
 </Tab>
@@ -347,50 +364,50 @@ test('actualización de perfil completa', async ({ page }) => {
 describe('Game Service E2E', () => {
   test('navegación y filtrado de catálogo', async ({ page }) => {
     await page.goto('/games');
-    
+
     // Verificar carga inicial
     await page.waitForSelector('[data-testid="game-grid"]');
     const initialGameCount = await page.locator('[data-testid="game-card"]').count();
     expect(initialGameCount).toBeGreaterThan(0);
-    
+
     // Test filtro por plataforma
     await page.click('[data-testid="platform-filter"]');
     await page.click('[data-testid="platform-nes"]');
-    
+
     await page.waitForFunction(() => {
       const games = document.querySelectorAll('[data-testid="game-platform"]');
       return Array.from(games).every(game => game.textContent === 'NES');
     });
-    
+
     // Test búsqueda
     await page.fill('[data-testid="search-input"]', 'Mario');
     await page.keyboard.press('Enter');
-    
+
     await page.waitForSelector('[data-testid="search-results"]');
     const searchResults = await page.locator('[data-testid="game-title"]').allTextContents();
     searchResults.forEach(title => {
       expect(title.toLowerCase()).toContain('mario');
     });
   });
-  
+
   test('carga y configuración de juego', async ({ page }) => {
     await loginUser(page, 'gamer@test.com');
-    
+
     await page.goto('/games/super-mario-bros');
-    
+
     // Verificar información del juego
     await expect(page.locator('[data-testid="game-title"]')).toContainText('Super Mario Bros');
     await expect(page.locator('[data-testid="game-platform"]')).toContainText('NES');
-    
+
     // Configurar controles
     await page.click('[data-testid="controls-settings"]');
     await page.click('[data-testid="key-mapping-jump"]');
     await page.keyboard.press('Space');
     await page.click('[data-testid="save-controls"]');
-    
+
     // Iniciar juego
     await page.click('[data-testid="play-button"]');
-    
+
     // Verificar carga del emulador
     await page.waitForSelector('[data-testid="emulator-canvas"]', { timeout: 10000 });
     await page.waitForFunction(() => {
@@ -399,6 +416,7 @@ describe('Game Service E2E', () => {
     });
   });
 });
+
 ```
 
 </Tab>
@@ -407,29 +425,30 @@ describe('Game Service E2E', () => {
 ```javascript
 test('guardado y carga de partidas', async ({ page }) => {
   await loginUser(page, 'gamer@test.com');
-  
+
   // Iniciar juego
   await page.goto('/games/zelda');
   await page.click('[data-testid="play-button"]');
   await page.waitForSelector('[data-testid="emulator-canvas"]');
-  
+
   // Simular progreso en el juego
   await simulateGameplay(page, 30000); // 30 segundos de juego
-  
+
   // Guardar partida
   await page.keyboard.press('Escape');
   await page.click('[data-testid="save-game-button"]');
   await page.fill('[data-testid="save-name"]', 'Test Save 1');
   await page.click('[data-testid="confirm-save"]');
-  
+
   await expect(page.locator('[data-testid="save-success"]')).toBeVisible();
-  
+
   // Verificar guardado en lista
   await page.goto('/saves');
   await expect(page.locator('[data-testid="save-item"]')).toContainText('Test Save 1');
-  
+
   // Cargar partida
   await page.click('[data-testid="load-
 </Tab>
 </Tabs>
+
 ```

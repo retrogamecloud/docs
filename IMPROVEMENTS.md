@@ -1,171 +1,141 @@
 # 🤖 Análisis Inteligente de Documentación
 
-**Fecha**: 2025-11-23 18:10:55  
+**Fecha**: 2025-11-23 18:31:47  
 **Generado por**: Claude Sonnet 4.5  
-**Puntuación General**: 6.5/10
+**Puntuación General**: 7.8/10
 
 ## 📊 Resumen Ejecutivo
 
-Documentación extensa pero desorganizada: 50 archivos con duplicación, numeración inconsistente y gaps críticos en seguridad y operaciones.
+Documentación sólida con estructura clara, pero necesita consolidación de archivos duplicados y mejora en diagramas de arquitectura AWS
 
 ## 🎯 Mejoras Prioritarias
 
 
 ### Prioridad Alta ⚡
 
-#### Consolidar guías de troubleshooting duplicadas
+#### Consolidar documentación de infraestructura duplicada
 
 **Categoría**: structure  
-**Descripción**: Fusionar troubleshooting.mdx, troubleshooting-production.mdx y carpeta troubleshooting/ en una única guía estructurada por entorno (desarrollo/producción).  
-**Razón**: Elimina redundancia y mejora navegación con contenido unificado  
+**Descripción**: Fusionar infrastructure/overview.mdx con architecture.mdx para eliminar redundancia en descripción de arquitectura general del sistema  
+**Razón**: Evita duplicación de conceptos arquitectónicos básicos en dos ubicaciones  
 
-**Archivos a modificar**: troubleshooting.mdx  
+**Archivos a modificar**: architecture.mdx  
 
 ---
 
-#### Eliminar archivos obsoletos de plantilla Mintlify
+#### Fusionar guías de troubleshooting dispersas
 
 **Categoría**: structure  
-**Descripción**: Borrar development.mdx, essentials/* y snippets/* que son contenido de ejemplo de Mintlify sin personalizar para RetroGameCloud.  
-**Razón**: Reduce confusión eliminando documentación genérica no aplicable  
+**Descripción**: Consolidar troubleshooting.mdx con troubleshooting/index.mdx para tener una única entrada de resolución de problemas con subsecciones organizadas  
+**Razón**: Elimina confusión entre dos archivos de troubleshooting en raíz vs carpeta  
 
+**Archivos a modificar**: troubleshooting/index.mdx  
 
 ---
 
-#### Unificar documentación de despliegue y GitOps
+#### Consolidar documentación de base de datos
 
 **Categoría**: structure  
-**Descripción**: Consolidar deployment.mdx, cicd/gitops-workflow.mdx y infrastructure/argocd-gitops.mdx en una guía única de despliegue continuo.  
-**Razón**: Evita información fragmentada sobre el mismo proceso de despliegue  
+**Descripción**: Fusionar infrastructure/database.mdx, database-schema.mdx y database-migrations.mdx en un único archivo database-complete.mdx con secciones claras  
+**Razón**: Tres archivos sobre BBDD generan fragmentación, mejor un archivo completo  
 
-**Archivos a modificar**: deployment.mdx  
+**Archivos a crear**: infrastructure/database-complete.mdx  
 
 ---
 
-#### Renumerar y organizar secciones principales
+#### Añadir diagrama de topología AWS completo en architecture.mdx
 
-**Categoría**: structure  
-**Descripción**: Aplicar numeración consistente: 1.Inicio 2.Arquitectura 3.Servicios 4.Infraestructura 5.Desarrollo 6.CI/CD 7.API 8.Operaciones. Actualizar todos los archivos.  
-**Razón**: Navegación predecible con jerarquía clara y numeración uniforme  
+**Categoría**: diagrams  
+**Descripción**: Crear diagrama Mermaid detallado mostrando VPC, subnets, EKS, RDS, ElastiCache, CloudFront, Route53 y flujo de tráfico completo  
+**Razón**: Falta visualización clara de infraestructura AWS completa para nuevos devs  
 
-**Archivos a modificar**: index.mdx, quickstart.mdx, architecture.mdx, services/overview.mdx, infrastructure/overview.mdx, development/contributing.mdx, cicd/overview.mdx, api-reference/introduction.mdx  
+**Archivos a modificar**: architecture.mdx  
 
 ---
 
-#### Documentar políticas de seguridad y cumplimiento
+#### Corregir numeración inconsistente en archivos raíz
 
 **Categoría**: content  
-**Descripción**: Crear guía de seguridad con OWASP Top 10, gestión de secretos, auditoría, políticas de acceso IAM y procedimientos de respuesta a incidentes.  
-**Razón**: Gap crítico: falta documentación de políticas de seguridad operativa  
+**Descripción**: Estandarizar numeración: quickstart.mdx debe ser 1.1, architecture.mdx debe ser 2.1, sequence-diagrams.mdx debe ser 2.2, configuration.mdx debe ser 8.3  
+**Razón**: Numeración inconsistente dificulta navegación y referencias cruzadas  
 
-**Archivos a crear**: infrastructure/security-policies.mdx  
-**Archivos a modificar**: infrastructure/security.mdx  
-
----
-
-#### Añadir runbooks operacionales completos
-
-**Categoría**: content  
-**Descripción**: Crear runbooks para incidentes críticos: caída de base de datos, saturación de Redis, problemas de red, rollback de despliegues y escalado de emergencia.  
-**Razón**: Esencial para operaciones 24/7: procedimientos paso a paso para incidentes  
-
-**Archivos a crear**: infrastructure/runbooks.mdx  
+**Archivos a modificar**: quickstart.mdx, architecture.mdx, sequence-diagrams.mdx, configuration.mdx  
 
 ---
 
 
 ### Prioridad Media 📌
 
-#### Diagrama de arquitectura AWS completo
+#### Completar schemas OpenAPI en api-reference/
+
+**Categoría**: content  
+**Descripción**: Añadir ejemplos de request/response completos con códigos de error, headers requeridos y validaciones en todos los endpoints de api-reference/  
+**Razón**: APIs sin ejemplos completos dificultan integración para desarrolladores  
+
+**Archivos a modificar**: api-reference/auth/register.mdx, api-reference/auth/login.mdx, api-reference/scores/submit.mdx, api-reference/games/list.mdx  
+
+---
+
+#### Añadir diagrama de flujo de datos entre microservicios
 
 **Categoría**: diagrams  
-**Descripción**: Crear diagrama de topología AWS mostrando VPC, subnets, EKS, RDS, Redis, CloudFront, Route53, ALB y flujo de tráfico con zonas de disponibilidad.  
-**Razón**: Visualización crítica de infraestructura para nuevos desarrolladores  
+**Descripción**: Crear diagrama Mermaid en services/overview.mdx mostrando comunicación entre Auth, User, Game-Catalog, Score, Ranking con Kong Gateway y Redis  
+**Razón**: Falta visualización de dependencias y flujo de datos entre servicios  
 
-**Archivos a modificar**: infrastructure/aws-topology.mdx  
-
----
-
-#### Guía de migración de base de datos con ejemplos
-
-**Categoría**: content  
-**Descripción**: Mejorar database-migrations.mdx con ejemplos reales de migraciones, rollback, testing y estrategias para cambios sin downtime (blue-green).  
-**Razón**: Unificar guías duplicadas y añadir ejemplos prácticos faltantes  
-
-**Archivos a modificar**: infrastructure/database-migrations.mdx  
+**Archivos a modificar**: services/overview.mdx  
 
 ---
 
-#### Documentar estrategia de testing E2E completa
+#### Expandir disaster-recovery-playbook con escenarios reales
 
 **Categoría**: content  
-**Descripción**: Expandir development/e2e-testing.mdx con configuración Cypress/Playwright, casos de prueba por servicio, CI integration y mejores prácticas.  
-**Razón**: Testing E2E mencionado pero sin implementación documentada  
+**Descripción**: Añadir 5 escenarios de desastre documentados: pérdida región AWS, corrupción BBDD, compromiso seguridad, fallo EKS, pérdida datos Redis  
+**Razón**: DR actual es genérico, necesita escenarios específicos testeables  
 
-**Archivos a modificar**: development/e2e-testing.mdx, development/testing-guide.mdx  
+**Archivos a modificar**: infrastructure/disaster-recovery-playbook.mdx  
+
+---
+
+#### Eliminar archivos de reporte temporal innecesarios
+
+**Categoría**: structure  
+**Descripción**: Eliminar AUTO_FIXES_REPORT.md, BROKEN_LINKS_REPORT.md, STRUCTURE_CHANGELOG.md, CHANGELOG_WIKI_2025-11-20.md de documentación publicada  
+**Razón**: Archivos de proceso interno no deben estar en documentación de usuario  
+
 
 ---
 
 
 ### Prioridad Baja 💡
 
-#### Consolidar documentación de herramientas IA
+#### Añadir guía de onboarding completa para nuevos desarrolladores
 
-**Categoría**: quality  
-**Descripción**: Fusionar ai-tools/claude-code.mdx, cursor.mdx y windsurf.mdx en una guía única de herramientas de desarrollo asistido por IA.  
-**Razón**: Contenido similar en 3 archivos, mejor una guía comparativa única  
+**Categoría**: content  
+**Descripción**: Crear development/onboarding-guide.mdx con checklist día 1-30: setup local, primer PR, arquitectura, testing, despliegue staging  
+**Razón**: Falta guía estructurada para incorporación de nuevos miembros del equipo  
 
-**Archivos a modificar**: ai-tools/claude-code.mdx  
+**Archivos a crear**: development/onboarding-guide.mdx  
 
 ---
 
 
 ## 📁 Nuevas Secciones Propuestas
 
-### Operaciones y SRE
-
-Sección dedicada a operaciones, runbooks, on-call, postmortems y gestión de incidentes para equipos SRE.  
-
-**Archivos**:
-- `operations/runbooks.mdx`: 8.1. Runbooks Operacionales  
-- `operations/incident-response.mdx`: 8.2. Respuesta a Incidentes  
-- `operations/on-call-guide.mdx`: 8.3. Guía de Guardia  
-
+- development/onboarding-guide.mdx - Guía de incorporación 0-30 días
+- infrastructure/database-complete.mdx - Documentación unificada de BBDD
 
 ## 📈 Diagramas Requeridos
 
-### Topología AWS Completa
-
-**Tipo**: architecture  
-**Ubicación**: infrastructure/aws-topology.mdx  
-**Descripción**: Diagrama de infraestructura AWS mostrando VPC, subnets públicas/privadas, EKS, RDS Multi-AZ, ElastiCache Redis, ALB, CloudFront y Route53  
-
-### Flujo de Autenticación OAuth2 Completo
-
-**Tipo**: sequence  
-**Ubicación**: infrastructure/oauth2-authentication.mdx  
-**Descripción**: Secuencia detallada de login OAuth2 con Google/GitHub incluyendo Kong, Auth Service, callback y emisión de JWT  
-
-### Pipeline CI/CD con GitOps
-
-**Tipo**: flow  
-**Ubicación**: cicd/gitops-workflow.mdx  
-**Descripción**: Flujo completo desde commit hasta producción: GitHub Actions, build, push ECR, ArgoCD sync y health checks  
-
-### Arquitectura de Microservicios
-
-**Tipo**: component  
-**Ubicación**: architecture.mdx  
-**Descripción**: Diagrama de componentes mostrando 5 microservicios, Kong Gateway, bases de datos, Redis y dependencias entre servicios  
-
+- Diagrama topología AWS completa en architecture.mdx
+- Diagrama flujo de datos microservicios en services/overview.mdx
+- Diagrama pipeline CI/CD completo en cicd/overview.mdx
+- Diagrama red y seguridad VPC en infrastructure/networking.mdx
 
 ## ⚡ Quick Wins
 
-- Eliminar archivos de plantilla Mintlify no personalizados (essentials/, snippets/)  
-- Renumerar secciones principales con formato X.Y. Título consistente  
-- Fusionar troubleshooting.mdx y troubleshooting-production.mdx  
-- Consolidar guías duplicadas de migraciones de BD  
-- Añadir tabla de compatibilidad de versiones en infrastructure/version-compatibility.mdx  
+- Eliminar 4 archivos de reporte temporal  
+- Corregir numeración en 4 archivos principales  
+- Fusionar troubleshooting.mdx con troubleshooting/index.mdx  
 
 
 ---

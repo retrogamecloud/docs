@@ -95,6 +95,7 @@ graph TB
     style D fill:#74c0fc
     style V fill:#74c0fc
     style N fill:#74c0fc
+
 ```
 
 ## Componentes del Pipeline
@@ -162,64 +163,84 @@ graph TB
 ## Estrategias de Despliegue
 
 ### Rolling Updates
+
 - **Zero downtime**: Actualizaciones sin interrupciones
+
 - **Gradual rollout**: Pods se actualizan gradualmente
+
 - **Health checks**: Verificación continua de salud
+
 - **Automatic rollback**: Reversión automática en fallos
 
 ### Blue/Green Deployment
+
 - **Parallel environments**: Dos versiones ejecutándose
+
 - **Traffic switching**: Cambio instantáneo de tráfico
+
 - **Risk mitigation**: Rollback inmediato disponible
+
 - **Resource efficiency**: Optimización de recursos
 
 ### Canary Releases
+
 - **Progressive exposure**: Exposición gradual del tráfico
+
 - **A/B testing**: Comparación de versiones
+
 - **Metrics-driven**: Decisiones basadas en métricas
+
 - **Automated promotion**: Promoción automática exitosa
 
 ## Gates de Aprobación
 
 ### Automated Gates
+
 ```yaml
 quality_gates:
   unit_tests:
     coverage: "> 80%"
     status: "required"
-  
+
   integration_tests:
     status: "required"
     timeout: "10m"
-  
+
   security_scan:
     severity: "high"
     action: "block"
-  
+
   performance:
     response_time: "< 500ms"
     error_rate: "< 1%"
+
 ```
 
 ### Manual Gates
+
 ```yaml
 approval_gates:
   staging_deploy:
     reviewers: ["team-lead", "devops"]
     timeout: "24h"
-  
+
   production_deploy:
     reviewers: ["tech-lead", "product-owner"]
     timeout: "48h"
     require_all: true
+
 ```
 
 ## Rollback Automático
 
 ### Trigger Conditions
+
 - **Health check failures**: Pods no pasan health checks
+
 - **Error rate spike**: Tasa de errores > threshold
+
 - **Performance degradation**: Latencia > SLA
+
 - **Resource exhaustion**: CPU/Memory limits
 
 ### Rollback Process
@@ -257,15 +278,23 @@ approval_gates:
 ## Beneficios del Pipeline
 
 ### Para Desarrolladores
+
 - **Fast feedback**: Retroalimentación rápida en cambios
+
 - **Reduced toil**: Menos tareas manuales repetitivas
+
 - **Confidence**: Despliegues seguros y confiables
+
 - **Focus**: Más tiempo en desarrollo de features
 
 ### Para el Negocio
+
 - **Faster TTM**: Tiempo al mercado reducido
+
 - **Quality**: Mayor calidad y estabilidad
+
 - **Risk reduction**: Menor riesgo en deployments
+
 - **Compliance**: Trazabilidad y auditabilidad
 
 <Note>

@@ -1,240 +1,184 @@
 {
-  "analysis_summary": "Documentación extensa pero desorganizada: 50 archivos con duplicación, numeración inconsistente y gaps críticos en seguridad y operaciones.",
-  "overall_score": 6.5,
+  "analysis_summary": "Documentación sólida con estructura clara, pero necesita consolidación de archivos duplicados y mejora en diagramas de arquitectura AWS",
+  "overall_score": 7.8,
   "improvements": [
     {
       "priority": "high",
       "category": "structure",
-      "title": "Consolidar guías de troubleshooting duplicadas",
-      "description": "Fusionar troubleshooting.mdx, troubleshooting-production.mdx y carpeta troubleshooting/ en una única guía estructurada por entorno (desarrollo/producción).",
+      "title": "Consolidar documentación de infraestructura duplicada",
+      "description": "Fusionar infrastructure/overview.mdx con architecture.mdx para eliminar redundancia en descripción de arquitectura general del sistema",
       "files_to_create": [],
       "files_to_modify": [
-        "troubleshooting.mdx"
+        "architecture.mdx"
       ],
       "files_to_delete": [
-        "troubleshooting-production.mdx",
+        "infrastructure/overview.mdx"
+      ],
+      "proposed_content": "",
+      "mermaid_diagram": "",
+      "rationale": "Evita duplicación de conceptos arquitectónicos básicos en dos ubicaciones"
+    },
+    {
+      "priority": "high",
+      "category": "structure",
+      "title": "Fusionar guías de troubleshooting dispersas",
+      "description": "Consolidar troubleshooting.mdx con troubleshooting/index.mdx para tener una única entrada de resolución de problemas con subsecciones organizadas",
+      "files_to_create": [],
+      "files_to_modify": [
         "troubleshooting/index.mdx"
       ],
+      "files_to_delete": [
+        "troubleshooting.mdx"
+      ],
       "proposed_content": "",
       "mermaid_diagram": "",
-      "rationale": "Elimina redundancia y mejora navegación con contenido unificado"
+      "rationale": "Elimina confusión entre dos archivos de troubleshooting en raíz vs carpeta"
     },
     {
       "priority": "high",
       "category": "structure",
-      "title": "Eliminar archivos obsoletos de plantilla Mintlify",
-      "description": "Borrar development.mdx, essentials/* y snippets/* que son contenido de ejemplo de Mintlify sin personalizar para RetroGameCloud.",
-      "files_to_create": [],
+      "title": "Consolidar documentación de base de datos",
+      "description": "Fusionar infrastructure/database.mdx, database-schema.mdx y database-migrations.mdx en un único archivo database-complete.mdx con secciones claras",
+      "files_to_create": [
+        "infrastructure/database-complete.mdx"
+      ],
       "files_to_modify": [],
       "files_to_delete": [
-        "development.mdx",
-        "essentials/images.mdx",
-        "essentials/navigation.mdx",
-        "essentials/markdown.mdx",
-        "essentials/code.mdx",
-        "essentials/settings.mdx",
-        "snippets/snippet-intro.mdx"
+        "infrastructure/database.mdx",
+        "infrastructure/database-schema.mdx",
+        "infrastructure/database-migrations.mdx"
       ],
       "proposed_content": "",
       "mermaid_diagram": "",
-      "rationale": "Reduce confusión eliminando documentación genérica no aplicable"
+      "rationale": "Tres archivos sobre BBDD generan fragmentación, mejor un archivo completo"
     },
     {
       "priority": "high",
-      "category": "structure",
-      "title": "Unificar documentación de despliegue y GitOps",
-      "description": "Consolidar deployment.mdx, cicd/gitops-workflow.mdx y infrastructure/argocd-gitops.mdx en una guía única de despliegue continuo.",
+      "category": "diagrams",
+      "title": "Añadir diagrama de topología AWS completo en architecture.mdx",
+      "description": "Crear diagrama Mermaid detallado mostrando VPC, subnets, EKS, RDS, ElastiCache, CloudFront, Route53 y flujo de tráfico completo",
       "files_to_create": [],
       "files_to_modify": [
-        "deployment.mdx"
+        "architecture.mdx"
       ],
-      "files_to_delete": [
-        "cicd/gitops-workflow.mdx"
-      ],
+      "files_to_delete": [],
       "proposed_content": "",
       "mermaid_diagram": "",
-      "rationale": "Evita información fragmentada sobre el mismo proceso de despliegue"
+      "rationale": "Falta visualización clara de infraestructura AWS completa para nuevos devs"
     },
     {
       "priority": "high",
-      "category": "structure",
-      "title": "Renumerar y organizar secciones principales",
-      "description": "Aplicar numeración consistente: 1.Inicio 2.Arquitectura 3.Servicios 4.Infraestructura 5.Desarrollo 6.CI/CD 7.API 8.Operaciones. Actualizar todos los archivos.",
+      "category": "content",
+      "title": "Corregir numeración inconsistente en archivos raíz",
+      "description": "Estandarizar numeración: quickstart.mdx debe ser 1.1, architecture.mdx debe ser 2.1, sequence-diagrams.mdx debe ser 2.2, configuration.mdx debe ser 8.3",
       "files_to_create": [],
       "files_to_modify": [
-        "index.mdx",
         "quickstart.mdx",
         "architecture.mdx",
-        "services/overview.mdx",
-        "infrastructure/overview.mdx",
-        "development/contributing.mdx",
-        "cicd/overview.mdx",
-        "api-reference/introduction.mdx"
+        "sequence-diagrams.mdx",
+        "configuration.mdx"
       ],
       "files_to_delete": [],
       "proposed_content": "",
       "mermaid_diagram": "",
-      "rationale": "Navegación predecible con jerarquía clara y numeración uniforme"
+      "rationale": "Numeración inconsistente dificulta navegación y referencias cruzadas"
     },
     {
-      "priority": "high",
+      "priority": "medium",
       "category": "content",
-      "title": "Documentar políticas de seguridad y cumplimiento",
-      "description": "Crear guía de seguridad con OWASP Top 10, gestión de secretos, auditoría, políticas de acceso IAM y procedimientos de respuesta a incidentes.",
-      "files_to_create": [
-        "infrastructure/security-policies.mdx"
-      ],
+      "title": "Completar schemas OpenAPI en api-reference/",
+      "description": "Añadir ejemplos de request/response completos con códigos de error, headers requeridos y validaciones en todos los endpoints de api-reference/",
+      "files_to_create": [],
       "files_to_modify": [
-        "infrastructure/security.mdx"
+        "api-reference/auth/register.mdx",
+        "api-reference/auth/login.mdx",
+        "api-reference/scores/submit.mdx",
+        "api-reference/games/list.mdx"
       ],
       "files_to_delete": [],
       "proposed_content": "",
       "mermaid_diagram": "",
-      "rationale": "Gap crítico: falta documentación de políticas de seguridad operativa"
-    },
-    {
-      "priority": "high",
-      "category": "content",
-      "title": "Añadir runbooks operacionales completos",
-      "description": "Crear runbooks para incidentes críticos: caída de base de datos, saturación de Redis, problemas de red, rollback de despliegues y escalado de emergencia.",
-      "files_to_create": [
-        "infrastructure/runbooks.mdx"
-      ],
-      "files_to_modify": [],
-      "files_to_delete": [],
-      "proposed_content": "",
-      "mermaid_diagram": "",
-      "rationale": "Esencial para operaciones 24/7: procedimientos paso a paso para incidentes"
+      "rationale": "APIs sin ejemplos completos dificultan integración para desarrolladores"
     },
     {
       "priority": "medium",
       "category": "diagrams",
-      "title": "Diagrama de arquitectura AWS completo",
-      "description": "Crear diagrama de topología AWS mostrando VPC, subnets, EKS, RDS, Redis, CloudFront, Route53, ALB y flujo de tráfico con zonas de disponibilidad.",
+      "title": "Añadir diagrama de flujo de datos entre microservicios",
+      "description": "Crear diagrama Mermaid en services/overview.mdx mostrando comunicación entre Auth, User, Game-Catalog, Score, Ranking con Kong Gateway y Redis",
       "files_to_create": [],
       "files_to_modify": [
-        "infrastructure/aws-topology.mdx"
+        "services/overview.mdx"
       ],
       "files_to_delete": [],
       "proposed_content": "",
       "mermaid_diagram": "",
-      "rationale": "Visualización crítica de infraestructura para nuevos desarrolladores"
+      "rationale": "Falta visualización de dependencias y flujo de datos entre servicios"
     },
     {
       "priority": "medium",
       "category": "content",
-      "title": "Guía de migración de base de datos con ejemplos",
-      "description": "Mejorar database-migrations.mdx con ejemplos reales de migraciones, rollback, testing y estrategias para cambios sin downtime (blue-green).",
+      "title": "Expandir disaster-recovery-playbook con escenarios reales",
+      "description": "Añadir 5 escenarios de desastre documentados: pérdida región AWS, corrupción BBDD, compromiso seguridad, fallo EKS, pérdida datos Redis",
       "files_to_create": [],
       "files_to_modify": [
-        "infrastructure/database-migrations.mdx"
+        "infrastructure/disaster-recovery-playbook.mdx"
       ],
+      "files_to_delete": [],
+      "proposed_content": "",
+      "mermaid_diagram": "",
+      "rationale": "DR actual es genérico, necesita escenarios específicos testeables"
+    },
+    {
+      "priority": "medium",
+      "category": "structure",
+      "title": "Eliminar archivos de reporte temporal innecesarios",
+      "description": "Eliminar AUTO_FIXES_REPORT.md, BROKEN_LINKS_REPORT.md, STRUCTURE_CHANGELOG.md, CHANGELOG_WIKI_2025-11-20.md de documentación publicada",
+      "files_to_create": [],
+      "files_to_modify": [],
       "files_to_delete": [
-        "infrastructure/database-migrations-guide.mdx"
+        "AUTO_FIXES_REPORT.md",
+        "BROKEN_LINKS_REPORT.md",
+        "STRUCTURE_CHANGELOG.md",
+        "CHANGELOG_WIKI_2025-11-20.md"
       ],
       "proposed_content": "",
       "mermaid_diagram": "",
-      "rationale": "Unificar guías duplicadas y añadir ejemplos prácticos faltantes"
-    },
-    {
-      "priority": "medium",
-      "category": "content",
-      "title": "Documentar estrategia de testing E2E completa",
-      "description": "Expandir development/e2e-testing.mdx con configuración Cypress/Playwright, casos de prueba por servicio, CI integration y mejores prácticas.",
-      "files_to_create": [],
-      "files_to_modify": [
-        "development/e2e-testing.mdx",
-        "development/testing-guide.mdx"
-      ],
-      "files_to_delete": [],
-      "proposed_content": "",
-      "mermaid_diagram": "",
-      "rationale": "Testing E2E mencionado pero sin implementación documentada"
+      "rationale": "Archivos de proceso interno no deben estar en documentación de usuario"
     },
     {
       "priority": "low",
-      "category": "quality",
-      "title": "Consolidar documentación de herramientas IA",
-      "description": "Fusionar ai-tools/claude-code.mdx, cursor.mdx y windsurf.mdx en una guía única de herramientas de desarrollo asistido por IA.",
-      "files_to_create": [],
-      "files_to_modify": [
-        "ai-tools/claude-code.mdx"
+      "category": "content",
+      "title": "Añadir guía de onboarding completa para nuevos desarrolladores",
+      "description": "Crear development/onboarding-guide.mdx con checklist día 1-30: setup local, primer PR, arquitectura, testing, despliegue staging",
+      "files_to_create": [
+        "development/onboarding-guide.mdx"
       ],
-      "files_to_delete": [
-        "ai-tools/cursor.mdx",
-        "ai-tools/windsurf.mdx"
-      ],
+      "files_to_modify": [],
+      "files_to_delete": [],
       "proposed_content": "",
       "mermaid_diagram": "",
-      "rationale": "Contenido similar en 3 archivos, mejor una guía comparativa única"
+      "rationale": "Falta guía estructurada para incorporación de nuevos miembros del equipo"
     }
   ],
   "new_sections": [
-    {
-      "name": "Operaciones y SRE",
-      "description": "Sección dedicada a operaciones, runbooks, on-call, postmortems y gestión de incidentes para equipos SRE.",
-      "files": [
-        {
-          "filename": "operations/runbooks.mdx",
-          "title": "8.1. Runbooks Operacionales",
-          "content_outline": "Procedimientos paso a paso para incidentes críticos: DB down, Redis saturado, rollback, escalado emergencia"
-        },
-        {
-          "filename": "operations/incident-response.mdx",
-          "title": "8.2. Respuesta a Incidentes",
-          "content_outline": "Protocolo de gestión de incidentes, roles, comunicación, escalado y plantillas de postmortem"
-        },
-        {
-          "filename": "operations/on-call-guide.mdx",
-          "title": "8.3. Guía de Guardia",
-          "content_outline": "Responsabilidades on-call, herramientas, checklist de handoff y contactos de escalado"
-        }
-      ]
-    }
+    "development/onboarding-guide.mdx - Guía de incorporación 0-30 días",
+    "infrastructure/database-complete.mdx - Documentación unificada de BBDD"
   ],
   "diagrams_needed": [
-    {
-      "type": "architecture",
-      "title": "Topología AWS Completa",
-      "description": "Diagrama de infraestructura AWS mostrando VPC, subnets públicas/privadas, EKS, RDS Multi-AZ, ElastiCache Redis, ALB, CloudFront y Route53",
-      "location": "infrastructure/aws-topology.mdx",
-      "mermaid_code": ""
-    },
-    {
-      "type": "sequence",
-      "title": "Flujo de Autenticación OAuth2 Completo",
-      "description": "Secuencia detallada de login OAuth2 con Google/GitHub incluyendo Kong, Auth Service, callback y emisión de JWT",
-      "location": "infrastructure/oauth2-authentication.mdx",
-      "mermaid_code": ""
-    },
-    {
-      "type": "flow",
-      "title": "Pipeline CI/CD con GitOps",
-      "description": "Flujo completo desde commit hasta producción: GitHub Actions, build, push ECR, ArgoCD sync y health checks",
-      "location": "cicd/gitops-workflow.mdx",
-      "mermaid_code": ""
-    },
-    {
-      "type": "component",
-      "title": "Arquitectura de Microservicios",
-      "description": "Diagrama de componentes mostrando 5 microservicios, Kong Gateway, bases de datos, Redis y dependencias entre servicios",
-      "location": "architecture.mdx",
-      "mermaid_code": ""
-    }
+    "Diagrama topología AWS completa en architecture.mdx",
+    "Diagrama flujo de datos microservicios en services/overview.mdx",
+    "Diagrama pipeline CI/CD completo en cicd/overview.mdx",
+    "Diagrama red y seguridad VPC en infrastructure/networking.mdx"
   ],
   "quick_wins": [
-    "Eliminar archivos de plantilla Mintlify no personalizados (essentials/, snippets/)",
-    "Renumerar secciones principales con formato X.Y. Título consistente",
-    "Fusionar troubleshooting.mdx y troubleshooting-production.mdx",
-    "Consolidar guías duplicadas de migraciones de BD",
-    "Añadir tabla de compatibilidad de versiones en infrastructure/version-compatibility.mdx"
+    "Eliminar 4 archivos de reporte temporal",
+    "Corregir numeración en 4 archivos principales",
+    "Fusionar troubleshooting.mdx con troubleshooting/index.mdx"
   ],
   "critical_gaps": [
-    "Runbooks operacionales para incidentes críticos (DB, Redis, red)",
-    "Políticas de seguridad y procedimientos de auditoría",
-    "Guía completa de testing E2E con ejemplos ejecutables",
-    "Diagramas de arquitectura AWS y flujos de datos",
-    "Documentación de estrategia de backup y disaster recovery testeable",
-    "Procedimientos de respuesta a incidentes y postmortems"
+    "Falta diagrama de arquitectura AWS completo con todos los servicios",
+    "APIs sin ejemplos completos de request/response con errores",
+    "Disaster recovery sin escenarios específicos testeables",
+    "Sin guía de onboarding estructurada para nuevos desarrolladores"
   ]
 }
