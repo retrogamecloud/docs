@@ -135,7 +135,6 @@
             "pages": [
               "cicd/overview",
               "cicd/github-actions",
-              "cicd/gitops-workflow",
               "infrastructure/argocd-gitops",
               "deployment"
             ],
