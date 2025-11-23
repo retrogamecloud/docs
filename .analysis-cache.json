@@ -13,9 +13,9 @@
       "size": 10181
     },
     "architecture.mdx": {
-      "hash": "0b12ccc59ebdf9eeb255699da0f6e060fc5bf4173aba06a7c1a8b1a21ae8a709",
-      "last_analyzed": "2025-11-23T19:39:17.393166",
-      "size": 15469
+      "hash": "39ad63a52dcb1350d07ecac0106e8fb678490a4e2d0c98c6fa1793dca6a20fb7",
+      "last_analyzed": "2025-11-23T19:46:19.797175",
+      "size": 16152
     },
     "configuration.mdx": {
       "hash": "277c8e966a3b2f2802c98460e0d3cb0510db94d142db12579928997264c8be49",
@@ -323,9 +323,9 @@
       "size": 10236
     },
     "AUTO_FIXES_REPORT.md": {
-      "hash": "7428e16ee915e54274a7a32c6089ca02e32405aaaba2c4e56cbace7e66296c24",
-      "last_analyzed": "2025-11-23T19:39:17.392451",
-      "size": 1922
+      "hash": "be114aeaca6082148ae4d54043791ac296fc7e2eb5734e410de197c552b51f67",
+      "last_analyzed": "2025-11-23T19:46:19.797305",
+      "size": 534
     },
     "STRUCTURE_CHANGELOG.md": {
       "hash": "d03a05297512e82dfeb7ed16d3efdcb5361d1b71934dd06c811f92939bf37fe5",
@@ -334,17 +334,17 @@
     },
     "CHANGELOG_WIKI_2025-11-20.md": {
       "hash": "d13877754ef905f75e10e04599d08786c84a78b89b5a478d17f4b058a96099e0",
-      "last_analyzed": "2025-11-23T19:39:17.392761",
+      "last_analyzed": "2025-11-23T19:46:19.796983",
       "size": 12710
     },
     "README.md": {
       "hash": "024bf7c7673705356f681d02d8192dcae1115ccbdf621307bae295c7f89abb0b",
-      "last_analyzed": "2025-11-23T19:39:17.392236",
+      "last_analyzed": "2025-11-23T19:46:19.797272",
       "size": 1394
     },
     "BROKEN_LINKS_REPORT.md": {
-      "hash": "7ba5cada24f35004fe835a5a5462159392acca46bf54ca4f0ea175915fe3daa6",
-      "last_analyzed": "2025-11-23T19:39:17.392421",
+      "hash": "192bfc2fdcc1f55c0d52e7efd9dfe64316f85f30dad10b7f9cc5e7d0c31974a2",
+      "last_analyzed": "2025-11-23T19:46:19.796835",
       "size": 4620
     },
     "IMPROVEMENTS.md": {
@@ -353,9 +353,9 @@
       "size": 4831
     },
     "infrastructure/backup-recovery.mdx": {
-      "hash": "480adc178b488f921e1803f11a05a8323bd2e871b9b4598b66cc3fd88d2eba77",
-      "last_analyzed": "2025-11-23T19:39:17.392963",
-      "size": 12406
+      "hash": "80eee5f4e8a79bed76c3bc489d276fbd4df76860dc755d93c3e6ed65c32d8963",
+      "last_analyzed": "2025-11-23T19:46:19.797103",
+      "size": 12420
     },
     "infrastructure/database-schema.mdx": {
       "hash": "ca6f88280504b0034ec0687586749979f0609600afa65608d75d7d682097dd1f",
@@ -373,9 +373,9 @@
       "size": 12403
     },
     "infrastructure/database.mdx": {
-      "hash": "c626c6bbc2c45c37bcd294836741d2b27cb1f7479000640123fba13388aa5ed2",
-      "last_analyzed": "2025-11-23T19:39:17.393199",
-      "size": 13240
+      "hash": "bed3966d0471d7c6f0569c5f6a34351d2ef9f3a3ef8698f3bfd37fde0f37e6b3",
+      "last_analyzed": "2025-11-23T19:46:19.797245",
+      "size": 13254
     },
     "development/contributing.mdx": {
       "hash": "dadd2f4227fb6fd730ad296e47e902e78e626a79cc89eabf563ba507e902d6eb",
@@ -393,9 +393,9 @@
       "size": 12507
     },
     "development/testing-guide.mdx": {
-      "hash": "100dbe722305e81150c313baa3ec21ece662378bbe95b313d158b39a9db25c94",
-      "last_analyzed": "2025-11-23T19:39:17.392895",
-      "size": 13575
+      "hash": "ce117d3a4654cddefcbac0166d0666821d0080c70a7ab9c0a1b387afc24c6152",
+      "last_analyzed": "2025-11-23T19:46:19.797210",
+      "size": 13589
     },
     "development/code-standards.mdx": {
       "hash": "1006e0257976b1d8c9030bbc81a07abdb3274eab66db8e0e80155a3eca74571e",
@@ -418,19 +418,19 @@
       "size": 8829
     },
     "infrastructure/alerting.mdx": {
-      "hash": "74b4507635ed39aa870d4595c750e731f923a8aa87e81259df7e9383776c0954",
-      "last_analyzed": "2025-11-23T19:39:17.392280",
-      "size": 11709
+      "hash": "0bce6b717d1ac62e6b397ea061ec7a577e94133dc2a514fed74f432015aa3caf",
+      "last_analyzed": "2025-11-23T19:46:19.796946",
+      "size": 11723
     },
     "infrastructure/logging.mdx": {
-      "hash": "3abb86cbbaf25bd74a3ce222435247d9bf44c1a42f93b71dfa4890249ad31c69",
-      "last_analyzed": "2025-11-23T19:39:17.393130",
-      "size": 12553
+      "hash": "3d1825863b43196adea482e5f6e5879c44fe22bd259f2011bf69706663c0cbcc",
+      "last_analyzed": "2025-11-23T19:46:19.796910",
+      "size": 12567
     },
     "infrastructure/disaster-recovery-playbook.mdx": {
-      "hash": "ab37cf064b5a404729485c1aaa0d3df03cd52c89e58a06e3559d87803aad9077",
-      "last_analyzed": "2025-11-23T19:39:17.393032",
-      "size": 11691
+      "hash": "77c249c9b292754adcba8442993f08406ee432949b5f4d02d62b0f0675ef9dd8",
+      "last_analyzed": "2025-11-23T19:46:19.796873",
+      "size": 11821
     },
     "infrastructure/database-migrations.mdx": {
       "hash": "d49508e9529c5b5369cbd0a3522de21343a3c6050225c0bffa9c6cd9c793e56b",
@@ -438,9 +438,9 @@
       "size": 12851
     },
     "development/e2e-testing.mdx": {
-      "hash": "85cef5bc9008a17c361526ecea79dcb9a63be77d673dba1e3af8bb35816b7470",
-      "last_analyzed": "2025-11-23T19:39:17.393096",
-      "size": 12792
+      "hash": "663b738f0ad48756e948a6b8027822a98f0371b057ecf438b1ad5be94370d0ce",
+      "last_analyzed": "2025-11-23T19:46:19.797028",
+      "size": 12796
     },
     "infrastructure/aws-topology.mdx": {
       "hash": "6f13a6acb0d85c291914f2b148f54ff3768887f53b63fa04995a7dfb2d77f970",
@@ -478,14 +478,14 @@
       "size": 12499
     },
     "infrastructure/observabilidad.mdx": {
-      "hash": "fc776b7569fcfc90465a1e2949b658def92ac73be88b05ded97d062f177fe06a",
-      "last_analyzed": "2025-11-23T19:39:17.392859",
-      "size": 11610
+      "hash": "6f8ac59ca0288b3cfc45f4dcd0566c98158f0c0bd9a294faf7630accb676f2de",
+      "last_analyzed": "2025-11-23T19:46:19.797137",
+      "size": 11624
     },
     "infrastructure/scaling-guide.mdx": {
-      "hash": "47653cf3ea953e783fd7f6f2149d9fd8fbd9897b43c3f2333601164add186227",
-      "last_analyzed": "2025-11-23T19:39:17.392929",
-      "size": 12296
+      "hash": "5f7e8d7d822a7f44ddb052741408ddf7b4bba0e0f95c26bda6ea5c1d1e07e1f8",
+      "last_analyzed": "2025-11-23T19:46:19.797067",
+      "size": 12310
     },
     "infrastructure/version-compatibility.mdx": {
       "hash": "d4532836c647749b44ec0389361cfc18151dd2713ad8c66c6b23c1027a32aa80",
@@ -498,9 +498,9 @@
       "size": 13175
     },
     "troubleshooting/red-conectividad.mdx": {
-      "hash": "7d47f9354a3b72fa86cd0d796293044554e566fd0a41b17af4603f49d7c92f95",
-      "last_analyzed": "2025-11-23T19:39:17.393232",
-      "size": 12794
+      "hash": "c30a53e32c5ae69c0412664e0bb7cd2a7bb5cbd767dd5df53c79c412263e5713",
+      "last_analyzed": "2025-11-23T19:46:19.796746",
+      "size": 12808
     },
     "infrastructure/security-policies.mdx": {
       "hash": "213b26cabfe838abe466aee5c4c0a0a4a63bcd0946b14955af08ec134d592060",
@@ -513,9 +513,9 @@
       "size": 10794
     },
     "infrastructure/database-complete.mdx": {
-      "hash": "4b2ad382df4c9de49e5c4d91a27e6267fb8953db59cc247cfe818c14ab55fae8",
-      "last_analyzed": "2025-11-23T19:39:17.392560",
-      "size": 13717
+      "hash": "38a65dd96f5244b483778e1a8b663c88e8d034f16a6adbe2d0a4d581ed6ea9af",
+      "last_analyzed": "2025-11-23T19:46:19.796799",
+      "size": 13731
     },
     "development/onboarding-guide.mdx": {
       "hash": "3a09b6b8ee7415b54345f9fb38d8277e4074e986bceb846c038dd9374f60f52c",
