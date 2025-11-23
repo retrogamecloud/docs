@@ -1,7 +1,7 @@
 ---
-title: "7.4. ArgoCD y GitOps"
-description: "Despliegue continuo declarativo con ArgoCD en Kubernetes"
-icon: "arrows-rotate"
+title: 7.4. ArgoCD y GitOps
+description: Despliegue continuo declarativo con ArgoCD en Kubernetes
+icon: arrows-rotate
 ---
 
 ## 🎯 Descripción General
@@ -9,14 +9,18 @@ icon: "arrows-rotate"
 ArgoCD es la herramienta de **GitOps** que gestiona el despliegue continuo de aplicaciones en el cluster EKS. Garantiza que el estado del cluster siempre refleje lo definido en Git.
 
 <Info>
-**GitOps**: Git como única fuente de verdad. Cualquier cambio en los manifiestos se aplica automáticamente al cluster.
+
+* *GitOps**: Git como única fuente de verdad. Cualquier cambio en los manifiestos se aplica automáticamente al cluster.
 </Info>
 
 ## 📦 Versión Instalada
 
 - **ArgoCD**: v2.9.3
+
 - **Instalación**: Helm Chart
+
 - **Namespace**: `argocd`
+
 - **Acceso**: https://retrogamehub.games/argocd
 
 ## 🔐 Autenticación
@@ -30,9 +34,10 @@ server:
     annotations:
       nginx.ingress.kubernetes.io/auth-signin: "https://oauth2.retrogamehub.games/oauth2/start"
       nginx.ingress.kubernetes.io/auth-url: "https://oauth2.retrogamehub.games/oauth2/auth"
+
 ```
 
-**Usuarios autorizados**: Definidos en OAuth2 Proxy ConfigMap
+* *Usuarios autorizados**: Definidos en OAuth2 Proxy ConfigMap
 
 ### Credenciales Admin
 
@@ -41,18 +46,22 @@ Credenciales solo para emergencias. Usa GitHub OAuth2 para acceso normal.
 </Warning>
 
 ```bash
+
 # Usuario
 admin
 
 # Password (obtener)
 kubectl get secret argocd-initial-admin-secret -n argocd \
   -o jsonpath="{.data.password}" | base64 -d
+
 ```
 
 ## 🏗️ Aplicaciones Desplegadas
 
 ### Backend Application
+
 ```yaml
+
 # argocd/apps/backend-app.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -79,16 +88,23 @@ spec:
       kind: Deployment
       jsonPointers:
         - /spec/replicas
+
 ```
 
-**Características**:
+* *Características**:
+
 - ✅ Auto-sync habilitado (polling cada 3 minutos)
+
 - ✅ Self-heal: Revierte cambios manuales
+
 - ✅ Prune: Elimina recursos borrados del Git
+
 - ✅ Ignora diferencias en réplicas (permite escalado manual temporal)
 
 ### Frontend Application
+
 ```yaml
+
 # argocd/apps/frontend-app.yaml
 metadata:
   name: frontend
@@ -96,10 +112,13 @@ spec:
   source:
     path: k8s/frontend
   # Resto similar a backend
+
 ```
 
 ### Kong Gateway Application
+
 ```yaml
+
 # argocd/apps/kong-app.yaml
 metadata:
   name: kong
@@ -107,6 +126,7 @@ spec:
   source:
     path: k8s/kong
   # Resto similar a backend
+
 ```
 
 ## 🏥 Health Checks Personalizados
@@ -114,46 +134,51 @@ spec:
 ArgoCD usa health checks personalizados para detectar mejor el estado de los Deployments:
 
 ```yaml
+
 # argocd/health-checks/argocd-cm-health.yaml
 data:
   resource.customizations.health.apps_Deployment: |
     hs = {}
     hs.status = "Progressing"
-    
+
     if obj.status.conditions then
       for i, condition in ipairs(obj.status.conditions) do
         -- Detectar fallo de deployment
-        if condition.type == "Progressing" and 
+        if condition.type == "Progressing" and
            condition.reason == "ProgressDeadlineExceeded" then
           hs.status = "Degraded"
           hs.message = condition.message
           return hs
         end
-        
+
         -- Detectar deployment exitoso
-        if condition.type == "Progressing" and 
+        if condition.type == "Progressing" and
            condition.reason == "NewReplicaSetAvailable" then
           hs.status = "Healthy"
           return hs
         end
       end
     end
-    
+
     -- Verificar que todas las réplicas están listas
     if obj.status.replicas == obj.status.updatedReplicas and
        obj.status.availableReplicas == obj.status.replicas then
       hs.status = "Healthy"
       hs.message = "All replicas are ready"
     end
-    
+
     return hs
-    
+
   timeout.reconciliation: "180s"
+
 ```
 
-**Mejoras**:
+* *Mejoras**:
+
 - ✅ Detecta `ProgressDeadlineExceeded` → Estado `Degraded`
+
 - ✅ Verifica que todas las réplicas estén realmente listas
+
 - ✅ Timeout de 180s para deployments lentos
 
 ## 📢 Notificaciones a Slack
@@ -161,25 +186,28 @@ data:
 ArgoCD envía notificaciones automáticas al canal `#argocdretrogame`:
 
 ### Configuración
+
 ```yaml
+
 # argocd/notifications/argocd-notifications-cm.yaml
 data:
   service.slack: |
     apiURL: https://hooks.slack.com/services/T09UHLJLU1E/B09UJS3DR6Y/...
-  
+
   # 3 Triggers configurados
   trigger.on-deployed: |
     - send: [app-deployed]
-      when: app.status.operationState.phase == 'Succeeded' and 
+      when: app.status.operationState.phase == 'Succeeded' and
             app.status.health.status == 'Healthy'
-  
+
   trigger.on-sync-failed: |
     - send: [app-sync-failed]
       when: app.status.operationState.phase in ['Error', 'Failed']
-  
+
   trigger.on-health-degraded: |
     - send: [app-health-degraded]
       when: app.status.health.status == 'Degraded'
+
 ```
 
 ### Tipos de Notificaciones
@@ -205,20 +233,20 @@ sequenceDiagram
     participant ArgoCD
     participant K8s as Kubernetes
     participant Slack
-    
+
     Dev->>Git: 1. Push cambios a main
     Note over Git: k8s/backend/deployment.yaml
-    
+
     Note over ArgoCD: 2. Polling cada 3 min
     ArgoCD->>Git: Check for changes
     Git-->>ArgoCD: New commit detected
-    
+
     ArgoCD->>ArgoCD: 3. Compare Git vs Cluster
     Note over ArgoCD: Diff detected
-    
+
     ArgoCD->>K8s: 4. Apply manifests
     K8s->>K8s: Rolling update
-    
+
     alt Deployment OK
         K8s-->>ArgoCD: Sync successful
         ArgoCD->>Slack: ✅ Deployed notification
@@ -227,6 +255,7 @@ sequenceDiagram
         ArgoCD->>K8s: Rollback
         ArgoCD->>Slack: ❌ Failed notification
     end
+
 ```
 
 ## 📁 Estructura de Repositorio
@@ -255,32 +284,45 @@ infrastructure/
         ├── deployment.yaml
         ├── service.yaml
         └── configmap.yaml
+
 ```
 
 ## 🛠️ Comandos Útiles
 
 ### Ver Estado de Aplicaciones
+
 ```bash
+
 # CLI
 kubectl get applications -n argocd
 
 # Salida
+
 # NAME       SYNC STATUS   HEALTH STATUS
+
 # backend    Synced        Healthy
+
 # frontend   Synced        Healthy
+
 # kong       Synced        Healthy
+
 ```
 
 ### Forzar Sincronización Manual
+
 ```bash
+
 # Desde UI: Click en "SYNC" en la aplicación
 
 # Desde CLI (si instalas argocd CLI)
 argocd app sync backend --force
+
 ```
 
 ### Ver Logs de ArgoCD
+
 ```bash
+
 # Application Controller
 kubectl logs -n argocd -l app.kubernetes.io/name=argocd-application-controller
 
@@ -289,10 +331,13 @@ kubectl logs -n argocd -l app.kubernetes.io/name=argocd-notifications-controller
 
 # Server
 kubectl logs -n argocd -l app.kubernetes.io/name=argocd-server
+
 ```
 
 ### Reiniciar Componentes
+
 ```bash
+
 # Restart all ArgoCD
 kubectl rollout restart deployment -n argocd
 
@@ -301,6 +346,7 @@ kubectl rollout restart deployment argocd-server -n argocd
 
 # Solo notifications
 kubectl rollout restart deployment argocd-notifications-controller -n argocd
+
 ```
 
 ## 🔧 Configuración vs Terraform
@@ -310,24 +356,37 @@ Los recursos de Kubernetes antes gestionados por Terraform ahora están **coment
 </Warning>
 
 ### Recursos Comentados (Gestionados por ArgoCD)
+
 - ✅ `kubernetes_deployment.backend`
+
 - ✅ `kubernetes_service.backend`
+
 - ✅ `kubernetes_deployment.frontend`
+
 - ✅ `kubernetes_service.frontend`
+
 - ✅ `kubernetes_deployment.kong`
+
 - ✅ `kubernetes_service.kong`
 
 ### Recursos en Terraform (No gestionados por ArgoCD)
+
 - ✅ `kubernetes_namespace.retrogame`
+
 - ✅ `kubernetes_secret.jwt_secret`
+
 - ✅ `kubernetes_config_map.frontend_replacer`
+
 - ✅ Ingresses y Route53
+
 - ✅ RDS, S3, CloudFront
 
-**Rollback**: Descomentar recursos en `kubernetes.tf` y ejecutar:
+* *Rollback**: Descomentar recursos en `kubernetes.tf` y ejecutar:
+
 ```bash
 cd terraform/eks
 terraform apply
+
 ```
 
 ## 🎯 Ventajas de GitOps con ArgoCD
@@ -357,47 +416,61 @@ terraform apply
 
 ### Aplicación OutOfSync
 
-**Problema**: La aplicación muestra estado `OutOfSync`
+* *Problema**: La aplicación muestra estado `OutOfSync`
 
-**Solución**:
+* *Solución**:
+
 ```bash
+
 # Ver diferencias
 kubectl get application backend -n argocd -o yaml
 
 # Sincronizar manualmente
 kubectl patch application backend -n argocd \
   --type merge -p '{"operation":{"sync":{"revision":"HEAD"}}}'
+
 ```
 
 ### Self-Heal No Funciona
 
-**Verificar sync policy**:
+* *Verificar sync policy**:
+
 ```bash
 kubectl get application backend -n argocd -o jsonpath='{.spec.syncPolicy.automated}'
+
 # Debe mostrar: {"prune":true,"selfHeal":true}
+
 ```
 
 ### Notificaciones No Llegan
 
-**Ver logs**:
+* *Ver logs**:
+
 ```bash
 kubectl logs -n argocd -l app.kubernetes.io/name=argocd-notifications-controller --tail=50
+
 ```
 
-**Probar webhook manualmente**:
+* *Probar webhook manualmente**:
+
 ```bash
 curl -X POST https://hooks.slack.com/services/... \
   -H 'Content-Type: application/json' \
   -d '{"text":"Test desde ArgoCD"}'
+
 ```
 
 ## 📚 Referencias
 
 - [ArgoCD Documentation](https://argo-cd.readthedocs.io/)
+
 - [GitOps Principles](https://opengitops.dev/)
+
 - [Health Assessment](https://argo-cd.readthedocs.io/en/stable/operator-manual/health/)
+
 - [Notifications Catalog](https://argo-cd.readthedocs.io/en/stable/operator-manual/notifications/catalog/)
 
 <Note>
-**Próximas mejoras**: ApplicationSets para gestionar múltiples aplicaciones, Argo Rollouts para progressive delivery.
+
+* *Próximas mejoras**: ApplicationSets para gestionar múltiples aplicaciones, Argo Rollouts para progressive delivery.
 </Note>

@@ -1,7 +1,7 @@
 ---
-title: "1.4. Auth Service API"
-description: "Endpoints de autenticación, registro y gestión de tokens JWT"
-icon: "shield"
+title: 1.4. Auth Service API
+description: Endpoints de autenticación, registro y gestión de tokens JWT
+icon: shield
 ---
 
 <Info>
@@ -16,18 +16,25 @@ icon: "shield"
 ## Descripción General
 
 El servicio de autenticación maneja:
+
 - 🔐 Registro de nuevos usuarios
+
 - 🎫 Inicio de sesión y generación de tokens JWT
+
 - ✅ Verificación de tokens
+
 - 🔄 Renovación de tokens (refresh)
+
 - 🔒 Gestión de sesiones
 
 ## Base URL
 
 ```
+
 Production:  https://api.retrogamehub.games/auth
 Staging:     https://staging-api.retrogamehub.games/auth
 Development: http://localhost:3001
+
 ```
 
 ## Autenticación
@@ -36,13 +43,14 @@ Todos los endpoints (excepto `/register` y `/login`) requieren un token JWT vál
 
 ```bash
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
 ```
 
 <Warning>
   Los tokens expiran después de 24 horas. Usa el endpoint de refresh para renovarlos.
 </Warning>
 
----
+- --
 
 ## Endpoints
 
@@ -50,16 +58,19 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 Registra un nuevo usuario en la plataforma.
 
-**Request Body:**
+* *Request Body:**
+
 ```json
 {
   "email": "player@example.com",
   "username": "retroPlayer",
   "password": "SecurePass123!"
 }
+
 ```
 
-**Response 201:**
+* *Response 201:**
+
 ```json
 {
   "success": true,
@@ -71,9 +82,10 @@ Registra un nuevo usuario en la plataforma.
   },
   "message": "Usuario registrado exitosamente"
 }
+
 ```
 
-**Errores:**
+* *Errores:**
 
 | Código | Descripción |
 |--------|-------------|
@@ -81,21 +93,24 @@ Registra un nuevo usuario en la plataforma.
 | 400    | Contraseña no cumple requisitos |
 | 500    | Error del servidor |
 
----
+- --
 
 ### POST /login
 
 Autentica un usuario y genera tokens de acceso.
 
-**Request Body:**
+* *Request Body:**
+
 ```json
 {
   "email": "player@example.com",
   "password": "SecurePass123!"
 }
+
 ```
 
-**Response 200:**
+* *Response 200:**
+
 ```json
 {
   "success": true,
@@ -110,9 +125,10 @@ Autentica un usuario y genera tokens de acceso.
     }
   }
 }
+
 ```
 
-**Errores:**
+* *Errores:**
 
 | Código | Descripción |
 |--------|-------------|
@@ -120,18 +136,22 @@ Autentica un usuario y genera tokens de acceso.
 | 404    | Usuario no encontrado |
 | 500    | Error del servidor |
 
----
+- --
 
 ### POST /verify
 
 Verifica si un token JWT es válido.
 
-**Headers:**
-```
-Authorization: Bearer <token>
+* *Headers:**
+
 ```
 
-**Response 200:**
+Authorization: Bearer <token>
+
+```
+
+* *Response 200:**
+
 ```json
 {
   "success": true,
@@ -142,29 +162,33 @@ Authorization: Bearer <token>
     "expiresAt": "2025-11-20T10:30:00Z"
   }
 }
+
 ```
 
-**Errores:**
+* *Errores:**
 
 | Código | Descripción |
 |--------|-------------|
 | 401    | Token inválido o expirado |
 | 500    | Error del servidor |
 
----
+- --
 
 ### POST /refresh
 
 Renueva un token de acceso usando un refresh token.
 
-**Request Body:**
+* *Request Body:**
+
 ```json
 {
   "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
+
 ```
 
-**Response 200:**
+* *Response 200:**
+
 ```json
 {
   "success": true,
@@ -174,28 +198,34 @@ Renueva un token de acceso usando un refresh token.
     "expiresIn": 86400
   }
 }
+
 ```
 
----
+- --
 
 ### POST /logout
 
 Invalida el token actual y cierra la sesión.
 
-**Headers:**
-```
-Authorization: Bearer <token>
+* *Headers:**
+
 ```
 
-**Response 200:**
+Authorization: Bearer <token>
+
+```
+
+* *Response 200:**
+
 ```json
 {
   "success": true,
   "message": "Sesión cerrada exitosamente"
 }
+
 ```
 
----
+- --
 
 ## Modelos de Datos
 
@@ -211,6 +241,7 @@ Authorization: Bearer <token>
   updatedAt: Date;
   lastLogin?: Date;
 }
+
 ```
 
 ### JWT Payload
@@ -222,9 +253,10 @@ Authorization: Bearer <token>
   iat: number;  // Issued at
   exp: number;  // Expiration
 }
+
 ```
 
----
+- --
 
 ## Códigos de Error
 
@@ -237,7 +269,7 @@ Authorization: Bearer <token>
 | 409 | Conflict | Email/username ya existe |
 | 500 | Internal Server Error | Error del servidor |
 
----
+- --
 
 ## Rate Limiting
 
@@ -252,7 +284,7 @@ Authorization: Bearer <token>
 | /verify | 100 requests / minuto |
 | /refresh | 20 requests / hora |
 
----
+- --
 
 ## Ejemplos con cURL
 
@@ -266,6 +298,7 @@ curl -X POST https://api.retrogamehub.games/auth/register \
     "username": "retroPlayer",
     "password": "SecurePass123!"
   }'
+
 ```
 
 ### Login
@@ -277,6 +310,7 @@ curl -X POST https://api.retrogamehub.games/auth/login \
     "email": "player@example.com",
     "password": "SecurePass123!"
   }'
+
 ```
 
 ### Verificar Token
@@ -284,15 +318,16 @@ curl -X POST https://api.retrogamehub.games/auth/login \
 ```bash
 curl -X POST https://api.retrogamehub.games/auth/verify \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
 ```
 
----
+- --
 
 ## Seguridad
 
 <Warning>
   **Mejores Prácticas:**
-  
+
   - ✅ Usa HTTPS en producción
   - ✅ Almacena tokens de forma segura (httpOnly cookies recomendado)
   - ✅ Implementa CORS correctamente
@@ -304,15 +339,19 @@ curl -X POST https://api.retrogamehub.games/auth/verify \
 ### Requisitos de Contraseña
 
 - Mínimo 8 caracteres
+
 - Al menos una mayúscula
+
 - Al menos un número
+
 - Al menos un carácter especial (opcional pero recomendado)
 
----
+- --
 
 ## Variables de Entorno
 
 ```bash
+
 # Auth Service Configuration
 JWT_SECRET=your-secret-key-here
 JWT_EXPIRATION=24h
@@ -325,13 +364,14 @@ DB_PORT=5432
 DB_NAME=retrogame_auth
 DB_USER=postgres
 DB_PASSWORD=secure_password
+
 ```
 
 <Info>
   Ver [Configuración](/configuration) para detalles completos de todas las variables.
 </Info>
 
----
+- --
 
 ## Próximos Pasos
 

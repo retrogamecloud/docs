@@ -1,7 +1,7 @@
 ---
-title: "3.5. Servicio de Rankings"
-description: "Leaderboards y clasificaciones globales"
-icon: "ranking-star"
+title: 3.5. Servicio de Rankings
+description: Leaderboards y clasificaciones globales
+icon: ranking-star
 ---
 
 ## Descripción
@@ -11,19 +11,19 @@ El servicio de rankings proporciona tablas de clasificación (leaderboards) para
 <CardGroup cols={3}>
   <Card title="Top 10" icon="medal">
     Los mejores jugadores
-    
+
     Por cada juego
   </Card>
-  
+
   <Card title="Real-time" icon="bolt">
     Actualización inmediata
-    
+
     Al guardar scores
   </Card>
-  
+
   <Card title="Cache Opcional" icon="database">
     Redis para performance
-    
+
     Reducir carga en PostgreSQL
   </Card>
 </CardGroup>
@@ -35,8 +35,10 @@ El servicio de rankings proporciona tablas de clasificación (leaderboards) para
 Obtiene el ranking (top 10) de un juego específico.
 
 <CodeGroup>
+
 ```bash Request
 curl http://api.retrogamecloud.com/api/rankings/games/doom
+
 ```
 
 ```json Response 200
@@ -73,19 +75,26 @@ curl http://api.retrogamecloud.com/api/rankings/games/doom
   }
   // ... hasta top 10
 ]
+
 ```
 
 ```json Error 404
 {
   "error": "Juego no encontrado"
 }
+
 ```
+
 </CodeGroup>
 
-**Características:**
+* *Características:**
+
 - Ordena por score descendente
+
 - Solo muestra top 10
+
 - Incluye username y fecha del score
+
 - El campo `rank` se calcula automáticamente (1, 2, 3...)
 
 ### GET /api/rankings/global
@@ -93,8 +102,10 @@ curl http://api.retrogamecloud.com/api/rankings/games/doom
 Obtiene el ranking global (mejores jugadores entre todos los juegos).
 
 <CodeGroup>
+
 ```bash Request
 curl http://api.retrogamecloud.com/api/rankings/global?limit=20
+
 ```
 
 ```json Response 200
@@ -122,10 +133,13 @@ curl http://api.retrogamecloud.com/api/rankings/global?limit=20
   }
   // ...
 ]
+
 ```
+
 </CodeGroup>
 
-**Query params:**
+* *Query params:**
+
 - `limit` (opcional): Número de jugadores a mostrar (default: 10, max: 100)
 
 ### GET /api/rankings/user/:username
@@ -133,8 +147,10 @@ curl http://api.retrogamecloud.com/api/rankings/global?limit=20
 Obtiene la posición de un usuario específico en todos los juegos.
 
 <CodeGroup>
+
 ```bash Request
 curl http://api.retrogamecloud.com/api/rankings/user/player1
+
 ```
 
 ```json Response 200
@@ -166,7 +182,9 @@ curl http://api.retrogamecloud.com/api/rankings/user/player1
   "global_rank": 8,
   "total_score": 485000
 }
+
 ```
+
 </CodeGroup>
 
 ## SQL Queries
@@ -174,8 +192,9 @@ curl http://api.retrogamecloud.com/api/rankings/user/player1
 ### Query para Ranking por Juego
 
 ```sql
--- Top 10 de un juego específico
-SELECT 
+
+- - Top 10 de un juego específico
+SELECT
   ROW_NUMBER() OVER (ORDER BY s.score DESC) as rank,
   u.username,
   s.score,
@@ -187,13 +206,15 @@ WHERE g.slug = $1
   AND u.is_active = true
 ORDER BY s.score DESC
 LIMIT 10;
+
 ```
 
 ### Query para Ranking Global
 
 ```sql
--- Top jugadores globales
-SELECT 
+
+- - Top jugadores globales
+SELECT
   ROW_NUMBER() OVER (ORDER BY SUM(s.score) DESC) as rank,
   u.username,
   SUM(s.score) as total_score,
@@ -205,14 +226,16 @@ WHERE u.is_active = true
 GROUP BY u.id, u.username
 ORDER BY total_score DESC
 LIMIT $1;
+
 ```
 
 ### Query para Posición de Usuario
 
 ```sql
--- Ranking de un usuario específico
+
+- - Ranking de un usuario específico
 WITH user_ranks AS (
-  SELECT 
+  SELECT
     g.name as game_name,
     g.slug as game_slug,
     s.score,
@@ -226,6 +249,7 @@ WITH user_ranks AS (
 )
 SELECT * FROM user_ranks
 ORDER BY score DESC;
+
 ```
 
 ## Cache con Redis
@@ -245,6 +269,7 @@ await redis.connect();
 
 // Cache TTL: 1 minuto
 const CACHE_TTL = 60;
+
 ```
 
 ### Implementación con Cache
@@ -252,17 +277,17 @@ const CACHE_TTL = 60;
 ```javascript
 async function obtenerRankingPorJuego(gameSlug) {
   const cacheKey = `ranking:${gameSlug}`;
-  
+
   // Intentar leer de cache
   const cached = await redis.get(cacheKey);
   if (cached) {
     console.log('✅ Ranking desde cache');
     return JSON.parse(cached);
   }
-  
+
   // No está en cache → consultar DB
   const query = `
-    SELECT 
+    SELECT
       ROW_NUMBER() OVER (ORDER BY s.score DESC) as rank,
       u.username,
       s.score,
@@ -274,15 +299,16 @@ async function obtenerRankingPorJuego(gameSlug) {
     ORDER BY s.score DESC
     LIMIT 10
   `;
-  
+
   const { rows } = await pool.query(query, [gameSlug]);
-  
+
   // Guardar en cache
   await redis.setEx(cacheKey, CACHE_TTL, JSON.stringify(rows));
   console.log('💾 Ranking guardado en cache');
-  
+
   return rows;
 }
+
 ```
 
 ### Invalidación de Cache
@@ -299,6 +325,7 @@ async function invalidarCacheRanking(gameSlug) {
 // Llamar después de guardar score
 await guardarPuntuacion(userId, gameSlug, score);
 await invalidarCacheRanking(gameSlug);
+
 ```
 
 ## Integración con Frontend
@@ -311,7 +338,7 @@ async function loadRanking(gameSlug) {
   try {
     const response = await fetch(`http://api.retrogamecloud.com/api/rankings/games/${gameSlug}`);
     const ranking = await response.json();
-    
+
     displayRanking(ranking);
   } catch (error) {
     console.error('Error cargando ranking:', error);
@@ -320,7 +347,7 @@ async function loadRanking(gameSlug) {
 
 function displayRanking(ranking) {
   const container = document.getElementById('ranking-table');
-  
+
   const html = `
     <table class="ranking-table">
       <thead>
@@ -343,9 +370,10 @@ function displayRanking(ranking) {
       </tbody>
     </table>
   `;
-  
+
   container.innerHTML = html;
 }
+
 ```
 
 ### CSS para Rankings
@@ -370,11 +398,13 @@ function displayRanking(ranking) {
   font-weight: bold;
   color: #00ff00;
 }
+
 ```
 
 ## Variables de Entorno
 
 ```bash
+
 # Puerto del servicio
 PORT=3004
 
@@ -388,6 +418,7 @@ CACHE_TTL=60
 
 # Logs
 LOG_LEVEL=info
+
 ```
 
 ## Performance
@@ -446,7 +477,7 @@ LOG_LEVEL=info
   </tbody>
 </Table>
 
-**Mejora**: 16x más rápido con cache ✨
+* *Mejora**: 16x más rápido con cache ✨
 
 ## Métricas Prometheus
 
@@ -470,6 +501,7 @@ const duration = (Date.now() - start) / 1000;
 
 rankingRequests.labels(gameSlug, 'hit').inc();
 rankingLatency.labels(gameSlug, 'hit').observe(duration);
+
 ```
 
 ## Próximos Pasos
@@ -478,15 +510,15 @@ rankingLatency.labels(gameSlug, 'hit').observe(duration);
   <Card title="Score Service" icon="trophy" href="/services/score-service">
     Sistema de puntuaciones
   </Card>
-  
+
   <Card title="User Service" icon="user" href="/services/user-service">
     Gestión de usuarios
   </Card>
-  
+
   <Card title="Frontend" icon="window" href="/frontend/overview">
     Interfaz de usuario
   </Card>
-  
+
   <Card title="Monitoring" icon="chart-line" href="/infrastructure/monitoring">
     Métricas y dashboards
   </Card>

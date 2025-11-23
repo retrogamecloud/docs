@@ -1,7 +1,7 @@
 ---
-title: "6.1. Visión General de Infraestructura"
-description: "Infraestructura cloud AWS gestionada con Terraform"
-icon: "file-lines"
+title: 6.1. Visión General de Infraestructura
+description: Infraestructura cloud AWS gestionada con Terraform
+icon: file-lines
 ---
 
 ## Infraestructura como Código
@@ -52,6 +52,7 @@ La infraestructura de Retro Game Hub está completamente gestionada con **Terraf
 ## Estructura de Terraform
 
 ```
+
 terraform/eks_test/
 ├── main.tf                  # Configuración del provider
 ├── variables.tf             # Variables de entrada
@@ -67,12 +68,15 @@ terraform/eks_test/
 ├── kubernetes.tf            # Deployments de K8s
 ├── kong.tf                  # Kong API Gateway
 └── terraform.tfvars         # Valores de variables (gitignored)
+
 ```
 
 ## Arquitectura de Red
 
 ### Configuración de VPC
+
 - **CIDR**: `10.0.0.0/16`
+
 - **Zonas de Disponibilidad**: 3 (eu-west-1a, eu-west-1b, eu-west-1c)
 
 ### Subnets
@@ -82,18 +86,18 @@ terraform/eks_test/
     - `10.0.1.0/24` (eu-west-1a)
     - `10.0.2.0/24` (eu-west-1b)
     - `10.0.3.0/24` (eu-west-1c)
-    
+
     **Contiene**:
     - Application Load Balancer
     - NAT Gateway
     - Internet Gateway
   </Tab>
-  
+
   <Tab title="Subnets Privadas">
     - `10.0.11.0/24` (eu-west-1a)
     - `10.0.12.0/24` (eu-west-1b)
     - `10.0.13.0/24` (eu-west-1c)
-    
+
     **Contiene**:
     - Nodos worker de EKS
     - Base de datos RDS
@@ -118,16 +122,23 @@ terraform {
     encrypt        = true
   }
 }
+
 ```
 
 ## Optimización de Costos
 
 ### Costos Actuales (Estimados)
+
 - **Cluster EKS**: $72/mes (plano de control)
+
 - **Instancias EC2**: ~$30-60/mes (nodos t3.medium)
+
 - **RDS**: $15-25/mes (db.t3.micro)
+
 - **NAT Gateway**: $32/mes
+
 - **Transferencia de Datos**: Variable
+
 - **Total**: ~$135-160/mes
 
 <Warning>
@@ -135,10 +146,15 @@ Las instancias t3.micro son insuficientes para cargas de trabajo de EKS. Mínimo
 </Warning>
 
 ### Consideraciones de Free Tier
+
 - Plano de control EKS: **NO** cubierto por Free Tier ($72/mes inevitable)
+
 - Instancias t3.micro: Solo 750 horas/mes = 1 instancia gratis
+
 - RDS: 750 horas/mes db.t3.micro incluidas
+
 - S3: 5GB de almacenamiento estándar gratis
+
 - Transferencia de Datos: 100GB salida por mes gratis
 
 ## Flujo de Despliegue
@@ -149,31 +165,36 @@ Las instancias t3.micro son insuficientes para cargas de trabajo de EKS. Mínimo
     cd terraform/eks_test
     terraform init
     ```
+
   </Step>
-  
+
   <Step title="Planificar Cambios">
     ```bash
     terraform plan
     ```
+
   </Step>
-  
+
   <Step title="Aplicar Infraestructura">
     ```bash
     terraform apply
     ```
+
   </Step>
-  
+
   <Step title="Configurar kubectl">
     ```bash
     aws eks update-kubeconfig --region eu-west-1 --name retrogame
     ```
+
   </Step>
-  
+
   <Step title="Verificar Despliegue">
     ```bash
     kubectl get nodes
     kubectl get pods --all-namespaces
     ```
+
   </Step>
 </Steps>
 
@@ -205,8 +226,13 @@ Las instancias t3.micro son insuficientes para cargas de trabajo de EKS. Mínimo
 ¿Listo para profundizar? Explora los componentes específicos de infraestructura:
 
 - [Configuración del Cluster EKS](/infrastructure/eks-cluster)
+
 - [Networking y Seguridad](/infrastructure/networking)
+
 - [CDN con S3 y CloudFront](/infrastructure/cdn-cloudfront)
+
 - [Route53 y Certificados SSL](/infrastructure/route53-ssl)
+
 - [Autenticación OAuth2 con GitHub](/infrastructure/oauth2-authentication)
+
 - [Monitoreo y Observabilidad](/infrastructure/monitoring)

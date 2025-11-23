@@ -1,7 +1,7 @@
 ---
-title: "7.2. GitHub Actions"
-description: "Workflows automatizados de CI/CD"
-icon: "github"
+title: 7.2. GitHub Actions
+description: Workflows automatizados de CI/CD
+icon: github
 ---
 
 ## Workflows Implementados
@@ -13,52 +13,52 @@ RetroGame Cloud utiliza GitHub Actions para automatizar completamente el ciclo d
     **Pipeline principal CI/CD**
 
     Build, test, push Docker y actualizar manifiestos K8s
-    
+
     *En todos los servicios*
   </Card>
-  
+
   <Card title="ci.yml" icon="check">
     **Validación de manifiestos**
 
     Tests y validación de YAMLs de Kubernetes
-    
+
     *Repo: kubernetes/*
   </Card>
-  
+
   <Card title="update-docs-with-claude.yml" icon="robot">
     **Actualización automática de docs**
 
     Claude AI actualiza la wiki/documentación
-    
+
     *Repo: docs/*
   </Card>
-  
+
   <Card title="deploy-mintlify-docs.yml" icon="book">
     **Despliegue de documentación**
 
     Deploy automático a Mintlify
-    
+
     *Repo: docs/*
   </Card>
-  
+
   <Card title="terraform-plan.yml" icon="code">
     **Validación de Terraform**
 
     Plan y validación de infraestructura
-    
+
     *Repo: infrastructure/*
   </Card>
-  
+
   <Card title="terraform-apply.yml" icon="rocket">
     **Despliegue de infraestructura**
 
     Apply de Terraform en producción
-    
+
     *Repo: infrastructure/*
   </Card>
 </CardGroup>
 
----
+- --
 
 ## Workflow Principal: Build & Deploy
 
@@ -91,6 +91,7 @@ env:
   IMAGE_NAME: retrogamecloud/frontend  # Cambia por servicio
   K8S_REPO: retrogamecloud/kubernetes
   K8S_MANIFEST_FILE: 04-frontend.yaml  # Cambia por servicio
+
 ```
 
 </CodeGroup>
@@ -104,13 +105,14 @@ Ejecuta tests unitarios y de integración.
     ```yaml
     - name: Clonar repositorio
       uses: actions/checkout@v4
-    
+
     - name: Configurar Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
     ```
+
   </Step>
   <Step title="Instalar Dependencias">
     ```yaml
@@ -128,7 +130,7 @@ Ejecuta tests unitarios y de integración.
     ```yaml
     - name: Ejecutar tests
       run: npm test
-    
+
     - name: Generar reporte de cobertura
       run: npm run test:coverage
     ```
@@ -175,7 +177,7 @@ Construye y publica la imagen Docker.
         registry: ${{ env.REGISTRY_GHCR }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    
+
     - name: Iniciar sesión en Docker Hub
       uses: docker/login-action@v3
       with:
@@ -194,7 +196,7 @@ Construye y publica la imagen Docker.
         COMMIT_COUNT=$(git rev-list --count HEAD)
         VERSION="v1.0.${COMMIT_COUNT}"
         SHORT_SHA=$(git rev-parse --short HEAD)
-        
+
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
         echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
     ```
@@ -254,9 +256,9 @@ Actualiza el repositorio GitOps con la nueva imagen.
     - name: Actualizar manifiesto de Kubernetes
       run: |
         IMAGE_TAG="sha-${SHORT_SHA}"
-        
+
         sed -i "s|image: retrogamehub/frontend:.*|image: retrogamehub/frontend:${IMAGE_TAG}|g" 04-frontend.yaml
-        
+
         sed -i "s|# Imagen del frontend.*|# Imagen del frontend - ${VERSION} (${IMAGE_TAG})|g" 04-frontend.yaml
     ```
 
@@ -270,12 +272,12 @@ Actualiza el repositorio GitOps con la nueva imagen.
     - name: Crear rama y PR con cambios
       run: |
         BRANCH_NAME="auto/frontend-${IMAGE_TAG}"
-        
+
         git checkout -b "${BRANCH_NAME}"
         git add 04-frontend.yaml
         git commit -m "chore: Actualizar imagen de frontend a ${IMAGE_TAG}"
         git push origin "${BRANCH_NAME}"
-        
+
         gh pr create \
           --repo retrogamecloud/kubernetes \
           --base main \
@@ -312,18 +314,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-    
+
     - name: Install dependencies
       run: npm install
-    
+
     - name: Run tests
       run: npm test
-    
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
@@ -333,7 +335,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Validate YAML syntax
       run: |
         sudo apt-get install -y yamllint
@@ -343,32 +345,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup kubectl
       uses: azure/setup-kubectl@v4
-    
+
     - name: Setup kind
       uses: helm/kind-action@v1.10.0
       with:
         install_only: true
-    
+
     - name: Create kind cluster
       run: kind create cluster
-    
+
     - name: Validate Kubernetes manifests
       run: |
         for file in *.yaml; do
           kubectl apply --dry-run=client -f "$file"
         done
+
 ```
 
-**Tres niveles de validación:**
+* *Tres niveles de validación:**
 
 1. **Tests unitarios**: Valida estructura de YAMLs
 2. **yamllint**: Valida sintaxis YAML
 3. **kubectl dry-run**: Valida que sean manifiestos K8s válidos
 
----
+- --
 
 ## 🤖 Workflow: Actualización Automática de Documentación con Claude
 
@@ -398,7 +401,7 @@ on:
         description: 'Áreas afectadas (comma-separated): api,infrastructure,deployment'
         required: false
         type: string
-  
+
   repository_dispatch:  # Trigger desde otros repos
     types: [code-change-requires-docs]
 
@@ -408,23 +411,23 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    
+
     steps:
       - name: Checkout docs repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      
+
       - name: Instalar dependencias
         run: |
           npm install --global @anthropic-ai/sdk
           npm install yaml markdown-it
-      
+
       - name: Obtener contexto del cambio
         id: context
         run: |
@@ -438,7 +441,7 @@ jobs:
             echo "areas=${{ github.event.client_payload.areas }}" >> $GITHUB_OUTPUT
             echo "commit_sha=${{ github.event.client_payload.commit_sha }}" >> $GITHUB_OUTPUT
           fi
-      
+
       - name: Llamar a Claude API para generar actualizaciones
         id: claude
         env:
@@ -448,29 +451,29 @@ jobs:
             --description "${{ steps.context.outputs.description }}" \
             --areas "${{ steps.context.outputs.areas }}" \
             --commit "${{ steps.context.outputs.commit_sha }}"
-      
+
       - name: Crear branch para cambios
         run: |
           BRANCH_NAME="docs/auto-update-$(date +%Y%m%d-%H%M%S)"
           git checkout -b "$BRANCH_NAME"
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
-      
+
       - name: Commit cambios
         run: |
           git config user.name "Claude Documentation Bot"
           git config user.email "bot@retrogamehub.games"
-          
+
           git add .
           git commit -m "docs: actualización automática por Claude
-          
+
           Cambio: ${{ steps.context.outputs.description }}
           Áreas afectadas: ${{ steps.context.outputs.areas }}
-          
+
           Co-authored-by: Claude AI <claude@anthropic.com>"
-      
+
       - name: Push branch
         run: git push origin "${{ env.branch_name }}"
-      
+
       - name: Crear Pull Request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -478,32 +481,33 @@ jobs:
           gh pr create \
             --title "📚 docs: Actualización automática - ${{ steps.context.outputs.description }}" \
             --body "## 🤖 Actualización Automática de Documentación
-          
+
           Claude AI ha detectado cambios que requieren actualización de documentación.
-          
+
           ### Cambio Original
           ${{ steps.context.outputs.description }}
-          
+
           ### Áreas Afectadas
           ${{ steps.context.outputs.areas }}
-          
+
           ### Archivos Modificados
           $(git diff --name-only HEAD~1)
-          
+
           ### Checklist de Revisión
           - [ ] Los cambios reflejan correctamente las actualizaciones del código
           - [ ] La redacción es clara y concisa
           - [ ] Los ejemplos de código son correctos
           - [ ] Los enlaces internos funcionan
           - [ ] No hay información sensible expuesta
-          
+
           ---
-          
+
           *Generado automáticamente por Claude AI*
           *Revisa y aprueba antes de merge*" \
             --label "documentation,automated" \
             --base main \
             --head "${{ env.branch_name }}"
+
 ```
 
 ### Script de Claude (update-docs-with-claude.js)
@@ -521,16 +525,16 @@ const anthropic = new Anthropic({
 
 async function main() {
   const args = parseArgs();
-  
+
   // 1. Leer estructura de documentación
   const docsStructure = await getDocsStructure();
-  
+
   // 2. Identificar archivos relevantes
   const relevantFiles = await identifyRelevantFiles(args.areas);
-  
+
   // 3. Leer contenido actual
   const currentContent = await readFiles(relevantFiles);
-  
+
   // 4. Llamar a Claude para generar actualizaciones
   const updates = await generateUpdates(
     args.description,
@@ -538,10 +542,10 @@ async function main() {
     currentContent,
     docsStructure
   );
-  
+
   // 5. Aplicar cambios
   await applyUpdates(updates);
-  
+
   console.log('✅ Documentación actualizada exitosamente');
 }
 
@@ -552,7 +556,7 @@ async function generateUpdates(description, areas, content, structure) {
     temperature: 0.7,
     messages: [{
       role: 'user',
-      content: `Eres un experto en documentación técnica. 
+      content: `Eres un experto en documentación técnica.
 
 Cambio realizado:
 ${description}
@@ -585,7 +589,7 @@ Genera actualizaciones necesarias para la documentación en formato JSON:
 }`
     }]
   });
-  
+
   const response = message.content[0].text;
   return JSON.parse(response);
 }
@@ -593,7 +597,7 @@ Genera actualizaciones necesarias para la documentación en formato JSON:
 async function applyUpdates(updates) {
   for (const file of updates.files) {
     const filePath = path.join(process.cwd(), file.path);
-    
+
     if (file.action === 'create') {
       // Crear nuevo archivo
       await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -602,7 +606,7 @@ async function applyUpdates(updates) {
     } else {
       // Actualizar archivo existente
       let content = await fs.readFile(filePath, 'utf-8');
-      
+
       for (const change of file.changes) {
         if (change.oldContent) {
           content = content.replace(change.oldContent, change.newContent);
@@ -611,7 +615,7 @@ async function applyUpdates(updates) {
           content += '\n\n' + change.newContent;
         }
       }
-      
+
       await fs.writeFile(filePath, content);
       console.log(`✅ Actualizado: ${file.path}`);
     }
@@ -621,6 +625,7 @@ async function applyUpdates(updates) {
 // ... más funciones helper ...
 
 main().catch(console.error);
+
 ```
 
 ### Triggers del Workflow
@@ -628,12 +633,14 @@ main().catch(console.error);
 #### 1. Manual (workflow_dispatch)
 
 ```bash
+
 # Desde GitHub UI: Actions → Update Documentation → Run workflow
 
 # O desde CLI:
 gh workflow run update-docs-with-claude.yml \
   -f change_description="Añadido nuevo endpoint /api/v2/users" \
   -f affected_areas="api,backend"
+
 ```
 
 #### 2. Automático desde otros repos
@@ -641,6 +648,7 @@ gh workflow run update-docs-with-claude.yml \
 En el workflow de un servicio:
 
 ```yaml
+
 - name: Trigger documentación update
   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
   run: |
@@ -657,6 +665,7 @@ En el workflow de un servicio:
           "repository": "${{ github.repository }}"
         }
       }'
+
 ```
 
 ### Ejemplos de Uso
@@ -664,26 +673,26 @@ En el workflow de un servicio:
 <Tabs>
   <Tab title="Nuevo Endpoint API">
     **Cambio**: Añadido endpoint `POST /api/auth/refresh-token`
-    
+
     **Claude actualiza**:
     - `api-reference/auth/refresh-token.mdx` (nuevo)
     - `api-reference/auth-service.mdx` (añade referencia)
     - `quickstart.mdx` (actualiza ejemplo de autenticación)
     - `CHANGELOG.md` (añade entrada)
   </Tab>
-  
+
   <Tab title="Nueva Variable Terraform">
     **Cambio**: Añadida variable `enable_waf` en Terraform
-    
+
     **Claude actualiza**:
     - `infrastructure/terraform-variables.mdx` (documenta variable)
     - `deployment.mdx` (menciona en troubleshooting)
     - `quickstart.mdx` (añade a ejemplo de terraform.tfvars)
   </Tab>
-  
+
   <Tab title="Cambio en ArgoCD">
     **Cambio**: Actualizado a ArgoCD v2.10.0
-    
+
     **Claude actualiza**:
     - `infrastructure/argocd-gitops.mdx` (versión)
     - `CHANGELOG.md` (breaking changes si aplica)
@@ -697,15 +706,15 @@ En el workflow de un servicio:
   <Card title="🚀 Documentación Always Up-to-Date" icon="check">
     La docs nunca se queda desactualizada porque se actualiza automáticamente con cada cambio
   </Card>
-  
+
   <Card title="⏰ Ahorro de Tiempo" icon="clock">
     Los developers no pierden tiempo actualizando docs manualmente
   </Card>
-  
+
   <Card title="🎯 Consistencia" icon="target">
     Claude mantiene un estilo y estructura consistente en toda la documentación
   </Card>
-  
+
   <Card title="🔍 Cobertura Completa" icon="magnifying-glass">
     Claude identifica todas las áreas que necesitan actualización, no solo las obvias
   </Card>
@@ -720,8 +729,9 @@ En el workflow de un servicio:
     # 2. Crear API Key
     # 3. Copiar el key (sk-ant-...)
     ```
+
   </Step>
-  
+
   <Step title="Añadir Secret en GitHub">
     ```bash
     # Repo: docs
@@ -729,8 +739,9 @@ En el workflow de un servicio:
     # Name: ANTHROPIC_API_KEY
     # Value: sk-ant-...
     ```
+
   </Step>
-  
+
   <Step title="Configurar Permisos">
     ```yaml
     # En el workflow
@@ -738,14 +749,16 @@ En el workflow de un servicio:
       contents: write      # Para crear branches
       pull-requests: write # Para crear PRs
     ```
+
   </Step>
-  
+
   <Step title="Crear Script">
     ```bash
     mkdir -p .github/scripts
     # Copiar update-docs-with-claude.js
     chmod +x .github/scripts/update-docs-with-claude.js
     ```
+
   </Step>
 </Steps>
 
@@ -782,7 +795,7 @@ En el workflow de un servicio:
   El costo es mínimo comparado con el tiempo ahorrado (20-30 horas/mes de documentación manual).
 </Note>
 
----
+- --
 
 ## 📚 Workflow: Despliegue de Documentación a Mintlify
 
@@ -806,12 +819,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Deploy to Mintlify
         uses: mintlify/action@v1
         with:
           mintlify-api-key: ${{ secrets.MINTLIFY_API_KEY }}
-          
+
       - name: Notify on Slack
         if: success()
         run: |
@@ -820,13 +833,14 @@ jobs:
             -d '{
               "text": "✅ Documentación desplegada: https://docs.retrogamehub.games"
             }'
+
 ```
 
-**Trigger**: Cualquier cambio en archivos `.mdx`, `.md` o `mint.json`
+* *Trigger**: Cualquier cambio en archivos `.mdx`, `.md` o `mint.json`
 
-**Duración**: ~1-2 minutos
+* *Duración**: ~1-2 minutos
 
----
+- --
 
 ## 🏗️ Workflow: Validación de Terraform
 
@@ -849,79 +863,85 @@ jobs:
     defaults:
       run:
         working-directory: terraform/eks_test
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
-      
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-1
-      
+
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
-      
+
       - name: Terraform Init
         run: terraform init
-      
+
       - name: Terraform Validate
         run: terraform validate
-      
+
       - name: Terraform Plan
         id: plan
         run: |
           terraform plan -no-color -out=tfplan
           terraform show -no-color tfplan > plan_output.txt
-      
+
       - name: Comment Plan on PR
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
             const plan = fs.readFileSync('terraform/eks_test/plan_output.txt', 'utf8');
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `## Terraform Plan
-              
+
               \`\`\`terraform
               ${plan.slice(0, 65000)}
               \`\`\`
-              
+
               [Ver plan completo en Actions](${context.payload.pull_request.html_url}/checks)`
             });
-      
+
       - name: Check for Destructive Changes
         run: |
           if grep -q "destroy" plan_output.txt; then
             echo "⚠️ ADVERTENCIA: El plan incluye recursos a DESTRUIR"
             echo "destructive=true" >> $GITHUB_ENV
           fi
-      
+
       - name: Upload Plan Artifact
         uses: actions/upload-artifact@v4
         with:
           name: terraform-plan
           path: terraform/eks_test/tfplan
+
 ```
 
-**Características**:
+* *Características**:
+
 - ✅ Valida formato de Terraform
+
 - ✅ Ejecuta `terraform plan`
+
 - ✅ Comenta el plan en el PR
+
 - ✅ Detecta cambios destructivos
+
 - ✅ Guarda plan para aplicar después
 
----
+- --
 
 ## 🚀 Workflow: Aplicar Terraform
 
@@ -945,40 +965,40 @@ jobs:
     defaults:
       run:
         working-directory: terraform/eks_test
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-      
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-1
-      
+
       - name: Terraform Init
         run: terraform init
-      
+
       - name: Terraform Apply
         run: terraform apply -auto-approve
-      
+
       - name: Save Outputs
         run: terraform output -json > terraform-outputs.json
-      
+
       - name: Upload Outputs
         uses: actions/upload-artifact@v4
         with:
           name: terraform-outputs
           path: terraform/eks_test/terraform-outputs.json
-      
+
       - name: Notify on Slack
         if: always()
         run: |
           STATUS="${{ job.status }}"
-          
+
           if [ "$STATUS" == "success" ]; then
             ICON="✅"
             COLOR="good"
@@ -986,7 +1006,7 @@ jobs:
             ICON="❌"
             COLOR="danger"
           fi
-          
+
           curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
             -H 'Content-Type: application/json' \
             -d "{
@@ -1008,15 +1028,20 @@ jobs:
                 ]
               }]
             }"
+
 ```
 
-**Seguridad**:
+* *Seguridad**:
+
 - ⚠️ Solo manual trigger
+
 - ⚠️ Requiere confirmación explícita
+
 - ⚠️ Notifica en Slack
+
 - ⚠️ Guarda outputs para auditoría
 
----
+- --
 
 ## 🚀 Mejoras Inteligentes del Workflow (2025)
 
@@ -1030,38 +1055,45 @@ Aplica **automáticamente** correcciones simples sin necesidad de review humano:
   <Card title="✨ Iconos en Frontmatter" icon="icons">
     Añade iconos apropiados a archivos que no los tienen
   </Card>
-  
+
   <Card title="📝 Descripciones Generadas" icon="file-lines">
     Genera descriptions automáticas basadas en títulos
   </Card>
-  
+
   <Card title="📐 Formato Estandarizado" icon="align-left">
     Corrige espaciado de encabezados, listas y código
   </Card>
-  
+
   <Card title="🔤 Títulos Normalizados" icon="heading">
     Estandariza capitalización y formato de títulos
   </Card>
 </CardGroup>
 
 ```python
+
 # Ejemplo de corrección automática
+
 # ANTES:
----
+
+- --
 title:introducción al sistema
----
+
+- --
 
 # DESPUÉS:
----
+
+- --
 title: Introducción al Sistema
 description: Documentación sobre Introducción al Sistema
 icon: book-open
----
+
+- --
+
 ```
 
-**Ahorro de tiempo**: ~2-3 horas/semana en correcciones manuales
+* *Ahorro de tiempo**: ~2-3 horas/semana en correcciones manuales
 
----
+- --
 
 ### 2. 🔄 Análisis Incremental con Cache
 
@@ -1071,32 +1103,34 @@ Sistema inteligente de cache que **reduce costos en 80-90%**:
   <Step title="Cache SHA256">
     Calcula hash de cada archivo para detectar cambios reales
   </Step>
-  
+
   <Step title="Detección Git">
     Integra con `git diff` para ver archivos modificados
   </Step>
-  
+
   <Step title="Análisis Selectivo">
     Solo analiza archivos que cambiaron desde último análisis
   </Step>
-  
+
   <Step title="Full Analysis Programado">
     Análisis completo automático 1x/semana
   </Step>
 </Steps>
 
 ```bash
+
 # Ejemplo de output
 🔄 Análisis INCREMENTAL
    📝 Cambios por git: 3 archivos
    🔒 Cambios por hash: 2 archivos
    ⚡ Total a analizar: 5/50 archivos
    💰 Ahorro: 90% en tokens/costos
+
 ```
 
-**Reducción de costos**: De ~$20/mes a ~$3-5/mes
+* *Reducción de costos**: De ~$20/mes a ~$3-5/mes
 
----
+- --
 
 ### 3. 🔗 Validación de Links
 
@@ -1124,21 +1158,26 @@ Verifica **todos los links** en la documentación automáticamente:
 </Accordion>
 
 ```markdown
+
 # Reporte generado: BROKEN_LINKS_REPORT.md
 
 ## 🔗 Links Rotos Encontrados
 
 ### 📄 Links Internos (2)
+
 - `api-reference/auth.mdx`: `/api/old-endpoint.mdx` → Archivo no encontrado
 
 ### 🌐 Links Externos (1)
+
 - `infrastructure/overview.mdx`: `https://old-domain.com` → HTTP 404
 
 ### 🖼️ Imágenes (1)
+
 - `quickstart.mdx`: `/images/screenshot-old.png` → Imagen no encontrada
+
 ```
 
----
+- --
 
 ### 4. 📝 Análisis de Código con AST
 
@@ -1152,20 +1191,21 @@ Parser automático de código fuente para detectar **APIs no documentadas**:
     - Endpoints Flask/FastAPI sin documentar
     - Parámetros de funciones
     - Decoradores aplicados
-    
+
     # Ejemplo:
     @app.route('/api/users', methods=['POST'])
     def create_user(username, email):  # ⚠️ Sin docstring
         pass
-    
+
     # Generará reporte:
     - Endpoint: POST /api/users
     - Archivo: services/user_service.py:45
     - Parámetros: username, email
     - Estado: ⚠️ Sin documentar
     ```
+
   </Tab>
-  
+
   <Tab title="JavaScript/TypeScript">
     ```javascript
     // Detecta:
@@ -1173,24 +1213,25 @@ Parser automático de código fuente para detectar **APIs no documentadas**:
     - Endpoints Express/Fastify
     - Funciones arrow exportadas
     - Clases y métodos públicos
-    
+
     // Ejemplo:
     export function validateToken(token) {  // ⚠️ Sin JSDoc
       return jwt.verify(token, SECRET);
     }
-    
+
     // Generará reporte:
     - Función: validateToken
     - Archivo: utils/auth.js:12
     - Parámetros: token
     - Estado: ⚠️ Sin documentar
     ```
+
   </Tab>
 </Tabs>
 
-**Cobertura de documentación**: El script genera un score de cobertura (ej: 87.5%)
+* *Cobertura de documentación**: El script genera un score de cobertura (ej: 87.5%)
 
----
+- --
 
 ### 5. 🎨 Generación Automática de Diagramas
 
@@ -1200,21 +1241,22 @@ Crea diagramas Mermaid **desde el código fuente** automáticamente:
   <Card title="🔄 Sequence Diagrams" icon="diagram-project">
     Desde endpoints de API detecta flujos de ejecución
   </Card>
-  
+
   <Card title="🏗️ Architecture Diagrams" icon="sitemap">
     Desde docker-compose.yml genera arquitectura de servicios
   </Card>
-  
+
   <Card title="📊 Flow Diagrams" icon="diagram-next">
     Desde GitHub Actions workflows genera flujos CI/CD
   </Card>
-  
+
   <Card title="📐 Component Diagrams" icon="cubes">
     Desde estructura de repos genera diagrama de componentes
   </Card>
 </CardGroup>
 
 ```yaml
+
 # Ejemplo: De docker-compose.yml a diagrama
 services:
   backend:
@@ -1223,21 +1265,23 @@ services:
     depends_on: [backend]
 
 # Genera automáticamente:
+
 ```mermaid
 graph TB
     backend[Backend Service]
     kong[API Gateway]
     postgres[(PostgreSQL)]
     redis[[Redis Cache]]
-    
+
     backend --> postgres
     backend --> redis
     kong --> backend
+
 ```
 
 Los diagramas se **insertan automáticamente** en archivos `.mdx` relevantes.
 
----
+- --
 
 ## 📊 Impacto de las Mejoras
 
@@ -1290,32 +1334,38 @@ Los diagramas se **insertan automáticamente** en archivos `.mdx` relevantes.
   </tbody>
 </Table>
 
----
+- --
 
 ## ⚙️ Configuración del Workflow Mejorado
 
 ### Secrets Requeridos
 
 ```bash
+
 # GitHub Secrets necesarios:
 ANTHROPIC_API_KEY=sk-ant-...  # API key de Claude
 PAT_TOKEN=ghp_...             # Personal Access Token con permisos
+
 ```
 
 ### Ejecución Manual
 
 ```bash
+
 # Desde GitHub UI
 Actions → Daily Documentation Analysis → Run workflow
 
 # Opciones:
+
 - analysis_depth: quick | full | deep
+
 - reorganize_structure: true | false
 
 # Desde CLI:
 gh workflow run intelligent-docs-review.yml \
   -f analysis_depth=full \
   -f reorganize_structure=true
+
 ```
 
 ### Flujo Completo
@@ -1329,24 +1379,25 @@ flowchart TD
     Links --> AST[3. Analizar Código AST]
     AST --> Diagrams[4. Generar Diagramas]
     Diagrams --> Cache[5. Check Cache]
-    
+
     Cache -->|Full Needed| Analyze[6. Análisis Claude]
     Cache -->|Incremental| Skip[Skip Análisis]
-    
+
     Analyze --> Reorganize[7. Reorganizar docs.json]
     Skip --> Reorganize
-    
+
     Reorganize --> PR[8. Crear PR]
     PR --> End([Fin])
-    
+
     style AutoFix fill:#90EE90
     style Links fill:#87CEEB
     style AST fill:#FFB6C1
     style Diagrams fill:#DDA0DD
     style Cache fill:#F0E68C
+
 ```
 
----
+- --
 
 ## 🎯 Próximas Mejoras Planeadas
 
@@ -1360,7 +1411,7 @@ flowchart TD
 4. **Multi-idioma**: Detectar términos sin traducir y generar glosario
 5. **Feedback Loop**: Integrar comentarios de PRs y issues en análisis
 
----
+- --
 
 ## Configuración de Secrets
 
@@ -1412,23 +1463,37 @@ flowchart TD
 ### Generar Docker Hub Token
 
 ```bash
+
 # 1. Ir a https://hub.docker.com/settings/security
+
 # 2. Click en "New Access Token"
+
 # 3. Descripción: "GitHub Actions - RetroGame"
+
 # 4. Permisos: Read & Write
+
 # 5. Copiar el token (solo se muestra una vez)
+
 ```
 
 ### Generar GitHub PAT
 
 ```bash
+
 # 1. Ir a https://github.com/settings/tokens
+
 # 2. Click en "Generate new token (classic)"
+
 # 3. Descripción: "K8s Manifest Updates"
+
 # 4. Scopes:
-#    - repo (todo)
-#    - workflow
+
+# - repo (todo)
+
+# - workflow
+
 # 5. Copiar el token
+
 ```
 
 ## Variables de Entorno por Servicio
@@ -1441,6 +1506,7 @@ Cada servicio necesita personalizar estas variables en el workflow:
 env:
   IMAGE_NAME: retrogamecloud/frontend
   K8S_MANIFEST_FILE: 04-frontend.yaml
+
 ```
 
 
@@ -1448,6 +1514,7 @@ env:
 env:
   IMAGE_NAME: retrogamecloud/auth-service
   K8S_MANIFEST_FILE: 06-auth-service.yaml
+
 ```
 
 
@@ -1455,6 +1522,7 @@ env:
 env:
   IMAGE_NAME: retrogamecloud/game-catalog-service
   K8S_MANIFEST_FILE: 07-game-catalog.yaml
+
 ```
 
 </CodeGroup>
@@ -1464,23 +1532,26 @@ env:
 ### 1. Cache de Dependencias
 
 ```yaml
+
 - name: Configurar Node.js
   uses: actions/setup-node@v4
   with:
     node-version: '20'
     cache: 'npm'  # Cachea node_modules
+
 ```
 
-**Beneficio**: Tests 2-3x más rápidos (1 min → 20s)
+* *Beneficio**: Tests 2-3x más rápidos (1 min → 20s)
 
 ### 2. Docker Build Cache
 
 ```yaml
 cache-from: type=registry,ref=ghcr.io/.../buildcache
 cache-to: type=registry,ref=ghcr.io/.../buildcache,mode=max
+
 ```
 
-**Beneficio**: Builds 3-5x más rápidos (5 min → 1-2 min)
+* *Beneficio**: Builds 3-5x más rápidos (5 min → 1-2 min)
 
 ### 3. Conditional Jobs
 
@@ -1489,9 +1560,10 @@ jobs:
   build-and-push:
     needs: test  # Solo ejecuta si tests pasan
     if: github.event_name == 'push'  # Solo en push, no en PR
+
 ```
 
-**Beneficio**: Ahorra minutos de CI cuando tests fallan
+* *Beneficio**: Ahorra minutos de CI cuando tests fallan
 
 ### 4. Path Filters
 
@@ -1501,15 +1573,17 @@ on:
     paths-ignore:
       - '**.md'
       - '.gitignore'
+
 ```
 
-**Beneficio**: No ejecuta pipeline en cambios de documentación
+* *Beneficio**: No ejecuta pipeline en cambios de documentación
 
 ## Monitoreo y Debugging
 
 ### Ver Logs en Tiempo Real
 
 ```bash
+
 # Usando GitHub CLI
 gh run watch
 
@@ -1518,6 +1592,7 @@ gh run view --log
 
 # Lista de runs recientes
 gh run list --limit 10
+
 ```
 
 ### Debugging con SSH (Emergencias)
@@ -1525,9 +1600,11 @@ gh run list --limit 10
 Agrega este step temporalmente:
 
 ```yaml
+
 - name: Setup tmate session
   uses: mxschmitt/action-tmate@v3
   if: failure()  # Solo si el job falla
+
 ```
 
 Esto te da acceso SSH al runner para debugging.
@@ -1591,6 +1668,7 @@ Esto te da acceso SSH al runner para debugging.
     # Generar nuevo token en Docker Hub
     # Actualizar secret DOCKERHUB_TOKEN en GitHub
     ```
+
   </Accordion>
   <Accordion title="Error: Tests failing">
     **Causa**: Tests no pasan localmente tampoco
@@ -1601,9 +1679,10 @@ Esto te da acceso SSH al runner para debugging.
     # Ejecutar tests localmente primero
     npm test
     npm run test:coverage
-    
+
     # Fix tests antes de push
     ```
+
   </Accordion>
   <Accordion title="Error: Permission denied updating K8s repo">
     **Causa**: PAT sin permisos suficientes

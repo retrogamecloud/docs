@@ -1,7 +1,7 @@
 ---
-title: "6.4. CDN con S3 y CloudFront"
-description: "Distribución de contenido estático: juegos, imágenes y assets"
-icon: "cloud"
+title: 6.4. CDN con S3 y CloudFront
+description: 'Distribución de contenido estático: juegos, imágenes y assets'
+icon: cloud
 ---
 
 ## Arquitectura CDN
@@ -11,19 +11,19 @@ Retro Game Hub utiliza **Amazon S3** como almacenamiento origen y **CloudFront**
 <CardGroup cols={3}>
   <Card title="S3 Bucket" icon="bucket">
     **Almacenamiento**
-    
+
     Origin para CloudFront
   </Card>
-  
+
   <Card title="CloudFront" icon="cloud">
     **CDN Global**
-    
+
     Edge locations worldwide
   </Card>
-  
+
   <Card title="OAC" icon="shield">
     **Seguridad**
-    
+
     Origin Access Control
   </Card>
 </CardGroup>
@@ -37,13 +37,14 @@ graph LR
     C --> D[juegos jsdos files]
     C --> E[img images]
     C --> F[jsdos emulator]
-    
+
     G[CI/CD Pipeline] --> H[terraform apply]
     H --> I[null_resource upload_static_files]
     I --> C
-    
+
     J[Frontend Pod] --> K[ConfigMap cdn_config]
     K --> L[CDN_URL env var]
+
 ```
 
 ## Buckets S3
@@ -57,21 +58,31 @@ resource "aws_s3_bucket" "games_cdn" {
   bucket        = "retrogame-games-cdn"
   force_destroy = true
 }
+
 ```
 
-**Contenido:**
+* *Contenido:**
+
 - `/juegos/*.jsdos` - ROMs de juegos retro empaquetados
+
 - `/img/*.jpg,png,gif` - Imágenes de portadas de juegos
+
 - `/jsdos/*.js,wasm` - Emulador js-dos (DOSBox compilado a WebAssembly)
 
-**Características de Seguridad:**
+* *Características de Seguridad:**
+
 - ✅ Acceso público bloqueado
+
 - ✅ Solo accesible vía CloudFront (OAC)
+
 - ✅ HTTPS obligatorio (bucket policy)
+
 - ✅ Versionado habilitado
+
 - ✅ Logging habilitado
 
 <CodeGroup>
+
 ```hcl Bloqueo de acceso público
 resource "aws_s3_bucket_public_access_block" "games_cdn" {
   bucket = aws_s3_bucket.games_cdn.id
@@ -81,6 +92,7 @@ resource "aws_s3_bucket_public_access_block" "games_cdn" {
   ignore_public_acls      = true
   restrict_public_buckets = true
 }
+
 ```
 
 ```hcl Política HTTPS obligatorio
@@ -122,6 +134,7 @@ resource "aws_s3_bucket_policy" "games_cdn" {
     ]
   })
 }
+
 ```
 
 ```hcl Versionado
@@ -131,6 +144,7 @@ resource "aws_s3_bucket_versioning" "games_cdn" {
     status = "Enabled"
   }
 }
+
 ```
 
 ```hcl CORS para acceso web
@@ -145,7 +159,9 @@ resource "aws_s3_bucket_cors_configuration" "games_cdn" {
     max_age_seconds = 3600
   }
 }
+
 ```
+
 </CodeGroup>
 
 ### Bucket de Logs: cdn-logs
@@ -157,13 +173,17 @@ resource "aws_s3_bucket" "cdn_logs" {
   bucket        = "retrogame-cdn-logs"
   force_destroy = true
 }
+
 ```
 
-**Contenido:**
+* *Contenido:**
+
 - `s3-access-logs/` - Logs de acceso al bucket principal
+
 - `cloudfront-logs/` - Logs de distribución CloudFront (opcional)
 
-**Configuración de logging:**
+* *Configuración de logging:**
+
 ```hcl
 resource "aws_s3_bucket_logging" "games_cdn" {
   bucket = aws_s3_bucket.games_cdn.id
@@ -171,6 +191,7 @@ resource "aws_s3_bucket_logging" "games_cdn" {
   target_bucket = aws_s3_bucket.cdn_logs.id
   target_prefix = "s3-access-logs/"
 }
+
 ```
 
 ## CloudFront Distribution
@@ -231,12 +252,17 @@ resource "aws_cloudfront_origin_access_control" "games_cdn" {
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
 }
+
 ```
 
-**Ventajas de OAC vs OAI:**
+* *Ventajas de OAC vs OAI:**
+
 - ✅ Firma de solicitudes con AWS Signature Version 4
+
 - ✅ Soporte para todas las regiones de S3
+
 - ✅ Soporte para cifrado SSE-KMS
+
 - ✅ Mejor integración con bucket policies
 
 ### Cache Behaviors
@@ -246,18 +272,18 @@ CloudFront aplica diferentes políticas de caché según el tipo de contenido.
 <Tabs>
   <Tab title="Default Behavior">
     **Path**: `/*` (todos los archivos)
-    
+
     **TTL**:
     - Min: 0 segundos
     - Default: 1 hora (3600s)
     - Max: 24 horas (86400s)
-    
+
     **Métodos permitidos**: GET, HEAD, OPTIONS
-    
+
     **Compresión**: Sí
-    
+
     **Viewer Protocol**: Redirect to HTTPS
-    
+
     ```hcl
     default_cache_behavior {
       allowed_methods  = ["GET", "HEAD", "OPTIONS"]
@@ -266,7 +292,7 @@ CloudFront aplica diferentes políticas de caché según el tipo de contenido.
 
       forwarded_values {
         query_string = false
-        headers      = ["Origin", "Access-Control-Request-Headers", 
+        headers      = ["Origin", "Access-Control-Request-Headers",
                         "Access-Control-Request-Method"]
         cookies {
           forward = "none"
@@ -280,18 +306,19 @@ CloudFront aplica diferentes políticas de caché según el tipo de contenido.
       compress               = true
     }
     ```
+
   </Tab>
-  
+
   <Tab title="Juegos .jsdos">
     **Path**: `/juegos/*.jsdos`
-    
+
     **TTL**:
     - Min: 1 día (86400s)
     - Default: 7 días (604800s)
     - Max: 30 días (2592000s)
-    
+
     **Razón**: Los juegos cambian raramente, caché agresivo
-    
+
     ```hcl
     ordered_cache_behavior {
       path_pattern     = "/juegos/*.jsdos"
@@ -315,18 +342,19 @@ CloudFront aplica diferentes políticas de caché según el tipo de contenido.
       compress               = true
     }
     ```
+
   </Tab>
-  
+
   <Tab title="Imágenes">
     **Path**: `/img/*`
-    
+
     **TTL**:
     - Min: 1 día (86400s)
     - Default: 7 días (604800s)
     - Max: 30 días (2592000s)
-    
+
     **Razón**: Las imágenes cambian raramente
-    
+
     ```hcl
     ordered_cache_behavior {
       path_pattern     = "/img/*"
@@ -350,6 +378,7 @@ CloudFront aplica diferentes políticas de caché según el tipo de contenido.
       compress               = true
     }
     ```
+
   </Tab>
 </Tabs>
 
@@ -358,6 +387,7 @@ CloudFront aplica diferentes políticas de caché según el tipo de contenido.
 Para forzar actualización de contenido:
 
 ```bash
+
 # Invalidar todo el contenido
 aws cloudfront create-invalidation \
   --distribution-id E1234EXAMPLE \
@@ -372,6 +402,7 @@ aws cloudfront create-invalidation \
 aws cloudfront create-invalidation \
   --distribution-id E1234EXAMPLE \
   --paths "/juegos/doom.jsdos"
+
 ```
 
 <Warning>
@@ -401,7 +432,7 @@ resource "null_resource" "upload_static_files" {
         --delete \
         --exclude "*" \
         --include "*.jsdos"
-      
+
       echo "🖼️  Subiendo imágenes al CDN..."
       aws s3 sync ${path.root}/../../../infrastructure/cdn/img/ \
         s3://${aws_s3_bucket.games_cdn.id}/img/ \
@@ -412,7 +443,7 @@ resource "null_resource" "upload_static_files" {
         --include "*.jpg" \
         --include "*.png" \
         --include "*.gif"
-      
+
       echo "🎮 Subiendo emulador js-dos al CDN..."
       aws s3 sync ${path.root}/../../../frontend/jsdos/ \
         s3://${aws_s3_bucket.games_cdn.id}/jsdos/ \
@@ -425,7 +456,7 @@ resource "null_resource" "upload_static_files" {
         --include "*.wasm" \
         --include "*.html" \
         --include "*.symbols"
-      
+
       echo "✅ Todos los archivos estáticos subidos al CDN"
     EOT
   }
@@ -435,12 +466,17 @@ resource "null_resource" "upload_static_files" {
     aws_cloudfront_distribution.games_cdn
   ]
 }
+
 ```
 
-**Características:**
+* *Características:**
+
 - ✅ Se ejecuta automáticamente en cada `terraform apply`
+
 - ✅ Sincronización incremental (solo archivos nuevos/modificados)
+
 - ✅ `--delete` elimina archivos obsoletos del bucket
+
 - ✅ Filtros por extensión para cada tipo de contenido
 
 ### Subida Manual
@@ -448,6 +484,7 @@ resource "null_resource" "upload_static_files" {
 También puedes subir archivos manualmente:
 
 ```bash
+
 # Subir un juego nuevo
 aws s3 cp ./doom2.jsdos s3://retrogame-games-cdn/juegos/ \
   --region eu-west-1
@@ -459,6 +496,7 @@ aws s3 cp ./doom2-cover.jpg s3://retrogame-games-cdn/img/ \
 # Sincronizar directorio completo
 aws s3 sync ./local-games/ s3://retrogame-games-cdn/juegos/ \
   --region eu-west-1
+
 ```
 
 ## Integración con Frontend
@@ -480,6 +518,7 @@ resource "kubernetes_config_map" "cdn_config" {
     S3_BUCKET        = aws_s3_bucket.games_cdn.id
   }
 }
+
 ```
 
 ### Uso en el Frontend
@@ -497,6 +536,7 @@ Dos(canvas).run(gameUrl);
 // Cargar imagen desde CDN
 const coverUrl = `${CDN_URL}/img/${gameSlug}-cover.jpg`;
 document.getElementById('cover').src = coverUrl;
+
 ```
 
 ### Deployment con CDN_URL
@@ -520,6 +560,7 @@ spec:
             configMapKeyRef:
               name: cdn-config
               key: CDN_URL
+
 ```
 
 ## Costos
@@ -571,21 +612,21 @@ spec:
 <CardGroup cols={2}>
   <Card title="CloudFront + S3" icon="aws">
     **$12.43/mes** (100GB, 1M requests)
-    
+
     ✅ Edge locations globales
-    
+
     ✅ Caché configurable
-    
+
     ✅ Integración AWS
   </Card>
-  
+
   <Card title="S3 sin CloudFront" icon="bucket">
     **$25.00/mes** (100GB egress)
-    
+
     ❌ Sin caché
-    
+
     ❌ Latencia mayor
-    
+
     ✅ Más simple
   </Card>
 </CardGroup>
@@ -597,6 +638,7 @@ spec:
 Ver métricas en CloudWatch:
 
 ```bash
+
 # Requests por minuto
 aws cloudwatch get-metric-statistics \
   --namespace AWS/CloudFront \
@@ -616,6 +658,7 @@ aws cloudwatch get-metric-statistics \
   --end-time 2024-11-20T23:59:59Z \
   --period 3600 \
   --statistics Sum
+
 ```
 
 ### Métricas Clave
@@ -623,25 +666,25 @@ aws cloudwatch get-metric-statistics \
 <CardGroup cols={2}>
   <Card title="Cache Hit Ratio" icon="bullseye">
     **Meta**: > 85%
-    
+
     Porcentaje de requests servidas desde caché
   </Card>
-  
+
   <Card title="4xx Error Rate" icon="triangle-exclamation">
     **Meta**: < 1%
-    
+
     Archivos no encontrados (404)
   </Card>
-  
+
   <Card title="5xx Error Rate" icon="circle-exclamation">
     **Meta**: < 0.1%
-    
+
     Errores del origen (S3)
   </Card>
-  
+
   <Card title="Origin Latency" icon="clock">
     **Meta**: < 100ms
-    
+
     Tiempo de respuesta de S3
   </Card>
 </CardGroup>
@@ -651,90 +694,100 @@ aws cloudwatch get-metric-statistics \
 <AccordionGroup>
   <Accordion title="403 Forbidden al acceder a archivos">
     **Causa**: OAC no configurado correctamente o bucket policy incorrecta
-    
+
     ```bash
     # Verificar bucket policy
     aws s3api get-bucket-policy --bucket retrogame-games-cdn
-    
+
     # Verificar OAC en CloudFront
     aws cloudfront get-distribution-config --id E1234EXAMPLE
-    
+
     # Verificar que CloudFront tenga permisos
     # La bucket policy debe incluir:
     # Principal.Service = "cloudfront.amazonaws.com"
     # Condition.StringEquals."AWS:SourceArn" = distribution ARN
     ```
+
   </Accordion>
-  
+
   <Accordion title="Archivos no se actualizan">
     **Causa**: Caché de CloudFront no invalidada
-    
+
     ```bash
     # Invalidar caché
     aws cloudfront create-invalidation \
       --distribution-id E1234EXAMPLE \
       --paths "/*"
-    
+
     # Ver estado de invalidación
     aws cloudfront get-invalidation \
       --distribution-id E1234EXAMPLE \
       --id I1234EXAMPLE
     ```
+
   </Accordion>
-  
+
   <Accordion title="CORS errors en el navegador">
     **Causa**: CORS no configurado en S3 o CloudFront no forwarding headers
-    
+
     ```bash
     # Verificar CORS en S3
     aws s3api get-bucket-cors --bucket retrogame-games-cdn
-    
+
     # Debe incluir:
     # - allowed_origins: ["*"]
     # - allowed_methods: ["GET", "HEAD"]
     # - allowed_headers: ["*"]
-    
+
     # CloudFront debe forward headers CORS en cache behavior
     ```
+
   </Accordion>
-  
+
   <Accordion title="Subida de archivos falla en terraform apply">
     **Causa**: Credenciales AWS incorrectas o permisos insuficientes
-    
+
     ```bash
     # Verificar credenciales
     aws sts get-caller-identity --profile retrogamecloud-terraform
-    
+
     # Verificar permisos del usuario
     aws iam get-user-policy --user-name terraform-user --policy-name S3Upload
-    
+
     # El usuario debe tener permisos:
     # - s3:PutObject
     # - s3:GetObject
     # - s3:DeleteObject
     # - s3:ListBucket
     ```
+
   </Accordion>
 </AccordionGroup>
 
 ## Outputs de Terraform
 
 ```bash
+
 # URL del CDN
 terraform output cdn_url
+
 # https://d1234example.cloudfront.net
 
 # Nombre del bucket
 terraform output s3_games_bucket
+
 # retrogame-games-cdn
 
 # ID de distribución CloudFront
 terraform output cloudfront_distribution_id
+
 # E1234EXAMPLE
 
 # Comando para subir juegos
 terraform output upload_games_command
+
 # aws s3 sync ./infrastructure/cdn/juegos/ s3://retrogame-games-cdn/juegos/ ...
+
 ```
 
 ## Próximos Pasos
@@ -743,15 +796,15 @@ terraform output upload_games_command
   <Card title="Route53 y SSL" icon="certificate" href="/infrastructure/route53-ssl">
     Configurar dominio personalizado
   </Card>
-  
+
   <Card title="Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
     Métricas y alertas de CDN
   </Card>
-  
+
   <Card title="Frontend" icon="desktop" href="/frontend/overview">
     Integración del emulador js-dos
   </Card>
-  
+
   <Card title="Infraestructura General" icon="server" href="/infrastructure/overview">
     Vista general de toda la infra
   </Card>

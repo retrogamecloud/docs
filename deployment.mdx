@@ -1,7 +1,7 @@
 ---
-title: "7.5. Guía de Despliegue"
-description: 'Instrucciones completas para desplegar Retro Game Hub en producción'
-icon: "file-lines"
+title: 7.5. Guía de Despliegue
+description: Instrucciones completas para desplegar Retro Game Hub en producción
+icon: file-lines
 ---
 
 # Guía de Despliegue en Producción
@@ -13,6 +13,7 @@ Esta guía cubre el despliegue completo de Retro Game Hub en AWS utilizando EKS,
 ### Herramientas Requeridas
 
 ```bash
+
 # AWS CLI
 aws --version  # >= 2.x
 
@@ -27,11 +28,13 @@ helm version  # >= 3.12
 
 # Docker
 docker --version  # >= 24.0
+
 ```
 
 ### Credenciales AWS
 
 ```bash
+
 # Configurar credenciales AWS
 aws configure
 
@@ -39,13 +42,21 @@ aws configure
 aws sts get-caller-identity
 
 # Permisos necesarios:
+
 # - EC2 (VPC, Subnets, Security Groups)
+
 # - EKS (Cluster, Node Groups)
+
 # - RDS (Databases, Snapshots)
+
 # - S3 (Buckets, Objects)
+
 # - CloudFront (Distributions)
+
 # - IAM (Roles, Policies)
+
 # - Route53 (Hosted Zones, Records)
+
 ```
 
 ### Variables de Entorno Base
@@ -54,9 +65,10 @@ aws sts get-caller-identity
 export AWS_REGION="eu-west-1"
 export CLUSTER_NAME="retrogame-eks-cluster"
 export DOMAIN="retrogamehub.games"
+
 ```
 
----
+- --
 
 ## 🏗️ Fase 1: Infraestructura AWS con Terraform
 
@@ -65,6 +77,7 @@ export DOMAIN="retrogamehub.games"
 ```bash
 git clone https://github.com/retrogamecloud/infrastructure.git
 cd infrastructure
+
 ```
 
 ### 1.2 Configurar Variables de Terraform
@@ -72,6 +85,7 @@ cd infrastructure
 Crear archivo `terraform.tfvars`:
 
 ```hcl
+
 # terraform.tfvars
 aws_region = "eu-west-1"
 environment = "production"
@@ -92,6 +106,7 @@ max_nodes = 5
 db_instance_class = "db.t3.micro"
 db_name = "retrogamedb"
 db_username = "postgres"
+
 # ⚠️ CAMBIAR en producción
 db_password = "CHANGE_ME_IN_PRODUCTION"
 
@@ -101,11 +116,13 @@ cdn_bucket_name = "retrogame-cdn-production"
 # Tags
 project = "RetroGameCloud"
 team = "DevOps"
+
 ```
 
 ### 1.3 Inicializar y Desplegar
 
 ```bash
+
 # Inicializar Terraform
 terraform init
 
@@ -116,11 +133,13 @@ terraform validate
 terraform plan
 
 # ⚠️ Revisar costos estimados (aprox. $200-250/mes)
+
 # Aplicar infraestructura (tardará ~20-30 minutos)
 terraform apply
 
 # Guardar outputs importantes
 terraform output -json > terraform-outputs.json
+
 ```
 
 ### 1.4 Outputs Importantes
@@ -128,25 +147,34 @@ terraform output -json > terraform-outputs.json
 Terraform generará outputs críticos:
 
 ```bash
+
 # Ver todos los outputs
 terraform output
 
 # Outputs clave:
+
 # - vpc_id
+
 # - eks_cluster_endpoint
+
 # - eks_cluster_name
+
 # - rds_endpoint
+
 # - cloudfront_domain
+
 # - s3_bucket_name
+
 ```
 
----
+- --
 
 ## ⚙️ Fase 2: Configuración de Kubernetes
 
 ### 2.1 Configurar kubectl
 
 ```bash
+
 # Actualizar kubeconfig para EKS
 aws eks update-kubeconfig \
   --region eu-west-1 \
@@ -156,15 +184,21 @@ aws eks update-kubeconfig \
 kubectl get nodes
 
 # Deberías ver 3 nodos en estado Ready:
+
 # NAME                          STATUS   ROLES    AGE   VERSION
+
 # ip-10-0-1-100.eu-west-1...    Ready    <none>   5m    v1.34.1-eks-3025e55
+
 # ip-10-0-2-101.eu-west-1...    Ready    <none>   5m    v1.34.1-eks-3025e55
+
 # ip-10-0-3-102.eu-west-1...    Ready    <none>   5m    v1.34.1-eks-3025e55
+
 ```
 
 ### 2.2 Crear Namespaces
 
 ```bash
+
 # Crear namespaces para organización
 kubectl create namespace backend
 kubectl create namespace frontend
@@ -173,11 +207,13 @@ kubectl create namespace monitoring
 # Etiquetar namespaces
 kubectl label namespace backend environment=production
 kubectl label namespace frontend environment=production
+
 ```
 
 ### 2.3 Configurar Secrets
 
 ```bash
+
 # Database credentials
 kubectl create secret generic db-credentials \
   --namespace=backend \
@@ -195,11 +231,13 @@ kubectl create secret generic jwt-secret \
 kubectl create secret generic redis-credentials \
   --namespace=backend \
   --from-literal=password=$(openssl rand -base64 24)
+
 ```
 
 ### 2.4 Configurar ConfigMaps
 
 ```bash
+
 # Backend configuration
 kubectl create configmap backend-config \
   --namespace=backend \
@@ -207,9 +245,10 @@ kubectl create configmap backend-config \
   --from-literal=PORT=3000 \
   --from-literal=REDIS_HOST=redis-service \
   --from-literal=REDIS_PORT=6379
+
 ```
 
----
+- --
 
 ## 📦 Fase 3: Despliegue de Servicios Backend
 
@@ -219,11 +258,13 @@ kubectl create configmap backend-config \
 cd ~/projects
 git clone https://github.com/retrogamecloud/backend.git
 cd backend
+
 ```
 
 ### 3.2 Build y Push de Imágenes Docker
 
 ```bash
+
 # Configurar variables
 export DOCKER_USERNAME="your-dockerhub-username"
 export VERSION="1.0.0"
@@ -233,22 +274,24 @@ services=("auth-service" "user-service" "game-catalog-service" "score-service" "
 
 for service in "${services[@]}"; do
   echo "Building $service..."
-  
+
   docker build -t $DOCKER_USERNAME/$service:$VERSION \
     -f $service/Dockerfile \
     $service/
-  
+
   docker tag $DOCKER_USERNAME/$service:$VERSION \
     $DOCKER_USERNAME/$service:latest
-  
+
   docker push $DOCKER_USERNAME/$service:$VERSION
   docker push $DOCKER_USERNAME/$service:latest
 done
+
 ```
 
 ### 3.3 Desplegar Servicios en Kubernetes
 
 ```bash
+
 # Aplicar manifiestos de Kubernetes
 cd kubernetes/
 
@@ -266,17 +309,25 @@ kubectl get deployments -n backend
 kubectl get pods -n backend
 
 # Todos deben estar en estado Running:
+
 # NAME                                  READY   STATUS    RESTARTS   AGE
+
 # auth-service-7d9c8b5f4-x7k2m         1/1     Running   0          2m
+
 # user-service-6f8a9c4d3-m5n8p         1/1     Running   0          2m
+
 # game-catalog-service-5e7b8a2c1-q9r4  1/1     Running   0          2m
+
 # score-service-4d6c7b3a2-w8t5v        1/1     Running   0          2m
+
 # ranking-service-3c5d6e2b1-y7u6n      1/1     Running   0          2m
+
 ```
 
 ### 3.4 Verificar Servicios
 
 ```bash
+
 # Ver servicios creados
 kubectl get services -n backend
 
@@ -286,15 +337,17 @@ kubectl logs -f deployment/auth-service -n backend
 # Probar conectividad interna
 kubectl run test-pod --image=busybox -it --rm -n backend \
   --command -- wget -qO- http://auth-service:3000/health
+
 ```
 
----
+- --
 
 ## 🌐 Fase 4: Despliegue de Kong API Gateway
 
 ### 4.1 Desplegar Kong
 
 ```bash
+
 # Aplicar manifiestos de Kong
 kubectl apply -f kong/
 
@@ -306,11 +359,13 @@ kubectl wait --for=condition=ready pod \
   -l app=kong \
   -n backend \
   --timeout=300s
+
 ```
 
 ### 4.2 Obtener Load Balancer URL
 
 ```bash
+
 # Obtener URL del Load Balancer
 export KONG_LB=$(kubectl get svc kong-proxy \
   -n backend \
@@ -320,17 +375,21 @@ echo "Kong Load Balancer: http://$KONG_LB"
 
 # Probar Kong Admin API
 curl http://$KONG_LB:8001/status
+
 ```
 
 ### 4.3 Configurar Rutas de Kong
 
 ```bash
+
 # Las rutas ya están configuradas en kong.yml
+
 # Verificar configuración
 kubectl exec -it deployment/kong -n backend -- kong config db_export
+
 ```
 
----
+- --
 
 ## 🎮 Fase 5: Despliegue del Frontend
 
@@ -351,6 +410,7 @@ aws s3 sync . s3://$S3_BUCKET/ \
 
 # Verificar archivos subidos
 aws s3 ls s3://$S3_BUCKET/ --recursive
+
 ```
 
 ### 5.2 Configurar Variables del Frontend
@@ -359,17 +419,20 @@ Editar `frontend/score-tracker.js` con URLs de producción:
 
 ```javascript
 const API_BASE_URL = 'https://api.retrogamehub.games';
+
 ```
 
 Volver a sincronizar:
 
 ```bash
 aws s3 cp score-tracker.js s3://$S3_BUCKET/
+
 ```
 
 ### 5.3 Configurar CloudFront
 
 ```bash
+
 # Obtener ID de distribución CloudFront
 export CF_DIST_ID=$(terraform output -raw cloudfront_distribution_id)
 
@@ -381,16 +444,19 @@ aws cloudfront create-invalidation \
 # Obtener URL de CloudFront
 export CF_URL=$(terraform output -raw cloudfront_domain_name)
 echo "Frontend disponible en: https://$CF_URL"
+
 ```
 
----
+- --
 
 ## 🌍 Fase 6: Configuración de Dominio (Opcional pero Recomendado)
 
 ### 6.1 Crear Hosted Zone en Route53
 
 ```bash
+
 # Si compraste dominio en Route53, ya está creado
+
 # Si compraste en otro registrador:
 aws route53 create-hosted-zone \
   --name retrogamehub.games \
@@ -399,11 +465,13 @@ aws route53 create-hosted-zone \
 # Obtener nameservers
 aws route53 list-hosted-zones-by-name \
   --dns-name retrogamehub.games
+
 ```
 
 ### 6.2 Solicitar Certificados SSL
 
 ```bash
+
 # Certificado para CloudFront (debe ser en us-east-1)
 aws acm request-certificate \
   --region us-east-1 \
@@ -418,11 +486,13 @@ aws acm request-certificate \
   --validation-method DNS
 
 # ⚠️ Validar certificados en Route53 (proceso automático si usas Route53)
+
 ```
 
 ### 6.3 Configurar DNS Records
 
 ```bash
+
 # Obtener Hosted Zone ID
 export ZONE_ID=$(aws route53 list-hosted-zones-by-name \
   --dns-name retrogamehub.games \
@@ -469,15 +539,17 @@ EOF
 aws route53 change-resource-record-sets \
   --hosted-zone-id $ZONE_ID \
   --change-batch file://frontend-record.json
+
 ```
 
----
+- --
 
 ## ✅ Fase 7: Verificación Post-Despliegue
 
 ### 7.1 Health Checks
 
 ```bash
+
 # Verificar todos los servicios
 services=("auth" "user" "games" "scores" "rankings")
 
@@ -485,11 +557,13 @@ for service in "${services[@]}"; do
   echo "Testing $service service..."
   curl -f https://api.retrogamehub.games/$service/health || echo "❌ $service FAILED"
 done
+
 ```
 
 ### 7.2 Tests End-to-End
 
 ```bash
+
 # Test de registro
 curl -X POST https://api.retrogamehub.games/auth/register \
   -H "Content-Type: application/json" \
@@ -512,11 +586,13 @@ curl https://api.retrogamehub.games/games
 
 # Test de frontend
 curl -I https://retrogamehub.games
+
 ```
 
 ### 7.3 Verificar Logs
 
 ```bash
+
 # Ver logs de todos los servicios
 kubectl logs -f deployment/auth-service -n backend --tail=50
 kubectl logs -f deployment/score-service -n backend --tail=50
@@ -524,11 +600,13 @@ kubectl logs -f deployment/ranking-service -n backend --tail=50
 
 # Ver eventos del cluster
 kubectl get events -n backend --sort-by='.lastTimestamp'
+
 ```
 
 ### 7.4 Verificar Base de Datos
 
 ```bash
+
 # Conectar a RDS (desde un pod en el cluster)
 kubectl run psql-client --rm -it --image=postgres:15 -n backend -- \
   psql -h YOUR_RDS_ENDPOINT -U postgres -d retrogamedb
@@ -539,9 +617,10 @@ kubectl run psql-client --rm -it --image=postgres:15 -n backend -- \
 # Verificar datos de prueba
 SELECT COUNT(*) FROM users;
 SELECT COUNT(*) FROM games;
+
 ```
 
----
+- --
 
 ## 🔄 Fase 8: Configuración de CI/CD (Opcional)
 
@@ -550,19 +629,21 @@ SELECT COUNT(*) FROM games;
 Configurar secrets en GitHub:
 
 ```bash
+
 # En GitHub repo → Settings → Secrets and variables → Actions
 AWS_ACCESS_KEY_ID=<your-key-id>
 AWS_SECRET_ACCESS_KEY=<your-secret-key>
 DOCKER_USERNAME=<dockerhub-username>
 DOCKER_PASSWORD=<dockerhub-token>
 KUBE_CONFIG_DATA=<base64-encoded-kubeconfig>
+
 ```
 
 ### 8.2 Workflow de Deploy Automático
 
 Ya configurado en `.github/workflows/deploy.yml`. Cada push a `main` desplegará automáticamente.
 
----
+- --
 
 ## 📊 Fase 9: Monitoreo (Próximamente)
 
@@ -573,18 +654,23 @@ El stack de monitoreo con Prometheus y Grafana se desplegará próximamente seg�
 ### Métricas a Monitorear
 
 - **EKS Cluster**: CPU, memoria, disco de nodos
+
 - **Pods**: CPU, memoria, restarts, crash loops
+
 - **RDS**: Conexiones, queries, latencia
+
 - **Kong**: Request rate, latencia, errores
+
 - **CloudFront**: Requests, cache hit ratio
 
----
+- --
 
 ## 🚨 Troubleshooting
 
 ### Pods no inician
 
 ```bash
+
 # Describir el pod con problemas
 kubectl describe pod <pod-name> -n backend
 
@@ -592,14 +678,19 @@ kubectl describe pod <pod-name> -n backend
 kubectl logs <pod-name> -n backend
 
 # Problemas comunes:
+
 # - Image pull errors → Verificar nombre de imagen en DockerHub
+
 # - CrashLoopBackOff → Revisar logs, variables de entorno
+
 # - Pending → Verificar recursos disponibles en nodos
+
 ```
 
 ### Servicios no responden
 
 ```bash
+
 # Verificar endpoints
 kubectl get endpoints -n backend
 
@@ -609,47 +700,62 @@ kubectl run test --rm -it --image=busybox -n backend -- \
 
 # Verificar Security Groups de AWS
 aws ec2 describe-security-groups --filters "Name=vpc-id,Values=<vpc-id>"
+
 ```
 
 ### Base de datos no conecta
 
 ```bash
+
 # Verificar Security Group de RDS permite tráfico desde EKS
+
 # Verificar secret de DB está creado correctamente
 kubectl get secret db-credentials -n backend -o yaml
 
 # Test de conexión manual
 kubectl run psql-test --rm -it --image=postgres:15 -n backend -- \
   psql -h <rds-endpoint> -U postgres -d retrogamedb
+
 ```
 
 ### CloudFront no actualiza
 
 ```bash
+
 # Invalidar caché
 aws cloudfront create-invalidation \
   --distribution-id <dist-id> \
   --paths "/*"
 
 # Esperar 5-10 minutos para propagación
+
 ```
 
----
+- --
 
 ## 🔐 Checklist de Seguridad Pre-Producción
 
 - [ ] Todos los secrets en Kubernetes Secrets (no hardcodeados)
+
 - [ ] Database password fuerte y único
+
 - [ ] JWT secret generado aleatoriamente
+
 - [ ] SSL/TLS habilitado en Kong y CloudFront
+
 - [ ] Security Groups configurados con principio de mínimo privilegio
+
 - [ ] RDS con automated backups habilitados
+
 - [ ] IAM roles con permisos mínimos necesarios
+
 - [ ] Network policies de Kubernetes configuradas
+
 - [ ] Rate limiting habilitado en Kong
+
 - [ ] CORS configurado correctamente
 
----
+- --
 
 ## 💰 Estimación de Costos
 
@@ -668,7 +774,7 @@ aws cloudfront create-invalidation \
 Recuerda destruir la infraestructura con `terraform destroy` cuando no la necesites para evitar costos.
 </Warning>
 
----
+- --
 
 ## 📞 Soporte
 
@@ -679,7 +785,7 @@ Si encuentras problemas durante el despliegue:
 3. Consulta la [documentación de troubleshooting](/troubleshooting)
 4. Abre un issue en GitHub
 
----
+- --
 
 ## 🎯 Próximos Pasos
 

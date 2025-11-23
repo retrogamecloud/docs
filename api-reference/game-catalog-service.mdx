@@ -1,14 +1,16 @@
 ---
-title: "3.3. Game Catalog Service"
-description: "API para gestionar el catálogo de juegos retro disponibles"
-icon: "gamepad"
+title: 3.3. Game Catalog Service
+description: API para gestionar el catálogo de juegos retro disponibles
+icon: gamepad
 ---
 
 ## Base URL
 
 ```
+
 Production:  https://api.retrogamehub.games/games
 Development: http://localhost:3002
+
 ```
 
 ## Endpoints
@@ -19,9 +21,10 @@ Lista todos los juegos disponibles con filtros y paginación.
 
 ```bash
 curl "https://api.retrogamehub.games/games?genre=fps&limit=10"
+
 ```
 
-**Query Parameters:**
+* *Query Parameters:**
 
 | Parámetro | Tipo | Descripción |
 |-----------|------|-------------|
@@ -31,7 +34,7 @@ curl "https://api.retrogamehub.games/games?genre=fps&limit=10"
 | limit | number | Resultados por página (default: 50, max: 100) |
 | offset | number | Offset para paginación (default: 0) |
 
-**Response 200:**
+* *Response 200:**
 
 ```json
 {
@@ -54,9 +57,10 @@ curl "https://api.retrogamehub.games/games?genre=fps&limit=10"
   "limit": 50,
   "offset": 0
 }
+
 ```
 
----
+- --
 
 ### GET /games/:slug
 
@@ -64,9 +68,10 @@ Obtiene información detallada de un juego específico.
 
 ```bash
 curl https://api.retrogamehub.games/games/doom
+
 ```
 
-**Response 200:**
+* *Response 200:**
 
 ```json
 {
@@ -99,16 +104,17 @@ curl https://api.retrogamehub.games/games/doom
   },
   "created_at": "2025-11-01T00:00:00.000Z"
 }
+
 ```
 
-**Errores:**
+* *Errores:**
 
 | Código | Descripción |
 |--------|-------------|
 | 404 | Juego no encontrado |
 | 500 | Error del servidor |
 
----
+- --
 
 ### POST /games (Admin)
 
@@ -118,13 +124,16 @@ Agrega un nuevo juego al catálogo.
   Requiere token de administrador en el header Authorization.
 </Warning>
 
-**Headers:**
-```
-Authorization: Bearer <admin-token>
-Content-Type: application/json
+* *Headers:**
+
 ```
 
-**Request Body:**
+Authorization: Bearer <admin-token>
+Content-Type: application/json
+
+```
+
+* *Request Body:**
 
 ```json
 {
@@ -143,9 +152,10 @@ Content-Type: application/json
     "drop": "Down Arrow"
   }
 }
+
 ```
 
-**Response 201:**
+* *Response 201:**
 
 ```json
 {
@@ -155,9 +165,10 @@ Content-Type: application/json
   "created_at": "2025-11-20T12:00:00.000Z",
   "message": "Juego agregado exitosamente"
 }
+
 ```
 
----
+- --
 
 ### PATCH /games/:slug (Admin)
 
@@ -167,25 +178,27 @@ Actualiza información de un juego existente.
   Requiere permisos de administrador.
 </Warning>
 
-**Request Body:**
+* *Request Body:**
 
 ```json
 {
   "description": "Nueva descripción actualizada",
   "cover_url": "https://cdn.retrogamehub.games/img/doom-hd.jpg"
 }
+
 ```
 
-**Response 200:**
+* *Response 200:**
 
 ```json
 {
   "message": "Juego actualizado exitosamente",
   "updated_fields": ["description", "cover_url"]
 }
+
 ```
 
----
+- --
 
 ### DELETE /games/:slug (Admin)
 
@@ -195,16 +208,17 @@ Elimina un juego del catálogo.
   Operación irreversible. También elimina todas las puntuaciones asociadas.
 </Warning>
 
-**Response 200:**
+* *Response 200:**
 
 ```json
 {
   "message": "Juego eliminado exitosamente",
   "scores_deleted": 1547
 }
+
 ```
 
----
+- --
 
 ## Géneros Disponibles
 
@@ -217,19 +231,19 @@ Elimina un juego del catálogo.
 | strategy | Estrategia | Warcraft, Civilization |
 | fighting | Juegos de lucha | Mortal Kombat, Street Fighter |
 
----
+- --
 
 ## Caching
 
 <Info>
-  Los resultados se cachean en CloudFront por **1 hora**. 
-  
+  Los resultados se cachean en CloudFront por **1 hora**.
+
   Headers:
   - `Cache-Control: public, max-age=3600`
   - `X-Cache: HIT from CloudFront`
 </Info>
 
----
+- --
 
 ## Rate Limiting
 
@@ -239,7 +253,7 @@ Elimina un juego del catálogo.
 | GET /games/:slug | 200 requests/min |
 | POST /games (Admin) | 10 requests/min |
 
----
+- --
 
 ## Ejemplo de Implementación
 
@@ -249,11 +263,11 @@ class GameCatalog {
     this.apiUrl = apiUrl;
     this.cache = new Map();
   }
-  
+
   async getGames(filters = {}) {
     const params = new URLSearchParams(filters);
     const cacheKey = `games-${params.toString()}`;
-    
+
     // Revisar caché local
     if (this.cache.has(cacheKey)) {
       const cached = this.cache.get(cacheKey);
@@ -261,46 +275,46 @@ class GameCatalog {
         return cached.data;
       }
     }
-    
+
     const response = await fetch(`${this.apiUrl}/games?${params}`);
     const data = await response.json();
-    
+
     // Guardar en caché
     this.cache.set(cacheKey, {
       data,
       timestamp: Date.now()
     });
-    
+
     return data;
   }
-  
+
   async getGameBySlug(slug) {
     const cacheKey = `game-${slug}`;
-    
+
     if (this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey).data;
     }
-    
+
     const response = await fetch(`${this.apiUrl}/games/${slug}`);
-    
+
     if (!response.ok) {
       throw new Error(`Game not found: ${slug}`);
     }
-    
+
     const data = await response.json();
-    
+
     this.cache.set(cacheKey, {
       data,
       timestamp: Date.now()
     });
-    
+
     return data;
   }
-  
+
   async searchGames(query) {
     return this.getGames({ search: query, limit: 20 });
   }
-  
+
   async getGamesByGenre(genre) {
     return this.getGames({ genre });
   }
@@ -317,9 +331,10 @@ const doom = await catalog.getGameBySlug('doom');
 
 // Buscar por nombre
 const results = await catalog.searchGames('street fighter');
+
 ```
 
----
+- --
 
 ## Base de Datos
 
@@ -347,13 +362,15 @@ CREATE TABLE games (
 CREATE INDEX idx_games_genre ON games(genre);
 CREATE INDEX idx_games_year ON games(year);
 CREATE INDEX idx_games_slug ON games(slug);
+
 ```
 
----
+- --
 
 ## Variables de Entorno
 
 ```bash
+
 # Game Catalog Service
 PORT=3002
 DB_HOST=postgres
@@ -366,9 +383,10 @@ DB_PASSWORD=secure_password
 CDN_BASE_URL=https://cdn.retrogamehub.games
 COVER_IMAGES_PATH=/img
 GAME_BUNDLES_PATH=/juegos
+
 ```
 
----
+- --
 
 ## Próximos Pasos
 

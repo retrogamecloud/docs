@@ -1,7 +1,7 @@
 ---
-title: "1.2. 1. Inicio Rápido"
-description: "Despliega Retro Game Hub en AWS en menos de 30 minutos"
-icon: "rocket"
+title: 1.2. 1. Inicio Rápido
+description: Despliega Retro Game Hub en AWS en menos de 30 minutos
+icon: rocket
 ---
 
 <img
@@ -38,50 +38,51 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
     - Cuenta AWS activa con permisos de administrador
     - AWS CLI v2 configurado con tus credenciales
     - Región recomendada: `eu-west-1` (Irlanda)
-    
+
     <Tip>
       **Costos estimados**: ~$135-160/mes (EKS $72 + instancias + RDS + NAT Gateway)
     </Tip>
   </Accordion>
-  
+
   <Accordion icon="terminal" title="Herramientas Locales">
     Instala las siguientes herramientas en tu máquina:
-    
+
     ```bash
     # Terraform
     wget https://releases.hashicorp.com/terraform/1.6.0/terraform_1.6.0_linux_amd64.zip
     unzip terraform_1.6.0_linux_amd64.zip
     sudo mv terraform /usr/local/bin/
-    
+
     # kubectl
     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
     sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-    
+
     # AWS CLI
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
     unzip awscliv2.zip
     sudo ./aws/install
     ```
+
   </Accordion>
-  
+
   <Accordion icon="globe" title="Dominio (Opcional)">
     Si quieres usar tu propio dominio:
     - Dominio registrado (ej: Namecheap, GoDaddy)
     - Acceso para cambiar nameservers
-    
+
     <Note>
       El proyecto usa `retrogamehub.games` - puedes usar tu propio dominio modificando las variables de Terraform.
     </Note>
   </Accordion>
-  
+
   <Accordion icon="github" title="GitHub OAuth (Para Monitoreo)">
     Para proteger Grafana/Prometheus con GitHub OAuth:
-    
+
     1. Ve a GitHub Settings → Developer settings → OAuth Apps
     2. Crea una nueva OAuth App
     3. Authorization callback URL: `https://tu-dominio.com/oauth2/callback`
     4. Guarda el Client ID y Client Secret
-    
+
     <Warning>
       Restringe el acceso solo a tu organización de GitHub en el código.
     </Warning>
@@ -96,9 +97,11 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
     git clone https://github.com/retrogamecloud/infrastructure.git
     cd infrastructure/terraform/eks_test
     ```
-    
+
+
     Estructura del proyecto:
     ```
+
     eks_test/
     ├── main.tf          # Configuración de providers
     ├── variables.tf     # Variables de entrada
@@ -109,53 +112,56 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
     ├── monitoring.tf   # Prometheus + Grafana
     └── kubernetes.tf   # Deployments de microservicios
     ```
+
   </Step>
-  
+
   <Step title="Configurar Variables">
     Crea `terraform.tfvars` con tu configuración:
-    
+
     ```hcl
     # AWS
     region = "eu-west-1"
-    
+
     # EKS Cluster
     cluster_name = "retrogame"
     k8s_version  = "1.34"
-    
+
     # Node Group (IMPORTANTE: mínimo t3.medium)
     node_instance_types = ["t3.medium"]
     node_desired_size   = 2
     node_min_size       = 1
     node_max_size       = 4
-    
+
     # Base de Datos
     db_instance_class = "db.t3.micro"
     db_name          = "retrogamedb"
     db_username      = "postgres"
     db_password      = "TuPasswordSegura123!"
-    
+
     # Dominio
     domain_name = "retrogamehub.games"  # Cambia esto
-    
+
     # GitHub OAuth (para monitoreo)
     github_oauth_client_id     = "Ov23lil..."
     github_oauth_client_secret = "ghp_..."
     ```
-    
+
+
     <Warning>
       **NUNCA** hagas commit de `terraform.tfvars` - ya está en `.gitignore`
     </Warning>
   </Step>
-  
+
   <Step title="Inicializar y Planear">
     ```bash
     # Inicializar Terraform
     terraform init
-    
+
     # Ver qué recursos se crearán (≈52 recursos)
     terraform plan
     ```
-    
+
+
     Revisa el output cuidadosamente. Se crearán:
     - 1 VPC con 6 subredes
     - 1 Cluster EKS
@@ -166,14 +172,15 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
     - Zona Route53 + certificado ACM
     - Stack de monitoreo (Prometheus, Grafana, AlertManager)
   </Step>
-  
+
   <Step title="Aplicar Infraestructura">
     ```bash
     terraform apply
     ```
-    
+
+
     Confirma escribiendo `yes`. El proceso toma **15-20 minutos**:
-    
+
     <AccordionGroup>
       <Accordion title="¿Qué está pasando?">
         1. **Minuto 0-3**: Creación de VPC, subredes, gateways
@@ -183,35 +190,38 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
         5. **Minuto 15-20**: Deployments de microservicios
       </Accordion>
     </AccordionGroup>
-    
+
     <Tip>
       Ve por un café ☕ - Terraform hará todo el trabajo pesado.
     </Tip>
   </Step>
-  
+
   <Step title="Configurar kubectl y Verificar">
     ```bash
     # Configurar kubectl para conectar al cluster
     aws eks update-kubeconfig --region eu-west-1 --name retrogame
-    
+
     # Verificar nodos
     kubectl get nodes
-    
+
     # Verificar pods
     kubectl get pods --all-namespaces
-    
+
     # Ver servicios
     kubectl get svc -n retrogame
     kubectl get svc -n monitoring
     ```
-    
+
+
     Deberías ver algo como:
     ```
+
     NAME                                     READY   STATUS    RESTARTS   AGE
     backend-7d9f8b6c-xk4pm                  1/1     Running   0          5m
     frontend-6b8c9d7f-p2k8n                 1/1     Running   0          5m
     kube-prometheus-stack-operator-...      1/1     Running   0          8m
     ```
+
   </Step>
 </Steps>
 
@@ -224,16 +234,19 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
     ```bash
     terraform output route53_nameservers
     ```
-    
+
+
     Obtendrás algo como:
     ```
+
     ns-1234.awsdns-56.org
     ns-789.awsdns-12.co.uk
     ns-345.awsdns-78.com
     ns-901.awsdns-34.net
     ```
+
   </Step>
-  
+
   <Step title="Actualizar en Registrador">
     Ve a tu registrador de dominios (Namecheap, GoDaddy, etc.) y:
     1. Busca la configuración de nameservers
@@ -241,13 +254,14 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
     3. Pega los 4 nameservers de AWS
     4. Guarda los cambios
   </Step>
-  
+
   <Step title="Esperar Propagación">
     La propagación DNS puede tardar 1-48 horas. Verifica con:
     ```bash
     dig retrogamehub.games
     nslookup retrogamehub.games
     ```
+
   </Step>
 </Steps>
 
@@ -256,30 +270,38 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
 <CardGroup cols={2}>
   <Card title="Aplicación Frontend" icon="gamepad" href="https://retrogamehub.games">
     ```
+
     https://retrogamehub.games
     ```
+
     Juega juegos clásicos de DOS
   </Card>
-  
+
   <Card title="Grafana" icon="chart-line" href="https://retrogamehub.games/grafana">
     ```
+
     https://retrogamehub.games/grafana
     ```
-    Usuario: `admin`  
+
+    Usuario: `admin`
     Password: Ver output de Terraform
   </Card>
-  
+
   <Card title="Prometheus" icon="fire" href="https://retrogamehub.games/prometheus">
     ```
+
     https://retrogamehub.games/prometheus
     ```
+
     Métricas del sistema
   </Card>
-  
+
   <Card title="AlertManager" icon="bell" href="https://retrogamehub.games/alertmanager">
     ```
+
     https://retrogamehub.games/alertmanager
     ```
+
     Gestión de alertas
   </Card>
 </CardGroup>
@@ -291,6 +313,7 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
 ### 3. Obtener Credenciales
 
 ```bash
+
 # Password de Grafana
 terraform output grafana_admin_password
 
@@ -302,6 +325,7 @@ terraform output alb_dns_name
 
 # Todos los outputs
 terraform output
+
 ```
 
 ## Solución de Problemas
@@ -309,54 +333,58 @@ terraform output
 <AccordionGroup>
   <Accordion icon="exclamation-triangle" title="Pods en estado Pending">
     **Síntoma**: Pods atascados en `Pending`
-    
+
     ```bash
     kubectl describe pod <nombre-pod> -n retrogame
     ```
-    
+
+
     **Causas comunes**:
     - ❌ Instancias `t3.micro` (solo soportan 4 pods)
     - ❌ Memoria insuficiente
     - ❌ Límites de CPU excedidos
-    
+
     **Solución**: Usar mínimo `t3.medium` (4GB RAM, 17 pods/nodo)
   </Accordion>
-  
+
   <Accordion icon="lock" title="Terraform State Locked">
     **Síntoma**: `Error acquiring the state lock`
-    
+
     ```bash
     # Desbloquear manualmente
     terraform force-unlock <LOCK_ID>
     ```
+
   </Accordion>
-  
+
   <Accordion icon="globe" title="DNS no resuelve">
     **Verificaciones**:
     1. Nameservers actualizados en registrador ✓
     2. Zona Route53 tiene registros A ✓
     3. Propagación DNS completada (espera 1-2h) ✓
-    
+
     ```bash
     # Probar DNS
     dig @8.8.8.8 retrogamehub.games
-    
+
     # Ver registros de Route53
     aws route53 list-resource-record-sets --hosted-zone-id <ZONE_ID>
     ```
+
   </Accordion>
-  
+
   <Accordion icon="certificate" title="Certificado SSL no valida">
     **ACM toma 20-30 minutos** en validar vía DNS.
-    
+
     ```bash
     # Ver estado del certificado
     aws acm list-certificates --region eu-west-1
-    
+
     # Describir certificado específico
     aws acm describe-certificate --certificate-arn <ARN>
     ```
-    
+
+
     Asegúrate de que:
     - DNS está configurado correctamente
     - Los registros de validación CNAME existen en Route53
@@ -369,15 +397,15 @@ terraform output
   <Card title="Explorar Arquitectura" icon="sitemap" href="/architecture">
     Entiende cómo funciona todo el sistema
   </Card>
-  
+
   <Card title="APIs REST" icon="code" href="/api-reference/auth/login">
     Documentación completa de endpoints
   </Card>
-  
+
   <Card title="Configurar Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
     Alertas, dashboards y métricas
   </Card>
-  
+
   <Card title="Gestionar Servicios" icon="cubes" href="/services/auth-service">
     Documentación de microservicios
   </Card>
@@ -390,17 +418,24 @@ terraform output
 </Warning>
 
 ```bash
+
 # Destruir todo
 terraform destroy
 
 # Confirmar escribiendo: yes
+
 ```
 
 El proceso toma 10-15 minutos y eliminará:
+
 - Cluster EKS y nodos
+
 - Base de datos RDS (¡datos perdidos!)
+
 - Buckets S3 (si están vacíos)
+
 - VPC y networking
+
 - Zona Route53
 
 <Tip>
@@ -408,4 +443,5 @@ El proceso toma 10-15 minutos y eliminará:
   ```bash
   pg_dump -h <rds-endpoint> -U postgres retrogamedb > backup.sql
   ```
+
 </Tip>

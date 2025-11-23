@@ -1,7 +1,7 @@
 ---
-title: "kong"
-description: "Documentación generada automáticamente"
-icon: "code"
+title: Kong
+description: Documentación generada automáticamente
+icon: code
 ---
 
 <Info>
@@ -12,6 +12,7 @@ icon: "code"
 # Kong Gateway Configuration
 
 ## notify-docs-kong.yml
+
 ```yaml
 name: Notify Docs - Kong
 
@@ -34,9 +35,11 @@ jobs:
             -H "Authorization: token ${{ secrets.PAT_TOKEN }}" \
             https://api.github.com/repos/retrogamecloud/docs/dispatches \
             -d '{"event_type":"kong-updated"}'
+
 ```
 
 ## validate-config.yml
+
 ```yaml
 name: Validar Configuración de Kong
 
@@ -51,7 +54,7 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Clonar repositorio
         uses: actions/checkout@v4
@@ -79,11 +82,11 @@ jobs:
             echo "❌ Error: kong.yml no encontrado"
             exit 1
           fi
-          
+
           # Validar sintaxis YAML usando yq
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
-          
+
           if yq eval '.' kong.yml > /dev/null 2>&1; then
             echo "✅ Sintaxis YAML válida"
           else
@@ -94,31 +97,31 @@ jobs:
       - name: Validar configuración declarativa de Kong
         run: |
           echo "🔍 Validando configuración declarativa de Kong..."
-          
+
           # Validar estructura básica de Kong
           _FORMAT_VERSION=$(yq eval '._format_version' kong.yml)
-          
+
           if [ "$_FORMAT_VERSION" != "null" ]; then
             echo "✅ Versión de formato: $_FORMAT_VERSION"
           else
             echo "❌ Falta _format_version"
             exit 1
           fi
-          
+
           # Validar que existen servicios
           SERVICES_COUNT=$(yq eval '.services | length' kong.yml)
           echo "📊 Servicios definidos: $SERVICES_COUNT"
-          
+
           if [ "$SERVICES_COUNT" -gt 0 ]; then
             echo "✅ Configuración de servicios encontrada"
           else
             echo "⚠️  Advertencia: No hay servicios definidos"
           fi
-          
+
           # Validar que existen rutas
           ROUTES_COUNT=$(yq eval '.routes | length' kong.yml)
           echo "📊 Rutas definidas: $ROUTES_COUNT"
-          
+
           if [ "$ROUTES_COUNT" -gt 0 ]; then
             echo "✅ Configuración de rutas encontrada"
           else
@@ -128,11 +131,11 @@ jobs:
       - name: Probar configuración de Kong con Docker
         run: |
           echo "🐳 Probando configuración de Kong en contenedor..."
-          
+
           # Crear directorio temporal
           mkdir -p /tmp/kong
           cp kong.yml /tmp/kong/
-          
+
           # Validar configuración con Kong en modo DB-less
           docker run --rm \
             -e "KONG_DATABASE=off" \
@@ -140,7 +143,7 @@ jobs:
             -v /tmp/kong:/kong/declarative \
             kong:alpine \
             kong config parse /kong/declarative/kong.yml
-          
+
           if [ $? -eq 0 ]; then
             echo "✅ Configuración de Kong válida"
           else
@@ -161,9 +164,11 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Rutas" >> $GITHUB_STEP_SUMMARY
           yq eval '.routes[] | "- **" + .name + "**: " + (.paths | join(", "))' kong.yml >> $GITHUB_STEP_SUMMARY
+
 ```
 
 ## docker-publish-and-update-k8s.yml
+
 ```yaml
 name: Compilar, Publicar y Actualizar Kubernetes
 
@@ -187,7 +192,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Clonar repositorio
         uses: actions/checkout@v4
@@ -241,7 +246,7 @@ jobs:
           COMMIT_COUNT=$(git rev-list --count HEAD)
           VERSION="v1.0.${COMMIT_COUNT}"
           SHORT_SHA=$(git rev-parse --short HEAD)
-          
+
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "Versión generada: ${VERSION}"
@@ -297,7 +302,7 @@ jobs:
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           COMMIT_COUNT=${{ github.run_number }}
           VERSION="v1.0.${COMMIT_COUNT}"
-          
+
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "image_tag=sha-${SHORT_SHA}" >> $GITHUB_OUTPUT
@@ -306,13 +311,13 @@ jobs:
         run: |
           IMAGE_TAG="${{ steps.image_info.outputs.image_tag }}"
           VERSION="${{ steps.image_info.outputs.version }}"
-          
+
           # Actualizar la imagen en el manifiesto usando sed
           sed -i "s|image: retrogamehub/kong:.*|image: retrogamehub/kong:${IMAGE_TAG}|g" ${{ env.K8S_MANIFEST_FILE }}
-          
+
           # Actualizar el comentario con la versión
           sed -i "s|# Imagen de Kong desde DockerHub.*|# Imagen de Kong desde DockerHub - ${VERSION} (${IMAGE_TAG})|g" ${{ env.K8S_MANIFEST_FILE }}
-          
+
           echo "✅ Manifiesto actualizado con imagen: ${IMAGE_TAG}"
 
       - name: Configurar Git
@@ -325,24 +330,24 @@ jobs:
           VERSION="${{ steps.image_info.outputs.version }}"
           IMAGE_TAG="${{ steps.image_info.outputs.image_tag }}"
           BRANCH_NAME="auto/kong-${IMAGE_TAG}"
-          
+
           git add ${{ env.K8S_MANIFEST_FILE }}
-          
+
           # Solo proceder si hay cambios
           if git diff --staged --quiet; then
             echo "No hay cambios en el manifiesto"
           else
             # Crear rama para el PR
             git checkout -b "${BRANCH_NAME}"
-            
+
             git commit -m "chore: Actualizar imagen de Kong a ${IMAGE_TAG} [skip ci]" \
                        -m "Version: ${VERSION}" \
                        -m "SHA: ${{ steps.image_info.outputs.short_sha }}" \
                        -m "Commit origen: ${{ github.sha }}" \
                        -m "Actualizacion automatica desde CI/CD del repositorio kong"
-            
+
             git push origin "${BRANCH_NAME}"
-            
+
             # Crear PR usando GitHub CLI
             PR_URL=$(gh pr create \
               --repo ${{ env.K8S_REPO }} \
@@ -350,15 +355,15 @@ jobs:
               --head "${BRANCH_NAME}" \
               --title "chore(kong): Actualizar a ${IMAGE_TAG}" \
               --body "Actualizacion automatica de Kong - Version: ${VERSION}, Tag: ${IMAGE_TAG}, SHA: ${{ steps.image_info.outputs.short_sha }}, Commit: ${{ github.sha }}")
-            
+
             echo "✅ PR creado: ${PR_URL}"
-            
+
             # Auto-aprobar el PR
             gh pr review "${PR_URL}" --approve --body "Auto-aprobado por CI/CD"
-            
+
             # Hacer merge automático
             gh pr merge "${PR_URL}" --auto --squash --delete-branch
-            
+
             echo "✅ PR auto-aprobado y configurado para merge automático"
           fi
         env:
@@ -393,7 +398,7 @@ jobs:
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           COMMIT_COUNT=${{ github.run_number }}
           VERSION="v1.0.${COMMIT_COUNT}"
-          
+
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "image_tag=sha-${SHORT_SHA}" >> $GITHUB_OUTPUT
@@ -402,10 +407,10 @@ jobs:
         run: |
           IMAGE_TAG="${{ steps.image_info.outputs.image_tag }}"
           VERSION="${{ steps.image_info.outputs.version }}"
-          
+
           # Actualizar la imagen en el deployment de ArgoCD
           sed -i "s|image: retrogamehub/kong:.*|image: retrogamehub/kong:${IMAGE_TAG}|g" ${{ env.ARGOCD_MANIFEST_FILE }}
-          
+
           echo "✅ Deployment actualizado con imagen: ${IMAGE_TAG}"
 
       - name: Configurar Git
@@ -418,30 +423,30 @@ jobs:
           VERSION="${{ steps.image_info.outputs.version }}"
           IMAGE_TAG="${{ steps.image_info.outputs.image_tag }}"
           BRANCH_NAME="auto/argocd-kong-${IMAGE_TAG}"
-          
+
           git add ${{ env.ARGOCD_MANIFEST_FILE }}
-          
+
           if git diff --staged --quiet; then
             echo "No hay cambios en el deployment"
           else
             git checkout -b "${BRANCH_NAME}"
-            
+
             git commit -m "chore(argocd): Actualizar imagen de Kong a ${IMAGE_TAG} [skip ci]" \
                        -m "Archivo: ${{ env.ARGOCD_MANIFEST_FILE }}" \
                        -m "Version: ${VERSION}" \
                        -m "SHA: ${{ steps.image_info.outputs.short_sha }}" \
                        -m "Commit origen: ${{ github.sha }}" \
                        -m "Actualizacion automatica desde CI/CD del repositorio kong"
-            
+
             git push origin "${BRANCH_NAME}"
-            
+
             gh pr create \
               --repo ${{ env.ARGOCD_REPO }} \
               --base main \
               --head "${BRANCH_NAME}" \
               --title "chore(argocd/kong): Actualizar a ${IMAGE_TAG}" \
               --body "**Archivo actualizado:** \`${{ env.ARGOCD_MANIFEST_FILE }}\`%0A%0AActualizacion automatica de Kong:%0A- Version: ${VERSION}%0A- Tag: ${IMAGE_TAG}%0A- SHA: ${{ steps.image_info.outputs.short_sha }}%0A- Commit: ${{ github.sha }}"
-            
+
             echo "✅ PR creado en el repositorio de Kubernetes (ArgoCD)"
           fi
         env:
@@ -455,9 +460,11 @@ jobs:
           echo "- **Tag de imagen**: ${{ steps.image_info.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Manifiesto actualizado**: ${{ env.ARGOCD_MANIFEST_FILE }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Repositorio**: ${{ env.ARGOCD_REPO }}" >> $GITHUB_STEP_SUMMARY
+
 ```
 
 ## kong.yml
+
 ```yaml
 
 _format_version: "3.0"
@@ -481,7 +488,7 @@ services:
         methods:
           - POST
           - OPTIONS
-      
+
       - name: auth-profile
         paths:
           - /api/auth/profile
@@ -490,7 +497,7 @@ services:
           - GET
           - PUT
           - OPTIONS
-      
+
       - name: user-routes
         paths:
           - /api/users
@@ -672,6 +679,7 @@ plugins:
       latency_metrics: true
       bandwidth_metrics: true
       upstream_health_metrics: true
+
 ```
 
 

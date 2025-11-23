@@ -1,7 +1,7 @@
 ---
-title: "3.2. Servicio de Usuarios"
-description: "Gestión de perfiles y datos de usuarios"
-icon: "user"
+title: 3.2. Servicio de Usuarios
+description: Gestión de perfiles y datos de usuarios
+icon: user
 ---
 
 ## Descripción
@@ -11,19 +11,19 @@ El servicio de usuarios gestiona los perfiles, preferencias y estadísticas de l
 <CardGroup cols={3}>
   <Card title="Perfiles" icon="id-card">
     Info de usuario
-    
+
     Username, email, avatar
   </Card>
-  
+
   <Card title="Estadísticas" icon="chart-simple">
     Historial de juego
-    
+
     Total scores, juegos jugados
   </Card>
-  
+
   <Card title="Preferencias" icon="sliders">
     Configuración
-    
+
     Tema, idioma, privacidad
   </Card>
 </CardGroup>
@@ -35,8 +35,10 @@ El servicio de usuarios gestiona los perfiles, preferencias y estadísticas de l
 Obtiene el perfil público de un usuario.
 
 <CodeGroup>
+
 ```bash Request
 curl http://api.retrogamecloud.com/api/users/player1
+
 ```
 
 ```json Response 200
@@ -56,13 +58,16 @@ curl http://api.retrogamecloud.com/api/users/player1
     "global_rank": 15
   }
 }
+
 ```
 
 ```json Error 404
 {
   "error": "Usuario no encontrado"
 }
+
 ```
+
 </CodeGroup>
 
 ### GET /api/users/:username/scores
@@ -70,8 +75,10 @@ curl http://api.retrogamecloud.com/api/users/player1
 Obtiene todos los scores de un usuario.
 
 <CodeGroup>
+
 ```bash Request
 curl http://api.retrogamecloud.com/api/users/player1/scores
+
 ```
 
 ```json Response 200
@@ -93,7 +100,9 @@ curl http://api.retrogamecloud.com/api/users/player1/scores
     "updated_at": "2025-11-16T09:00:00.000Z"
   }
 ]
+
 ```
+
 </CodeGroup>
 
 ### PUT /api/users/:username
@@ -101,6 +110,7 @@ curl http://api.retrogamecloud.com/api/users/player1/scores
 Actualiza el perfil del usuario (requiere autenticación).
 
 <CodeGroup>
+
 ```bash Request
 curl -X PUT http://api.retrogamecloud.com/api/users/player1 \
   -H "Authorization: Bearer <token>" \
@@ -110,6 +120,7 @@ curl -X PUT http://api.retrogamecloud.com/api/users/player1 \
     "bio": "Top 10 global player",
     "avatar_url": "https://cdn.retrogamecloud.com/avatars/new-avatar.jpg"
   }'
+
 ```
 
 ```json Response 200
@@ -124,19 +135,26 @@ curl -X PUT http://api.retrogamecloud.com/api/users/player1 \
     "updated_at": "2025-11-19T15:30:00.000Z"
   }
 }
+
 ```
 
 ```json Error 403
 {
   "error": "No autorizado para modificar este perfil"
 }
+
 ```
+
 </CodeGroup>
 
-**Campos actualizables:**
+* *Campos actualizables:**
+
 - `display_name` (max 50 caracteres)
+
 - `bio` (max 500 caracteres)
+
 - `avatar_url` (URL válida)
+
 - `email` (formato email válido)
 
 <Warning>
@@ -148,22 +166,30 @@ curl -X PUT http://api.retrogamecloud.com/api/users/player1 \
 Desactiva la cuenta del usuario (soft delete).
 
 <CodeGroup>
+
 ```bash Request
 curl -X DELETE http://api.retrogamecloud.com/api/users/player1 \
   -H "Authorization: Bearer <token>"
+
 ```
 
 ```json Response 200
 {
   "message": "Cuenta desactivada exitosamente"
 }
+
 ```
+
 </CodeGroup>
 
-**Comportamiento:**
+* *Comportamiento:**
+
 - No elimina físicamente el usuario
+
 - Establece `is_active = false`
+
 - Los scores se mantienen pero con username "[deleted]"
+
 - El usuario puede reactivar su cuenta contactando soporte
 
 ## Estadísticas de Usuario
@@ -171,9 +197,10 @@ curl -X DELETE http://api.retrogamecloud.com/api/users/player1 \
 ### Query de Estadísticas
 
 ```sql
--- Calcular stats completas de un usuario
+
+- - Calcular stats completas de un usuario
 WITH user_stats AS (
-  SELECT 
+  SELECT
     COUNT(DISTINCT s.game_id) as total_games_played,
     SUM(s.score) as total_score,
     MAX(s.score) as highest_score,
@@ -207,11 +234,12 @@ global_position AS (
     )
   ) ranked
 )
-SELECT 
+SELECT
   us.*,
   fg.game_name as favorite_game,
   gp.rank as global_rank
 FROM user_stats us, favorite_game fg, global_position gp;
+
 ```
 
 ## Esquema de Base de Datos
@@ -234,7 +262,7 @@ CREATE TABLE users (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Triggers para updated_at
+- - Triggers para updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -247,6 +275,7 @@ CREATE TRIGGER update_users_updated_at
   BEFORE UPDATE ON users
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
 ```
 
 ### Tabla: user_preferences (futura)
@@ -262,6 +291,7 @@ CREATE TABLE user_preferences (
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
+
 ```
 
 ## Validaciones
@@ -271,19 +301,20 @@ CREATE TABLE user_preferences (
 ```javascript
 function validateDisplayName(displayName) {
   if (!displayName) return true; // Opcional
-  
+
   if (displayName.length > 50) {
     throw { status: 400, message: 'Display name demasiado largo (max 50)' };
   }
-  
+
   // Permitir letras, números, espacios y caracteres básicos
   const regex = /^[a-zA-Z0-9\s._-]+$/;
   if (!regex.test(displayName)) {
     throw { status: 400, message: 'Display name contiene caracteres inválidos' };
   }
-  
+
   return true;
 }
+
 ```
 
 ### Validar Bio
@@ -291,18 +322,19 @@ function validateDisplayName(displayName) {
 ```javascript
 function validateBio(bio) {
   if (!bio) return true; // Opcional
-  
+
   if (bio.length > 500) {
     throw { status: 400, message: 'Bio demasiado larga (max 500)' };
   }
-  
+
   // Sanitizar HTML/scripts
   const sanitized = bio
     .replace(/<script[^>]*>.*?<\/script>/gi, '')
     .replace(/<[^>]+>/g, '');
-  
+
   return sanitized;
 }
+
 ```
 
 ### Validar Avatar URL
@@ -310,30 +342,31 @@ function validateBio(bio) {
 ```javascript
 function validateAvatarUrl(url) {
   if (!url) return true; // Opcional
-  
+
   try {
     const parsed = new URL(url);
-    
+
     // Solo permitir HTTPS
     if (parsed.protocol !== 'https:') {
       throw new Error('Solo se permiten URLs HTTPS');
     }
-    
+
     // Validar extensión
     const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-    const hasValidExt = validExtensions.some(ext => 
+    const hasValidExt = validExtensions.some(ext =>
       url.toLowerCase().endsWith(ext)
     );
-    
+
     if (!hasValidExt) {
       throw new Error('Formato de imagen no válido');
     }
-    
+
     return true;
   } catch (error) {
     throw { status: 400, message: 'Avatar URL inválida' };
   }
 }
+
 ```
 
 ## Seguridad y Privacidad
@@ -345,22 +378,23 @@ function validateAvatarUrl(url) {
 function requireOwnership(req, res, next) {
   const { username } = req.params;
   const { username: tokenUsername } = req.user;
-  
+
   if (username !== tokenUsername) {
     return res.status(403).json({
       error: 'No autorizado para modificar este perfil'
     });
   }
-  
+
   next();
 }
 
 // Uso
-app.put('/api/users/:username', 
+app.put('/api/users/:username',
   authMiddleware,
   requireOwnership,
   updateUserProfile
 );
+
 ```
 
 ### Ocultar Información Sensible
@@ -368,19 +402,21 @@ app.put('/api/users/:username',
 ```javascript
 function sanitizeUserForPublic(user) {
   const { password_hash, email_verified, last_login, ...publicUser } = user;
-  
+
   // Ocultar email si el usuario no lo permite
   if (!user.show_email) {
     publicUser.email = null;
   }
-  
+
   return publicUser;
 }
+
 ```
 
 ## Variables de Entorno
 
 ```bash
+
 # Puerto del servicio
 PORT=3005
 
@@ -395,6 +431,7 @@ AVATAR_CDN_URL=https://cdn.retrogamecloud.com/avatars
 
 # Logs
 LOG_LEVEL=info
+
 ```
 
 ## Integración con Frontend
@@ -406,7 +443,7 @@ async function loadUserProfile(username) {
   try {
     const response = await fetch(`http://api.retrogamecloud.com/api/users/${username}`);
     const user = await response.json();
-    
+
     displayUserProfile(user);
   } catch (error) {
     console.error('Error cargando perfil:', error);
@@ -416,13 +453,13 @@ async function loadUserProfile(username) {
 function displayUserProfile(user) {
   const html = `
     <div class="user-profile">
-      <img src="${user.avatar_url || '/default-avatar.png'}" 
-           alt="${user.username}" 
+      <img src="${user.avatar_url || '/default-avatar.png'}"
+           alt="${user.username}"
            class="avatar">
       <h2>${user.display_name || user.username}</h2>
       <p class="username">@${user.username}</p>
       <p class="bio">${user.bio || ''}</p>
-      
+
       <div class="stats">
         <div class="stat">
           <span class="label">Games Played</span>
@@ -439,9 +476,10 @@ function displayUserProfile(user) {
       </div>
     </div>
   `;
-  
+
   document.getElementById('profile-container').innerHTML = html;
 }
+
 ```
 
 ### Editar Perfil
@@ -449,7 +487,7 @@ function displayUserProfile(user) {
 ```javascript
 async function updateProfile(username, updates) {
   const token = localStorage.getItem('token');
-  
+
   try {
     const response = await fetch(`http://api.retrogamecloud.com/api/users/${username}`, {
       method: 'PUT',
@@ -459,10 +497,10 @@ async function updateProfile(username, updates) {
       },
       body: JSON.stringify(updates)
     });
-    
+
     const data = await response.json();
     console.log('✅ Perfil actualizado:', data);
-    
+
     // Recargar perfil
     await loadUserProfile(username);
   } catch (error) {
@@ -475,6 +513,7 @@ updateProfile('player1', {
   display_name: 'New Display Name',
   bio: 'Updated bio text'
 });
+
 ```
 
 ## Roadmap
@@ -483,15 +522,15 @@ updateProfile('player1', {
   <Card title="v2.0 - Preferencias" icon="sliders">
     Sistema de preferencias personalizables
   </Card>
-  
+
   <Card title="v2.1 - Achievements" icon="trophy">
     Sistema de logros y badges
   </Card>
-  
+
   <Card title="v2.2 - Friends" icon="users">
     Sistema de amigos y follow
   </Card>
-  
+
   <Card title="v2.3 - Avatar Upload" icon="upload">
     Subida directa de avatares
   </Card>
@@ -503,15 +542,15 @@ updateProfile('player1', {
   <Card title="Auth Service" icon="lock" href="/services/auth-service">
     Sistema de autenticación
   </Card>
-  
+
   <Card title="Frontend" icon="window" href="/frontend/overview">
     Interfaz de usuario
   </Card>
-  
+
   <Card title="API Reference" icon="book" href="/api-reference/auth/login">
     Documentación completa de APIs
   </Card>
-  
+
   <Card title="CI/CD" icon="rocket" href="/cicd/overview">
     Pipeline de despliegue
   </Card>

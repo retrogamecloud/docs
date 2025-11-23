@@ -1,7 +1,7 @@
 ---
-title: "3.3. Servicio de Catálogo de Juegos"
-description: "Catálogo de juegos retro con metadata y búsqueda"
-icon: "gamepad"
+title: 3.3. Servicio de Catálogo de Juegos
+description: Catálogo de juegos retro con metadata y búsqueda
+icon: gamepad
 ---
 
 ## Descripción
@@ -11,19 +11,19 @@ El servicio de catálogo gestiona el inventario de juegos retro disponibles en l
 <CardGroup cols={3}>
   <Card title="10 Juegos" icon="dice">
     Catálogo inicial
-    
+
     Juegos clásicos de DOS
   </Card>
-  
+
   <Card title="Búsqueda" icon="magnifying-glass">
     Por nombre o slug
-    
+
     Búsqueda rápida
   </Card>
-  
+
   <Card title="Metadata" icon="database">
     Año, género, descripción
-    
+
     Info completa de cada juego
   </Card>
 </CardGroup>
@@ -110,8 +110,10 @@ El servicio de catálogo gestiona el inventario de juegos retro disponibles en l
 Lista todos los juegos disponibles.
 
 <CodeGroup>
+
 ```bash Request
 curl http://api.retrogamecloud.com/games
+
 ```
 
 ```json Response 200
@@ -140,7 +142,9 @@ curl http://api.retrogamecloud.com/games
   }
   // ... más juegos
 ]
+
 ```
+
 </CodeGroup>
 
 ### GET /games/:slug
@@ -148,8 +152,10 @@ curl http://api.retrogamecloud.com/games
 Obtiene un juego específico por su slug.
 
 <CodeGroup>
+
 ```bash Request
 curl http://api.retrogamecloud.com/games/doom
+
 ```
 
 ```json Response 200
@@ -168,13 +174,16 @@ curl http://api.retrogamecloud.com/games/doom
   "avg_score": 85000,
   "created_at": "2025-01-15T10:00:00.000Z"
 }
+
 ```
 
 ```json Error 404
 {
   "error": "Juego no encontrado"
 }
+
 ```
+
 </CodeGroup>
 
 ## Esquema de Base de Datos
@@ -201,52 +210,55 @@ CREATE TABLE games (
 CREATE INDEX idx_games_slug ON games(slug);
 CREATE INDEX idx_games_genre ON games(genre);
 CREATE INDEX idx_games_year ON games(year);
+
 ```
 
 ### Script de Inicialización
 
 ```sql
--- init-db/02-games.sql
+
+- - init-db/02-games.sql
 INSERT INTO games (name, slug, description, year, genre, file_url, image_url) VALUES
-  ('DOOM', 'doom', 'First-person shooter revolucionario', 1993, 'FPS', 
+  ('DOOM', 'doom', 'First-person shooter revolucionario', 1993, 'FPS',
    'https://cdn.retrogamecloud.com/juegos/doom.jsdos',
    'https://cdn.retrogamecloud.com/img/doom.jpg'),
-  
+
   ('Duke Nukem 3D', 'duke3d', 'Acción en primera persona', 1996, 'FPS',
    'https://cdn.retrogamecloud.com/juegos/duke3d.jsdos',
    'https://cdn.retrogamecloud.com/img/duke3d.jpg'),
-  
+
   ('Wolfenstein 3D', 'wolf', 'El pionero de los FPS', 1992, 'FPS',
    'https://cdn.retrogamecloud.com/juegos/wolf.jsdos',
    'https://cdn.retrogamecloud.com/img/wolf.jpg'),
-  
+
   ('Mortal Kombat', 'mortalkombat', 'Lucha brutal', 1993, 'Fighting',
    'https://cdn.retrogamecloud.com/juegos/mortalkombat.jsdos',
    'https://cdn.retrogamecloud.com/img/mortalkombat.jpg'),
-  
+
   ('Street Fighter II', 'streetfighter2', 'Clásico de lucha', 1992, 'Fighting',
    'https://cdn.retrogamecloud.com/juegos/streetfighter2.jsdos',
    'https://cdn.retrogamecloud.com/img/streetfighter2.jpg'),
-  
+
   ('Tetris', 'tetris', 'Puzzle adictivo', 1989, 'Puzzle',
    'https://cdn.retrogamecloud.com/juegos/tetris.jsdos',
    'https://cdn.retrogamecloud.com/img/tetris.jpg'),
-  
+
   ('Dangerous Dave 2', 'dangerousdave2', 'Plataformas clásico', 1990, 'Platform',
    'https://cdn.retrogamecloud.com/juegos/dangerousdave2.jsdos',
    'https://cdn.retrogamecloud.com/img/dangerousdave2.jpg'),
-  
+
   ('The Lost Vikings', 'lostvikings', 'Puzzle cooperativo', 1993, 'Puzzle/Platform',
    'https://cdn.retrogamecloud.com/juegos/lostvikings.jsdos',
    'https://cdn.retrogamecloud.com/img/lostvikings.jpg'),
-  
+
   ('Heroes of Might and Magic II', 'heroesofmightandmagic2', 'Estrategia por turnos', 1996, 'Strategy',
    'https://cdn.retrogamecloud.com/juegos/heroesofmightandmagic2.jsdos',
    'https://cdn.retrogamecloud.com/img/heroesofmightandmagic2.jpg'),
-  
+
   ('Digger', 'digger', 'Arcade clásico', 1983, 'Arcade',
    'https://cdn.retrogamecloud.com/juegos/digger.jsdos',
    'https://cdn.retrogamecloud.com/img/digger.jpg');
+
 ```
 
 ## CDN de Juegos
@@ -256,6 +268,7 @@ Los archivos `.jsdos` se sirven desde un CDN basado en Nginx.
 ### Estructura del CDN
 
 ```
+
 cdn/
 ├── img/                      # Imágenes de portada
 │   ├── doom.jpg
@@ -265,6 +278,7 @@ cdn/
     ├── doom.jsdos
     ├── duke3d.jsdos
     └── ...
+
 ```
 
 ### Configuración Nginx
@@ -273,24 +287,26 @@ cdn/
 server {
   listen 80;
   server_name cdn.retrogamecloud.com;
-  
+
   root /usr/share/nginx/html;
-  
+
   location /juegos/ {
     add_header Access-Control-Allow-Origin *;
     add_header Cache-Control "public, max-age=31536000";
   }
-  
+
   location /img/ {
     add_header Access-Control-Allow-Origin *;
     add_header Cache-Control "public, max-age=86400";
   }
 }
+
 ```
 
 ## Variables de Entorno
 
 ```bash
+
 # Puerto del servicio
 PORT=3002
 
@@ -303,6 +319,7 @@ CDN_BASE_URL=https://cdn.retrogamecloud.com
 # Cache
 ENABLE_CACHE=true
 CACHE_TTL=3600
+
 ```
 
 ## Próximos Pasos
@@ -311,15 +328,15 @@ CACHE_TTL=3600
   <Card title="Score Service" icon="trophy" href="/services/score-service">
     Gestión de puntuaciones
   </Card>
-  
+
   <Card title="Ranking Service" icon="ranking-star" href="/services/ranking-service">
     Rankings y leaderboards
   </Card>
-  
+
   <Card title="Frontend" icon="window" href="/frontend/overview">
     Interfaz de usuario
   </Card>
-  
+
   <Card title="CDN" icon="server" href="/infrastructure/overview">
     Infraestructura del CDN
   </Card>

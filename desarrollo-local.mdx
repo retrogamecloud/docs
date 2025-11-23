@@ -1,7 +1,7 @@
 ---
-title: "1.3. 2. Desarrollo Local"
-description: "Ejecuta Retro Game Hub en tu máquina local paso a paso"
-icon: "laptop-code"
+title: 1.3. 2. Desarrollo Local
+description: Ejecuta Retro Game Hub en tu máquina local paso a paso
+icon: laptop-code
 ---
 
 ## Introducción
@@ -23,7 +23,7 @@ Esta guía te lleva desde ejecutar un microservicio básico en Node.js hasta un 
   </Step>
 </Steps>
 
----
+- --
 
 ## Nivel 1: Node.js Puro
 
@@ -32,6 +32,7 @@ Esta guía te lleva desde ejecutar un microservicio básico en Node.js hasta un 
 ```bash
 node --version  # v18 o superior
 npm --version   # v9 o superior
+
 ```
 
 ### Ejecutar el Servicio de Autenticación
@@ -41,13 +42,14 @@ npm --version   # v9 o superior
     ```bash
     git clone https://github.com/retrogamecloud/infrastructure.git
     cd infrastructure
-    
+
     # Instalar dependencias del auth-service
     cd auth-service
     npm install
     ```
+
   </Step>
-  
+
   <Step title="Configurar variables de entorno">
     Crea un archivo `.env`:
     ```bash
@@ -57,26 +59,28 @@ npm --version   # v9 o superior
     DB_NAME=retrogame_dev
     DB_USER=postgres
     DB_PASSWORD=postgres
-    
+
     # JWT
     JWT_SECRET=mi-secreto-super-seguro-cambiar-en-produccion
     JWT_EXPIRATION=24h
-    
+
     # Puerto del servicio
     PORT=3001
     ```
+
   </Step>
-  
+
   <Step title="Iniciar PostgreSQL local (opcional)">
     Si tienes PostgreSQL instalado:
     ```bash
     # Crear base de datos
     createdb retrogame_dev
-    
+
     # Ejecutar migraciones
     npm run migrate
     ```
-    
+
+
     O usa SQLite para desarrollo rápido:
     ```javascript
     // En config/database.js
@@ -87,24 +91,29 @@ npm --version   # v9 o superior
       }
     }
     ```
+
   </Step>
-  
+
   <Step title="Ejecutar el servicio">
     ```bash
     npm run dev
     ```
-    
+
+
     Verás:
     ```
+
     🚀 Auth Service running on http://localhost:3001
     ✅ Database connected
     ```
+
   </Step>
 </Steps>
 
 ### Probar el Servicio
 
 ```bash
+
 # Registrar usuario
 curl -X POST http://localhost:3001/auth/register \
   -H "Content-Type: application/json" \
@@ -121,6 +130,7 @@ curl -X POST http://localhost:3001/auth/login \
     "email": "player1@test.com",
     "password": "password123"
   }'
+
 ```
 
 ### Ejecutar Todos los Servicios
@@ -135,6 +145,7 @@ curl -X POST http://localhost:3001/auth/login \
 </Accordion>
 
 ```bash
+
 # Terminal 1: Auth Service
 cd auth-service && npm run dev
 
@@ -153,13 +164,14 @@ cd user-service && npm install && npm run dev
 
 # Terminal 6: Frontend
 cd frontend && npm install && npm start
+
 ```
 
 <Warning>
   Ejecutar múltiples terminales es tedioso - por eso usamos Docker 👇
 </Warning>
 
----
+- --
 
 ## Nivel 2: Docker
 
@@ -167,6 +179,7 @@ cd frontend && npm install && npm start
 
 ```bash
 docker --version  # Docker 20.10+
+
 ```
 
 ### Buildear Imagen de un Servicio
@@ -176,30 +189,33 @@ docker --version  # Docker 20.10+
     ```dockerfile
     # auth-service/Dockerfile
     FROM node:18-alpine
-    
+
     WORKDIR /app
-    
+
     # Instalar dependencias
     COPY package*.json ./
     RUN npm ci --only=production
-    
+
     # Copiar código
     COPY . .
-    
+
     EXPOSE 3001
-    
+
     CMD ["node", "src/index.js"]
     ```
+
   </Step>
-  
+
   <Step title="Construir la imagen">
     ```bash
     cd auth-service
     docker build -t retrogame/auth-service:latest .
     ```
-    
+
+
     Verás:
     ```
+
     [+] Building 45.3s (10/10) FINISHED
     => [1/5] FROM node:18-alpine
     => [2/5] WORKDIR /app
@@ -209,8 +225,9 @@ docker --version  # Docker 20.10+
     => exporting to image
     => => naming to docker.io/retrogame/auth-service:latest
     ```
+
   </Step>
-  
+
   <Step title="Ejecutar el contenedor">
     ```bash
     docker run -d \
@@ -221,22 +238,25 @@ docker --version  # Docker 20.10+
       -e JWT_SECRET=mi-secreto \
       retrogame/auth-service:latest
     ```
+
   </Step>
-  
+
   <Step title="Ver logs">
     ```bash
     # Logs en tiempo real
     docker logs -f auth-service
-    
+
     # Últimas 50 líneas
     docker logs --tail 50 auth-service
     ```
+
   </Step>
 </Steps>
 
 ### Buildear Todas las Imágenes
 
 ```bash
+
 # Script para buildear todos los servicios
 #!/bin/bash
 
@@ -257,11 +277,13 @@ for service in "${services[@]}"; do
 done
 
 echo "✅ All images built!"
+
 ```
 
 ### Gestionar Contenedores
 
 ```bash
+
 # Ver contenedores corriendo
 docker ps
 
@@ -279,13 +301,14 @@ docker exec -it auth-service sh
 
 # Ver uso de recursos
 docker stats
+
 ```
 
 <Tip>
   Docker resuelve el problema de "funciona en mi máquina" - pero gestionar 6+ contenedores manualmente es complejo. Siguiente nivel: Docker Compose 👇
 </Tip>
 
----
+- --
 
 ## Nivel 3: Docker Compose
 
@@ -294,6 +317,7 @@ Docker Compose orquesta múltiples contenedores con un solo comando.
 ### Archivo docker-compose.yml
 
 <CodeGroup>
+
 ```yaml docker-compose.yml
 version: '3.8'
 
@@ -472,16 +496,18 @@ services:
 volumes:
   postgres_data:
   redis_data:
+
 ```
 
 ```sql scripts/init-db.sql
--- Crear esquemas
+
+- - Crear esquemas
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE SCHEMA IF NOT EXISTS games;
 CREATE SCHEMA IF NOT EXISTS scores;
 CREATE SCHEMA IF NOT EXISTS users;
 
--- Tabla de usuarios
+- - Tabla de usuarios
 CREATE TABLE IF NOT EXISTS users.users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -491,7 +517,7 @@ CREATE TABLE IF NOT EXISTS users.users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabla de juegos
+- - Tabla de juegos
 CREATE TABLE IF NOT EXISTS games.games (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -503,7 +529,7 @@ CREATE TABLE IF NOT EXISTS games.games (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabla de puntuaciones
+- - Tabla de puntuaciones
 CREATE TABLE IF NOT EXISTS scores.scores (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users.users(id),
@@ -512,17 +538,19 @@ CREATE TABLE IF NOT EXISTS scores.scores (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Índices para rendimiento
+- - Índices para rendimiento
 CREATE INDEX idx_scores_user_id ON scores.scores(user_id);
 CREATE INDEX idx_scores_game_id ON scores.scores(game_id);
 CREATE INDEX idx_scores_score ON scores.scores(score DESC);
 
--- Datos de ejemplo
+- - Datos de ejemplo
 INSERT INTO games.games (name, description, file_path, year, genre) VALUES
 ('DOOM', 'Legendary FPS game', 'doom.jsdos', 1993, 'FPS'),
 ('Prince of Persia', 'Classic platformer', 'prince.jsdos', 1989, 'Platform'),
 ('Wolfenstein 3D', 'The grandfather of FPS', 'wolf.jsdos', 1992, 'FPS');
+
 ```
+
 </CodeGroup>
 
 ### Ejecutar con Docker Compose
@@ -532,13 +560,15 @@ INSERT INTO games.games (name, description, file_path, year, genre) VALUES
     ```bash
     # Construir imágenes y levantar servicios
     docker-compose up --build
-    
+
     # En modo detached (background)
     docker-compose up -d
     ```
-    
+
+
     Verás:
     ```
+
     ✅ Network retrogame_default created
     ✅ Volume postgres_data created
     ✅ Volume redis_data created
@@ -552,40 +582,44 @@ INSERT INTO games.games (name, description, file_path, year, genre) VALUES
     🦍 kong started
     🌐 frontend started
     ```
+
   </Step>
-  
+
   <Step title="Verificar que todo funciona">
     ```bash
     # Ver servicios corriendo
     docker-compose ps
-    
+
     # Ver logs de todos los servicios
     docker-compose logs -f
-    
+
     # Ver logs de un servicio específico
     docker-compose logs -f auth-service
     ```
+
   </Step>
-  
+
   <Step title="Probar la aplicación">
     ```bash
     # Frontend
     open http://localhost:8080
-    
+
     # API Gateway
     curl http://localhost:8000/health
-    
+
     # Autenticación
     curl -X POST http://localhost:8000/auth/register \
       -H "Content-Type: application/json" \
       -d '{"username":"test","email":"test@test.com","password":"pass123"}'
     ```
+
   </Step>
 </Steps>
 
 ### Comandos Útiles
 
 ```bash
+
 # Detener todos los servicios
 docker-compose down
 
@@ -609,13 +643,14 @@ docker-compose restart auth-service
 
 # Ver uso de recursos
 docker stats $(docker-compose ps -q)
+
 ```
 
 <Tip>
   Docker Compose es perfecto para desarrollo local - pero para producción necesitamos orquestación real. Siguiente nivel: Kubernetes 👇
 </Tip>
 
----
+- --
 
 ## Nivel 4: Minikube (Kubernetes Local)
 
@@ -629,18 +664,21 @@ Minikube crea un cluster de Kubernetes en tu máquina para probar despliegues.
     curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
     sudo install minikube-linux-amd64 /usr/local/bin/minikube
     ```
+
   </Tab>
-  
+
   <Tab title="macOS">
     ```bash
     brew install minikube
     ```
+
   </Tab>
-  
+
   <Tab title="Windows">
     ```powershell
     choco install minikube
     ```
+
   </Tab>
 </Tabs>
 
@@ -651,49 +689,54 @@ Minikube crea un cluster de Kubernetes en tu máquina para probar despliegues.
     ```bash
     # Iniciar con suficientes recursos
     minikube start --cpus=4 --memory=8192 --driver=docker
-    
+
     # Habilitar addons útiles
     minikube addons enable ingress
     minikube addons enable metrics-server
     minikube addons enable dashboard
     ```
+
   </Step>
-  
+
   <Step title="Configurar kubectl">
     ```bash
     # Verificar conexión
     kubectl cluster-info
-    
+
     # Ver nodos
     kubectl get nodes
-    
+
     # Deberías ver:
     # NAME       STATUS   ROLES           AGE   VERSION
     # minikube   Ready    control-plane   1m    v1.28.3
     ```
+
   </Step>
-  
+
   <Step title="Usar registro de imágenes local">
     ```bash
     # Apuntar Docker al daemon de Minikube
     eval $(minikube docker-env)
-    
+
     # Ahora buildea las imágenes
     docker build -t retrogame/auth-service:latest ./auth-service
     docker build -t retrogame/game-catalog-service:latest ./game-catalog-service
     # ... resto de servicios
     ```
+
   </Step>
 </Steps>
 
 ### Desplegar en Minikube
 
 <CodeGroup>
+
 ```yaml kubernetes/namespace.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
   name: retrogame
+
 ```
 
 ```yaml kubernetes/postgres.yaml
@@ -708,7 +751,8 @@ spec:
   resources:
     requests:
       storage: 5Gi
----
+
+- --
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -743,7 +787,8 @@ spec:
       - name: postgres-storage
         persistentVolumeClaim:
           claimName: postgres-pvc
----
+
+- --
 apiVersion: v1
 kind: Service
 metadata:
@@ -756,6 +801,7 @@ spec:
   - port: 5432
     targetPort: 5432
   type: ClusterIP
+
 ```
 
 ```yaml kubernetes/auth-service.yaml
@@ -814,7 +860,8 @@ spec:
             port: 3001
           initialDelaySeconds: 5
           periodSeconds: 5
----
+
+- --
 apiVersion: v1
 kind: Service
 metadata:
@@ -827,12 +874,15 @@ spec:
   - port: 3001
     targetPort: 3001
   type: ClusterIP
+
 ```
+
 </CodeGroup>
 
 ### Aplicar Configuración
 
 ```bash
+
 # Crear namespace
 kubectl apply -f kubernetes/namespace.yaml
 
@@ -853,11 +903,13 @@ kubectl apply -f kubernetes/user-service.yaml
 # Desplegar frontend y Kong
 kubectl apply -f kubernetes/kong.yaml
 kubectl apply -f kubernetes/frontend.yaml
+
 ```
 
 ### Verificar Despliegue
 
 ```bash
+
 # Ver todos los pods
 kubectl get pods -n retrogame
 
@@ -872,11 +924,13 @@ kubectl describe pod <pod-name> -n retrogame
 
 # Port forward para probar
 kubectl port-forward svc/auth-service 3001:3001 -n retrogame
+
 ```
 
 ### Acceder a la Aplicación
 
 ```bash
+
 # Obtener IP de Minikube
 minikube ip
 
@@ -888,22 +942,26 @@ open http://localhost:8080
 
 # O usar minikube service
 minikube service frontend -n retrogame
+
 ```
 
 ### Dashboard de Kubernetes
 
 ```bash
+
 # Abrir dashboard
 minikube dashboard
 
 # Ver métricas
 kubectl top nodes
 kubectl top pods -n retrogame
+
 ```
 
 ### Limpiar
 
 ```bash
+
 # Eliminar todo el namespace
 kubectl delete namespace retrogame
 
@@ -912,9 +970,10 @@ minikube stop
 
 # Eliminar cluster
 minikube delete
+
 ```
 
----
+- --
 
 ## Comparación de Niveles
 

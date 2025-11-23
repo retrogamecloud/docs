@@ -1,7 +1,7 @@
 ---
-title: "6.6. Monitoreo y Observabilidad"
-description: "Prometheus, Grafana, AlertManager y logging centralizado"
-icon: "chart-line"
+title: 6.6. Monitoreo y Observabilidad
+description: Prometheus, Grafana, AlertManager y logging centralizado
+icon: chart-line
 ---
 
 ## Stack de Monitoreo
@@ -11,20 +11,20 @@ Retro Game Hub utiliza el stack de Prometheus + Grafana para monitoreo y visuali
 <CardGroup cols={3}>
   <Card title="Prometheus" icon="chart-line">
     **Métricas**
-    
+
     Recolección y almacenamiento de métricas
   </Card>
-  
+
   <Card title="Grafana" icon="chart-area">
     **Visualización**
-    
+
     Dashboards interactivos
   </Card>
-  
+
   <Card title="AlertManager" icon="bell">
 
     **Alertas**
-    
+
     Notificaciones de incidentes
   </Card>
 </CardGroup>
@@ -43,6 +43,7 @@ graph TD
     F --> I[Services Metrics<br/>Application /metrics]
     C --> D
     E --> D
+
 ```
 
 ## Instalación con Helm
@@ -50,12 +51,14 @@ graph TD
 ### Prerrequisitos
 
 ```bash
+
 # Instalar Helm
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
 # Agregar repositorio de Prometheus
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
+
 ```
 
 ### Instalar kube-prometheus-stack
@@ -65,8 +68,9 @@ helm repo update
     ```bash
     kubectl create namespace monitoring
     ```
+
   </Step>
-  
+
   <Step title="Crear values.yaml">
     ```yaml
     # values-prometheus.yaml
@@ -80,10 +84,10 @@ helm repo update
                 requests:
                   storage: 50Gi
               storageClassName: gp3
-        
+
         retention: 15d
         retentionSize: "45GB"
-        
+
         resources:
           requests:
             cpu: 500m
@@ -91,26 +95,26 @@ helm repo update
           limits:
             cpu: 1000m
             memory: 4Gi
-        
+
         # Scrape interval
         scrapeInterval: 30s
         evaluationInterval: 30s
-    
+
     grafana:
       enabled: true
       adminPassword: "CAMBIAR_EN_PRODUCCION"
-      
+
       persistence:
         enabled: true
         size: 10Gi
         storageClassName: gp3
-      
+
       # GitHub OAuth
       grafana.ini:
         server:
           root_url: "https://monitoring.retrogamecloud.com/grafana"
           serve_from_sub_path: true
-        
+
         auth.github:
           enabled: true
           allow_sign_up: true
@@ -121,7 +125,7 @@ helm repo update
           token_url: "https://github.com/login/oauth/access_token"
           api_url: "https://api.github.com/user"
           allowed_organizations: "retrogamecloud"
-      
+
       resources:
         requests:
           cpu: 250m
@@ -129,7 +133,7 @@ helm repo update
         limits:
           cpu: 500m
           memory: 1Gi
-      
+
       # Dashboards precargados
       dashboardProviders:
         dashboardproviders.yaml:
@@ -143,7 +147,7 @@ helm repo update
               editable: true
               options:
                 path: /var/lib/grafana/dashboards/default
-      
+
       dashboards:
         default:
           node-exporter:
@@ -158,14 +162,14 @@ helm repo update
             gnetId: 9614
             revision: 1
             datasource: Prometheus
-    
+
     alertmanager:
       enabled: true
-      
+
       config:
         global:
           resolve_timeout: 5m
-        
+
         route:
           group_by: ['alertname', 'cluster', 'service']
           group_wait: 10s
@@ -176,7 +180,7 @@ helm repo update
             - match:
                 severity: critical
               receiver: 'slack-critical'
-        
+
         receivers:
           - name: 'slack'
             slack_configs:
@@ -184,27 +188,27 @@ helm repo update
                 channel: '#retrogame-alerts'
                 title: '{{ .GroupLabels.alertname }}'
                 text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
-          
+
           - name: 'slack-critical'
             slack_configs:
               - api_url: "${SLACK_WEBHOOK_URL}"
                 channel: '#retrogame-critical'
                 title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
                 text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
-      
+
       persistence:
         enabled: true
         size: 10Gi
         storageClassName: gp3
-    
+
     # Node Exporter (métricas de nodos)
     nodeExporter:
       enabled: true
-    
+
     # Kube State Metrics (métricas de K8s)
     kubeStateMetrics:
       enabled: true
-    
+
     # Service Monitors para nuestros servicios
     additionalServiceMonitors:
       - name: retrogame-services
@@ -219,24 +223,26 @@ helm repo update
             interval: 30s
             path: /metrics
     ```
+
   </Step>
-  
+
   <Step title="Instalar con Helm">
     ```bash
     helm install prometheus prometheus-community/kube-prometheus-stack \
       --namespace monitoring \
       --values values-prometheus.yaml \
       --version 51.0.0
-    
+
     # Verificar instalación
     kubectl get pods -n monitoring
     ```
-    
+
+
     <Note>
       La instalación tarda 2-3 minutos. Espera hasta que todos los pods estén **Running**.
     </Note>
   </Step>
-  
+
   <Step title="Configurar Ingress/ALB">
     ```yaml
     # ingress-monitoring.yaml
@@ -264,7 +270,7 @@ helm repo update
                     name: prometheus-grafana
                     port:
                       number: 80
-              
+
               - path: /prometheus
                 pathType: Prefix
                 backend:
@@ -272,7 +278,7 @@ helm repo update
                     name: prometheus-kube-prometheus-prometheus
                     port:
                       number: 9090
-              
+
               - path: /alertmanager
                 pathType: Prefix
                 backend:
@@ -281,24 +287,26 @@ helm repo update
                     port:
                       number: 9093
     ```
-    
+
+
     ```bash
     kubectl apply -f ingress-monitoring.yaml
-    
+
     # Obtener ALB DNS
     kubectl get ingress -n monitoring
     ```
+
   </Step>
-  
+
   <Step title="Configurar Route53">
     En la consola de AWS o con Terraform:
-    
+
     ```hcl
     resource "aws_route53_record" "monitoring" {
       zone_id = data.aws_route53_zone.main.zone_id
       name    = "monitoring.retrogamecloud.com"
       type    = "A"
-      
+
       alias {
         name                   = data.kubernetes_ingress.monitoring.status.0.load_balancer.0.ingress.0.hostname
         zone_id                = data.aws_elb_hosted_zone_id.main.id
@@ -306,6 +314,7 @@ helm repo update
       }
     }
     ```
+
   </Step>
 </Steps>
 
@@ -321,7 +330,7 @@ helm repo update
        - **Authorization callback URL**: `https://monitoring.retrogamecloud.com/grafana/login/github`
     4. Guarda **Client ID** y **Client Secret**
   </Step>
-  
+
   <Step title="Actualizar secrets en values.yaml">
     ```yaml
     grafana:
@@ -331,14 +340,16 @@ helm repo update
           client_secret: "TU_CLIENT_SECRET_AQUI"
           allowed_organizations: "retrogamecloud"  # Solo tu org
     ```
+
   </Step>
-  
+
   <Step title="Actualizar instalación">
     ```bash
     helm upgrade prometheus prometheus-community/kube-prometheus-stack \
       --namespace monitoring \
       --values values-prometheus.yaml
     ```
+
   </Step>
 </Steps>
 
@@ -350,9 +361,11 @@ Instala `prom-client` en cada microservicio:
 
 ```bash
 npm install prom-client
+
 ```
 
 <CodeGroup>
+
 ```javascript src/metrics.js
 const promClient = require('prom-client');
 
@@ -392,6 +405,7 @@ module.exports = {
   httpRequestTotal,
   activeConnections
 };
+
 ```
 
 ```javascript src/index.js
@@ -403,20 +417,20 @@ const app = express();
 // Middleware para métricas
 app.use((req, res, next) => {
   const start = Date.now();
-  
+
   res.on('finish', () => {
     const duration = (Date.now() - start) / 1000;
     const route = req.route ? req.route.path : req.path;
-    
+
     httpRequestDuration
       .labels(req.method, route, res.statusCode)
       .observe(duration);
-    
+
     httpRequestTotal
       .labels(req.method, route, res.statusCode)
       .inc();
   });
-  
+
   next();
 });
 
@@ -432,7 +446,9 @@ app.listen(3001, () => {
   console.log('Auth service running on port 3001');
   console.log('Metrics available at /metrics');
 });
+
 ```
+
 </CodeGroup>
 
 ### Exponer métricas en Kubernetes
@@ -456,6 +472,7 @@ spec:
     - name: metrics  # Puerto de métricas
       port: 3001
       targetPort: 3001
+
 ```
 
 Prometheus automáticamente descubrirá y scrapeará este servicio gracias al label `monitoring: "true"`.
@@ -466,11 +483,16 @@ Prometheus automáticamente descubrirá y scrapeará este servicio gracias al la
 
 Importa el dashboard `7249` en Grafana:
 
-**Métricas incluidas:**
+* *Métricas incluidas:**
+
 - CPU y memoria de nodos
+
 - Uso de disco
+
 - Network I/O
+
 - Pods por estado
+
 - Eventos de Kubernetes
 
 ### Dashboard: Microservicios
@@ -478,35 +500,47 @@ Importa el dashboard `7249` en Grafana:
 Crea un dashboard personalizado con queries PromQL:
 
 <CodeGroup>
+
 ```promql Request Rate
+
 # Requests por segundo por servicio
 sum(rate(http_requests_total[5m])) by (service)
+
 ```
 
 ```promql Latencia P95
+
 # Latencia percentil 95 por ruta
-histogram_quantile(0.95, 
+histogram_quantile(0.95,
   sum(rate(http_request_duration_seconds_bucket[5m])) by (route, le)
 )
+
 ```
 
 ```promql Error Rate
+
 # Porcentaje de errores 5xx
 sum(rate(http_requests_total{status_code=~"5.."}[5m])) by (service)
 /
 sum(rate(http_requests_total[5m])) by (service)
+
 * 100
+
 ```
 
 ```promql Disponibilidad
+
 # Uptime del servicio (últimas 24h)
 avg_over_time(up{job="retrogame-services"}[24h]) * 100
+
 ```
+
 </CodeGroup>
 
 ### Dashboard JSON
 
 <Accordion title="Ver dashboard completo (JSON)">
+
 ```json
 {
   "dashboard": {
@@ -545,7 +579,9 @@ avg_over_time(up{job="retrogame-services"}[24h]) * 100
     ]
   }
 }
+
 ```
+
 </Accordion>
 
 ## Alertas
@@ -553,6 +589,7 @@ avg_over_time(up{job="retrogame-services"}[24h]) * 100
 ### Reglas de Alerta Personalizadas
 
 ```yaml
+
 # prometheus-rules.yaml
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
@@ -573,7 +610,7 @@ spec:
           annotations:
             summary: "Alta latencia en {{ $labels.service }}"
             description: "P95 latency is {{ $value }}s (threshold: 1s)"
-        
+
         # Alto error rate
         - alert: HighErrorRate
           expr: |
@@ -587,7 +624,7 @@ spec:
           annotations:
             summary: "Alto error rate en {{ $labels.service }}"
             description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
-        
+
         # Servicio caído
         - alert: ServiceDown
           expr: up{job="retrogame-services"} == 0
@@ -597,7 +634,7 @@ spec:
           annotations:
             summary: "Servicio {{ $labels.service }} está caído"
             description: "El servicio no responde hace más de 1 minuto"
-        
+
         # Pod crasheando
         - alert: PodCrashLooping
           expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
@@ -607,7 +644,7 @@ spec:
           annotations:
             summary: "Pod {{ $labels.pod }} crasheando"
             description: "Pod has restarted {{ $value }} times in 15 minutes"
-        
+
         # Disco lleno
         - alert: DiskSpaceRunningOut
           expr: |
@@ -618,7 +655,7 @@ spec:
           annotations:
             summary: "Disco en nodo {{ $labels.instance }} casi lleno"
             description: "Solo {{ $value }}% de espacio disponible"
-        
+
         # Alta memoria
         - alert: HighMemoryUsage
           expr: |
@@ -629,20 +666,25 @@ spec:
           annotations:
             summary: "Alta memoria en nodo {{ $labels.instance }}"
             description: "Uso de memoria: {{ $value }}%"
+
 ```
 
 Aplicar:
+
 ```bash
 kubectl apply -f prometheus-rules.yaml
+
 ```
 
 ### Verificar Alertas
 
 ```bash
+
 # Ver alertas activas
 kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
 
 # Abrir http://localhost:9090/alerts
+
 ```
 
 ## Logging con CloudWatch
@@ -650,6 +692,7 @@ kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 909
 ### Instalar Fluent Bit
 
 ```bash
+
 # Crear namespace
 kubectl create namespace amazon-cloudwatch
 
@@ -661,11 +704,13 @@ helm install aws-for-fluent-bit aws/aws-for-fluent-bit \
   --set cloudWatch.logGroupName=/aws/eks/retrogame-cluster/logs \
   --set serviceAccount.create=true \
   --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=arn:aws:iam::ACCOUNT:role/FluentBitRole
+
 ```
 
 ### IAM Role para Fluent Bit
 
 ```hcl
+
 # iam-fluent-bit.tf
 resource "aws_iam_role" "fluent_bit" {
   name = "${var.cluster_name}-fluent-bit-role"
@@ -691,17 +736,20 @@ resource "aws_iam_role_policy_attachment" "fluent_bit_cloudwatch" {
   role       = aws_iam_role.fluent_bit.name
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
+
 ```
 
 ### Ver Logs en CloudWatch
 
 ```bash
+
 # AWS CLI
 aws logs tail /aws/eks/retrogame-cluster/logs --follow
 
 # Filtrar por servicio
 aws logs tail /aws/eks/retrogame-cluster/logs --follow \
   --filter-pattern "auth-service"
+
 ```
 
 O usa CloudWatch Logs Insights en la consola de AWS.
@@ -759,16 +807,18 @@ O usa CloudWatch Logs Insights en la consola de AWS.
 <Steps>
   <Step title="Abrir navegador">
     ```
+
     https://monitoring.retrogamecloud.com/grafana
     ```
+
   </Step>
-  
+
   <Step title="Login con GitHub">
     Click en **Sign in with GitHub**
-    
+
     Autoriza la aplicación OAuth
   </Step>
-  
+
   <Step title="Explorar dashboards">
     - **General → Home**: Visión general
     - **Kubernetes / Compute Resources**: Pods, nodes
@@ -784,63 +834,67 @@ O usa CloudWatch Logs Insights en la consola de AWS.
     # Ver targets en Prometheus
     kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
     # Abrir http://localhost:9090/targets
-    
+
     # Verificar ServiceMonitor
     kubectl get servicemonitor -n monitoring
     kubectl describe servicemonitor retrogame-services -n monitoring
-    
+
     # Verificar labels en servicios
     kubectl get svc -n retrogame --show-labels
     ```
+
   </Accordion>
-  
+
   <Accordion title="Grafana no muestra datos">
     ```bash
     # Verificar datasource
     kubectl exec -it -n monitoring deployment/prometheus-grafana -- \
       grafana-cli admin reset-admin-password admin
-    
+
     # Login y verificar en Configuration → Data Sources
     # Debe aparecer Prometheus con URL: http://prometheus-kube-prometheus-prometheus:9090
-    
+
     # Test de conectividad
     kubectl run test --image=curlimages/curl -it --rm -- \
       curl http://prometheus-kube-prometheus-prometheus.monitoring:9090/-/healthy
     ```
+
   </Accordion>
-  
+
   <Accordion title="AlertManager no envía notificaciones">
     ```bash
     # Ver configuración
     kubectl get secret -n monitoring alertmanager-prometheus-kube-prometheus-alertmanager \
       -o jsonpath='{.data.alertmanager\.yaml}' | base64 -d
-    
+
     # Ver estado
     kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-alertmanager 9093:9093
     # Abrir http://localhost:9093
-    
+
     # Test manual de Slack webhook
     curl -X POST -H 'Content-type: application/json' \
       --data '{"text":"Test from AlertManager"}' \
       YOUR_SLACK_WEBHOOK_URL
     ```
+
   </Accordion>
-  
+
   <Accordion title="CloudWatch no recibe logs">
     ```bash
     # Ver pods de Fluent Bit
     kubectl get pods -n amazon-cloudwatch
-    
+
     # Ver logs de Fluent Bit
     kubectl logs -n amazon-cloudwatch -l app.kubernetes.io/name=aws-for-fluent-bit
-    
+
     # Verificar IAM role
     kubectl describe sa aws-for-fluent-bit -n amazon-cloudwatch
     # Debe tener annotation: eks.amazonaws.com/role-arn
-    
+
     # Test de permisos
     aws logs describe-log-groups --log-group-name-prefix /aws/eks/
     ```
+
   </Accordion>
 </AccordionGroup>
 
@@ -852,19 +906,19 @@ O usa CloudWatch Logs Insights en la consola de AWS.
     - CloudWatch Logs: 30 días
     - Grafana snapshots: Según necesidad
   </Card>
-  
+
   <Card title="Alertas Inteligentes" icon="brain">
     - Evita "alert fatigue"
     - Agrupa alertas relacionadas
     - Define severidad apropiada
   </Card>
-  
+
   <Card title="Dashboards Efectivos" icon="chart-simple">
     - No más de 8 paneles por dashboard
     - Usa colores consistentes
     - Agrega descripciones
   </Card>
-  
+
   <Card title="Seguridad" icon="shield">
     - OAuth obligatorio (GitHub)
     - HTTPS always
@@ -878,15 +932,15 @@ O usa CloudWatch Logs Insights en la consola de AWS.
   <Card title="Servicios" icon="cubes" href="/services/auth-service">
     Documenta los microservicios
   </Card>
-  
+
   <Card title="Infraestructura" icon="server" href="/infrastructure/overview">
     Vista general de la infra
   </Card>
-  
+
   <Card title="Cluster EKS" icon="dharmachakra" href="/infrastructure/eks-cluster">
     Configuración de Kubernetes
   </Card>
-  
+
   <Card title="Networking" icon="network-wired" href="/infrastructure/networking">
     VPC y seguridad de red
   </Card>

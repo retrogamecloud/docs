@@ -1,7 +1,7 @@
 ---
-title: "Infrastructure"
-description: "Configuración de infraestructura AWS con Terraform"
-icon: "server"
+title: Infrastructure
+description: Configuración de infraestructura AWS con Terraform
+icon: server
 ---
 
 <Info>
@@ -16,10 +16,15 @@ La infraestructura del proyecto está gestionada con Terraform y desplegada en A
 ### Componentes Principales
 
 - **EKS Cluster**: Kubernetes v1.34.1 con node group escalable
+
 - **RDS PostgreSQL**: Base de datos db.t3.micro
+
 - **VPC**: Red privada 10.0.0.0/16 con 3 subnets
+
 - **NAT Gateway**: Para acceso a internet desde nodos privados
+
 - **Application Load Balancer**: Entrada HTTPS con certificado SSL
+
 - **CloudFront CDN**: Distribución de assets estáticos (juegos retro)
 
 ### Repositorio
