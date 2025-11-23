@@ -128,7 +128,7 @@
         "tab": "Referencia API",
         "groups": [
           {
-            "group": "1. API de Autenticación",
+            "group": "1. Autenticación",
             "pages": [
               "api-reference/auth/login",
               "api-reference/auth/register",
@@ -138,14 +138,14 @@
             "description": "Endpoints de inicio de sesión, registro de usuarios, verificación de tokens y especificación completa del servicio de autenticación"
           },
           {
-            "group": "2. API de Usuarios",
+            "group": "2. Usuarios",
             "pages": [
               "api-reference/user-service"
             ],
             "description": "Gestión completa de perfiles de usuario, actualización de datos personales y configuración de preferencias"
           },
           {
-            "group": "3. API de Catálogo de Juegos",
+            "group": "3. Catálogo de Juegos",
             "pages": [
               "api-reference/games/list",
               "api-reference/games/get",
@@ -154,7 +154,7 @@
             "description": "Listado de juegos disponibles, búsqueda con filtros avanzados, consulta de detalles y especificación completa del servicio"
           },
           {
-            "group": "4. API de Puntuaciones",
+            "group": "4. Puntuaciones",
             "pages": [
               "api-reference/scores/submit",
               "api-reference/scores/get",
@@ -163,7 +163,7 @@
             "description": "Envío de puntuaciones de partidas, consulta de histórico personal, validación de resultados y especificación del servicio"
           },
           {
-            "group": "5. API de Rankings",
+            "group": "5. Rankings",
             "pages": [
               "api-reference/rankings/global",
               "api-reference/rankings/by-game",
