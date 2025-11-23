@@ -447,9 +447,10 @@ test('guardado y carga de partidas', async ({ page }) => {
   await expect(page.locator('[data-testid="save-item"]')).toContainText('Test Save 1');
 
   // Cargar partida
-  await page.click('[data-testid="load-
-</Tab>
-</Tab>
+  await page.click('[data-testid="load-game"]');
+  await expect(page.locator('[data-testid="game-loaded"]')).toBeVisible();
+});
+```
 </Tab>
 </Tabs>
 
