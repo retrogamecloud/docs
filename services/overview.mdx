@@ -1,7 +1,6 @@
 ---
 title: Servicios - Visión General
-description: Documentación consolidada de todos los microservicios de RetroGameCloud
-  con arquitectura, dependencias y endpoints principales
+description: Documentación consolidada de todos los microservicios de RetroGameCloud con arquitectura, dependencias y endpoints principales
 icon: microchip
 ---
 
@@ -15,140 +14,174 @@ RetroGameCloud está construido sobre una arquitectura de microservicios que pro
 
 ```mermaid
 graph TB
-    Gateway[Kong API Gateway] --> Auth[Servicio de Autenticación]
-    Gateway --> User[Servicio de Usuarios]
-    Gateway --> Catalog[Servicio de Catálogo]
-    Gateway --> Score[Servicio de Puntuaciones]
-    Gateway --> Ranking[Servicio de Rankings]
-
-    Auth --> AuthDB[(PostgreSQL<br/>Auth DB)]
-    User --> UserDB[(PostgreSQL<br/>User DB)]
-    Catalog --> CatalogDB[(PostgreSQL<br/>Catalog DB)]
-    Score --> ScoreDB[(PostgreSQL<br/>Score DB)]
-    Ranking --> RankingDB[(PostgreSQL<br/>Ranking DB)]
-
+    Client[Cliente Web/Mobile] --> Gateway[Kong API Gateway]
+    
+    Gateway --> Auth[Auth Service<br/>:8001]
+    Gateway --> User[User Service<br/>:8002]
+    Gateway --> Catalog[Game Catalog<br/>:8003]
+    Gateway --> Score[Score Service<br/>:8004]
+    Gateway --> Ranking[Ranking Service<br/>:8005]
+    
+    %% Comunicación entre servicios
+    User -.->|Valida tokens| Auth
+    Score -.->|Valida usuarios| Auth
+    Score -.->|Info usuarios| User
+    Ranking -.->|Obtiene scores| Score
+    Catalog -.->|Valida permisos| Auth
+    
+    %% Cache distribuido
+    Auth --> Redis[(Redis<br/>Cache & Sessions)]
+    User --> Redis
+    Score --> Redis
+    Ranking --> Redis
+    
+    %% Bases de datos
+    Auth --> AuthDB[(PostgreSQL<br/>auth_db)]
+    User --> UserDB[(PostgreSQL<br/>user_db)]
+    Catalog --> CatalogDB[(PostgreSQL<br/>catalog_db)]
+    Score --> ScoreDB[(PostgreSQL<br/>score_db)]
+    Ranking --> RankingDB[(PostgreSQL<br/>ranking_db)]
+    
+    %% Servicios externos
     Catalog --> S3[AWS S3<br/>Game Assets]
     Gateway --> CDN[CloudFront CDN]
-
+    
+    %% Estilos
+    classDef service fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef database fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef external fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef cache fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    
+    class Auth,User,Catalog,Score,Ranking service
+    class AuthDB,UserDB,CatalogDB,ScoreDB,RankingDB database
+    class S3,CDN external
+    class Redis cache
 ```
 
 </div>
 
-## 3.2. Tabla Comparativa de Servicios
+## 3.2. Flujo de Comunicación
 
-| Servicio | Puerto | Base de Datos | Dependencias Principales | Estado |
-|----------|--------|---------------|-------------------------|--------|
-| [Auth Service](/services/auth-service) | 8001 | PostgreSQL (auth_db) | JWT, bcrypt, OAuth2 | ✅ Activo |
-| [User Service](/services/user-service) | 8002 | PostgreSQL (user_db) | Auth Service | ✅ Activo |
-| [Game Catalog](/services/game-catalog) | 8003 | PostgreSQL (catalog_db) | S3, CloudFront | ✅ Activo |
-| [Score Service](/services/score-service) | 8004 | PostgreSQL (score_db) | Auth, User Services | ✅ Activo |
-| [Ranking Service](/services/ranking-service) | 8005 | PostgreSQL (ranking_db) | Score Service | ✅ Activo |
+<div className="mermaid">
 
-## 3.3. Servicios por Categoría
+```mermaid
+sequenceDiagram
+    participant C as Cliente
+    participant K as Kong Gateway
+    participant A as Auth Service
+    participant U as User Service
+    participant S as Score Service
+    participant R as Redis
+    
+    Note over C,R: Ejemplo: Subir nueva puntuación
+    
+    C->>K: POST /api/scores (con JWT)
+    K->>S: Reenvía request
+    S->>R: Busca token en cache
+    alt Token en cache
+        R-->>S: Token válido
+    else Token no en cache
+        S->>A: Valida token JWT
+        A-->>S: Token válido + user_id
+        S->>R: Guarda token en cache
+    end
+    
+    S->>U: GET /users/{user_id}/profile
+    U-->>S: Datos del usuario
+    
+    S->>S: Procesa y guarda puntuación
+    S-->>K: Respuesta exitosa
+    K-->>C: 201 Created
+```
+
+</div>
+
+## 3.3. Tabla Comparativa de Servicios
+
+| Servicio | Puerto | Base de Datos | Cache | Dependencias Principales | Estado |
+|----------|--------|---------------|--------|-------------------------|--------|
+| [Auth Service](/services/auth-service) | 8001 | PostgreSQL (auth_db) | Redis | JWT, bcrypt, OAuth2 | ✅ Activo |
+| [User Service](/services/user-service) | 8002 | PostgreSQL (user_db) | Redis | Auth Service | ✅ Activo |
+| [Game Catalog](/services/game-catalog) | 8003 | PostgreSQL (catalog_db) | Redis | Auth, S3, CloudFront | ✅ Activo |
+| [Score Service](/services/score-service) | 8004 | PostgreSQL (score_db) | Redis | Auth, User Services | ✅ Activo |
+| [Ranking Service](/services/ranking-service) | 8005 | PostgreSQL (ranking_db) | Redis | Score Service | ✅ Activo |
+
+## 3.4. Servicios por Categoría
 
 <Tabs>
   <Tab title="Autenticación y Usuarios">
-    <Card title="Auth Service" icon="shield-check" href="/services/auth-service">
-      Gestiona autenticación, autorización y tokens JWT. Punto central de seguridad del sistema.
-    </Card>
-    <Card title="User Service" icon="users" href="/services/user-service">
-      Administra perfiles de usuarios, preferencias y configuraciones personales.
+    <CardGroup cols={2}>
+      <Card title="Auth Service" icon="shield-check" href="/services/auth-service">
+        Gestión de autenticación, autorización y tokens JWT
+        - Login/Logout/Register
+        - Validación de tokens
+        - OAuth2 integration
+      </Card>
+      <Card title="User Service" icon="users" href="/services/user-service">
+        Gestión de perfiles y datos de usuarios
+        - Perfiles de usuario
+        - Preferencias de juego
+        - Historial de actividad
+      </Card>
+    </CardGroup>
+  </Tab>
+  
+  <Tab title="Juegos y Contenido">
+    <Card title="Game Catalog" icon="gamepad-2" href="/services/game-catalog">
+      Catálogo de juegos retro y gestión de assets
+      - Biblioteca de ROMs
+      - Metadatos de juegos
+      - Integración con S3/CDN
     </Card>
   </Tab>
   
-  <Tab title="Gaming">
-    <Card title="Game Catalog" icon="gamepad-2" href="/services/game-catalog">
-      Catálogo de juegos retro con metadatos, assets y gestión de contenido multimedia.
-    </Card>
-    <Card title="Score Service" icon="trophy" href="/services/score-service">
-      Registro y gestión de puntuaciones individuales de jugadores.
-    </Card>
-    <Card title="Ranking Service" icon="crown" href="/services/ranking-service">
-      Generación y mantenimiento de rankings globales y por categorías.
-    </Card>
+  <Tab title="Puntuaciones y Rankings">
+    <CardGroup cols={2}>
+      <Card title="Score Service" icon="trophy" href="/services/score-service">
+        Gestión de puntuaciones y logros
+        - Registro de scores
+        - Sistema de logros
+        - Validación de puntuaciones
+      </Card>
+      <Card title="Ranking Service" icon="chart-bar" href="/services/ranking-service">
+        Rankings globales y leaderboards
+        - Tablas de clasificación
+        - Rankings por juego
+        - Estadísticas agregadas
+      </Card>
+    </CardGroup>
   </Tab>
 </Tabs>
 
-## 3.4. Patrones de Comunicación
+## 3.5. Patrones de Comunicación
 
-### 3.4.1. Comunicación Síncrona
-- **REST APIs**: Comunicación principal entre servicios
-- **HTTP/HTTPS**: Protocolo de transporte estándar
-- **JSON**: Formato de intercambio de datos
+### 3.5.1. Sincronización de Datos
+- **Cache distribuido**: Redis para sesiones y datos frecuentes
+- **Service-to-Service**: HTTP REST para comunicación directa
+- **Rate limiting**: Kong Gateway controla límites por servicio
 
-### 3.4.2. Autenticación entre Servicios
-- **Service-to-Service JWT**: Tokens específicos para comunicación interna
-- **API Gateway**: Kong como punto de entrada único
-- **mTLS**: Comunicación segura entre servicios críticos
+### 3.5.2. Manejo de Errores
+- **Circuit breaker**: Prevención de fallos en cascada
+- **Retry policies**: Reintentos automáticos configurables
+- **Fallback responses**: Respuestas por defecto en caso de fallo
 
-## 3.5. Gestión de Datos
+### 3.5.3. Seguridad
+- **JWT tokens**: Autenticación stateless
+- **Service mesh**: Comunicación segura entre servicios
+- **API rate limiting**: Protección contra abuso
 
-### 3.5.1. Bases de Datos por Servicio
-Cada microservicio mantiene su propia base de datos PostgreSQL:
-
-- **Aislamiento de datos**: Cada servicio es propietario de sus datos
-- **Escalabilidad independiente**: Optimización específica por servicio
-- **Resistencia a fallos**: Fallos aislados por servicio
-
-### 3.5.2. Consistencia de Datos
-- **Eventual Consistency**: Para operaciones no críticas
-- **Strong Consistency**: Para operaciones de autenticación y transacciones críticas
-- **Event Sourcing**: Registro de eventos para auditoría
-
-## 3.6. Monitoreo y Observabilidad
-
-<Info>
-Todos los servicios implementan:
-- **Health Checks**: Endpoints `/health` y `/ready`
-- **Metrics**: Exposición de métricas Prometheus
-- **Logging**: Logs estructurados en JSON
-- **Tracing**: Distributed tracing con Jaeger
-</Info>
-
-## 3.7. Resiliencia
-
-### 3.7.1. Patrones Implementados
-- **Circuit Breaker**: Prevención de cascadas de fallos
-- **Retry Logic**: Reintentos con backoff exponencial
-- **Timeout Management**: Timeouts configurables por endpoint
-- **Rate Limiting**: Protección contra sobrecarga
-
-### 3.7.2. Recuperación ante Fallos
-- **Graceful Degradation**: Funcionalidad reducida ante fallos
-- **Fallback Mechanisms**: Respuestas alternativas
-- **Auto-scaling**: Escalado automático basado en métricas
-
-## 3.8. Seguridad
-
-### 3.8.1. Autenticación y Autorización
-- **JWT Tokens**: Autenticación stateless
-- **RBAC**: Control de acceso basado en roles
-- **OAuth 2.0**: Integración con proveedores externos
-- **Rate Limiting**: Protección contra ataques
-
-### 3.8.2. Comunicación Segura
-- **TLS 1.3**: Cifrado en tránsito
-- **API Keys**: Autenticación de servicios
-- **Input Validation**: Validación estricta de entradas
-- **CORS**: Configuración de políticas de origen cruzado
+## 3.6. Dependencias Críticas
 
 <Warning>
-La comunicación entre servicios siempre debe pasar por el API Gateway en producción. Las conexiones directas están restringidas a redes internas.
+Los siguientes servicios son críticos para el funcionamiento del sistema:
+- **Kong Gateway**: Punto de entrada único
+- **Redis**: Cache distribuido y sesiones
+- **Auth Service**: Validación de tokens para todos los servicios
 </Warning>
 
-## 3.9. Enlaces Rápidos
-
-<CardGroup cols={2}>
-  <Card title="Ver Auth Service" icon="shield-check" href="/services/auth-service">
-    Documentación completa del servicio de autenticación
-  </Card>
-  <Card title="Ver User Service" icon="users" href="/services/user-service">
-    Documentación del servicio de gestión de usuarios
-  </Card>
-  <Card title="Ver Game Catalog" icon="gamepad-2" href="/services/game-catalog">
-    Documentación del catálogo de juegos
-  </Card>
-  <Card title="Ver Score Service" icon="trophy" href="/services/score-service">
-    Documentación del servicio de puntuaciones
-  </Card>
-</CardGroup>
+<Tip>
+Para desarrollo local, todos los servicios pueden ejecutarse con:
+```bash
+docker-compose up -d
+```
+</Tip>

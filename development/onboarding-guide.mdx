@@ -1,0 +1,239 @@
+---
+title: "8.5. Guía de Onboarding para Nuevos Desarrolladores"
+description: "Proceso completo de incorporación para nuevos desarrolladores: días 1-30 con setup local, primer PR, arquitectura y despliegue"
+icon: "user-graduate"
+---
+
+# 8.5. Guía de Onboarding para Nuevos Desarrolladores
+
+<Note>
+Esta guía te acompañará durante tus primeros 30 días en el proyecto RetroGameCloud, asegurando una incorporación exitosa al equipo de desarrollo.
+</Note>
+
+## Checklist General de Onboarding
+
+### Día 1: Configuración Inicial
+
+<Tabs>
+<Tab title="Accesos y Herramientas">
+- [ ] Acceso al repositorio GitHub del proyecto
+- [ ] Configuración de SSH keys para GitHub
+- [ ] Invitación al Slack del equipo
+- [ ] Acceso a AWS Console (IAM user)
+- [ ] Cuenta en ArgoCD para deployments
+- [ ] Acceso a Grafana y Prometheus
+- [ ] Instalación de herramientas básicas (Docker, kubectl, Node.js 18+)
+</Tab>
+<Tab title="Documentación Base">
+- [ ] Lectura de README principal del proyecto
+- [ ] Revisión de [1.1. Visión General del Proyecto](/documentation/overview/project-overview)
+- [ ] Estudio de [2.1. Arquitectura General](/documentation/architecture/general-architecture)
+- [ ] Comprensión de [2.2. Microservicios Overview](/documentation/architecture/microservices-overview)
+</Tab>
+</Tabs>
+
+### Días 2-5: Setup del Entorno Local
+
+<Tabs>
+<Tab title="Configuración Backend">
+```bash
+# Clonar repositorio principal
+git clone git@github.com:company/retro-game-cloud.git
+cd retro-game-cloud
+
+# Setup de microservicios
+docker-compose up -d postgres redis
+
+# Instalar dependencias
+cd services/auth && npm install
+cd ../user-service && npm install
+cd ../game-catalog && npm install
+cd ../score-service && npm install
+cd ../ranking-service && npm install
+
+# Variables de entorno
+cp .env.example .env.local
+# Configurar variables según documentación
+```
+</Tab>
+<Tab title="Configuración Frontend">
+```bash
+# Setup del frontend
+cd frontend
+npm install
+
+# Configurar variables de entorno
+cp .env.example .env.local
+
+# Configurar JS-DOS emulator
+npm run setup:emulator
+
+# Primer arranque
+npm run dev
+```
+</Tab>
+</Tabs>
+
+<Warning>
+Asegúrate de tener Docker Desktop ejecutándose antes de levantar los servicios de base de datos.
+</Warning>
+
+### Días 6-10: Primera Contribución
+
+<Tabs>
+<Tab title="Tareas de Familiarización">
+- [ ] Ejecutar test suite completa: `npm run test:all`
+- [ ] Revisar issues etiquetadas como `good-first-issue`
+- [ ] Estudiar [8.1. Desarrollo Local](/documentation/development/local-development)
+- [ ] Practicar flujo de trabajo Git con feature branches
+- [ ] Realizar primer fix menor (documentación, estilos, etc.)
+</Tab>
+<Tab title="Primer PR">
+```bash
+# Crear branch para primera contribución
+git checkout -b feature/onboarding-fix-minor
+
+# Realizar cambios
+# Ejemplo: corregir typo en documentación
+
+# Commit siguiendo convenciones
+git commit -m "docs: fix typo in onboarding guide"
+
+# Push y crear PR
+git push origin feature/onboarding-fix-minor
+```
+
+**Checklist del PR:**
+- [ ] Tests pasan localmente
+- [ ] Código sigue las convenciones del proyecto
+- [ ] Descripción clara del cambio
+- [ ] Revisión de al menos 1 senior developer
+</Tab>
+</Tabs>
+
+### Días 11-20: Comprensión Profunda
+
+<Tabs>
+<Tab title="Arquitectura y Patrones">
+- [ ] Análisis detallado de [4.1. Auth Service](/documentation/backend/auth-service)
+- [ ] Comprensión de patrones CQRS y Event Sourcing
+- [ ] Estudio de [5.1. Autenticación y Autorización](/documentation/security/auth-overview)
+- [ ] Revisión de API contracts entre microservicios
+- [ ] Análisis de [3.2. Integración JS-DOS](/documentation/frontend/js-dos-integration)
+</Tab>
+<Tab title="Testing y Calidad">
+- [ ] Ejecutar tests unitarios por servicio
+- [ ] Comprender [8.2. Tests End-to-End](/documentation/development/e2e-testing)
+- [ ] Practicar debugging con herramientas del proyecto
+- [ ] Revisar métricas en Grafana
+- [ ] Analizar logs de aplicación en entorno local
+</Tab>
+</Tabs>
+
+### Días 21-30: Contribuciones Significativas
+
+<Tabs>
+<Tab title="Feature Development">
+- [ ] Asignación de feature completa (frontend + backend)
+- [ ] Diseño técnico con mentor
+- [ ] Implementación siguiendo TDD
+- [ ] Code review con múltiples reviewers
+- [ ] Deployment a staging y validación
+</Tab>
+<Tab title="DevOps y Deployment">
+- [ ] Comprensión de [7.1. Pipeline CI/CD](/documentation/cicd/pipeline-overview)
+- [ ] Práctica con [6.7. ArgoCD GitOps](/documentation/infrastructure/argocd-gitops)
+- [ ] Monitoreo de deployment en staging
+- [ ] Rollback practice en caso necesario
+- [ ] Review de [6.8. Monitorización](/documentation/infrastructure/monitoring)
+</Tab>
+</Tabs>
+
+## Recursos Importantes
+
+### Documentación Clave por Orden de Lectura
+
+1. **Fundamentos**
+   - [1.1. Visión General del Proyecto](/documentation/overview/project-overview)
+   - [1.2. Tecnologías y Stack](/documentation/overview/tech-stack)
+
+2. **Arquitectura**
+   - [2.1. Arquitectura General](/documentation/architecture/general-architecture)
+   - [2.2. Microservicios Overview](/documentation/architecture/microservices-overview)
+
+3. **Desarrollo**
+   - [8.1. Desarrollo Local](/documentation/development/local-development)
+   - [8.3. Estándares de Código](/documentation/development/coding-standards)
+
+### Comandos Esenciales
+
+<Tabs>
+<Tab title="Desarrollo Local">
+```bash
+# Levantar todos los servicios
+npm run dev:all
+
+# Tests completos
+npm run test:all
+
+# Build para producción
+npm run build:all
+
+# Linting y formato
+npm run lint:fix
+npm run format
+```
+</Tab>
+<Tab title="Docker y Kubernetes">
+```bash
+# Build de imágenes locales
+docker build -t retro-game-auth:local ./services/auth
+
+# Deploy local con Kubernetes
+kubectl apply -f k8s/local/
+
+# Ver logs de pods
+kubectl logs -f deployment/auth-service
+
+# Port forwarding
+kubectl port-forward service/frontend 3000:3000
+```
+</Tab>
+</Tabs>
+
+## Contactos del Equipo
+
+### Mentores Asignados
+
+- **Tech Lead**: Para arquitectura y decisiones técnicas
+- **Senior Frontend**: React, JS-DOS, UX/UI
+- **Senior Backend**: Microservicios, APIs, base de datos
+- **DevOps Engineer**: Infraestructura, CI/CD, monitoreo
+
+### Canales de Comunicación
+
+- **#retro-game-dev**: Canal principal del equipo
+- **#onboarding**: Dudas específicas de nuevos desarrolladores  
+- **#deployments**: Notificaciones de releases
+- **#incidents**: Alertas y resolución de incidencias
+
+## Métricas de Éxito
+
+### Semana 2
+- [ ] Entorno local completamente funcional
+- [ ] Al menos 1 PR merged exitosamente
+- [ ] Comprensión básica de arquitectura
+
+### Semana 4
+- [ ] Contribución a feature completa
+- [ ] Deployment exitoso a staging
+- [ ] Participación activa en code reviews
+
+### Día 30
+- [ ] Autonomía en desarrollo de features
+- [ ] Comprensión completa del stack tecnológico
+- [ ] Integración exitosa en el equipo
+
+<Note>
+Recuerda que el onboarding es un proceso iterativo. No dudes en preguntar al equipo cuando tengas dudas, y mantén actualizada esta guía con tus aprendizajes para futuros compañeros.
+</Note>

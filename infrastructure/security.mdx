@@ -1,6 +1,7 @@
 ---
 title: Seguridad y Gestión de Secretos
-description: Guía completa para la gestión segura de secretos, políticas de seguridad, OWASP Top 10 y mejores prácticas en RetroGameCloud
+description: Guía completa para la gestión segura de secretos, políticas de seguridad,
+  OWASP Top 10 y mejores prácticas en RetroGameCloud
 icon: shield-check
 ---
 
@@ -95,6 +96,7 @@ graph TB
     style WAF fill:#51cf66
     style SM fill:#ffd43b
     style IAM fill:#339af0
+
 ```
 
 ## OWASP Top 10 - Implementación de Mitigaciones
@@ -122,7 +124,7 @@ export class RBACMiddleware {
       try {
         const token = this.extractToken(req);
         const payload = await this.jwtService.verify(token);
-        
+
         // Verificar rol de usuario
         if (!allowedRoles.includes(payload.role)) {
           return res.status(403).json({
@@ -161,11 +163,13 @@ export class RBACMiddleware {
     return authHeader.substring(7);
   }
 }
+
 ```
 
 #### Políticas de Acceso a Recursos
 
 ```yaml
+
 # k8s/rbac-policies.yml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -173,20 +177,24 @@ metadata:
   namespace: retrogame-prod
   name: service-account-role
 rules:
+
 - apiGroups: [""]
   resources: ["secrets"]
   verbs: ["get", "list"]
   resourceNames: ["db-credentials", "jwt-secrets"]
+
 - apiGroups: [""]
   resources: ["configmaps"]
   verbs: ["get", "list"]
----
+
+- --
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: service-account-binding
   namespace: retrogame-prod
 subjects:
+
 - kind: ServiceAccount
   name: retrogame-service-account
   namespace: retrogame-prod
@@ -194,6 +202,7 @@ roleRef:
   kind: Role
   name: service-account-role
   apiGroup: rbac.authorization.k8s.io
+
 ```
 
 ### A02:2021 – Cryptographic Failures
@@ -212,22 +221,22 @@ export class EncryptionService {
   async encryptSensitiveData(data: string, password: string): Promise<string> {
     const salt = randomBytes(16);
     const iv = randomBytes(16);
-    
+
     // Derivar clave usando scrypt
     const key = await promisify(scrypt)(password, salt, this.keyLength) as Buffer;
-    
+
     const cipher = createCipher(this.algorithm, key);
     cipher.setAAD(salt); // Datos adicionales autenticados
-    
+
     let encrypted = cipher.update(data, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    
+
     const authTag = cipher.getAuthTag();
-    
+
     // Combinar salt, iv, authTag y datos cifrados
-    return salt.toString('hex') + ':' + 
-           iv.toString('hex') + ':' + 
-           authTag.toString('hex') + ':' + 
+    return salt.toString('hex') + ':' +
+           iv.toString('hex') + ':' +
+           authTag.toString('hex') + ':' +
            encrypted;
   }
 
@@ -238,14 +247,15 @@ export class EncryptionService {
     const hasLowerCase = /[a-z]/.test(password);
     const hasNumbers = /\d/.test(password);
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-    
-    return password.length >= minLength && 
-           hasUpperCase && 
-           hasLowerCase && 
-           hasNumbers && 
+
+    return password.length >= minLength &&
+           hasUpperCase &&
+           hasLowerCase &&
+           hasNumbers &&
            hasSpecialChar;
   }
 }
+
 ```
 
 ### A03:2021 – Injection
@@ -263,11 +273,11 @@ export class UserRepository {
   // Uso de consultas parametrizadas
   async findById(id: string): Promise<User | null> {
     const query = `
-      SELECT id, email, username, role, created_at, updated_at 
-      FROM users 
+      SELECT id, email, username, role, created_at, updated_at
+      FROM users
       WHERE id = $1 AND deleted_at IS NULL
     `;
-    
+
     const result = await this.db.query(query, [id]);
     return result.rows[0] || null;
   }
@@ -278,7 +288,7 @@ export class UserRepository {
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id, email, username, role, created_at
     `;
-    
+
     const values = [
       userData.id,
       userData.email,
@@ -286,7 +296,7 @@ export class UserRepository {
       userData.passwordHash,
       userData.role
     ];
-    
+
     const result = await this.db.query(query, values);
     return result.rows[0];
   }
@@ -295,19 +305,20 @@ export class UserRepository {
   async searchUsers(searchTerm: string, limit: number = 10): Promise<User[]> {
     // Sanitizar entrada
     const sanitizedTerm = searchTerm.replace(/[%_]/g, '\\$&');
-    
+
     const query = `
-      SELECT id, email, username, role 
-      FROM users 
-      WHERE (username ILIKE $1 OR email ILIKE $1) 
+      SELECT id, email, username, role
+      FROM users
+      WHERE (username ILIKE $1 OR email ILIKE $1)
         AND deleted_at IS NULL
       LIMIT $2
     `;
-    
+
     const result = await this.db.query(query, [`%${sanitizedTerm}%`, limit]);
     return result.rows;
   }
 }
+
 ```
 
 ### A04:2021 – Insecure Design
@@ -357,6 +368,7 @@ export const apiRateLimit = createRateLimit({
   max: 100, // 100 requests por IP
   message: 'Too many API requests',
 });
+
 ```
 
 ### A05:2021 – Security Misconfiguration
@@ -399,6 +411,7 @@ export const configureSecurityHeaders = (app: Application) => {
     next();
   });
 };
+
 ```
 
 ### A06:2021 – Vulnerable and Outdated Components
@@ -406,6 +419,7 @@ export const configureSecurityHeaders = (app: Application) => {
 #### Monitoreo de Vulnerabilidades
 
 ```yaml
+
 # .github/workflows/security-scan.yml
 name: Security Vulnerability Scan
 on:
@@ -420,24 +434,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          
+
       - name: Install dependencies
         run: npm ci
-        
+
       - name: Run npm audit
         run: npm audit --audit-level high
-        
+
       - name: Run Snyk test
         run: |
           npm install -g snyk
           snyk auth ${{ secrets.SNYK_TOKEN }}
           snyk test --severity-threshold=high
-          
+
       - name: Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -445,11 +459,12 @@ jobs:
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-results.sarif'
-          
+
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: 'trivy-results.sarif'
+
 ```
 
 ## Gestión de Secretos
@@ -463,6 +478,7 @@ AWS Secrets Manager se utiliza para almacenar secretos críticos como credencial
 #### Configuración de Secretos
 
 ```yaml
+
 # secrets-manager-setup.yml
 apiVersion: external-secrets.io/v1beta1
 kind: SecretStore
@@ -482,7 +498,8 @@ spec:
           secretAccessKey:
             name: aws-credentials
             key: secret-access-key
----
+
+- --
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
@@ -509,6 +526,7 @@ spec:
     remoteRef:
       key: retrogame/database/credentials
       property: host
+
 ```
 
 #### Rotación Automática de Secretos
@@ -516,4 +534,5 @@ spec:
 ```typescript
 // services/secret-rotation.service.ts
 import { SecretsManagerClient, UpdateSecretCommand } from '@aws-sdk
+
 ```

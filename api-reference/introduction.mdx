@@ -5,7 +5,7 @@ icon: code
 ---
 
 <Note>
-  Esta sección contiene la documentación completa de todas las APIs del sistema, 
+  Esta sección contiene la documentación completa de todas las APIs del sistema,
   incluyendo endpoints REST, GraphQL y integraciones de terceros.
 </Note>
 
@@ -40,6 +40,7 @@ Todos los endpoints de la API están autenticados usando tokens Bearer y están 
     "bearerAuth": []
   }
 ]
+
 ```
 
 ### Tipos de Autenticación
@@ -50,12 +51,14 @@ Todos los endpoints de la API están autenticados usando tokens Bearer y están 
     ```bash
     curl -H "Authorization: Bearer YOUR_TOKEN" https://api.example.com/endpoint
     ```
+
   </Accordion>
   <Accordion title="API Key Authentication">
     Para integraciones de servicios específicos
     ```bash
     curl -H "X-API-Key: YOUR_API_KEY" https://api.example.com/endpoint
     ```
+
   </Accordion>
 </AccordionGroup>
 
@@ -94,7 +97,9 @@ Todos los endpoints de la API están autenticados usando tokens Bearer y están 
 Las APIs implementan rate limiting para garantizar la estabilidad del sistema:
 
 - **Requests por minuto**: 1000 requests/min por token
+
 - **Burst limit**: 100 requests en 10 segundos
+
 - **Headers de respuesta**: `X-RateLimit-Remaining`, `X-RateLimit-Reset`
 
 <Warning>

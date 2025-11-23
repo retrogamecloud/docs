@@ -1,5 +1,5 @@
 ---
-title: AI-Powered Development Tools
+title: Ai-powered Development Tools
 description: Complete guide to setting up AI coding assistants for documentation workflows
 icon: robot
 ---
@@ -21,6 +21,7 @@ Claude Code is Anthropic's official CLI tool, excellent for documentation workfl
 ### Prerequisites
 
 - Active Claude subscription (Pro, Max, or API access)
+
 - Node.js installed
 
 ### Installation
@@ -29,6 +30,7 @@ Claude Code is Anthropic's official CLI tool, excellent for documentation workfl
 
 ```bash
 npm install -g @anthropic-ai/claude-code
+
 ```
 
 2. Navigate to your docs directory
@@ -40,34 +42,55 @@ npm install -g @anthropic-ai/claude-code
 Create a `CLAUDE.md` file at the root of your documentation repository:
 
 ````markdown
+
 # Mintlify Documentation Assistant
 
 ## Working Relationship
+
 - Push back on ideas when needed - cite sources and explain reasoning
-- ALWAYS ask for clarification rather than making assumptions  
+
+- ALWAYS ask for clarification rather than making assumptions
+
 - NEVER lie, guess, or make up information
 
 ## Project Context
+
 - Format: MDX files with YAML frontmatter
+
 - Config: docs.json for navigation, theme, settings
+
 - Components: Mintlify components available
 
 ## Content Strategy
+
 - Document just enough for user success
+
 - Prioritize accuracy and usability
+
 - Make content evergreen when possible
+
 - Check for existing content before adding new
+
 - Maintain consistency with existing patterns
+
 - Start with smallest reasonable changes
 
 ## Writing Standards
+
 - Second-person voice ("you")
+
 - Prerequisites at start of procedures
+
 - Test all code examples
+
 - Include basic and advanced use cases
+
 - Language tags on all code blocks
+
 - Alt text on all images
+
 - Clear, descriptive titles and descriptions
+
 ````
 
 ## Cursor Setup
@@ -83,8 +106,11 @@ Cursor is a VS Code fork with built-in AI assistance.
 ### Key Features
 
 - **Tab completion**: AI suggests code as you type
+
 - **Cmd+K**: Generate code from natural language
+
 - **Cmd+L**: Chat with AI about your code
+
 - **@ symbols**: Reference specific files or documentation
 
 ### Best Practices
@@ -95,6 +121,7 @@ Cursor is a VS Code fork with built-in AI assistance.
 const fetchUserData = async (userId) => {
   // AI will suggest appropriate implementation
 }
+
 ```
 
 ## Windsurf Setup
@@ -110,8 +137,11 @@ Windsurf excels at understanding entire project contexts and making multi-file c
 ### Key Features
 
 - **Cascade**: Multi-file AI editing
+
 - **Project understanding**: Analyzes entire codebase
+
 - **Smart suggestions**: Context-aware recommendations
+
 - **Collaborative editing**: Real-time AI assistance
 
 ### Workflow Integration
@@ -140,9 +170,10 @@ Always review AI-generated content for accuracy and consistency with your brand 
 
 ```text
 "Create a troubleshooting section for [feature]"
-"Generate code examples for [API endpoint]"  
+"Generate code examples for [API endpoint]"
 "Review this documentation for clarity and completeness"
 "Suggest improvements for user onboarding flow"
+
 ```
 
 ### Integration with Mintlify
@@ -150,10 +181,12 @@ Always review AI-generated content for accuracy and consistency with your brand 
 All three tools work well with Mintlify's MDX format:
 
 ```mdx
----
+
+- --
 title: "AI-Generated Guide"
 description: "Documentation created with AI assistance"
----
+
+- --
 
 <Info>
 AI tools can help generate structured content like this info block.
@@ -169,6 +202,7 @@ const config = {
   apiKey: process.env.API_KEY,
   baseURL: 'https://api.example.com'
 };
+
 ```
 
 ## Best Practices
@@ -180,7 +214,9 @@ Never include sensitive information like API keys or passwords in AI prompts.
 </Warning>
 
 - Use placeholder values in examples
+
 - Review generated code for security issues
+
 - Keep proprietary information out of AI conversations
 
 ### Quality Control
@@ -193,24 +229,29 @@ Never include sensitive information like API keys or passwords in AI prompts.
 ### Productivity Tips
 
 - **Consistent prompts**: Develop standard prompts for common tasks
+
 - **Context files**: Maintain updated context files for each tool
+
 - **Iterative improvement**: Refine prompts based on results
+
 - **Team alignment**: Share successful prompts with your team
 
 ## Troubleshooting
 
 ### Common Issues
 
-**Claude Code not starting**: Check API key configuration and subscription status
+* *Claude Code not starting**: Check API key configuration and subscription status
 
-**Cursor suggestions not appearing**: Verify internet connection and try restarting
+* *Cursor suggestions not appearing**: Verify internet connection and try restarting
 
-**Windsurf project analysis slow**: Large projects may need time for initial analysis
+* *Windsurf project analysis slow**: Large projects may need time for initial analysis
 
 ### Getting Help
 
 - Claude Code: Check Anthropic documentation
-- Cursor: Visit cursor.sh/docs  
+
+- Cursor: Visit cursor.sh/docs
+
 - Windsurf: See Codeium support resources
 
 ## Next Steps
@@ -224,4 +265,5 @@ Never include sensitive information like API keys or passwords in AI prompts.
 <Tip>
 Consider using multiple tools - each has unique strengths that can complement your documentation process.
 </Tip>
+
 ```

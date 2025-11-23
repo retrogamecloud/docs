@@ -1,15 +1,15 @@
 # 📋 Reorganización de Estructura de Documentación
 
-**Fecha**: 2025-11-23 18:23:04  
+**Fecha**: 2025-11-23 18:41:33  
 **Generado por**: Claude Sonnet 4.5
 
 ## 📊 Resumen de Cambios
 
-Se ha reorganizado la documentación separando servicios AWS gestionados (CloudFront, Route53) en un grupo independiente, consolidado puntuaciones y rankings en un único grupo en la API, mejorado las descripciones para mayor claridad, y establecido una numeración consecutiva clara del 1 al 9 en Documentación y del 1 al 7 en Referencia API. Se mantiene el flujo lógico desde conceptos básicos hasta implementación avanzada.
+Se han realizado 5 cambios principales: (1) Consolidación de los grupos de infraestructura AWS y servicios gestionados en un único grupo 'Infraestructura Cloud', (2) Renombrado del grupo de seguridad eliminando 'y Autenticación' para evitar redundancia con el tab API, (3) Renombrado de 'Despliegue y GitOps' a 'Despliegue Continuo' para mayor claridad, (4) Separación del grupo de 'Puntuaciones y Rankings' en dos grupos independientes en la referencia API para mejor organización, (5) Renombrado de grupo final API a 'Especificaciones Técnicas' para mayor precisión. La numeración ahora es consecutiva del 1 al 8 en Documentación y del 1 al 7 en Referencia API.
 
 ## 🎯 Justificación
 
-La reorganización mejora la navegabilidad separando conceptos por nivel de complejidad y ámbito funcional. Se ha creado un grupo específico para servicios gestionados de AWS (grupo 8) porque CloudFront y Route53 tienen un propósito diferente al resto de infraestructura (son servicios de red/distribución vs infraestructura de computación). En la API, consolidar puntuaciones y rankings tiene sentido porque están funcionalmente relacionados y evita fragmentación excesiva. Las descripciones se han ampliado para dar contexto específico de cada tecnología mencionada (OAuth2, JWT, Redux, Terraform), facilitando que usuarios nuevos comprendan qué encontrarán sin navegar primero.
+Esta reorganización mejora la estructura por varias razones: (1) Elimina la fragmentación innecesaria entre 'Infraestructura AWS' y 'Servicios Gestionados' dado que CloudFront y Route53 son servicios AWS al igual que EKS, consolidándolos en 'Infraestructura Cloud' que es más descriptivo y completo, (2) Evita redundancias conceptuales al simplificar el nombre del grupo de seguridad, ya que la autenticación tiene su propia sección detallada en la referencia API, (3) Separa puntuaciones y rankings en la API porque representan dos servicios distintos con responsabilidades diferentes, mejorando la navegación, (4) Usa nombres más concisos y profesionales como 'Despliegue Continuo' en lugar de términos técnicos como GitOps en el nombre del grupo, (5) Mantiene la numeración consecutiva sin saltos ni subnumeración, siguiendo las mejores prácticas de arquitectura de información, (6) Agrupa especificaciones técnicas dispersas en un único grupo coherente en la referencia API.
 
 ---
 

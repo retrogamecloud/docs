@@ -99,7 +99,7 @@
             "description": "Documentación técnica de los microservicios: autenticación, gestión de usuarios, catálogo de juegos, puntuaciones y rankings"
           },
           {
-            "group": "6. Seguridad y Autenticación",
+            "group": "6. Seguridad",
             "icon": "shield",
             "pages": [
               "infrastructure/oauth2-authentication"
@@ -107,8 +107,8 @@
             "description": "Implementación de OAuth2 con GitHub y Google, gestión de tokens JWT y políticas de seguridad de la aplicación"
           },
           {
-            "group": "7. Infraestructura AWS",
-            "icon": "aws",
+            "group": "7. Infraestructura Cloud",
+            "icon": "cloud",
             "pages": [
               "infrastructure/overview",
               "infrastructure/aws-topology",
@@ -116,22 +116,15 @@
               "infrastructure/networking",
               "infrastructure/database-migrations",
               "infrastructure/redis-troubleshooting",
+              "infrastructure/cdn-cloudfront",
+              "infrastructure/route53-ssl",
               "infrastructure/monitoring"
             ],
-            "description": "Infraestructura en AWS: clúster EKS, redes VPC, bases de datos RDS, Redis y herramientas de monitorización y observabilidad"
+            "description": "Infraestructura completa en AWS: clúster EKS, redes VPC, bases de datos RDS, Redis, CDN CloudFront, Route53, SSL y herramientas de monitorización"
           },
           {
-            "group": "8. Servicios Gestionados",
-            "icon": "cloud",
-            "pages": [
-              "infrastructure/cdn-cloudfront",
-              "infrastructure/route53-ssl"
-            ],
-            "description": "Configuración de CDN con CloudFront para distribución de contenido estático y gestión de DNS con Route53 y certificados SSL"
-          },
-          {
-            "group": "9. Despliegue y GitOps",
-            "icon": "gears",
+            "group": "8. Despliegue Continuo",
+            "icon": "rocket",
             "pages": [
               "cicd/overview",
               "cicd/github-actions",
@@ -166,7 +159,7 @@
             "description": "Endpoints de autenticación: inicio de sesión con OAuth2, registro de usuarios y verificación de tokens JWT"
           },
           {
-            "group": "3. Gestión de Usuarios",
+            "group": "3. Usuarios",
             "icon": "users",
             "pages": [
               "api-reference/user-service"
@@ -184,34 +177,34 @@
             "description": "API del catálogo: listado de juegos disponibles, búsqueda con filtros avanzados y consulta de detalles de cada juego"
           },
           {
-            "group": "5. Puntuaciones y Rankings",
-            "icon": "trophy",
+            "group": "5. Puntuaciones",
+            "icon": "star",
             "pages": [
               "api-reference/score-service",
               "api-reference/scores/submit",
-              "api-reference/scores/get",
+              "api-reference/scores/get"
+            ],
+            "description": "API de puntuaciones: envío y consulta de resultados de partidas individuales de los jugadores"
+          },
+          {
+            "group": "6. Rankings",
+            "icon": "trophy",
+            "pages": [
               "api-reference/ranking-service",
               "api-reference/rankings/global",
               "api-reference/rankings/by-game"
             ],
-            "description": "API de puntuaciones: envío y consulta de resultados de partidas, tablas de clasificación globales y rankings específicos por juego"
+            "description": "API de clasificaciones: tablas de clasificación globales y rankings específicos por juego"
           },
           {
-            "group": "6. Frontend",
-            "icon": "window",
+            "group": "7. Especificaciones Técnicas",
+            "icon": "code",
             "pages": [
-              "api-reference/frontend"
-            ],
-            "description": "Especificaciones técnicas de la aplicación frontend React, arquitectura de componentes y gestión de estado con Redux"
-          },
-          {
-            "group": "7. Infraestructura como Código",
-            "icon": "cube",
-            "pages": [
+              "api-reference/frontend",
               "api-reference/infrastructure-docs",
               "api-reference/kubernetes-manifests"
             ],
-            "description": "Documentación de infraestructura con Terraform, manifiestos de Kubernetes y configuración de recursos cloud"
+            "description": "Especificaciones del frontend React, documentación de infraestructura con Terraform y manifiestos de Kubernetes"
           }
         ]
       }
