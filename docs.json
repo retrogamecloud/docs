@@ -50,6 +50,7 @@
         "groups": [
           {
             "group": "1. Primeros Pasos",
+            "icon": "rocket",
             "pages": [
               "index",
               "quickstart"
@@ -58,6 +59,7 @@
           },
           {
             "group": "2. Arquitectura y Diseño",
+            "icon": "diagram-project",
             "pages": [
               "architecture",
               "sequence-diagrams"
@@ -66,6 +68,7 @@
           },
           {
             "group": "3. Aplicación Frontend",
+            "icon": "browser",
             "pages": [
               "frontend/overview",
               "frontend/jsdos-integration"
@@ -74,6 +77,7 @@
           },
           {
             "group": "4. Microservicios Backend",
+            "icon": "server",
             "pages": [
               "services/auth-service",
               "services/user-service",
@@ -85,6 +89,7 @@
           },
           {
             "group": "5. Seguridad y Autenticación",
+            "icon": "shield",
             "pages": [
               "infrastructure/oauth2-authentication"
             ],
@@ -92,6 +97,7 @@
           },
           {
             "group": "6. Infraestructura AWS",
+            "icon": "aws",
             "pages": [
               "infrastructure/overview",
               "infrastructure/aws-topology",
@@ -107,6 +113,7 @@
           },
           {
             "group": "7. CI/CD y GitOps",
+            "icon": "gears",
             "pages": [
               "cicd/overview",
               "cicd/github-actions",
@@ -118,6 +125,7 @@
           },
           {
             "group": "8. Entorno de Desarrollo",
+            "icon": "code",
             "pages": [
               "desarrollo-local",
               "development/e2e-testing",
@@ -133,6 +141,7 @@
         "groups": [
           {
             "group": "1. Introducción",
+            "icon": "book-open",
             "pages": [
               "api-reference/backend-main"
             ],
@@ -140,6 +149,7 @@
           },
           {
             "group": "2. Servicio de Autenticación",
+            "icon": "key",
             "pages": [
               "api-reference/auth-service",
               "api-reference/auth/login",
@@ -150,6 +160,7 @@
           },
           {
             "group": "3. Servicio de Usuarios",
+            "icon": "users",
             "pages": [
               "api-reference/user-service"
             ],
@@ -157,6 +168,7 @@
           },
           {
             "group": "4. Servicio de Catálogo",
+            "icon": "gamepad",
             "pages": [
               "api-reference/game-catalog-service",
               "api-reference/games/list",
@@ -166,6 +178,7 @@
           },
           {
             "group": "5. Servicio de Puntuaciones",
+            "icon": "trophy",
             "pages": [
               "api-reference/score-service",
               "api-reference/scores/submit",
@@ -175,6 +188,7 @@
           },
           {
             "group": "6. Servicio de Rankings",
+            "icon": "ranking-star",
             "pages": [
               "api-reference/ranking-service",
               "api-reference/rankings/global",
@@ -184,6 +198,7 @@
           },
           {
             "group": "7. API Gateway",
+            "icon": "webhook",
             "pages": [
               "api-reference/kong-config"
             ],
@@ -191,6 +206,7 @@
           },
           {
             "group": "8. Aplicación Frontend",
+            "icon": "window",
             "pages": [
               "api-reference/frontend"
             ],
@@ -198,6 +214,7 @@
           },
           {
             "group": "9. Infraestructura como Código",
+            "icon": "cube",
             "pages": [
               "api-reference/infrastructure-docs",
               "api-reference/kubernetes-manifests"

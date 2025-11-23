@@ -68,10 +68,6 @@ auth_active_sessions:
 
 - **Sesiones activas > 10000**: Revisar capacidad del sistema
 </Tab>
-
-```
-
-</Tab>
 </Tabs>
 
 ### Game Catalog Service
@@ -146,11 +142,6 @@ leaderboard_requests_total:
   labels: ["game_id", "period"]
 
 ```
-
-</Tab>
-
-```
-
 </Tab>
 </Tabs>
 
@@ -330,10 +321,6 @@ rds_write_latency:
 ```
 
 </Tab>
-
-```
-
-</Tab>
 </Tabs>
 
 ## Logs Centralizados
@@ -482,10 +469,6 @@ fields @timestamp, @message
 ```
 
 </Tab>
-
-```
-
-</Tab>
 </Tabs>
 
 ## Dashboards de Grafana
@@ -584,16 +567,18 @@ kubectl rollout undo deployment/auth-service -n retrogame
 <Tab title="Nodos Unhealthy">
 
 ```bash
-
 # 1. Verificar estado del cluster
-kubectl
-</Tab>
+kubectl get nodes
 
+# 2. Describir nodo problemático
+kubectl describe node <node-name>
+
+# 3. Revisar eventos del cluster  
+kubectl get events --all-namespaces --sort-by='.lastTimestamp'
+
+# 4. Si es necesario, drenar y reemplazar el nodo
+kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data
 ```
 
 </Tab>
 </Tabs>
-
-```
-
-```

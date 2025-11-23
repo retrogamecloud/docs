@@ -108,7 +108,7 @@ def fix_code_blocks(content: str) -> Tuple[str, List[str]]:
     return '\n'.join(fixed_lines), fixes
 
 def validate_frontmatter(content: str) -> Tuple[str, List[str]]:
-    """Ensure valid frontmatter"""
+    """Ensure valid frontmatter with correct numbering"""
     fixes = []
     
     if not content.strip().startswith('---'):
@@ -122,6 +122,17 @@ def validate_frontmatter(content: str) -> Tuple[str, List[str]]:
             # Frontmatter not closed
             content = content.replace('---', '---\n---\n', 1)
             fixes.append("Fixed unclosed frontmatter")
+        else:
+            # Validate title has numbering format (X.Y. Title)
+            frontmatter = parts[1]
+            title_match = re.search(r'title:\s*["\']?([^"\'\n]+)["\']?', frontmatter)
+            if title_match:
+                title = title_match.group(1).strip()
+                # Check if title has X.Y. format
+                if not re.match(r'^\d+\.\d+\.', title):
+                    # Title missing numbering - add warning but don't auto-fix
+                    # (numbering depends on context/group which we don't have here)
+                    fixes.append(f"⚠️  Title missing numbering format (X.Y.): '{title}'")
     
     return content, fixes
 

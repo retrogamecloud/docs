@@ -90,10 +90,6 @@ graph TB
     ```
 
   </Tab>
-
-```
-
-</Tab>
 </Tabs>
 
 ### Fase 2: Restauración de Base de Datos
@@ -240,10 +236,6 @@ aws eks update-kubeconfig --name retrogame-dr --region eu-central-1
     ```
 
   </Tab>
-
-```
-
-</Tab>
 </Tabs>
 
 ### Fase 5: Configuración DNS y Routing
@@ -478,11 +470,11 @@ tests.forEach(async (test) => {
 
   <Tab title="Evaluación">
     ```markdown
-    # Informe de Simulacro DR-SIM-20240315
+    # Informe de Simulacro DR
 
     ## Resumen Ejecutivo
     - **Duración Total**: 3h 45min (objetivo: 4h) ✅
-    - **RPO Alcanzado**: 45 minutos (objetivo: 1h) ✅
+    - **RPO Alcanzado**: 45 minutos (objetivo: 1h) ✅  
     - **Servicios Restaurados**: 5/5 ✅
 
     ## Métricas
@@ -494,13 +486,13 @@ tests.forEach(async (test) => {
 
     ## Problemas Identificados
     1. Demora en restauración Kong (30min extra)
-</Tab>
+    2. Falta documentación de rollback parcial
+    3. Mejorar playbook de comunicación
 
-```
-
-</Tab>
+    ## Acciones Correctivas
+    - Automatizar configuración Kong
+    - Crear runbook de rollback
+    - Revisar plan de comunicación
+    ```
+  </Tab>
 </Tabs>
-
-```
-
-```

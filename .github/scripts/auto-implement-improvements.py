@@ -109,6 +109,30 @@ class ImprovementImplementer:
 6. Ejemplos de código cuando sea relevante
 7. TODO en español de España (castellano)
 
+## REGLAS DE NUMERACIÓN:
+
+**CRÍTICO**: Los títulos DEBEN seguir el formato "X.Y. Nombre" donde:
+- X es el número del grupo (1-8 para Documentación, 1-9 para API Reference)
+- Y es el número secuencial dentro del grupo
+- Ejemplos correctos:
+  * "6.1. Visión General de Infraestructura"
+  * "6.2. Topología de Infraestructura AWS"
+  * "8.1. Desarrollo Local"
+  * "8.2. Tests End-to-End"
+
+Grupos existentes:
+- Grupo 1: Primeros Pasos (1.1, 1.2, ...)
+- Grupo 2: Arquitectura y Diseño (2.1, 2.2, ...)
+- Grupo 3: Aplicación Frontend (3.1, 3.2, ...)
+- Grupo 4: Microservicios Backend (4.1, 4.2, ...)
+- Grupo 5: Seguridad y Autenticación (5.1, 5.2, ...)
+- Grupo 6: Infraestructura AWS (6.1-6.9 actualmente)
+- Grupo 7: CI/CD y GitOps (7.1, 7.2, ...)
+- Grupo 8: Entorno de Desarrollo (8.1-8.4 actualmente)
+
+**NUNCA** uses títulos sin numeración como "Diagrama de...", "Guía de...", etc.
+**SIEMPRE** agrega el prefijo "X.Y." al título.
+
 ## REGLAS ESTRICTAS PARA <Tabs> Y <Tab>:
 
 **CRÍTICO**: Cada <Tab> DEBE tener su </Tab> correspondiente ANTES del </Tabs>
