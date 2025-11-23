@@ -438,3 +438,45 @@ graph LR
 
 ```
 
+
+
+```mermaid
+graph LR
+    subgraph Frontend
+        UI[Interfaz Web]
+        JSDOS[JS-DOS Emulator]
+    end
+
+    subgraph Gateway
+        Kong[Kong API Gateway]
+        OAuth[OAuth2 Proxy]
+    end
+
+    subgraph Microservicios
+        Auth[Auth Service]
+        User[User Service]
+        Catalog[Game Catalog]
+        Score[Score Service]
+        Ranking[Ranking Service]
+    end
+
+    subgraph Datos
+        DB[(PostgreSQL)]
+        S3[S3 Storage]
+    end
+
+    UI --> Kong
+    Kong --> OAuth
+    OAuth --> Auth
+    Kong --> User
+    Kong --> Catalog
+    Kong --> Score
+    Kong --> Ranking
+    Auth --> DB
+    User --> DB
+    Catalog --> S3
+    Score --> DB
+    Ranking --> DB
+
+```
+
