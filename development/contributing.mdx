@@ -1,15 +1,14 @@
 ---
-title: Guía de Contribución
-description: 'Proceso completo para contribuir al proyecto RetroGameCloud: estándares
-  de código, pull requests y revisiones'
+title: 5.2 Guía de Contribución
+description: 'Proceso completo para contribuir al proyecto RetroGameCloud: estándares de código, pull requests y revisiones'
 icon: users
 ---
 
-# Guía de Contribución
+# 5.2 Guía de Contribución
 
 Esta guía establece los estándares y procesos para contribuir al proyecto RetroGameCloud de manera eficiente y manteniendo la calidad del código.
 
-## Proceso de Contribución
+## 5.2.1 Proceso de Contribución
 
 ### 1. Preparación del Entorno
 
@@ -24,7 +23,6 @@ Esta guía establece los estándares y procesos para contribuir al proyecto Retr
     # Configura el repositorio upstream
     git remote add upstream https://github.com/original/retrogamecloud.git
     ```
-
   </Tab>
 
   <Tab title="Configuración Local">
@@ -38,7 +36,6 @@ Esta guía establece los estándares y procesos para contribuir al proyecto Retr
     # Ejecuta tests para verificar setup
     npm test
     ```
-
   </Tab>
 </Tabs>
 
@@ -49,7 +46,6 @@ Siempre crea tu branch desde `main` actualizado y usa nombres descriptivos.
 </Warning>
 
 ```bash
-
 # Actualiza main
 git checkout main
 git pull upstream main
@@ -62,7 +58,6 @@ git checkout -b fix/correccion-bug
 
 # o
 git checkout -b docs/actualizar-documentacion
-
 ```
 
 ### 3. Desarrollo y Commits
@@ -72,410 +67,414 @@ git checkout -b docs/actualizar-documentacion
 Utilizamos [Conventional Commits](https://www.conventionalcommits.org/) con los siguientes tipos:
 
 <Card title="Tipos de Commits" icon="git-branch">
-
 - **feat:** Nueva funcionalidad
-
 - **fix:** Corrección de bugs
-
 - **docs:** Cambios en documentación
-
 - **style:** Cambios de formato (no afectan lógica)
-
 - **refactor:** Refactoring de código
-
 - **test:** Añadir o modificar tests
-
 - **chore:** Tareas de mantenimiento
 </Card>
 
-* *Ejemplos de commits:**
+**Ejemplos de commits:**
 
 ```bash
 git commit -m "feat(auth): añadir autenticación OAuth2"
 git commit -m "fix(game-catalog): corregir filtro por categoría"
-git commit -m "docs(api): actualizar endpoints de ranking"
-git commit -m "refactor(user-service): optimizar consultas de base de datos"
-
+git commit -m "docs(api): actualizar documentación de endpoints"
+git commit -m "test(user-service): añadir tests unitarios"
 ```
 
-### 4. Testing y Calidad
+## 5.2.2 Estándares de Código
 
-<Note>
-Es **obligatorio** mantener un coverage de tests superior al 80% y pasar todos los linters.
-</Note>
-
-```bash
-
-# Ejecutar tests unitarios
-npm test
-
-# Coverage de tests
-npm run test:coverage
-
-# Linting
-npm run lint
-
-# Formateo de código
-npm run format
-
-# Tests de integración
-npm run test:integration
-
-```
-
-#### Estructura de Tests
-
-```javascript
-// Ejemplo: tests/unit/services/auth.test.js
-const { AuthService } = require('../../../src/services/auth');
-
-describe('AuthService', () => {
-  describe('validateToken', () => {
-    it('debería validar token JWT válido', async () => {
-      const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
-      const result = await AuthService.validateToken(token);
-
-      expect(result.isValid).toBe(true);
-      expect(result.userId).toBeDefined();
-    });
-
-    it('debería rechazar token expirado', async () => {
-      const expiredToken = 'token.expirado.aqui';
-      const result = await AuthService.validateToken(expiredToken);
-
-      expect(result.isValid).toBe(false);
-      expect(result.error).toBe('Token expired');
-    });
-  });
-});
-
-```
-
-## Estándares de Código
-
-### JavaScript/Node.js
-
-#### Configuración ESLint (Airbnb)
-
-```json
-// .eslintrc.js
-module.exports = {
-  extends: ['airbnb-base'],
-  env: {
-    node: true,
-    jest: true
-  },
-  rules: {
-    'no-console': 'warn',
-    'max-len': ['error', { code: 100 }],
-    'prefer-const': 'error'
-  }
-};
-
-```
-
-#### Patrones Obligatorios
+### Configuración de ESLint y Prettier
 
 <Tabs>
-  <Tab title="Async/Await">
+  <Tab title=".eslintrc.js">
     ```javascript
-    // ✅ Correcto - Usar async/await
-    const getUserData = async (userId) => {
-      try {
-        const user = await User.findById(userId);
-        const scores = await Score.findByUser(userId);
-        return { user, scores };
-      } catch (error) {
-        logger.error('Error fetching user data:', error);
-        throw error;
+    module.exports = {
+      extends: [
+        'next/core-web-vitals',
+        '@typescript-eslint/recommended',
+        'prettier'
+      ],
+      parser: '@typescript-eslint/parser',
+      plugins: ['@typescript-eslint'],
+      rules: {
+        '@typescript-eslint/no-unused-vars': 'error',
+        '@typescript-eslint/explicit-function-return-type': 'warn',
+        'prefer-const': 'error',
+        'no-console': 'warn'
       }
     };
-
-    // ❌ Incorrecto - Callbacks anidados
-    const getUserData = (userId, callback) => {
-      User.findById(userId, (err, user) => {
-        if (err) return callback(err);
-        Score.findByUser(userId, (err, scores) => {
-          if (err) return callback(err);
-          callback(null, { user, scores });
-        });
-      });
-    };
     ```
-
   </Tab>
 
-  <Tab title="Manejo de Errores">
+  <Tab title="prettier.config.js">
     ```javascript
-    // ✅ Correcto - Try-catch con logging
-    const createGame = async (gameData) => {
-      try {
-        const validatedData = await validateGameData(gameData);
-        const game = await Game.create(validatedData);
-
-        logger.info('Game created successfully', {
-          gameId: game.id,
-          title: game.title
-        });
-
-        return game;
-      } catch (error) {
-        logger.error('Failed to create game:', {
-          error: error.message,
-          gameData,
-          stack: error.stack
-        });
-
-        throw new GameCreationError('Unable to create game', error);
-      }
+    module.exports = {
+      semi: true,
+      trailingComma: 'es5',
+      singleQuote: true,
+      printWidth: 80,
+      tabWidth: 2,
+      useTabs: false
     };
     ```
-
-  </Tab>
-
-  <Tab title="Logging con Winston">
-    ```javascript
-    // config/logger.js
-    const winston = require('winston');
-
-    const logger = winston.createLogger({
-      level: process.env.LOG_LEVEL || 'info',
-      format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.errors({ stack: true }),
-        winston.format.json()
-      ),
-      transports: [
-        new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-        new winston.transports.File({ filename: 'logs/combined.log' })
-      ]
-    });
-
-    // Uso en servicios
-    const processScore = async (scoreData) => {
-      logger.info('Processing score', {
-        userId: scoreData.userId,
-        gameId: scoreData.gameId
-      });
-
-      try {
-        const result = await ScoreService.create(scoreData);
-        logger.info('Score processed successfully', { scoreId: result.id });
-        return result;
-      } catch (error) {
-        logger.error('Score processing failed', {
-          error: error.message,
-          scoreData
-        });
-        throw error;
-      }
-    };
-    ```
-
   </Tab>
 </Tabs>
 
-### Validación de Entrada
+### Reglas de TypeScript
 
-Utilizamos **Joi** para validación de datos:
+<Card title="Buenas Prácticas TypeScript" icon="code">
+```typescript
+// ✅ Correcto
+interface GameData {
+  id: string;
+  title: string;
+  genre: GameGenre;
+  releaseDate: Date;
+}
 
-```javascript
-const Joi = require('joi');
+const fetchGame = async (id: string): Promise<GameData> => {
+  // implementación
+};
 
-// Schemas de validación
-const gameSchema = Joi.object({
-  title: Joi.string().min(1).max(100).required(),
-  description: Joi.string().max(500),
-  category: Joi.string().valid('arcade', 'platformer', 'rpg', 'shooter'),
-  difficulty: Joi.number().min(1).max(10),
-  romFile: Joi.string().uri().required()
-});
+// ❌ Incorrecto
+const fetchGame = async (id: any) => {
+  // sin tipos definidos
+};
+```
+</Card>
 
-// Middleware de validación
-const validateGame = async (req, res, next) => {
-  try {
-    const validatedData = await gameSchema.validateAsync(req.body);
-    req.validatedData = validatedData;
-    next();
-  } catch (error) {
-    res.status(400).json({
-      error: 'Validation failed',
-      details: error.details
+### Estructura de Componentes React
+
+```tsx
+import { FC, useState, useEffect } from 'react';
+import { GameService } from '@/services/game.service';
+import { GameData } from '@/types/game.types';
+
+interface GameCardProps {
+  gameId: string;
+  onGameSelect: (game: GameData) => void;
+}
+
+export const GameCard: FC<GameCardProps> = ({ 
+  gameId, 
+  onGameSelect 
+}) => {
+  const [game, setGame] = useState<GameData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadGame = async (): Promise<void> => {
+      try {
+        const gameData = await GameService.fetchGame(gameId);
+        setGame(gameData);
+      } catch (error) {
+        console.error('Error loading game:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadGame();
+  }, [gameId]);
+
+  if (loading) return <div>Cargando...</div>;
+  if (!game) return <div>Game not found</div>;
+
+  return (
+    <div className="game-card" onClick={() => onGameSelect(game)}>
+      <h3>{game.title}</h3>
+      <p>{game.genre}</p>
+    </div>
+  );
+};
+```
+
+## 5.2.3 Testing
+
+### Tests Unitarios
+
+<Tabs>
+  <Tab title="Jest Configuration">
+    ```javascript
+    // jest.config.js
+    module.exports = {
+      testEnvironment: 'jsdom',
+      setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+      moduleNameMapping: {
+        '^@/(.*)$': '<rootDir>/src/$1',
+      },
+      collectCoverageFrom: [
+        'src/**/*.{ts,tsx}',
+        '!src/**/*.d.ts',
+      ],
+    };
+    ```
+  </Tab>
+
+  <Tab title="Ejemplo de Test">
+    ```typescript
+    import { render, screen, fireEvent } from '@testing-library/react';
+    import { GameCard } from '@/components/GameCard';
+    import { GameService } from '@/services/game.service';
+
+    jest.mock('@/services/game.service');
+
+    describe('GameCard', () => {
+      const mockGame = {
+        id: '1',
+        title: 'Test Game',
+        genre: 'RPG',
+        releaseDate: new Date('2023-01-01'),
+      };
+
+      beforeEach(() => {
+        (GameService.fetchGame as jest.Mock).mockResolvedValue(mockGame);
+      });
+
+      it('should render game information', async () => {
+        const onGameSelect = jest.fn();
+        
+        render(
+          <GameCard gameId="1" onGameSelect={onGameSelect} />
+        );
+
+        expect(screen.getByText('Cargando...')).toBeInTheDocument();
+
+        await screen.findByText('Test Game');
+        expect(screen.getByText('RPG')).toBeInTheDocument();
+      });
+
+      it('should call onGameSelect when clicked', async () => {
+        const onGameSelect = jest.fn();
+        
+        render(
+          <GameCard gameId="1" onGameSelect={onGameSelect} />
+        );
+
+        const gameCard = await screen.findByText('Test Game');
+        fireEvent.click(gameCard.closest('.game-card')!);
+
+        expect(onGameSelect).toHaveBeenCalledWith(mockGame);
+      });
     });
-  }
-};
+    ```
+  </Tab>
+</Tabs>
 
+### Tests de Integración
+
+```typescript
+// tests/integration/game-api.test.ts
+import request from 'supertest';
+import { app } from '@/app';
+import { prisma } from '@/lib/prisma';
+
+describe('Game API Integration', () => {
+  beforeEach(async () => {
+    await prisma.game.deleteMany();
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it('should create and retrieve a game', async () => {
+    const gameData = {
+      title: 'Integration Test Game',
+      genre: 'Action',
+      releaseDate: '2023-01-01',
+    };
+
+    // Crear juego
+    const createResponse = await request(app)
+      .post('/api/games')
+      .send(gameData)
+      .expect(201);
+
+    const gameId = createResponse.body.id;
+
+    // Obtener juego
+    const getResponse = await request(app)
+      .get(`/api/games/${gameId}`)
+      .expect(200);
+
+    expect(getResponse.body.title).toBe(gameData.title);
+    expect(getResponse.body.genre).toBe(gameData.genre);
+  });
+});
 ```
 
-### Seguridad
+## 5.2.4 Pull Request Process
 
-<Warning>
+### 1. Pre-requisitos
 
-* *NUNCA** incluyas secrets, passwords o claves API en el código fuente.
-</Warning>
+<Card title="Checklist antes del PR" icon="check-circle">
+- [ ] Código sigue las convenciones establecidas
+- [ ] Tests pasan (`npm test`)
+- [ ] Linting sin errores (`npm run lint`)
+- [ ] Build exitoso (`npm run build`)
+- [ ] Documentación actualizada si es necesario
+- [ ] Branch actualizado con `main`
+</Card>
 
-```javascript
-// ✅ Correcto - Variables de entorno
-const dbConfig = {
-  host: process.env.DB_HOST,
-  password: process.env.DB_PASSWORD,
-  apiKey: process.env.AWS_API_KEY
-};
+### 2. Creación del Pull Request
 
-// ❌ Incorrecto - Secrets hardcodeados
-const dbConfig = {
-  host: 'localhost',
-  password: 'mipassword123',
-  apiKey: 'AKIAIOSFODNN7EXAMPLE'
-};
+```bash
+# Push de tu branch
+git push origin feat/nueva-funcionalidad
 
+# Crear PR desde GitHub UI
 ```
 
-## Pull Request Process
-
-### Template de Pull Request
+**Template de PR:**
 
 ```markdown
-
 ## 📋 Descripción
 
-Breve descripción de los cambios implementados.
+Descripción clara y concisa de los cambios realizados.
 
-## 🔧 Tipo de Cambio
+## 🔧 Tipo de cambio
 
 - [ ] Bug fix (cambio que corrige un issue)
-
-- [ ] Nueva funcionalidad (cambio que añade funcionalidad)
-
-- [ ] Breaking change (fix o feature que causaría que funcionalidad existente no funcione como se espera)
-
-- [ ] Cambio de documentación
+- [ ] Nueva feature (cambio que añade funcionalidad)
+- [ ] Breaking change (cambio que rompe compatibilidad)
+- [ ] Documentación
 
 ## 🧪 Testing
 
 - [ ] Tests unitarios añadidos/actualizados
-
-- [ ] Tests de integración añadidos/actualizados
-
-- [ ] Coverage > 80%
-
-- [ ] Todos los tests pasan
-
-## ✅ Checklist
-
-- [ ] Mi código sigue las guías de estilo del proyecto
-
-- [ ] He realizado una auto-revisión de mi código
-
-- [ ] He comentado mi código, especialmente en áreas difíciles de entender
-
-- [ ] He actualizado la documentación correspondiente
-
-- [ ] Mis cambios no generan nuevas advertencias
-
-- [ ] No hay breaking changes sin justificación
+- [ ] Tests de integración verificados
+- [ ] Testing manual completado
 
 ## 📸 Screenshots (si aplica)
 
-## 📚 Documentación Relacionada
+## 🔍 Checklist
 
-Links a issues, documentación externa, etc.
-
+- [ ] Código sigue style guidelines
+- [ ] Self-review completado
+- [ ] Comentarios añadidos en código complejo
+- [ ] Documentación actualizada
+- [ ] Tests pasan
 ```
 
-### Checklist de Code Review
+### 3. Proceso de Revisión
 
-<Card title="Para Reviewers" icon="eye">
+<Steps>
+  <Step title="Revisión Automática">
+    CI/CD ejecuta tests y validaciones automáticamente
+  </Step>
+  <Step title="Revisión por Pares">
+    Al menos 2 reviewers deben aprobar el código
+  </Step>
+  <Step title="Resolución de Comentarios">
+    Todos los comentarios deben ser resueltos antes del merge
+  </Step>
+  <Step title="Merge">
+    Squash and merge para mantener historial limpio
+  </Step>
+</Steps>
 
-#### Funcionalidad
+## 5.2.5 Code Review Guidelines
 
-- [ ] El código hace lo que se supone que debe hacer
+### Para el Autor
 
-- [ ] La lógica es correcta y eficiente
-
-- [ ] Los edge cases están manejados
-
-#### Código
-
-- [ ] Sigue las convenciones de naming
-
-- [ ] No hay código duplicado
-
-- [ ] Las funciones tienen una sola responsabilidad
-
-- [ ] El código es legible y mantenible
-
-#### Testing
-
-- [ ] Coverage adecuado (>80%)
-
-- [ ] Tests cubren casos importantes
-
-- [ ] Tests son claros y mantenibles
-
-#### Seguridad
-
-- [ ] No hay secrets expuestos
-
-- [ ] Validación de entrada apropiada
-
-- [ ] Autorización verificada donde corresponde
-
-#### Performance
-
-- [ ] No hay queries N+1
-
-- [ ] Uso eficiente de memoria
-
-- [ ] Optimizaciones donde sea necesario
-
+<Card title="Antes de solicitar review" icon="user-edit">
+- Revisa tu propio código primero
+- Ejecuta tests localmente
+- Añade contexto en la descripción del PR
+- Mantén PRs pequeños y enfocados
+- Documenta decisiones complejas
 </Card>
 
-### Proceso de Merge
+### Para el Reviewer
 
-```mermaid
-graph TD
-    A[PR Creado] --> B[Revisión Automática]
-    B --> C{Tests y Linting}
-    C -->|❌ Falla| D[Corregir Issues]
-    C -->|✅ Pasa| E[Asignar Reviewers]
-    D --> A
-    E --> F[Code Review]
-    F --> G{Aprobación}
-    G -->|Cambios Solicitados| H[Implementar Cambios]
-    G -->|✅ Aprobado por 2| I[Squash and Merge]
-    H --> F
-    I --> J[Deploy Automático]
-    J --> K[Verificación en Staging]
+<Card title="Qué revisar" icon="eye">
+- **Funcionalidad:** ¿El código hace lo que debe hacer?
+- **Legibilidad:** ¿Es fácil de entender?
+- **Mantenibilidad:** ¿Es fácil de modificar en el futuro?
+- **Performance:** ¿Hay optimizaciones evidentes?
+- **Seguridad:** ¿Existen vulnerabilidades potenciales?
+- **Tests:** ¿La cobertura es adecuada?
+</Card>
 
+### Comentarios Constructivos
+
+```markdown
+# ✅ Bueno
+Considera usar `useMemo` aquí para optimizar el renderizado:
+```suggestion
+const expensiveValue = useMemo(() => computeValue(data), [data]);
 ```
 
-<Note>
-Se requiere **aprobación de 2 reviewers** como mínimo para hacer merge. Los cambios se integran usando **Squash and Merge** para mantener un historial limpio.
-</Note>
+# ❌ Malo
+Este código está mal.
+```
 
-## Recursos Adicionales
+## 5.2.6 Documentación de Cambios
 
-### Herramientas Recomendadas
+### Changelog
 
-- **IDE**: VS Code con extensiones ESLint, Prettier
+Mantén actualizado el archivo `CHANGELOG.md`:
 
-- **Git GUI**: GitKraken, SourceTree, o GitHub Desktop
+```markdown
+## [1.2.0] - 2024-01-15
 
-- **Testing**: Jest para unit tests, Supertest para API tests
+### Added
+- Nueva funcionalidad de categorías de juegos
+- Filtros avanzados en catálogo
+- API endpoint para estadísticas
 
-- **Debugging**: Node.js Inspector, winston para logs
+### Changed
+- Mejorado rendimiento del componente GameList
+- Actualizada interfaz de usuario del dashboard
 
-### Contacto y Soporte
+### Fixed
+- Corregido bug en autenticación OAuth
+- Solucionado problema de memoria en game streaming
 
-- **Canal Slack**: #retrogamecloud-dev
+### Deprecated
+- Endpoint `/api/v1/games` (usar `/api/v2/games`)
+```
 
-- **Documentación API**: [/api-reference](/api-reference)
+### README Updates
 
-- **Issues**: GitHub Issues para bugs y features
+Actualiza documentación relevante cuando:
+- Añadas nuevas funcionalidades
+- Cambies APIs públicas
+- Modifiques configuración
+- Añadas nuevas dependencias
 
-- **Discusiones**: GitHub Discussions para preguntas generales
+## 5.2.7 Resolución de Conflictos
 
-- --
+### Conflictos de Merge
 
-¡Gracias por contribuir a RetroGameCloud! 🎮✨
+```bash
+# Actualizar branch con main
+git checkout feat/mi-feature
+git fetch upstream
+git rebase upstream/main
+
+# Si hay conflictos, resolverlos manualmente
+git add .
+git rebase --continue
+
+# Force push (cuidado)
+git push origin feat/mi-feature --force-with-lease
+```
+
+### Mejores Prácticas
+
+<Warning>
+- Nunca hagas force push a `main`
+- Usa `--force-with-lease` en lugar de `--force`
+- Comunica cambios breaking en el equipo
+- Mantén PRs actualizados con main
+</Warning>
+
+<Tip>
+Si tienes dudas sobre cualquier aspecto del proceso de contribución, no dudes en preguntar en nuestro canal de Discord o crear una issue de discusión.
+</Tip>

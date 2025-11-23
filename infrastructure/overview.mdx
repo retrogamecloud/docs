@@ -1,5 +1,5 @@
 ---
-title: 6.1. Visión General de Infraestructura
+title: 4.1. Visión General de Infraestructura
 description: Infraestructura cloud AWS gestionada con Terraform para alta disponibilidad
   y escalabilidad
 icon: file-lines
@@ -76,147 +76,86 @@ graph TB
     EKS1 --> REDIS
     EKS2 --> REDIS
     RDS_PRIMARY --> RDS_STANDBY
-    EKS1 --> S3
-    EKS2 --> S3
     NAT1 --> IGW
     NAT2 --> IGW
-    EKS1 --> NAT1
-    EKS2 --> NAT2
+    EKS1 --> S3
+    EKS2 --> S3
 
-    classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff
-    classDef k8s fill:#326CE5,stroke:#fff,stroke-width:2px,color:#fff
-    classDef database fill:#336791,stroke:#fff,stroke-width:2px,color:#fff
-    classDef security fill:#DD344C,stroke:#fff,stroke-width:2px,color:#fff
+    classDef aws fill:#ff9900,stroke:#333,stroke-width:2px,color:#000
+    classDef security fill:#d4edda,stroke:#155724,stroke-width:2px,color:#000
+    classDef database fill:#f8d7da,stroke:#721c24,stroke-width:2px,color:#000
+    classDef compute fill:#cce5ff,stroke:#004085,stroke-width:2px,color:#000
 
-    class DNS,CDN,ALB,NAT1,NAT2,IGW,S3,ACM,IAM aws
-    class CONTROL,EKS1,EKS2,NGINX,OAUTH k8s
+    class DNS,CDN,ALB,S3,IGW,NAT1,NAT2 aws
+    class ACM,IAM,SG,OAUTH security
     class RDS_PRIMARY,RDS_STANDBY,REDIS database
-    class SG security
-
+    class EKS1,EKS2,CONTROL,NGINX compute
 ```
 
 </div>
 
-## Componentes de Red y Seguridad
+## Componentes Principales
 
-### Red VPC
+### 🌐 Red y Conectividad
+- **VPC Multi-AZ**: Red privada virtual distribuida en múltiples zonas de disponibilidad
+- **Application Load Balancer**: Distribución de tráfico con SSL termination
+- **CloudFront CDN**: Distribución global de contenido estático
+- **Route53**: Gestión de DNS con health checks
 
-- **CIDR:** `10.0.0.0/16`
+### 🔧 Computación
+- **Amazon EKS**: Kubernetes gestionado para orquestación de contenedores
+- **Auto Scaling Groups**: Escalado automático basado en métricas
+- **Spot Instances**: Optimización de costos con instancias spot
 
-- **Subnets Públicas:** 2 AZ con NAT Gateways e Internet Gateway
+### 💾 Almacenamiento y Datos
+- **RDS PostgreSQL**: Base de datos relacional con Multi-AZ para alta disponibilidad
+- **ElastiCache Redis**: Cache distribuido para sesiones y datos frecuentes
+- **S3 Buckets**: Almacenamiento de logs, artefactos y backups
 
-- **Subnets Privadas:** 2 AZ para workloads y bases de datos
-
-- **Multi-AZ:** Alta disponibilidad en `us-west-2a` y `us-west-2b`
-
-### Security Groups
-
-- **ALB-SG:** Puertos 80/443 desde internet
-
-- **EKS-SG:** Comunicación interna del cluster
-
-- **RDS-SG:** Puerto 5432 solo desde EKS nodes
-
-- **Redis-SG:** Puerto 6379 solo desde EKS nodes
-
-## Servicios AWS Utilizados
-
-<CardGroup cols={2}>
-  <Card title="EKS" icon="dharmachakra">
-    Cluster Kubernetes gestionado para orquestación de contenedores
-  </Card>
-  <Card title="VPC" icon="network-wired">
-    Red aislada con subnets públicas y privadas multi-AZ
-  </Card>
-  <Card title="RDS" icon="database">
-    PostgreSQL 14 con Multi-AZ y backups automáticos
-  </Card>
-  <Card title="ElastiCache" icon="bolt">
-    Redis 7.x gestionado para caché y sesiones
-  </Card>
-  <Card title="ALB" icon="scale-balanced">
-    Application Load Balancer con terminación SSL
-  </Card>
-  <Card title="Route53" icon="globe">
-    Gestión DNS para retrogamehub.games
-  </Card>
-  <Card title="CloudFront" icon="cloud">
-    CDN para assets de juegos y contenido estático
-  </Card>
-  <Card title="S3" icon="bucket">
-    Almacenamiento de objetos para archivos y logs
-  </Card>
-  <Card title="ACM" icon="certificate">
-    Certificados SSL/TLS automáticos
-  </Card>
-  <Card title="IAM" icon="shield">
-    Gestión de identidad y acceso con roles específicos
-  </Card>
-  <Card title="Ingress NGINX" icon="route">
-    Routing interno con balanceo de carga
-  </Card>
-  <Card title="OAuth2-Proxy" icon="lock">
-    Autenticación GitHub para servicios de monitoreo
-  </Card>
-</CardGroup>
-
-## Flujo de Tráfico
-
-<Steps>
-  <Step title="DNS Resolution">
-    Route53 resuelve `retrogamehub.games` y subdominios
-  </Step>
-  <Step title="CDN Distribution">
-    CloudFront sirve contenido estático y cachea responses
-  </Step>
-  <Step title="Load Balancing">
-    ALB distribuye tráfico entre AZ con health checks
-  </Step>
-  <Step title="Ingress Routing">
-    NGINX Ingress enruta requests a servicios específicos
-  </Step>
-  <Step title="Authentication">
-    OAuth2-Proxy valida acceso para servicios protegidos
-  </Step>
-  <Step title="Application Processing">
-    Pods de Kubernetes procesan requests con acceso a RDS/Redis
-  </Step>
-</Steps>
-
-## Estructura de Terraform
-
-```bash
-terraform/eks_test/
-├── main.tf                  # Configuración del provider AWS
-├── variables.tf             # Variables de entrada y configuración
-├── outputs.tf               # Valores de salida para otros módulos
-├── vpc.tf                   # VPC, subnets, IGW y NAT gateways
-├── eks.tf                   # Cluster EKS y node groups
-├── rds.tf                   # PostgreSQL Multi-AZ con backups
-├── elasticache.tf           # Redis cluster configuration
-├── s3.tf                    # Buckets S3 y CloudFront distribution
-├── route53.tf               # DNS records y health checks
-├── alb.tf                   # Application Load Balancer
-├── security-groups.tf       # Security groups y reglas
-├── iam.tf                   # Roles y policies IAM
-└── acm.tf                   # SSL certificates
-
-```
+### 🔒 Seguridad
+- **WAF**: Protección contra ataques web comunes
+- **Security Groups**: Firewall a nivel de instancia
+- **IAM Roles**: Gestión granular de permisos
+- **ACM Certificates**: Certificados SSL/TLS gestionados
 
 ## Características de Alta Disponibilidad
 
-- **Multi-AZ Deployment:** Recursos distribuidos en 2 zonas de disponibilidad
+### ⚡ Redundancia
+- **Multi-AZ Deployment**: Todos los componentes críticos distribuidos en múltiples AZ
+- **Database Failover**: Failover automático de RDS en caso de fallo
+- **Load Balancing**: Distribución automática de carga entre instancias
 
-- **Auto Scaling:** EKS node groups con escalado automático
+### 📈 Escalabilidad
+- **Horizontal Pod Autoscaler**: Escalado automático de pods según CPU/memoria
+- **Cluster Autoscaler**: Escalado automático de nodos EKS
+- **Database Read Replicas**: Réplicas de lectura para distribuir carga de consultas
 
-- **Database Failover:** RDS Multi-AZ con failover automático
+### 🔄 Recuperación ante Desastres
+- **Backups Automatizados**: Backups diarios de RDS con retención de 30 días
+- **Point-in-Time Recovery**: Recuperación a cualquier punto en el tiempo
+- **Cross-Region Replication**: Replicación de backups críticos entre regiones
 
-- **Load Balancing:** ALB con health checks y distribución inteligente
+## Monitoreo y Observabilidad
 
-- **CDN Global:** CloudFront para baja latencia mundial
+### 📊 Métricas y Alertas
+- **CloudWatch**: Métricas de infraestructura y aplicación
+- **Prometheus**: Métricas detalladas de Kubernetes y aplicaciones
+- **Grafana**: Dashboards personalizados para visualización
 
-- **Backup Automatizado:** RDS snapshots diarios y retención configurable
+### 📝 Logs y Trazabilidad
+- **Centralized Logging**: Logs centralizados con ELK Stack
+- **Distributed Tracing**: Trazabilidad de requests con Jaeger
+- **Audit Logs**: Logs de auditoría de cambios en infraestructura
 
-<Note>
-  La infraestructura está diseñada para soportar fallos de componentes individuales sin interrumpir el servicio.
-</Note>
+## Gestión de Costos
+
+### 💰 Optimización
+- **Resource Tagging**: Etiquetado consistente para seguimiento de costos
+- **Reserved Instances**: Instancias reservadas para cargas predecibles
+- **Spot Instances**: Uso de instancias spot para cargas tolerantes a interrupciones
+- **Automated Scaling**: Escalado automático para optimizar recursos
+
+### 📈 Monitoreo de Costos
+- **AWS Cost Explorer**: Análisis detallado de gastos
+- **Budget Alerts**: Alertas automáticas por exceso de presupuesto
+- **Right Sizing**: Recomendaciones de dimensionamiento óptimo

@@ -75,7 +75,7 @@
               "development/e2e-testing",
               "troubleshooting"
             ],
-            "description": "Configuración del entorno de desarrollo local, variables de entorno, testing end-to-end y resolución de problemas"
+            "description": "Configuración del entorno de desarrollo local, variables de entorno, testing end-to-end y resolución de problemas comunes"
           },
           {
             "group": "4. Frontend",
@@ -87,7 +87,7 @@
             "description": "Arquitectura React, estructura de componentes e integración del emulador js-dos para la ejecución de juegos retro"
           },
           {
-            "group": "5. Microservicios",
+            "group": "5. Microservicios Backend",
             "icon": "server",
             "pages": [
               "services/auth-service",
@@ -99,12 +99,12 @@
             "description": "Documentación técnica de los microservicios: autenticación, gestión de usuarios, catálogo de juegos, puntuaciones y rankings"
           },
           {
-            "group": "6. Seguridad",
+            "group": "6. Seguridad y Autenticación",
             "icon": "shield",
             "pages": [
               "infrastructure/oauth2-authentication"
             ],
-            "description": "Implementación de OAuth2 con GitHub y Google, gestión de tokens JWT y políticas de seguridad"
+            "description": "Implementación de OAuth2 con GitHub y Google, gestión de tokens JWT y políticas de seguridad de la aplicación"
           },
           {
             "group": "7. Infraestructura AWS",
@@ -114,16 +114,23 @@
               "infrastructure/aws-topology",
               "infrastructure/eks-cluster",
               "infrastructure/networking",
-              "infrastructure/cdn-cloudfront",
-              "infrastructure/route53-ssl",
               "infrastructure/database-migrations",
               "infrastructure/redis-troubleshooting",
               "infrastructure/monitoring"
             ],
-            "description": "Infraestructura en AWS: clúster EKS, redes VPC, CDN CloudFront, DNS Route53, certificados SSL, bases de datos y monitorización"
+            "description": "Infraestructura en AWS: clúster EKS, redes VPC, bases de datos RDS, Redis y herramientas de monitorización y observabilidad"
           },
           {
-            "group": "8. Despliegue y GitOps",
+            "group": "8. Servicios Gestionados",
+            "icon": "cloud",
+            "pages": [
+              "infrastructure/cdn-cloudfront",
+              "infrastructure/route53-ssl"
+            ],
+            "description": "Configuración de CDN con CloudFront para distribución de contenido estático y gestión de DNS con Route53 y certificados SSL"
+          },
+          {
+            "group": "9. Despliegue y GitOps",
             "icon": "gears",
             "pages": [
               "cicd/overview",
@@ -132,7 +139,7 @@
               "infrastructure/argocd-gitops",
               "deployment"
             ],
-            "description": "Pipelines CI/CD con GitHub Actions, metodología GitOps con ArgoCD y procesos de despliegue automatizado"
+            "description": "Pipelines CI/CD con GitHub Actions, metodología GitOps con ArgoCD y procesos de despliegue automatizado en Kubernetes"
           }
         ]
       },
@@ -146,7 +153,7 @@
               "api-reference/backend-main",
               "api-reference/kong-config"
             ],
-            "description": "Arquitectura backend completa, convenciones de la API y configuración del API Gateway Kong"
+            "description": "Arquitectura backend completa, convenciones de la API REST y configuración del API Gateway Kong para enrutamiento"
           },
           {
             "group": "2. Autenticación",
@@ -157,7 +164,7 @@
               "api-reference/auth/register",
               "api-reference/auth/verify"
             ],
-            "description": "Endpoints de autenticación: inicio de sesión, registro de usuarios y verificación de tokens"
+            "description": "Endpoints de autenticación: inicio de sesión con OAuth2, registro de usuarios y verificación de tokens JWT"
           },
           {
             "group": "3. Gestión de Usuarios",
@@ -165,7 +172,7 @@
             "pages": [
               "api-reference/user-service"
             ],
-            "description": "Gestión de perfiles de usuario, actualización de datos personales y configuración de preferencias"
+            "description": "API de gestión de perfiles de usuario, actualización de datos personales y configuración de preferencias del jugador"
           },
           {
             "group": "4. Catálogo de Juegos",
@@ -175,44 +182,37 @@
               "api-reference/games/list",
               "api-reference/games/get"
             ],
-            "description": "Listado de juegos disponibles, búsqueda con filtros y consulta de detalles de cada juego"
+            "description": "API del catálogo: listado de juegos disponibles, búsqueda con filtros avanzados y consulta de detalles de cada juego"
           },
           {
-            "group": "5. Puntuaciones",
+            "group": "5. Puntuaciones y Rankings",
             "icon": "trophy",
             "pages": [
               "api-reference/score-service",
               "api-reference/scores/submit",
-              "api-reference/scores/get"
-            ],
-            "description": "Envío de puntuaciones de partidas, consulta de histórico personal y validación de resultados"
-          },
-          {
-            "group": "6. Rankings",
-            "icon": "ranking-star",
-            "pages": [
+              "api-reference/scores/get",
               "api-reference/ranking-service",
               "api-reference/rankings/global",
               "api-reference/rankings/by-game"
             ],
-            "description": "Tablas de clasificación globales, rankings por juego y estadísticas de jugadores"
+            "description": "API de puntuaciones: envío y consulta de resultados de partidas, tablas de clasificación globales y rankings específicos por juego"
           },
           {
-            "group": "7. Frontend y UI",
+            "group": "6. Frontend",
             "icon": "window",
             "pages": [
               "api-reference/frontend"
             ],
-            "description": "Especificaciones de la aplicación frontend, componentes React y gestión de estado"
+            "description": "Especificaciones técnicas de la aplicación frontend React, arquitectura de componentes y gestión de estado con Redux"
           },
           {
-            "group": "8. Infraestructura como Código",
+            "group": "7. Infraestructura como Código",
             "icon": "cube",
             "pages": [
               "api-reference/infrastructure-docs",
               "api-reference/kubernetes-manifests"
             ],
-            "description": "Documentación de infraestructura con Terraform y manifiestos de Kubernetes para orquestación"
+            "description": "Documentación de infraestructura con Terraform, manifiestos de Kubernetes y configuración de recursos cloud"
           }
         ]
       }

@@ -1,7 +1,6 @@
 ---
 title: Testing y QA
-description: 'Estrategia completa de testing para RetroGameCloud: unitarios, integración,
-  E2E y proceso de QA'
+description: 'Estrategia completa de testing para RetroGameCloud: unitarios, integración, E2E y proceso de QA'
 icon: flask-vial
 ---
 
@@ -23,7 +22,6 @@ graph TD
     style B fill:#4ecdc4
     style C fill:#45b7d1
     style D fill:#96ceb4
-
 ```
 
 ## Tests Unitarios
@@ -60,7 +58,6 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
       }
     }
     ```
-
   </Tab>
 
   <Tab title="jest.config.js">
@@ -79,7 +76,6 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
       setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts']
     };
     ```
-
   </Tab>
 </Tabs>
 
@@ -88,97 +84,106 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
 ```javascript
 // src/services/__tests__/authService.test.ts
 import { AuthService } from '../authService';
-import { UserRepository } from '../../repositories/userRepository';
-import { JWTService } from '../jwtService';
+import { UserModel } from '../../models/User';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+
+jest.mock('../../models/User');
+jest.mock('bcryptjs');
+jest.mock('jsonwebtoken');
 
 describe('AuthService', () => {
   let authService: AuthService;
-  let mockUserRepository: jest.Mocked<UserRepository>;
-  let mockJWTService: jest.Mocked<JWTService>;
 
   beforeEach(() => {
-    mockUserRepository = createMockUserRepository();
-    mockJWTService = createMockJWTService();
-    authService = new AuthService(mockUserRepository, mockJWTService);
+    authService = new AuthService();
+    jest.clearAllMocks();
   });
 
-  describe('authenticateUser', () => {
-    it('should return JWT token for valid credentials', async () => {
-      // Given
-      const credentials = { email: 'test@example.com', password: 'password123' };
-      const mockUser = { id: '1', email: 'test@example.com', hashedPassword: 'hashed' };
+  describe('login', () => {
+    it('should authenticate user with valid credentials', async () => {
+      const mockUser = {
+        id: 1,
+        email: 'test@example.com',
+        password: 'hashedPassword'
+      };
 
-      mockUserRepository.findByEmail.mockResolvedValue(mockUser);
-      mockJWTService.generateToken.mockReturnValue('jwt-token');
+      (UserModel.findByEmail as jest.Mock).mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (jwt.sign as jest.Mock).mockReturnValue('mock-token');
 
-      // When
-      const result = await authService.authenticateUser(credentials);
+      const result = await authService.login('test@example.com', 'password');
 
-      // Then
-      expect(result.token).toBe('jwt-token');
-      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('test@example.com');
+      expect(result).toEqual({
+        success: true,
+        token: 'mock-token',
+        user: { id: 1, email: 'test@example.com' }
+      });
+    });
+
+    it('should reject invalid credentials', async () => {
+      (UserModel.findByEmail as jest.Mock).mockResolvedValue(null);
+
+      const result = await authService.login('invalid@example.com', 'password');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Invalid credentials');
     });
   });
 });
-
 ```
 
 ## Tests de Integración
 
 ### Configuración con Supertest
 
-Los tests de integración validan la interacción entre componentes y endpoints de API.
-
 ```javascript
-// src/integration/__tests__/auth.integration.test.ts
+// src/test/integration/auth.test.ts
 import request from 'supertest';
-import { app } from '../../app';
-import { setupTestDatabase, teardownTestDatabase } from '../helpers/database';
+import app from '../../app';
+import { setupTestDB, cleanupTestDB } from '../helpers/database';
 
-describe('Authentication Integration', () => {
+describe('Auth Integration Tests', () => {
   beforeAll(async () => {
-    await setupTestDatabase();
+    await setupTestDB();
   });
 
   afterAll(async () => {
-    await teardownTestDatabase();
+    await cleanupTestDB();
   });
 
   describe('POST /api/auth/login', () => {
-    it('should authenticate user and return JWT', async () => {
-      // Given
-      const userData = {
-        email: 'player@retrogame.com',
-        password: 'SecurePass123!'
-      };
-
-      // When
+    it('should login with valid credentials', async () => {
       const response = await request(app)
         .post('/api/auth/login')
-        .send(userData)
+        .send({
+          email: 'test@example.com',
+          password: 'password123'
+        })
         .expect(200);
 
-      // Then
       expect(response.body).toHaveProperty('token');
-      expect(response.body).toHaveProperty('user');
-      expect(response.body.user.email).toBe(userData.email);
+      expect(response.body.user.email).toBe('test@example.com');
+    });
+
+    it('should reject invalid credentials', async () => {
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: 'invalid@example.com',
+          password: 'wrongpassword'
+        })
+        .expect(401);
+
+      expect(response.body.error).toBe('Invalid credentials');
     });
   });
 });
-
 ```
 
-# Tests End-to-End
+## Tests End-to-End (E2E)
 
-## Herramientas
-
-### Playwright para Tests de Interfaz
-
-Playwright nos permite ejecutar tests E2E en múltiples navegadores con alta confiabilidad.
-
-### Newman para Tests de API
-
-Newman ejecuta collections de Postman para validar la API de forma automatizada.
+### Configuración con Playwright
 
 <Tabs>
   <Tab title="playwright.config.ts">
@@ -186,314 +191,295 @@ Newman ejecuta collections de Postman para validar la API de forma automatizada.
     import { defineConfig, devices } from '@playwright/test';
 
     export default defineConfig({
-      testDir: './e2e',
+      testDir: './tests/e2e',
       fullyParallel: true,
       forbidOnly: !!process.env.CI,
       retries: process.env.CI ? 2 : 0,
       workers: process.env.CI ? 1 : undefined,
-      reporter: 'html',
+      reporter: [['html'], ['json', { outputFile: 'test-results.json' }]],
       use: {
         baseURL: 'http://localhost:3000',
         trace: 'on-first-retry',
+        screenshot: 'only-on-failure'
       },
       projects: [
         {
           name: 'chromium',
-          use: { ...devices['Desktop Chrome'] },
+          use: { ...devices['Desktop Chrome'] }
         },
         {
           name: 'firefox',
-          use: { ...devices['Desktop Firefox'] },
+          use: { ...devices['Desktop Firefox'] }
         },
+        {
+          name: 'webkit',
+          use: { ...devices['Desktop Safari'] }
+        },
+        {
+          name: 'Mobile Chrome',
+          use: { ...devices['Pixel 5'] }
+        }
       ],
       webServer: {
         command: 'npm run dev',
         url: 'http://localhost:3000',
-        reuseExistingServer: !process.env.CI,
-      },
-    });
-    ```
-
-  </Tab>
-
-  <Tab title="newman-config.json">
-    ```json
-    {
-      "collection": "./postman/RetroGameCloud-API.json",
-      "environment": "./postman/environments/test.json",
-      "reporters": ["cli", "junit"],
-      "reporter": {
-        "junit": {
-          "export": "./test-results/newman-results.xml"
-        }
-      },
-      "bail": true,
-      "color": "on"
-    }
-    ```
-
-  </Tab>
-</Tabs>
-
-## Escenarios Críticos
-
-### E2E-001: Flujo Completo de Jugador
-
-<Callout type="info">
-
-* *Test crítico para validar la experiencia completa del usuario**
-</Callout>
-
-```typescript
-// e2e/complete-player-flow.spec.ts
-import { test, expect } from '@playwright/test';
-
-test('E2E-001: Complete Player Journey', async ({ page }) => {
-  // 1. Registro de usuario nuevo
-  await page.goto('/register');
-  await page.fill('[data-testid="email"]', 'newplayer@test.com');
-  await page.fill('[data-testid="password"]', 'SecurePass123!');
-  await page.fill('[data-testid="username"]', 'RetroGamer2024');
-  await page.click('[data-testid="register-button"]');
-
-  await expect(page.locator('[data-testid="success-message"]')).toBeVisible();
-
-  // 2. Login y obtención de JWT
-  await page.goto('/login');
-  await page.fill('[data-testid="email"]', 'newplayer@test.com');
-  await page.fill('[data-testid="password"]', 'SecurePass123!');
-  await page.click('[data-testid="login-button"]');
-
-  await expect(page.locator('[data-testid="user-menu"]')).toBeVisible();
-
-  // 3. Listar catálogo de juegos
-  await page.goto('/games');
-  await expect(page.locator('[data-testid="games-grid"]')).toBeVisible();
-
-  const gameCount = await page.locator('[data-testid="game-card"]').count();
-  expect(gameCount).toBeGreaterThan(0);
-
-  // 4. Cargar juego con js-dos
-  await page.click('[data-testid="game-card"]:first-child');
-  await expect(page.locator('[data-testid="dosbox-canvas"]')).toBeVisible();
-
-  // Wait for game to load
-  await page.waitForSelector('[data-testid="game-loaded"]', { timeout: 30000 });
-
-  // 5. Guardar puntuación
-  await page.click('[data-testid="submit-score"]');
-  await page.fill('[data-testid="score-input"]', '15000');
-  await page.click('[data-testid="save-score-button"]');
-
-  await expect(page.locator('[data-testid="score-saved"]')).toBeVisible();
-
-  // 6. Verificar aparición en ranking
-  await page.goto('/leaderboard');
-  const playerScore = page.locator(`[data-testid="score-entry-RetroGamer2024"]`);
-  await expect(playerScore).toBeVisible();
-  await expect(playerScore.locator('[data-testid="score"]')).toContainText('15000');
-});
-
-```
-
-### E2E-002: Flujo de Autenticación OAuth2
-
-```typescript
-// e2e/oauth-authentication.spec.ts
-import { test, expect } from '@playwright/test';
-
-test('E2E-002: OAuth2 Authentication Flow', async ({ page, context }) => {
-  // 1. Inicio de sesión con Google
-  await page.goto('/login');
-
-  // Mock Google OAuth for testing
-  await context.route('**/auth/google', route => {
-    route.fulfill({
-      status: 302,
-      headers: {
-        'Location': '/auth/google/callback?code=mock_auth_code&state=mock_state'
+        reuseExistingServer: !process.env.CI
       }
     });
-  });
-
-  await page.click('[data-testid="google-login-button"]');
-
-  // 2. Callback y generación de JWT
-  await expect(page).toHaveURL(/.*\/dashboard/);
-
-  // Verify JWT token is stored
-  const token = await page.evaluate(() => localStorage.getItem('auth_token'));
-  expect(token).toBeTruthy();
-
-  // 3. Acceso a recursos protegidos
-  await page.goto('/profile');
-  await expect(page.locator('[data-testid="user-profile"]')).toBeVisible();
-
-  // Verify API calls include JWT
-  const [request] = await Promise.all([
-    page.waitForRequest('**/api/user/profile'),
-    page.reload()
-  ]);
-
-  expect(request.headers().authorization).toContain('Bearer');
-});
-
-```
-
-### E2E-003: Validación de Rendimiento de Juegos
-
-```typescript
-// e2e/game-performance.spec.ts
-import { test, expect } from '@playwright/test';
-
-test('E2E-003: Game Performance Validation', async ({ page }) => {
-  await page.goto('/games/pac-man');
-
-  // Start performance monitoring
-  await page.coverage.startJSCoverage();
-  const startTime = Date.now();
-
-  // Wait for game initialization
-  await page.waitForSelector('[data-testid="dosbox-canvas"]');
-  await page.waitForSelector('[data-testid="game-loaded"]', { timeout: 15000 });
-
-  const loadTime = Date.now() - startTime;
-
-  // Verify game loads within acceptable time
-  expect(loadTime).toBeLessThan(10000); // 10 seconds max
-
-  // Check memory usage
-  const metrics = await page.evaluate(() => {
-    return {
-      memory: (performance as any).memory?.usedJSHeapSize || 0,
-      timing: performance.timing.loadEventEnd - performance.timing.navigationStart
-    };
-  });
-
-  expect(metrics.memory).toBeLessThan(100 * 1024 * 1024); // Less than 100MB
-});
-
-```
-
-## Ejecución en CI
-
-Los tests E2E se ejecutan en GitHub Actions contra un cluster efímero de Kubernetes con servicios mock.
-
-<Tabs>
-  <Tab title="github-actions-e2e.yml">
-    ```yaml
-    name: E2E Tests
-
-    on:
-      pull_request:
-        branches: [main, develop]
-      push:
-        branches: [main]
-
-    jobs:
-      e2e-tests:
-        runs-on: ubuntu-latest
-
-        services:
-          redis:
-            image: redis:7
-            options: >-
-              --health-cmd "redis-cli ping"
-              --health-interval 10s
-              --health-timeout 5s
-              --health-retries 5
-
-          postgres:
-            image: postgres:15
-            env:
-              POSTGRES_PASSWORD: postgres
-              POSTGRES_DB: retrogame_test
-            options: >-
-              --health-cmd pg_isready
-              --health-interval 10s
-              --health-timeout 5s
-              --health-retries 5
-
-        steps:
-          - uses: actions/checkout@v4
-
-          - name: Setup Node.js
-            uses: actions/setup-node@v4
-            with:
-              node-version: '18'
-              cache: 'npm'
-
-          - name: Install dependencies
-            run: npm ci
-
-          - name: Setup test database
-            run: |
-              npm run db:migrate:test
-              npm run db:seed:test
-            env:
-              DATABASE_URL: postgresql://postgres:postgres@localhost:5432/retrogame_test
-
-          - name: Install Playwright
-            run: npx playwright install --with-deps
-
-          - name: Start application
-            run: |
-              npm run build
-              npm start &
-              sleep 10
-            env:
-              NODE_ENV: test
-              DATABASE_URL: postgresql://postgres:postgres@localhost:5432/retrogame_test
-              REDIS_URL: redis://localhost:6379
-
-          - name: Run E2E tests
-            run: npx playwright test
-
-          - name: Run API tests with Newman
-            run: npx newman run ./postman/RetroGameCloud-API.json -e ./postman/environments/ci.json
-
-          - name: Upload test results
-            uses: actions/upload-artifact@v4
-            if: always()
-            with:
-              name: e2e-results
-              path: |
-                playwright-report/
-                test-results/
-                newman-results.xml
     ```
-
   </Tab>
 
-  <Tab title="docker-compose.test.yml">
-    ```yaml
-    version: '3.8'
+  <Tab title="test-setup.ts">
+    ```typescript
+    // tests/e2e/setup/test-setup.ts
+    import { test as baseTest } from '@playwright/test';
+    import { AuthPage } from '../pages/auth.page';
+    import { GameLibraryPage } from '../pages/game-library.page';
+    import { RoomPage } from '../pages/room.page';
 
-    services:
-      app-test:
-        build:
-          context: .
-          dockerfile: Dockerfile.test
-        ports:
-          - "3000:3000"
-        environment:
-          - NODE_ENV=test
-          - DATABASE_URL=postgresql://postgres:postgres@db-test:5432/retrogame_test
-          - REDIS_URL=redis://redis-test:6379
-        depends_on:
-          - db-test
-          - redis-test
-        volumes:
-          - ./test-results:/app/test-results
+    type TestFixtures = {
+      authPage: AuthPage;
+      gameLibraryPage: GameLibraryPage;
+      roomPage: RoomPage;
+    };
 
-      db-test:
-        image: postgres:15
-        environment:
-          POSTGRES_DB: retrogame_test
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - "5432:5432"
+    export const test = baseTest.extend<TestFixtures>({
+      authPage: async ({ page }, use) => {
+        const authPage = new AuthPage(page);
+        await use(authPage);
+      },
+      gameLibraryPage: async ({ page }, use) => {
+        const gameLibraryPage = new GameLibraryPage(page);
+        await use(gameLibraryPage);
+      },
+      roomPage: async ({ page }, use) => {
+        const roomPage = new RoomPage(page);
+        await use(roomPage);
+      }
+    });
+
+    export { expect } from '@playwright/test';
     ```
-
   </Tab>
 </Tabs>
+
+### Page Object Models
+
+<Tabs>
+  <Tab title="auth.page.ts">
+    ```typescript
+    // tests/e2e/pages/auth.page.ts
+    import { Page, Locator } from '@playwright/test';
+
+    export class AuthPage {
+      readonly page: Page;
+      readonly emailInput: Locator;
+      readonly passwordInput: Locator;
+      readonly loginButton: Locator;
+      readonly registerButton: Locator;
+      readonly errorMessage: Locator;
+
+      constructor(page: Page) {
+        this.page = page;
+        this.emailInput = page.locator('[data-testid="email-input"]');
+        this.passwordInput = page.locator('[data-testid="password-input"]');
+        this.loginButton = page.locator('[data-testid="login-button"]');
+        this.registerButton = page.locator('[data-testid="register-button"]');
+        this.errorMessage = page.locator('[data-testid="error-message"]');
+      }
+
+      async goto() {
+        await this.page.goto('/auth/login');
+      }
+
+      async login(email: string, password: string) {
+        await this.emailInput.fill(email);
+        await this.passwordInput.fill(password);
+        await this.loginButton.click();
+      }
+
+      async register(userData: {
+        email: string;
+        password: string;
+        username: string;
+      }) {
+        await this.page.goto('/auth/register');
+        await this.page.locator('[data-testid="username-input"]').fill(userData.username);
+        await this.emailInput.fill(userData.email);
+        await this.passwordInput.fill(userData.password);
+        await this.registerButton.click();
+      }
+
+      async isLoggedIn() {
+        await this.page.waitForURL('/dashboard');
+        return this.page.url().includes('/dashboard');
+      }
+    }
+    ```
+  </Tab>
+
+  <Tab title="game-library.page.ts">
+    ```typescript
+    // tests/e2e/pages/game-library.page.ts
+    import { Page, Locator } from '@playwright/test';
+
+    export class GameLibraryPage {
+      readonly page: Page;
+      readonly searchInput: Locator;
+      readonly gameCards: Locator;
+      readonly filterByGenre: Locator;
+      readonly createRoomButton: Locator;
+
+      constructor(page: Page) {
+        this.page = page;
+        this.searchInput = page.locator('[data-testid="game-search"]');
+        this.gameCards = page.locator('[data-testid="game-card"]');
+        this.filterByGenre = page.locator('[data-testid="genre-filter"]');
+        this.createRoomButton = page.locator('[data-testid="create-room-btn"]');
+      }
+
+      async goto() {
+        await this.page.goto('/games');
+      }
+
+      async searchGame(gameName: string) {
+        await this.searchInput.fill(gameName);
+        await this.page.waitForTimeout(500); // Debounce
+      }
+
+      async selectGame(gameTitle: string) {
+        await this.page.locator(`[data-testid="game-card"][data-game="${gameTitle}"]`).click();
+      }
+
+      async filterByGenre(genre: string) {
+        await this.filterByGenre.selectOption(genre);
+      }
+
+      async createRoom(gameTitle: string) {
+        await this.selectGame(gameTitle);
+        await this.createRoomButton.click();
+      }
+    }
+    ```
+  </Tab>
+
+  <Tab title="room.page.ts">
+    ```typescript
+    // tests/e2e/pages/room.page.ts
+    import { Page, Locator } from '@playwright/test';
+
+    export class RoomPage {
+      readonly page: Page;
+      readonly gameCanvas: Locator;
+      readonly chatInput: Locator;
+      readonly sendMessageButton: Locator;
+      readonly playersList: Locator;
+      readonly leaveRoomButton: Locator;
+
+      constructor(page: Page) {
+        this.page = page;
+        this.gameCanvas = page.locator('[data-testid="game-canvas"]');
+        this.chatInput = page.locator('[data-testid="chat-input"]');
+        this.sendMessageButton = page.locator('[data-testid="send-message"]');
+        this.playersList = page.locator('[data-testid="players-list"]');
+        this.leaveRoomButton = page.locator('[data-testid="leave-room"]');
+      }
+
+      async sendChatMessage(message: string) {
+        await this.chatInput.fill(message);
+        await this.sendMessageButton.click();
+      }
+
+      async waitForGameToLoad() {
+        await this.gameCanvas.waitFor({ state: 'visible' });
+        await this.page.waitForTimeout(2000); // Esperar carga del juego
+      }
+
+      async pressGameKey(key: string) {
+        await this.gameCanvas.focus();
+        await this.page.keyboard.press(key);
+      }
+
+      async leaveRoom() {
+        await this.leaveRoomButton.click();
+      }
+
+      async getPlayerCount() {
+        return await this.playersList.locator('[data-testid="player"]').count();
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Casos de Prueba E2E por Servicio
+
+<Tabs>
+  <Tab title="auth.spec.ts">
+    ```typescript
+    // tests/e2e/auth.spec.ts
+    import { test, expect } from './setup/test-setup';
+
+    test.describe('Authentication', () => {
+      test('should login with valid credentials', async ({ authPage }) => {
+        await authPage.goto();
+        await authPage.login('test@example.com', 'password123');
+        
+        expect(await authPage.isLoggedIn()).toBe(true);
+      });
+
+      test('should show error with invalid credentials', async ({ authPage }) => {
+        await authPage.goto();
+        await authPage.login('invalid@example.com', 'wrongpassword');
+        
+        await expect(authPage.errorMessage).toBeVisible();
+        await expect(authPage.errorMessage).toContainText('Invalid credentials');
+      });
+
+      test('should register new user', async ({ authPage }) => {
+        const userData = {
+          email: 'newuser@example.com',
+          password: 'newpassword123',
+          username: 'newuser'
+        };
+
+        await authPage.register(userData);
+        expect(await authPage.isLoggedIn()).toBe(true);
+      });
+
+      test('should prevent registration with existing email', async ({ authPage }) => {
+        const userData = {
+          email: 'test@example.com', // Email ya existente
+          password: 'password123',
+          username: 'testuser'
+        };
+
+        await authPage.register(userData);
+        await expect(authPage.errorMessage).toContainText('Email already exists');
+      });
+    });
+    ```
+  </Tab>
+
+  <Tab title="game-library.spec.ts">
+    ```typescript
+    // tests/e2e/game-library.spec.ts
+    import { test, expect } from './setup/test-setup';
+
+    test.describe('Game Library', () => {
+      test.beforeEach(async ({ authPage }) => {
+        await authPage.goto();
+        await authPage.login('test@example.com', 'password123');
+      });
+
+      test('should display game library', async ({ gameLibraryPage }) => {
+        await gameLibraryPage.goto();
+        
+        await expect(gameLibraryPage.gameCards.first()).toBeVisible();
+        expect(await gameLibraryPage.gameCards.count()).toBeGreaterThan(0);
+      });
+
+      test('should search games', async ({ gameLibraryPage
+</Tab>
+</Tabs>
+```

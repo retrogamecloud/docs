@@ -1,29 +1,38 @@
 ---
-title: Introduction
-description: Example section for showcasing API endpoints
+title: 7. API Reference - Introduction
+description: Comprehensive API documentation for all system endpoints and integrations
 icon: code
 ---
 
 <Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
+  Esta sección contiene la documentación completa de todas las APIs del sistema, 
+  incluyendo endpoints REST, GraphQL y integraciones de terceros.
 </Note>
 
-## Welcome
+## Bienvenido a la Referencia de API
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+Nuestra documentación de API está construida usando [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) y [componentes MDX](https://mintlify.com/docs/api-playground/mdx/configuration) para proporcionar una experiencia de desarrollo completa y interactiva.
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+<CardGroup cols={2}>
+  <Card
+    title="REST API Endpoints"
+    icon="globe"
+    href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
+  >
+    Especificación OpenAPI completa de nuestros endpoints REST
+  </Card>
+  <Card
+    title="GraphQL Schema"
+    icon="graphql"
+    href="/api-reference/graphql"
+  >
+    Documentación del esquema GraphQL y queries disponibles
+  </Card>
+</CardGroup>
 
-## Authentication
+## Autenticación y Seguridad
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+Todos los endpoints de la API están autenticados usando tokens Bearer y están definidos en el archivo de especificación OpenAPI.
 
 ```json
 "security": [
@@ -31,5 +40,82 @@ All API endpoints are authenticated using Bearer tokens and picked up from the s
     "bearerAuth": []
   }
 ]
-
 ```
+
+### Tipos de Autenticación
+
+<AccordionGroup>
+  <Accordion title="Bearer Token Authentication">
+    Método principal para autenticación de APIs REST
+    ```bash
+    curl -H "Authorization: Bearer YOUR_TOKEN" https://api.example.com/endpoint
+    ```
+  </Accordion>
+  <Accordion title="API Key Authentication">
+    Para integraciones de servicios específicos
+    ```bash
+    curl -H "X-API-Key: YOUR_API_KEY" https://api.example.com/endpoint
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Estructura de la API
+
+<Steps>
+  <Step title="Endpoints Principales">
+    APIs core del sistema para funcionalidades principales
+  </Step>
+  <Step title="Webhooks">
+    Configuración y manejo de eventos en tiempo real
+  </Step>
+  <Step title="Integraciones">
+    APIs para conectar con servicios de terceros
+  </Step>
+  <Step title="Utilidades">
+    Endpoints auxiliares para operaciones de soporte
+  </Step>
+</Steps>
+
+## Códigos de Respuesta
+
+| Código | Descripción | Uso |
+|--------|-------------|-----|
+| `200` | OK | Operación exitosa |
+| `201` | Created | Recurso creado correctamente |
+| `400` | Bad Request | Error en los parámetros de entrada |
+| `401` | Unauthorized | Token de autenticación inválido |
+| `403` | Forbidden | Permisos insuficientes |
+| `404` | Not Found | Recurso no encontrado |
+| `429` | Rate Limited | Límite de requests excedido |
+| `500` | Internal Error | Error interno del servidor |
+
+## Rate Limiting
+
+Las APIs implementan rate limiting para garantizar la estabilidad del sistema:
+
+- **Requests por minuto**: 1000 requests/min por token
+- **Burst limit**: 100 requests en 10 segundos
+- **Headers de respuesta**: `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+
+<Warning>
+  Los límites pueden variar según el tipo de endpoint y el plan de suscripción.
+</Warning>
+
+## Próximos Pasos
+
+<CardGroup cols={2}>
+  <Card
+    title="Explorar Endpoints"
+    icon="play"
+    href="/api-reference/endpoints"
+  >
+    Comienza explorando los endpoints disponibles
+  </Card>
+  <Card
+    title="Configurar Webhooks"
+    icon="webhook"
+    href="/api-reference/webhooks"
+  >
+    Configura webhooks para eventos en tiempo real
+  </Card>
+</CardGroup>

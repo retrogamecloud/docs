@@ -1,7 +1,8 @@
 ---
-title: "6.10. Matriz de Compatibilidad de Versiones"
-description: "Tabla completa de compatibilidad entre versiones de componentes y proceso de actualización entre versiones mayores"
-icon: "table"
+title: 6.10. Matriz de Compatibilidad de Versiones
+description: Tabla completa de compatibilidad entre versiones de componentes y proceso
+  de actualización entre versiones mayores
+icon: table
 ---
 
 # 6.10. Matriz de Compatibilidad de Versiones
@@ -80,6 +81,7 @@ Las actualizaciones entre versiones mayores requieren planificación cuidadosa y
 #### Lista de Verificación Previa
 
 ```bash
+
 # Verificar versiones actuales
 kubectl version --short
 node --version
@@ -93,27 +95,40 @@ kong version
 # Verificar estado del clúster
 kubectl get nodes -o wide
 kubectl get pods --all-namespaces | grep -v Running
+
 ```
 
 #### Ventanas de Mantenimiento Estimadas
 
 <Tabs>
 <Tab title="Kubernetes">
+
 - **Minor Version** (1.29 → 1.30): 2-4 horas
+
 - **Patch Version** (1.30.1 → 1.30.2): 30-60 minutos
+
 - **Rollback**: 15-30 minutos
+
 - **Validación Post-upgrade**: 1 hora
 </Tab>
 <Tab title="Node.js">
+
 - **Major Version** (18 → 20): 4-6 horas
+
 - **Minor Version** (20.9 → 20.11): 1-2 horas
+
 - **Rollback**: 30-45 minutos
+
 - **Testing completo**: 2 horas
 </Tab>
 <Tab title="PostgreSQL">
+
 - **Major Version** (14 → 15): 6-8 horas
+
 - **Minor Version** (15.5 → 15.6): 2-3 horas
+
 - **Rollback**: 4-6 horas (restauración backup)
+
 - **Migración de datos**: Variable según tamaño
 </Tab>
 </Tabs>
@@ -130,16 +145,20 @@ graph LR
     D --> E[ArgoCD]
     E --> F[Istio/Kong]
     F --> G[Verificación K8s]
+
 ```
 
 #### Fase 2: Servicios de Datos
 
 ```bash
+
 # 1. PostgreSQL (requiere downtime)
 kubectl scale deployment auth-service --replicas=0
 kubectl scale deployment user-service --replicas=0
+
 # Actualizar PostgreSQL
 ./scripts/upgrade-postgresql.sh
+
 # Verificar migración de datos
 ./scripts/verify-db-migration.sh
 
@@ -147,11 +166,13 @@ kubectl scale deployment user-service --replicas=0
 helm upgrade redis-cluster ./charts/redis \
   --set image.tag=7.2.4-alpine \
   --wait --timeout=600s
+
 ```
 
 #### Fase 3: Aplicaciones
 
 ```bash
+
 # 1. Actualizar imágenes base de microservicios
 docker build --build-arg NODE_VERSION=20.11 \
   -t retrogame/auth-service:v2.1.0 .
@@ -163,6 +184,7 @@ kubectl patch application auth-service \
 
 # 3. Verificar health checks
 kubectl get pods -l app=auth-service -w
+
 ```
 
 ### 3. Plan de Rollback
@@ -174,6 +196,7 @@ Siempre ten preparado un plan de rollback antes de iniciar cualquier actualizaci
 #### Rollback Automático
 
 ```yaml
+
 # rollback-playbook.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -184,16 +207,17 @@ data:
     kubectl rollout undo deployment/auth-service
     kubectl rollout undo deployment/user-service
     kubectl rollout undo deployment/game-catalog-service
-  
+
   database: |
     # Restaurar desde backup automático
     pg_restore -h postgres-primary -U postgres \
       --clean --create /backups/pre-upgrade-backup.sql
-  
+
   applications: |
     argocd app rollback auth-service
     argocd app rollback user-service
     argocd app sync game-catalog-service
+
 ```
 
 #### Tiempos de Rollback por Componente
@@ -207,7 +231,8 @@ data:
 | Frontend | 2-5 minutos | Ninguna | Baja |
 
 <Note>
-*La pérdida de datos en PostgreSQL durante rollback depende del tiempo transcurrido y los cambios de esquema realizados.
+
+* La pérdida de datos en PostgreSQL durante rollback depende del tiempo transcurrido y los cambios de esquema realizados.
 </Note>
 
 ### 4. Validación Post-Actualización
@@ -216,6 +241,7 @@ data:
 
 ```bash
 #!/bin/bash
+
 # post-upgrade-validation.sh
 
 echo "=== Validación de Infraestructura ==="
@@ -237,21 +263,30 @@ redis-cli -h redis-primary ping
 
 echo "=== Tests E2E Críticos ==="
 npm run test:e2e:smoke
+
 ```
 
 #### Métricas de Validación
 
 <Tabs>
 <Tab title="SLA Targets">
+
 - **Tiempo de respuesta API**: < 200ms (p95)
+
 - **Disponibilidad**: > 99.9%
+
 - **Error rate**: < 0.1%
+
 - **Tiempo de inicio pods**: < 60s
 </Tab>
 <Tab title="Métricas de Recursos">
+
 - **CPU usage**: < 70% (promedio)
+
 - **Memory usage**: < 80% (promedio)
+
 - **Disk I/O**: < 80% capacidad
+
 - **Network latency**: < 10ms (interno)
 </Tab>
 </Tabs>
@@ -278,13 +313,14 @@ graph TD
     K8s[Kubernetes 1.30] --> A[ArgoCD 2.9+]
     K8s --> I[Istio 1.20+]
     K8s --> H[Helm 3.13+]
-    
+
     N[Node.js 20.x] --> P[pg driver 8.11+]
     N --> R[redis driver 4.6+]
     N --> E[Express 4.18+]
-    
+
     PG[PostgreSQL 15] --> B[Backup tools 15+]
     PG --> M[Migration tools 15+]
+
 ```
 
 ## Calendario de Actualizaciones 2024

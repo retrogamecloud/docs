@@ -1,110 +1,227 @@
 ---
-title: Claude Code Setup
-description: Configure Claude Code for your documentation workflow
-icon: asterisk
+title: AI-Powered Development Tools
+description: Complete guide to setting up AI coding assistants for documentation workflows
+icon: robot
 ---
 
-Claude Code is Anthropic's official CLI tool. This guide will help you set up Claude Code to help you write and maintain your documentation.
+Modern AI-powered development tools can significantly improve your documentation workflow. This guide covers the setup and best practices for the most popular AI coding assistants: Claude Code, Cursor, and Windsurf.
 
-## Prerequisites
+## Overview
+
+| Tool | Best For | Pricing | Key Features |
+|------|----------|---------|--------------|
+| Claude Code | Documentation writing | Pro/API subscription | CLI interface, context-aware |
+| Cursor | Code editing with AI | Free/Pro tiers | VS Code fork, inline suggestions |
+| Windsurf | Full-stack development | Free/Pro tiers | Multi-file editing, project understanding |
+
+## Claude Code Setup
+
+Claude Code is Anthropic's official CLI tool, excellent for documentation workflows.
+
+### Prerequisites
 
 - Active Claude subscription (Pro, Max, or API access)
+- Node.js installed
 
-## Setup
+### Installation
 
 1. Install Claude Code globally:
 
-  ```bash
-  npm install -g @anthropic-ai/claude-code
-
+```bash
+npm install -g @anthropic-ai/claude-code
 ```
 
-2. Navigate to your docs directory.
-3. (Optional) Add the `CLAUDE.md` file below to your project.
-4. Run `claude` to start.
+2. Navigate to your docs directory
+3. Add the `CLAUDE.md` configuration file (see below)
+4. Run `claude` to start
 
-## Create `CLAUDE.md`
+### Configuration
 
-Create a `CLAUDE.md` file at the root of your documentation repository to train Claude Code on your specific documentation standards:
+Create a `CLAUDE.md` file at the root of your documentation repository:
 
 ````markdown
+# Mintlify Documentation Assistant
 
-# Mintlify documentation
-
-## Working relationship
-
-- You can push back on ideas-this can lead to better documentation. Cite sources and explain your reasoning when you do so
-
-- ALWAYS ask for clarification rather than making assumptions
-
+## Working Relationship
+- Push back on ideas when needed - cite sources and explain reasoning
+- ALWAYS ask for clarification rather than making assumptions  
 - NEVER lie, guess, or make up information
 
-## Project context
-
+## Project Context
 - Format: MDX files with YAML frontmatter
-
 - Config: docs.json for navigation, theme, settings
+- Components: Mintlify components available
 
-- Components: Mintlify components
-
-## Content strategy
-
-- Document just enough for user success - not too much, not too little
-
-- Prioritize accuracy and usability of information
-
+## Content Strategy
+- Document just enough for user success
+- Prioritize accuracy and usability
 - Make content evergreen when possible
+- Check for existing content before adding new
+- Maintain consistency with existing patterns
+- Start with smallest reasonable changes
 
-- Search for existing information before adding new content. Avoid duplication unless it is done for a strategic reason
-
-- Check existing patterns for consistency
-
-- Start by making the smallest reasonable changes
-
-## Frontmatter requirements for pages
-
-- title: Clear, descriptive page title
-
-- description: Concise summary for SEO/navigation
-
-## Writing standards
-
+## Writing Standards
 - Second-person voice ("you")
-
-- Prerequisites at start of procedural content
-
-- Test all code examples before publishing
-
-- Match style and formatting of existing pages
-
-- Include both basic and advanced use cases
-
+- Prerequisites at start of procedures
+- Test all code examples
+- Include basic and advanced use cases
 - Language tags on all code blocks
-
 - Alt text on all images
-
-- Relative paths for internal links
-
-## Git workflow
-
-- NEVER use --no-verify when committing
-
-- Ask how to handle uncommitted changes before starting
-
-- Create a new branch when no clear branch exists for changes
-
-- Commit frequently throughout development
-
-- NEVER skip or disable pre-commit hooks
-
-## Do not
-
-- Skip frontmatter on any MDX file
-
-- Use absolute URLs for internal links
-
-- Include untested code examples
-
-- Make assumptions - always ask for clarification
-
+- Clear, descriptive titles and descriptions
 ````
+
+## Cursor Setup
+
+Cursor is a VS Code fork with built-in AI assistance.
+
+### Installation
+
+1. Download from [cursor.sh](https://cursor.sh)
+2. Install like any desktop application
+3. Import your VS Code settings (optional)
+
+### Key Features
+
+- **Tab completion**: AI suggests code as you type
+- **Cmd+K**: Generate code from natural language
+- **Cmd+L**: Chat with AI about your code
+- **@ symbols**: Reference specific files or documentation
+
+### Best Practices
+
+```javascript
+// Use descriptive comments for better AI suggestions
+// TODO: Add error handling for API calls
+const fetchUserData = async (userId) => {
+  // AI will suggest appropriate implementation
+}
+```
+
+## Windsurf Setup
+
+Windsurf excels at understanding entire project contexts and making multi-file changes.
+
+### Installation
+
+1. Download from [codeium.com/windsurf](https://codeium.com/windsurf)
+2. Create account or sign in
+3. Open your documentation project
+
+### Key Features
+
+- **Cascade**: Multi-file AI editing
+- **Project understanding**: Analyzes entire codebase
+- **Smart suggestions**: Context-aware recommendations
+- **Collaborative editing**: Real-time AI assistance
+
+### Workflow Integration
+
+1. Open your docs project in Windsurf
+2. Use Cascade for large refactoring tasks
+3. Let AI analyze project structure for consistency
+4. Use chat for planning documentation improvements
+
+## Documentation-Specific Tips
+
+### For All Tools
+
+<Tip>
+Always review AI-generated content for accuracy and consistency with your brand voice.
+</Tip>
+
+### Content Creation Workflow
+
+1. **Planning**: Use AI chat to brainstorm topics and structure
+2. **Writing**: Let AI help with first drafts and examples
+3. **Review**: AI can check for consistency and completeness
+4. **Testing**: Verify all code examples work as expected
+
+### Common Prompts
+
+```text
+"Create a troubleshooting section for [feature]"
+"Generate code examples for [API endpoint]"  
+"Review this documentation for clarity and completeness"
+"Suggest improvements for user onboarding flow"
+```
+
+### Integration with Mintlify
+
+All three tools work well with Mintlify's MDX format:
+
+```mdx
+---
+title: "AI-Generated Guide"
+description: "Documentation created with AI assistance"
+---
+
+<Info>
+AI tools can help generate structured content like this info block.
+</Info>
+
+## Code Examples
+
+AI assistants excel at creating properly formatted code blocks:
+
+```javascript
+// AI can generate realistic, working examples
+const config = {
+  apiKey: process.env.API_KEY,
+  baseURL: 'https://api.example.com'
+};
+```
+
+## Best Practices
+
+### Security Considerations
+
+<Warning>
+Never include sensitive information like API keys or passwords in AI prompts.
+</Warning>
+
+- Use placeholder values in examples
+- Review generated code for security issues
+- Keep proprietary information out of AI conversations
+
+### Quality Control
+
+1. **Fact-check**: Verify all technical information
+2. **Test**: Run all code examples before publishing
+3. **Review**: Ensure content matches your style guide
+4. **Update**: Keep AI-generated content current
+
+### Productivity Tips
+
+- **Consistent prompts**: Develop standard prompts for common tasks
+- **Context files**: Maintain updated context files for each tool
+- **Iterative improvement**: Refine prompts based on results
+- **Team alignment**: Share successful prompts with your team
+
+## Troubleshooting
+
+### Common Issues
+
+**Claude Code not starting**: Check API key configuration and subscription status
+
+**Cursor suggestions not appearing**: Verify internet connection and try restarting
+
+**Windsurf project analysis slow**: Large projects may need time for initial analysis
+
+### Getting Help
+
+- Claude Code: Check Anthropic documentation
+- Cursor: Visit cursor.sh/docs  
+- Windsurf: See Codeium support resources
+
+## Next Steps
+
+1. Choose the tool that best fits your workflow
+2. Set up configuration files for consistent results
+3. Start with simple documentation tasks
+4. Gradually integrate AI assistance into your full workflow
+5. Share learnings with your team
+
+<Tip>
+Consider using multiple tools - each has unique strengths that can complement your documentation process.
+</Tip>
+```

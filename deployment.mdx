@@ -1,19 +1,61 @@
 ---
-title: 7.5. Guía de Despliegue
-description: Instrucciones completas para desplegar Retro Game Hub en producción
-icon: file-lines
+title: 7.5. Guía de Despliegue y CI/CD
+description: Guía completa para desplegar Retro Game Hub con GitOps y despliegue continuo
+icon: rocket
 ---
 
-# Guía de Despliegue en Producción
+# Guía de Despliegue y CI/CD con GitOps
 
-Esta guía cubre el despliegue completo de Retro Game Hub en AWS utilizando EKS, RDS, CloudFront y toda la infraestructura necesaria.
+Esta guía cubre el despliegue completo de Retro Game Hub utilizando prácticas modernas de GitOps, incluyendo infraestructura como código, pipelines de CI/CD automatizados y despliegue continuo con ArgoCD.
 
-## 📋 Pre-requisitos
+## 📋 Arquitectura de Despliegue
+
+```mermaid
+graph TB
+    subgraph "Desarrollo"
+        DEV[Desarrolladores]
+        GIT[Git Repository]
+    end
+    
+    subgraph "CI/CD Pipeline"
+        GHA[GitHub Actions]
+        BUILD[Build & Test]
+        SCAN[Security Scan]
+        REG[Container Registry]
+    end
+    
+    subgraph "GitOps"
+        ARGO[ArgoCD]
+        HELM[Helm Charts]
+        K8S[Kubernetes]
+    end
+    
+    subgraph "AWS Infrastructure"
+        EKS[EKS Cluster]
+        RDS[(RDS PostgreSQL)]
+        S3[S3 Bucket]
+        CF[CloudFront]
+    end
+    
+    DEV --> GIT
+    GIT --> GHA
+    GHA --> BUILD
+    BUILD --> SCAN
+    SCAN --> REG
+    REG --> ARGO
+    ARGO --> HELM
+    HELM --> K8S
+    K8S --> EKS
+    EKS --> RDS
+    EKS --> S3
+    S3 --> CF
+```
+
+## 🔧 Pre-requisitos
 
 ### Herramientas Requeridas
 
 ```bash
-
 # AWS CLI
 aws --version  # >= 2.x
 
@@ -23,69 +65,74 @@ terraform --version  # >= 1.5.0
 # kubectl
 kubectl version --client  # >= 1.28
 
-# Helm (opcional, para futuros componentes)
+# Helm
 helm version  # >= 3.12
 
 # Docker
 docker --version  # >= 24.0
 
+# ArgoCD CLI
+argocd version  # >= 2.9
 ```
 
-### Credenciales AWS
+### Credenciales y Configuración
 
 ```bash
-
 # Configurar credenciales AWS
 aws configure
 
 # Verificar acceso
 aws sts get-caller-identity
 
-# Permisos necesarios:
-
-# - EC2 (VPC, Subnets, Security Groups)
-
-# - EKS (Cluster, Node Groups)
-
-# - RDS (Databases, Snapshots)
-
-# - S3 (Buckets, Objects)
-
-# - CloudFront (Distributions)
-
-# - IAM (Roles, Policies)
-
-# - Route53 (Hosted Zones, Records)
-
-```
-
-### Variables de Entorno Base
-
-```bash
+# Variables de entorno base
 export AWS_REGION="eu-west-1"
 export CLUSTER_NAME="retrogame-eks-cluster"
 export DOMAIN="retrogamehub.games"
-
+export ARGOCD_NAMESPACE="argocd"
 ```
 
-- --
+### Permisos AWS Necesarios
 
-## 🏗️ Fase 1: Infraestructura AWS con Terraform
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:*",
+        "eks:*",
+        "rds:*",
+        "s3:*",
+        "cloudfront:*",
+        "iam:*",
+        "route53:*",
+        "ecr:*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
 
-### 1.1 Clonar el Repositorio
+---
+
+## 🏗️ Fase 1: Infraestructura con Terraform
+
+### 1.1 Configuración Inicial
 
 ```bash
+# Clonar repositorio de infraestructura
 git clone https://github.com/retrogamecloud/infrastructure.git
 cd infrastructure
 
+# Crear archivo de variables
+cp terraform.tfvars.example terraform.tfvars
 ```
 
-### 1.2 Configurar Variables de Terraform
-
-Crear archivo `terraform.tfvars`:
+### 1.2 Variables de Terraform
 
 ```hcl
-
 # terraform.tfvars
 aws_region = "eu-west-1"
 environment = "production"
@@ -96,707 +143,397 @@ availability_zones = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
 
 # EKS Configuration
 cluster_name = "retrogame-eks-cluster"
-cluster_version = "1.34"
+cluster_version = "1.29"
 node_instance_type = "t3.medium"
 desired_nodes = 3
 min_nodes = 2
-max_nodes = 5
+max_nodes = 10
 
 # RDS Configuration
 db_instance_class = "db.t3.micro"
 db_name = "retrogamedb"
 db_username = "postgres"
-
-# ⚠️ CAMBIAR en producción
+# ⚠️ Usar AWS Secrets Manager en producción
 db_password = "CHANGE_ME_IN_PRODUCTION"
 
 # S3 Configuration
 cdn_bucket_name = "retrogame-cdn-production"
 
-# Tags
-project = "RetroGameCloud"
-team = "DevOps"
+# ArgoCD Configuration
+argocd_enabled = true
+argocd_version = "5.51.6"
 
+# Tags
+tags = {
+  Environment = "production"
+  Project     = "retrogame-hub"
+  ManagedBy   = "terraform"
+}
 ```
 
-### 1.3 Inicializar y Desplegar
+### 1.3 Desplegar Infraestructura
 
 ```bash
-
 # Inicializar Terraform
 terraform init
 
-# Validar configuración
-terraform validate
-
-# Revisar plan de ejecución
+# Planificar cambios
 terraform plan
 
-# ⚠️ Revisar costos estimados (aprox. $200-250/mes)
-
-# Aplicar infraestructura (tardará ~20-30 minutos)
+# Aplicar infraestructura
 terraform apply
 
-# Guardar outputs importantes
-terraform output -json > terraform-outputs.json
-
+# Obtener outputs importantes
+terraform output eks_cluster_endpoint
+terraform output rds_endpoint
+terraform output s3_bucket_name
 ```
 
-### 1.4 Outputs Importantes
-
-Terraform generará outputs críticos:
+### 1.4 Configurar kubectl
 
 ```bash
-
-# Ver todos los outputs
-terraform output
-
-# Outputs clave:
-
-# - vpc_id
-
-# - eks_cluster_endpoint
-
-# - eks_cluster_name
-
-# - rds_endpoint
-
-# - cloudfront_domain
-
-# - s3_bucket_name
-
-```
-
-- --
-
-## ⚙️ Fase 2: Configuración de Kubernetes
-
-### 2.1 Configurar kubectl
-
-```bash
-
-# Actualizar kubeconfig para EKS
-aws eks update-kubeconfig \
-  --region eu-west-1 \
-  --name retrogame-eks-cluster
+# Configurar acceso al cluster
+aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
 
 # Verificar conexión
+kubectl cluster-info
 kubectl get nodes
-
-# Deberías ver 3 nodos en estado Ready:
-
-# NAME                          STATUS   ROLES    AGE   VERSION
-
-# ip-10-0-1-100.eu-west-1...    Ready    <none>   5m    v1.34.1-eks-3025e55
-
-# ip-10-0-2-101.eu-west-1...    Ready    <none>   5m    v1.34.1-eks-3025e55
-
-# ip-10-0-3-102.eu-west-1...    Ready    <none>   5m    v1.34.1-eks-3025e55
-
 ```
 
-### 2.2 Crear Namespaces
+---
+
+## 🚀 Fase 2: Configuración de ArgoCD
+
+### 2.1 Instalación de ArgoCD
 
 ```bash
-
-# Crear namespaces para organización
-kubectl create namespace backend
-kubectl create namespace frontend
-kubectl create namespace monitoring
-
-# Etiquetar namespaces
-kubectl label namespace backend environment=production
-kubectl label namespace frontend environment=production
-
-```
-
-### 2.3 Configurar Secrets
-
-```bash
-
-# Database credentials
-kubectl create secret generic db-credentials \
-  --namespace=backend \
-  --from-literal=username=postgres \
-  --from-literal=password=YOUR_SECURE_PASSWORD \
-  --from-literal=host=YOUR_RDS_ENDPOINT \
-  --from-literal=database=retrogamedb
-
-# JWT Secret
-kubectl create secret generic jwt-secret \
-  --namespace=backend \
-  --from-literal=secret=$(openssl rand -base64 32)
-
-# Redis password (si usas Redis)
-kubectl create secret generic redis-credentials \
-  --namespace=backend \
-  --from-literal=password=$(openssl rand -base64 24)
-
-```
-
-### 2.4 Configurar ConfigMaps
-
-```bash
-
-# Backend configuration
-kubectl create configmap backend-config \
-  --namespace=backend \
-  --from-literal=NODE_ENV=production \
-  --from-literal=PORT=3000 \
-  --from-literal=REDIS_HOST=redis-service \
-  --from-literal=REDIS_PORT=6379
-
-```
-
-- --
-
-## 📦 Fase 3: Despliegue de Servicios Backend
-
-### 3.1 Clonar Repositorio Backend
-
-```bash
-cd ~/projects
-git clone https://github.com/retrogamecloud/backend.git
-cd backend
-
-```
-
-### 3.2 Build y Push de Imágenes Docker
-
-```bash
-
-# Configurar variables
-export DOCKER_USERNAME="your-dockerhub-username"
-export VERSION="1.0.0"
-
-# Build de cada servicio
-services=("auth-service" "user-service" "game-catalog-service" "score-service" "ranking-service")
-
-for service in "${services[@]}"; do
-  echo "Building $service..."
-
-  docker build -t $DOCKER_USERNAME/$service:$VERSION \
-    -f $service/Dockerfile \
-    $service/
-
-  docker tag $DOCKER_USERNAME/$service:$VERSION \
-    $DOCKER_USERNAME/$service:latest
-
-  docker push $DOCKER_USERNAME/$service:$VERSION
-  docker push $DOCKER_USERNAME/$service:latest
-done
-
-```
-
-### 3.3 Desplegar Servicios en Kubernetes
-
-```bash
-
-# Aplicar manifiestos de Kubernetes
-cd kubernetes/
-
-# Desplegar en orden de dependencias
-kubectl apply -f auth-service/ -n backend
-kubectl apply -f user-service/ -n backend
-kubectl apply -f game-catalog-service/ -n backend
-kubectl apply -f score-service/ -n backend
-kubectl apply -f ranking-service/ -n backend
-
-# Verificar deployments
-kubectl get deployments -n backend
-
-# Verificar pods
-kubectl get pods -n backend
-
-# Todos deben estar en estado Running:
-
-# NAME                                  READY   STATUS    RESTARTS   AGE
-
-# auth-service-7d9c8b5f4-x7k2m         1/1     Running   0          2m
-
-# user-service-6f8a9c4d3-m5n8p         1/1     Running   0          2m
-
-# game-catalog-service-5e7b8a2c1-q9r4  1/1     Running   0          2m
-
-# score-service-4d6c7b3a2-w8t5v        1/1     Running   0          2m
-
-# ranking-service-3c5d6e2b1-y7u6n      1/1     Running   0          2m
-
-```
-
-### 3.4 Verificar Servicios
-
-```bash
-
-# Ver servicios creados
-kubectl get services -n backend
-
-# Verificar logs de un pod
-kubectl logs -f deployment/auth-service -n backend
-
-# Probar conectividad interna
-kubectl run test-pod --image=busybox -it --rm -n backend \
-  --command -- wget -qO- http://auth-service:3000/health
-
-```
-
-- --
-
-## 🌐 Fase 4: Despliegue de Kong API Gateway
-
-### 4.1 Desplegar Kong
-
-```bash
-
-# Aplicar manifiestos de Kong
-kubectl apply -f kong/
-
-# Verificar deployment
-kubectl get pods -n backend -l app=kong
-
-# Esperar a que Kong esté Ready
-kubectl wait --for=condition=ready pod \
-  -l app=kong \
-  -n backend \
-  --timeout=300s
-
-```
-
-### 4.2 Obtener Load Balancer URL
-
-```bash
-
-# Obtener URL del Load Balancer
-export KONG_LB=$(kubectl get svc kong-proxy \
-  -n backend \
-  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-
-echo "Kong Load Balancer: http://$KONG_LB"
-
-# Probar Kong Admin API
-curl http://$KONG_LB:8001/status
-
-```
-
-### 4.3 Configurar Rutas de Kong
-
-```bash
-
-# Las rutas ya están configuradas en kong.yml
-
-# Verificar configuración
-kubectl exec -it deployment/kong -n backend -- kong config db_export
-
-```
-
-- --
-
-## 🎮 Fase 5: Despliegue del Frontend
-
-### 5.1 Subir Archivos al S3
-
-```bash
-cd frontend/
-
-# Obtener nombre del bucket de Terraform
-export S3_BUCKET=$(terraform output -raw s3_bucket_name)
-
-# Sincronizar archivos
-aws s3 sync . s3://$S3_BUCKET/ \
-  --exclude "node_modules/*" \
-  --exclude ".git/*" \
-  --exclude "Dockerfile" \
-  --exclude "package*.json"
-
-# Verificar archivos subidos
-aws s3 ls s3://$S3_BUCKET/ --recursive
-
-```
-
-### 5.2 Configurar Variables del Frontend
-
-Editar `frontend/score-tracker.js` con URLs de producción:
-
-```javascript
-const API_BASE_URL = 'https://api.retrogamehub.games';
-
-```
-
-Volver a sincronizar:
-
-```bash
-aws s3 cp score-tracker.js s3://$S3_BUCKET/
-
-```
-
-### 5.3 Configurar CloudFront
-
-```bash
-
-# Obtener ID de distribución CloudFront
-export CF_DIST_ID=$(terraform output -raw cloudfront_distribution_id)
-
-# Invalidar caché para forzar actualización
-aws cloudfront create-invalidation \
-  --distribution-id $CF_DIST_ID \
-  --paths "/*"
-
-# Obtener URL de CloudFront
-export CF_URL=$(terraform output -raw cloudfront_domain_name)
-echo "Frontend disponible en: https://$CF_URL"
-
-```
-
-- --
-
-## 🌍 Fase 6: Configuración de Dominio (Opcional pero Recomendado)
-
-### 6.1 Crear Hosted Zone en Route53
-
-```bash
-
-# Si compraste dominio en Route53, ya está creado
-
-# Si compraste en otro registrador:
-aws route53 create-hosted-zone \
-  --name retrogamehub.games \
-  --caller-reference $(date +%s)
-
-# Obtener nameservers
-aws route53 list-hosted-zones-by-name \
-  --dns-name retrogamehub.games
-
-```
-
-### 6.2 Solicitar Certificados SSL
-
-```bash
-
-# Certificado para CloudFront (debe ser en us-east-1)
-aws acm request-certificate \
-  --region us-east-1 \
-  --domain-name retrogamehub.games \
-  --subject-alternative-names "*.retrogamehub.games" \
-  --validation-method DNS
-
-# Certificado para Load Balancer (en región de EKS)
-aws acm request-certificate \
-  --region eu-west-1 \
-  --domain-name api.retrogamehub.games \
-  --validation-method DNS
-
-# ⚠️ Validar certificados en Route53 (proceso automático si usas Route53)
-
-```
-
-### 6.3 Configurar DNS Records
-
-```bash
-
-# Obtener Hosted Zone ID
-export ZONE_ID=$(aws route53 list-hosted-zones-by-name \
-  --dns-name retrogamehub.games \
-  --query 'HostedZones[0].Id' \
-  --output text)
-
-# Crear record para API (apunta a Kong Load Balancer)
-cat > api-record.json <<EOF
-{
-  "Changes": [{
-    "Action": "CREATE",
-    "ResourceRecordSet": {
-      "Name": "api.retrogamehub.games",
-      "Type": "CNAME",
-      "TTL": 300,
-      "ResourceRecords": [{"Value": "$KONG_LB"}]
-    }
-  }]
-}
+# Crear namespace
+kubectl create namespace argocd
+
+# Instalar ArgoCD usando Helm
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo update
+
+# Instalar con configuración personalizada
+cat <<EOF > argocd-values.yaml
+server:
+  service:
+    type: LoadBalancer
+  extraArgs:
+    - --insecure
+  config:
+    url: "https://argocd.${DOMAIN}"
+    application.instanceLabelKey: argocd.argoproj.io/instance
+
+controller:
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+repoServer:
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+redis:
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+notifications:
+  enabled: true
+  argocdUrl: "https://argocd.${DOMAIN}"
 EOF
 
-aws route53 change-resource-record-sets \
-  --hosted-zone-id $ZONE_ID \
-  --change-batch file://api-record.json
-
-# Crear record para Frontend (apunta a CloudFront)
-cat > frontend-record.json <<EOF
-{
-  "Changes": [{
-    "Action": "CREATE",
-    "ResourceRecordSet": {
-      "Name": "retrogamehub.games",
-      "Type": "A",
-      "AliasTarget": {
-        "HostedZoneId": "Z2FDTNDATAQYW2",
-        "DNSName": "$CF_URL",
-        "EvaluateTargetHealth": false
-      }
-    }
-  }]
-}
-EOF
-
-aws route53 change-resource-record-sets \
-  --hosted-zone-id $ZONE_ID \
-  --change-batch file://frontend-record.json
-
+helm install argocd argo/argo-cd \
+  --namespace argocd \
+  --values argocd-values.yaml \
+  --version 5.51.6
 ```
 
-- --
-
-## ✅ Fase 7: Verificación Post-Despliegue
-
-### 7.1 Health Checks
+### 2.2 Configurar Acceso a ArgoCD
 
 ```bash
+# Esperar a que ArgoCD esté listo
+kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
 
-# Verificar todos los servicios
-services=("auth" "user" "games" "scores" "rankings")
+# Obtener password inicial del admin
+ARGOCD_INITIAL_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+echo "ArgoCD Admin Password: $ARGOCD_INITIAL_PASSWORD"
 
-for service in "${services[@]}"; do
-  echo "Testing $service service..."
-  curl -f https://api.retrogamehub.games/$service/health || echo "❌ $service FAILED"
-done
+# Port forward para acceso local (temporal)
+kubectl port-forward svc/argocd-server -n argocd 8080:443 &
 
+# Login con ArgoCD CLI
+argocd login localhost:8080 --username admin --password $ARGOCD_INITIAL_PASSWORD --insecure
 ```
 
-### 7.2 Tests End-to-End
+### 2.3 Configurar Repositorios Git
 
 ```bash
+# Agregar repositorio de aplicaciones
+argocd repo add https://github.com/retrogamecloud/retrogame-hub.git \
+  --type git \
+  --name retrogame-app
 
-# Test de registro
-curl -X POST https://api.retrogamehub.games/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "testuser",
-    "email": "test@example.com",
-    "password": "Test123!"
-  }'
+# Agregar repositorio de Helm charts
+argocd repo add https://github.com/retrogamecloud/helm-charts.git \
+  --type git \
+  --name retrogame-charts
 
-# Test de login
-curl -X POST https://api.retrogamehub.games/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "testuser",
-    "password": "Test123!"
-  }'
-
-# Test de listado de juegos
-curl https://api.retrogamehub.games/games
-
-# Test de frontend
-curl -I https://retrogamehub.games
-
+# Listar repositorios
+argocd repo list
 ```
 
-### 7.3 Verificar Logs
+---
+
+## 🔄 Fase 3: Pipeline CI/CD con GitHub Actions
+
+### 3.1 Configuración de Secrets
+
+En GitHub, configurar los siguientes secrets:
 
 ```bash
+# AWS Credentials
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+AWS_REGION
 
-# Ver logs de todos los servicios
-kubectl logs -f deployment/auth-service -n backend --tail=50
-kubectl logs -f deployment/score-service -n backend --tail=50
-kubectl logs -f deployment/ranking-service -n backend --tail=50
+# Container Registry
+ECR_REPOSITORY_URI
 
-# Ver eventos del cluster
-kubectl get events -n backend --sort-by='.lastTimestamp'
+# Kubernetes
+KUBE_CONFIG_DATA  # Base64 encoded kubeconfig
 
+# ArgoCD
+ARGOCD_SERVER
+ARGOCD_TOKEN
 ```
 
-### 7.4 Verificar Base de Datos
+### 3.2 Pipeline Principal
 
-```bash
+```yaml
+# .github/workflows/ci-cd.yml
+name: CI/CD Pipeline
 
-# Conectar a RDS (desde un pod en el cluster)
-kubectl run psql-client --rm -it --image=postgres:15 -n backend -- \
-  psql -h YOUR_RDS_ENDPOINT -U postgres -d retrogamedb
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
 
-# Verificar tablas
-\dt
+env:
+  AWS_REGION: eu-west-1
+  ECR_REPOSITORY: retrogame-hub
+  EKS_CLUSTER_NAME: retrogame-eks-cluster
 
-# Verificar datos de prueba
-SELECT COUNT(*) FROM users;
-SELECT COUNT(*) FROM games;
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: |
+          npm run test:unit
+          npm run test:integration
+
+      - name: Run security audit
+        run: npm audit --audit-level high
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: [test, security-scan]
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: production
+    steps:
+      - name: Checkout GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: retrogamecloud/gitops-configs
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: gitops
+
+      - name: Update image tag
+        run: |
+          cd gitops
+          IMAGE_TAG=$(echo "${{ needs.build-and-push.outputs.image-tag }}" | grep -o 'main-[a-f0-9]\{7\}')
+          
+          # Update Helm values
+          sed -i "s|tag:.*|tag: ${IMAGE_TAG}|g" apps/retrogame-hub/values-production.yaml
+          
+          # Commit changes
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Update image tag to ${IMAGE_TAG}"
+          git push
+
+      - name: Sync ArgoCD Application
+        run: |
+          argocd login ${{ secrets.ARGOCD_SERVER }} --auth-token ${{ secrets.ARGOCD_TOKEN }}
+          argocd app sync retrogame-hub --prune
+          argocd app wait retrogame-hub --timeout 300
 ```
 
-- --
+### 3.3 Pipeline de Release
 
-## 🔄 Fase 8: Configuración de CI/CD (Opcional)
+```yaml
+# .github/workflows/release.yml
+name: Release
 
-### 8.1 GitHub Actions Secrets
+on:
+  release:
+    types: [published]
 
-Configurar secrets en GitHub:
+env:
+  AWS_REGION: eu-west-1
+  ECR_REPOSITORY: retrogame-hub
 
-```bash
+jobs:
+  release-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-# En GitHub repo → Settings → Secrets and variables → Actions
-AWS_ACCESS_KEY_ID=<your-key-id>
-AWS_SECRET_ACCESS_KEY=<your-secret-key>
-DOCKER_USERNAME=<dockerhub-username>
-DOCKER_PASSWORD=<dockerhub-token>
-KUBE_CONFIG_DATA=<base64-encoded-kubeconfig>
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push release image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.event.release.tag_name }}
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:stable
+
+      - name: Update production deployment
+        run: |
+          # Update production GitOps configuration
+          git clone https://${{ secrets.GITOPS_TOKEN }}@github.com/retrogamecloud/gitops-configs.git
+          cd gitops-configs
+          
+          sed -i "s|tag:.*|tag: ${{ github.event.release.tag_name }}|g" apps/retrogame-hub/values-production.yaml
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Release ${{ github.event.release.tag_name }} to production"
+          git push
 ```
 
-### 8.2 Workflow de Deploy Automático
+---
 
-Ya configurado en `.github/workflows/deploy.yml`. Cada push a `main` desplegará automáticamente.
+## 🎯 Fase 4: Configuración de Aplicaciones ArgoCD
 
-- --
-
-## 📊 Fase 9: Monitoreo (Próximamente)
-
-<Info>
-El stack de monitoreo con Prometheus y Grafana se desplegará próximamente según el ROADMAP.
-</Info>
-
-### Métricas a Monitorear
-
-- **EKS Cluster**: CPU, memoria, disco de nodos
-
-- **Pods**: CPU, memoria, restarts, crash loops
-
-- **RDS**: Conexiones, queries, latencia
-
-- **Kong**: Request rate, latencia, errores
-
-- **CloudFront**: Requests, cache hit ratio
-
-- --
-
-## 🚨 Troubleshooting
-
-### Pods no inician
-
-```bash
-
-# Describir el pod con problemas
-kubectl describe pod <pod-name> -n backend
-
-# Ver logs
-kubectl logs <pod-name> -n backend
-
-# Problemas comunes:
-
-# - Image pull errors → Verificar nombre de imagen en DockerHub
-
-# - CrashLoopBackOff → Revisar logs, variables de entorno
-
-# - Pending → Verificar recursos disponibles en nodos
+### 4.1 Estructura de Repositorio GitOps
 
 ```
-
-### Servicios no responden
-
-```bash
-
-# Verificar endpoints
-kubectl get endpoints -n backend
-
-# Verificar conectividad desde otro pod
-kubectl run test --rm -it --image=busybox -n backend -- \
-  wget -qO- http://auth-service:3000/health
-
-# Verificar Security Groups de AWS
-aws ec2 describe-security-groups --filters "Name=vpc-id,Values=<vpc-id>"
-
+gitops-configs/
+├── apps/
+│   └── retrogame-hub/
+│       ├── base/
+│       │   ├── kustomization.yaml
+│       │   ├── deployment.yaml
+│       │   ├── service.yaml
+│       │   └── ingress.yaml
+│       ├── overlays/
+│       │   ├── development/
+│       │   │   ├── kustomization.yaml
+│       │   │   └── values.yaml
+│       │   └── production/
+│       │       ├── kustomization.yaml
+│       │       └── values.yaml
+│       ├── values-development.yaml
+│       └── values-production.yaml
+├── charts/
+│   └── retrogame-hub/
+│       ├── Chart.yaml
+│       ├
 ```
-
-### Base de datos no conecta
-
-```bash
-
-# Verificar Security Group de RDS permite tráfico desde EKS
-
-# Verificar secret de DB está creado correctamente
-kubectl get secret db-credentials -n backend -o yaml
-
-# Test de conexión manual
-kubectl run psql-test --rm -it --image=postgres:15 -n backend -- \
-  psql -h <rds-endpoint> -U postgres -d retrogamedb
-
-```
-
-### CloudFront no actualiza
-
-```bash
-
-# Invalidar caché
-aws cloudfront create-invalidation \
-  --distribution-id <dist-id> \
-  --paths "/*"
-
-# Esperar 5-10 minutos para propagación
-
-```
-
-- --
-
-## 🔐 Checklist de Seguridad Pre-Producción
-
-- [ ] Todos los secrets en Kubernetes Secrets (no hardcodeados)
-
-- [ ] Database password fuerte y único
-
-- [ ] JWT secret generado aleatoriamente
-
-- [ ] SSL/TLS habilitado en Kong y CloudFront
-
-- [ ] Security Groups configurados con principio de mínimo privilegio
-
-- [ ] RDS con automated backups habilitados
-
-- [ ] IAM roles con permisos mínimos necesarios
-
-- [ ] Network policies de Kubernetes configuradas
-
-- [ ] Rate limiting habilitado en Kong
-
-- [ ] CORS configurado correctamente
-
-- --
-
-## 💰 Estimación de Costos
-
-| Recurso | Costo Mensual Estimado |
-|---------|------------------------|
-| EKS Control Plane | $73 |
-| 3x t3.medium nodes | $90 |
-| RDS t3.micro PostgreSQL | $20 |
-| NAT Gateway | $45 |
-| CloudFront + S3 | $10-15 |
-| Load Balancer | $20 |
-| Route53 | $0.50 |
-| **TOTAL** | **~$258-263/mes** |
-
-<Warning>
-Recuerda destruir la infraestructura con `terraform destroy` cuando no la necesites para evitar costos.
-</Warning>
-
-- --
-
-## 📞 Soporte
-
-Si encuentras problemas durante el despliegue:
-
-1. Revisa los logs: `kubectl logs <pod-name> -n backend`
-2. Verifica eventos: `kubectl get events -n backend`
-3. Consulta la [documentación de troubleshooting](/troubleshooting)
-4. Abre un issue en GitHub
-
-- --
-
-## 🎯 Próximos Pasos
-
-Una vez desplegado exitosamente:
-
-1. **Configurar Monitoreo**: Implementar Prometheus + Grafana
-2. **Configurar Alertas**: AlertManager para notificaciones
-3. **Implementar GitOps**: ArgoCD para deploy declarativo
-4. **Optimizar Costos**: Revisar usage y ajustar recursos
-5. **Backup Strategy**: Configurar backups de RDS
-
-<Card title="¿Listo para Producción?" icon="rocket">
-  Con esta guía tu aplicación está desplegada y lista para recibir tráfico real. ¡Felicidades! 🎉
-</Card>

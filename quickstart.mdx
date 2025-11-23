@@ -1,5 +1,5 @@
 ---
-title: 1.2. 1. Inicio Rápido
+title: 1. Inicio Rápido
 description: Despliega Retro Game Hub en AWS en menos de 30 minutos
 icon: rocket
 ---
@@ -71,377 +71,195 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
     - Acceso para cambiar nameservers
 
     <Note>
-      El proyecto usa `retrogamehub.games` - puedes usar tu propio dominio modificando las variables de Terraform.
+      El proyecto usa Route53 para gestionar DNS automáticamente
     </Note>
-  </Accordion>
-
-  <Accordion icon="github" title="GitHub OAuth (Para Monitoreo)">
-    Para proteger Grafana/Prometheus con GitHub OAuth:
-
-    1. Ve a GitHub Settings → Developer settings → OAuth Apps
-    2. Crea una nueva OAuth App
-    3. Authorization callback URL: `https://tu-dominio.com/oauth2/callback`
-    4. Guarda el Client ID y Client Secret
-
-    <Warning>
-      Restringe el acceso solo a tu organización de GitHub en el código.
-    </Warning>
   </Accordion>
 </AccordionGroup>
 
-## Despliegue en 5 Pasos
+## Despliegue Paso a Paso
 
 <Steps>
   <Step title="Clonar el Repositorio">
     ```bash
-    git clone https://github.com/retrogamecloud/infrastructure.git
-    cd infrastructure/terraform/eks_test
+    git clone https://github.com/tu-usuario/retro-game-hub.git
+    cd retro-game-hub
     ```
-
-
-    Estructura del proyecto:
-    ```
-
-    eks_test/
-    ├── main.tf          # Configuración de providers
-    ├── variables.tf     # Variables de entrada
-    ├── vpc.tf          # Red VPC
-    ├── eks.tf          # Cluster EKS
-    ├── rds.tf          # Base de datos PostgreSQL
-    ├── s3.tf           # CDN y almacenamiento
-    ├── monitoring.tf   # Prometheus + Grafana
-    └── kubernetes.tf   # Deployments de microservicios
-    ```
-
   </Step>
 
   <Step title="Configurar Variables">
-    Crea `terraform.tfvars` con tu configuración:
-
-    ```hcl
-    # AWS
-    region = "eu-west-1"
-
-    # EKS Cluster
-    cluster_name = "retrogame"
-    k8s_version  = "1.34"
-
-    # Node Group (IMPORTANTE: mínimo t3.medium)
-    node_instance_types = ["t3.medium"]
-    node_desired_size   = 2
-    node_min_size       = 1
-    node_max_size       = 4
-
-    # Base de Datos
-    db_instance_class = "db.t3.micro"
-    db_name          = "retrogamedb"
-    db_username      = "postgres"
-    db_password      = "TuPasswordSegura123!"
-
-    # Dominio
-    domain_name = "retrogamehub.games"  # Cambia esto
-
-    # GitHub OAuth (para monitoreo)
-    github_oauth_client_id     = "Ov23lil..."
-    github_oauth_client_secret = "ghp_..."
+    Copia y edita el archivo de variables:
+    
+    ```bash
+    cp terraform/terraform.tfvars.example terraform/terraform.tfvars
     ```
+    
+    Edita las variables principales:
+    
+    ```hcl
+    # terraform.tfvars
+    project_name = "retro-game-hub"
+    environment  = "production"
+    aws_region   = "eu-west-1"
+    
+    # Tu dominio (opcional)
+    domain_name = "tudominio.com"
+    
+    # Configuración del cluster
+    eks_node_instance_types = ["t3.medium"]
+    eks_node_desired_size   = 2
+    ```
+  </Step>
 
-
+  <Step title="Desplegar Infraestructura">
+    ```bash
+    cd terraform
+    
+    # Inicializar Terraform
+    terraform init
+    
+    # Revisar el plan
+    terraform plan
+    
+    # Aplicar cambios
+    terraform apply -auto-approve
+    ```
+    
     <Warning>
-      **NUNCA** hagas commit de `terraform.tfvars` - ya está en `.gitignore`
+      Este paso toma ~15-20 minutos. El cluster EKS es lo que más tiempo consume.
     </Warning>
   </Step>
 
-  <Step title="Inicializar y Planear">
+  <Step title="Configurar kubectl">
     ```bash
-    # Inicializar Terraform
-    terraform init
-
-    # Ver qué recursos se crearán (≈52 recursos)
-    terraform plan
-    ```
-
-
-    Revisa el output cuidadosamente. Se crearán:
-    - 1 VPC con 6 subredes
-    - 1 Cluster EKS
-    - 1 Node Group con 2-4 nodos
-    - 1 Instancia RDS PostgreSQL
-    - 3 Buckets S3 + CloudFront
-    - 1 ALB con SSL
-    - Zona Route53 + certificado ACM
-    - Stack de monitoreo (Prometheus, Grafana, AlertManager)
-  </Step>
-
-  <Step title="Aplicar Infraestructura">
-    ```bash
-    terraform apply
-    ```
-
-
-    Confirma escribiendo `yes`. El proceso toma **15-20 minutos**:
-
-    <AccordionGroup>
-      <Accordion title="¿Qué está pasando?">
-        1. **Minuto 0-3**: Creación de VPC, subredes, gateways
-        2. **Minuto 3-8**: Provisión del cluster EKS
-        3. **Minuto 8-12**: Creación de node groups y RDS
-        4. **Minuto 12-15**: Despliegue de Helm charts (Prometheus)
-        5. **Minuto 15-20**: Deployments de microservicios
-      </Accordion>
-    </AccordionGroup>
-
-    <Tip>
-      Ve por un café ☕ - Terraform hará todo el trabajo pesado.
-    </Tip>
-  </Step>
-
-  <Step title="Configurar kubectl y Verificar">
-    ```bash
-    # Configurar kubectl para conectar al cluster
-    aws eks update-kubeconfig --region eu-west-1 --name retrogame
-
-    # Verificar nodos
+    # Obtener configuración del cluster
+    aws eks update-kubeconfig --region eu-west-1 --name retro-game-hub-eks
+    
+    # Verificar conexión
     kubectl get nodes
+    ```
+  </Step>
 
+  <Step title="Desplegar Aplicaciones">
+    ```bash
+    # Aplicar manifiestos de Kubernetes
+    kubectl apply -f k8s/
+    
     # Verificar pods
-    kubectl get pods --all-namespaces
-
-    # Ver servicios
-    kubectl get svc -n retrogame
-    kubectl get svc -n monitoring
+    kubectl get pods -A
     ```
+  </Step>
 
-
-    Deberías ver algo como:
+  <Step title="Acceder a la Aplicación">
+    Obtén la URL del Load Balancer:
+    
+    ```bash
+    kubectl get service frontend-service -o wide
     ```
-
-    NAME                                     READY   STATUS    RESTARTS   AGE
-    backend-7d9f8b6c-xk4pm                  1/1     Running   0          5m
-    frontend-6b8c9d7f-p2k8n                 1/1     Running   0          5m
-    kube-prometheus-stack-operator-...      1/1     Running   0          8m
-    ```
-
+    
+    O si configuraste un dominio, accede directamente a: `https://tudominio.com`
   </Step>
 </Steps>
 
-## Configuración Post-Despliegue
+## Verificación del Despliegue
 
-### 1. Configurar DNS
+Una vez completado el despliegue, verifica que todo funciona correctamente:
 
-<Steps>
-  <Step title="Obtener Nameservers">
+<Tabs>
+  <Tab title="Web Interface">
+    Accede a la interfaz web y verifica:
+    - ✅ La página principal carga correctamente
+    - ✅ Puedes navegar por el catálogo de juegos
+    - ✅ Los juegos se ejecutan en el emulador
+    - ✅ El sistema de autenticación funciona
+  </Tab>
+  
+  <Tab title="API Health">
+    Verifica que todas las APIs respondan:
+    
     ```bash
-    terraform output route53_nameservers
+    # Health check del API Gateway
+    curl https://api.tudominio.com/health
+    
+    # Verificar servicios
+    kubectl get pods -l app=api-gateway
+    kubectl get pods -l app=game-service
+    kubectl get pods -l app=user-service
     ```
-
-
-    Obtendrás algo como:
-    ```
-
-    ns-1234.awsdns-56.org
-    ns-789.awsdns-12.co.uk
-    ns-345.awsdns-78.com
-    ns-901.awsdns-34.net
-    ```
-
-  </Step>
-
-  <Step title="Actualizar en Registrador">
-    Ve a tu registrador de dominios (Namecheap, GoDaddy, etc.) y:
-    1. Busca la configuración de nameservers
-    2. Cambia a "Custom DNS"
-    3. Pega los 4 nameservers de AWS
-    4. Guarda los cambios
-  </Step>
-
-  <Step title="Esperar Propagación">
-    La propagación DNS puede tardar 1-48 horas. Verifica con:
+  </Tab>
+  
+  <Tab title="Base de Datos">
+    Conecta a la base de datos para verificar:
+    
     ```bash
-    dig retrogamehub.games
-    nslookup retrogamehub.games
+    # Obtener endpoint de RDS
+    terraform output rds_endpoint
+    
+    # Conectar usando psql
+    psql -h [RDS_ENDPOINT] -U postgres -d retrogamehub
     ```
+  </Tab>
+</Tabs>
 
-  </Step>
-</Steps>
+## Siguientes Pasos
 
-### 2. Acceder a los Servicios
+¡Felicitaciones! 🎉 Tu plataforma Retro Game Hub está lista. Ahora puedes:
 
 <CardGroup cols={2}>
-  <Card title="Aplicación Frontend" icon="gamepad" href="https://retrogamehub.games">
-    ```
-
-    https://retrogamehub.games
-    ```
-
-    Juega juegos clásicos de DOS
+  <Card title="2. Arquitectura" icon="sitemap" href="/architecture">
+    Comprende la arquitectura y componentes del sistema
   </Card>
-
-  <Card title="Grafana" icon="chart-line" href="https://retrogamehub.games/grafana">
-    ```
-
-    https://retrogamehub.games/grafana
-    ```
-
-    Usuario: `admin`
-    Password: Ver output de Terraform
+  <Card title="3. Servicios" icon="cubes" href="/services">
+    Explora los microservicios y sus funcionalidades
   </Card>
-
-  <Card title="Prometheus" icon="fire" href="https://retrogamehub.games/prometheus">
-    ```
-
-    https://retrogamehub.games/prometheus
-    ```
-
-    Métricas del sistema
+  <Card title="5. Desarrollo" icon="code" href="/development">
+    Configura tu entorno de desarrollo local
   </Card>
-
-  <Card title="AlertManager" icon="bell" href="https://retrogamehub.games/alertmanager">
-    ```
-
-    https://retrogamehub.games/alertmanager
-    ```
-
-    Gestión de alertas
+  <Card title="6. CI/CD" icon="rocket" href="/cicd">
+    Implementa pipelines de despliegue automático
   </Card>
 </CardGroup>
-
-<Note>
-  Los servicios de monitoreo están protegidos por **GitHub OAuth** - solo usuarios de la organización `retrogamecloud` pueden acceder.
-</Note>
-
-### 3. Obtener Credenciales
-
-```bash
-
-# Password de Grafana
-terraform output grafana_admin_password
-
-# Endpoint de base de datos
-terraform output rds_endpoint
-
-# URL del ALB
-terraform output alb_dns_name
-
-# Todos los outputs
-terraform output
-
-```
 
 ## Solución de Problemas
 
 <AccordionGroup>
-  <Accordion icon="exclamation-triangle" title="Pods en estado Pending">
-    **Síntoma**: Pods atascados en `Pending`
-
+  <Accordion icon="warning" title="Error en el despliegue de EKS">
+    Si el cluster EKS no se crea correctamente:
+    
     ```bash
-    kubectl describe pod <nombre-pod> -n retrogame
+    # Verificar logs de CloudFormation
+    aws cloudformation describe-stack-events --stack-name eksctl-retro-game-hub-cluster
+    
+    # Limpiar y reintentar
+    terraform destroy -target=module.eks
+    terraform apply -target=module.eks
     ```
-
-
-    **Causas comunes**:
-    - ❌ Instancias `t3.micro` (solo soportan 4 pods)
-    - ❌ Memoria insuficiente
-    - ❌ Límites de CPU excedidos
-
-    **Solución**: Usar mínimo `t3.medium` (4GB RAM, 17 pods/nodo)
   </Accordion>
 
-  <Accordion icon="lock" title="Terraform State Locked">
-    **Síntoma**: `Error acquiring the state lock`
-
+  <Accordion icon="network-wired" title="Problemas de conectividad">
+    Si los pods no pueden comunicarse:
+    
     ```bash
-    # Desbloquear manualmente
-    terraform force-unlock <LOCK_ID>
+    # Verificar security groups
+    kubectl describe pod [POD_NAME]
+    
+    # Revisar logs de red
+    kubectl logs -l app=aws-load-balancer-controller -n kube-system
     ```
-
   </Accordion>
 
-  <Accordion icon="globe" title="DNS no resuelve">
-    **Verificaciones**:
-    1. Nameservers actualizados en registrador ✓
-    2. Zona Route53 tiene registros A ✓
-    3. Propagación DNS completada (espera 1-2h) ✓
-
+  <Accordion icon="database" title="Errores de base de datos">
+    Si hay problemas con RDS:
+    
     ```bash
-    # Probar DNS
-    dig @8.8.8.8 retrogamehub.games
-
-    # Ver registros de Route53
-    aws route53 list-resource-record-sets --hosted-zone-id <ZONE_ID>
+    # Verificar conectividad desde un pod
+    kubectl run test-db --image=postgres:13 --rm -it -- psql -h [RDS_ENDPOINT] -U postgres
+    
+    # Revisar security groups de RDS
+    aws rds describe-db-instances --db-instance-identifier retro-game-hub-db
     ```
-
-  </Accordion>
-
-  <Accordion icon="certificate" title="Certificado SSL no valida">
-    **ACM toma 20-30 minutos** en validar vía DNS.
-
-    ```bash
-    # Ver estado del certificado
-    aws acm list-certificates --region eu-west-1
-
-    # Describir certificado específico
-    aws acm describe-certificate --certificate-arn <ARN>
-    ```
-
-
-    Asegúrate de que:
-    - DNS está configurado correctamente
-    - Los registros de validación CNAME existen en Route53
   </Accordion>
 </AccordionGroup>
 
-## Próximos Pasos
-
-<CardGroup cols={2}>
-  <Card title="Explorar Arquitectura" icon="sitemap" href="/architecture">
-    Entiende cómo funciona todo el sistema
-  </Card>
-
-  <Card title="APIs REST" icon="code" href="/api-reference/auth/login">
-    Documentación completa de endpoints
-  </Card>
-
-  <Card title="Configurar Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
-    Alertas, dashboards y métricas
-  </Card>
-
-  <Card title="Gestionar Servicios" icon="cubes" href="/services/auth-service">
-    Documentación de microservicios
-  </Card>
-</CardGroup>
-
-## Destruir Infraestructura
-
-<Warning>
-  Esto **eliminará permanentemente** todos los recursos y datos. Haz backup antes.
-</Warning>
-
-```bash
-
-# Destruir todo
-terraform destroy
-
-# Confirmar escribiendo: yes
-
-```
-
-El proceso toma 10-15 minutos y eliminará:
-
-- Cluster EKS y nodos
-
-- Base de datos RDS (¡datos perdidos!)
-
-- Buckets S3 (si están vacíos)
-
-- VPC y networking
-
-- Zona Route53
-
-<Tip>
-  Para conservar datos importantes, exporta la base de datos antes:
-  ```bash
-  pg_dump -h <rds-endpoint> -U postgres retrogamedb > backup.sql
-  ```
-
-</Tip>
+<Note>
+  **¿Necesitas ayuda?** Consulta la sección de [8. Operaciones](/operations) para monitoreo y mantenimiento avanzado.
+</Note>

@@ -1,13 +1,12 @@
 ---
 title: 6.8. Migraciones de Base de Datos
-description: Guía completa para ejecutar migraciones de esquema en RDS PostgreSQL
-  de forma segura, con estrategias de versionado y procedimientos de rollback
+description: Guía completa para ejecutar migraciones de esquema en RDS PostgreSQL de forma segura, con estrategias de versionado, procedimientos de rollback y despliegues sin downtime
 icon: database
 ---
 
 ## Introducción
 
-Las migraciones de base de datos en RetroGameCloud requieren un enfoque estructurado para mantener la integridad de datos y minimizar el tiempo de inactividad. Esta guía cubre desde la creación de scripts hasta la ejecución en producción.
+Las migraciones de base de datos en RetroGameCloud requieren un enfoque estructurado para mantener la integridad de datos y minimizar el tiempo de inactividad. Esta guía cubre desde la creación de scripts hasta la ejecución en producción con estrategias de zero-downtime.
 
 <Note>
 Todas las migraciones deben probarse exhaustivamente en entornos locales y staging antes del despliegue en producción.
@@ -19,11 +18,8 @@ Todas las migraciones deben probarse exhaustivamente en entornos locales y stagi
 Utilizamos **Flyway** como herramienta principal para el versionado y ejecución de migraciones de esquema:
 
 - Versionado automático de scripts SQL
-
 - Seguimiento del estado de migraciones
-
 - Validación de checksums
-
 - Soporte para rollbacks
 
 ### Configuración Docker
@@ -39,7 +35,9 @@ services:
       - ./migrations:/flyway/sql
     depends_on:
       - postgres
-
+    environment:
+      - FLYWAY_BASELINE_ON_MIGRATE=true
+      - FLYWAY_VALIDATE_ON_MIGRATE=true
 ```
 
 ## Estructura de Migraciones
@@ -50,441 +48,416 @@ Las migraciones siguen una estructura estricta:
 
 <Tabs>
 <Tab title="Migraciones hacia adelante">
-
 ```
-
 V{version}__{descripción}.sql
 
 Ejemplos:
-
 - V001__initial_schema.sql
-
 - V002__add_user_achievements.sql
-
 - V003__create_game_scores_index.sql
-
 ```
-
 </Tab>
 <Tab title="Migraciones de rollback">
-
 ```
-
 U{version}__{descripción}.sql
 
 Ejemplos:
-
 - U002__remove_user_achievements.sql
-
 - U003__drop_game_scores_index.sql
-
 ```
-
 </Tab>
 </Tabs>
 
 ### Estructura de Directorios
 
 ```
-
 migrations/
-├── V001__initial_schema.sql
-├── V002__add_user_achievements.sql
-├── V003__create_game_scores_index.sql
-├── U002__remove_user_achievements.sql
-└── U003__drop_game_scores_index.sql
-
+├── schema/
+│   ├── V001__initial_schema.sql
+│   ├── V002__add_user_achievements.sql
+│   └── V003__create_game_scores_index.sql
+├── rollbacks/
+│   ├── U002__remove_user_achievements.sql
+│   └── U003__drop_game_scores_index.sql
+├── data/
+│   ├── V100__insert_initial_games.sql
+│   └── V101__migrate_user_preferences.sql
+└── hotfixes/
+    └── V999__emergency_fix_user_scores.sql
 ```
 
-## Proceso de Migración
+## Ejemplos de Migraciones Reales
 
-### Flujo Completo de Migración
-
-```mermaid
-sequenceDiagram
-    participant Dev as Desarrollador
-    participant Git as GitHub
-    participant CI as GitHub Actions
-    participant K8s as Kubernetes Job
-    participant RDS as RDS PostgreSQL
-
-    Dev->>Git: Push migration V023__add_achievements.sql
-    Git->>CI: Trigger Pipeline
-    CI->>CI: Validar sintaxis SQL
-    CI->>K8s: Crear Job Flyway
-    K8s->>RDS: Conectar con credenciales secretas
-    RDS->>RDS: Verificar versión actual (V022)
-    K8s->>RDS: Ejecutar V023
-    RDS-->>K8s: Migración exitosa
-    K8s->>RDS: Actualizar schema_version a V023
-    K8s-->>CI: Job completado
-    CI-->>Dev: Notificación de éxito
-
-```
-
-### Pasos Detallados
-
-#### 1. Desarrollo Local
+### Migración de Esquema Inicial
 
 <Tabs>
-<Tab title="Crear Migración">
-
+<Tab title="V001__initial_schema.sql">
 ```sql
+-- Crear extensiones necesarias
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
-- - V024__add_game_categories.sql
-CREATE TABLE game_categories (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- Tabla de usuarios
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_game_categories_name ON game_categories(name);
+-- Tabla de juegos
+CREATE TABLE games (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    platform VARCHAR(50) NOT NULL,
+    release_year INTEGER,
+    genre VARCHAR(100),
+    file_url TEXT,
+    thumbnail_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-- - Insertar categorías por defecto
-INSERT INTO game_categories (name, description) VALUES
-('Arcade', 'Juegos de arcade clásicos'),
-('RPG', 'Juegos de rol'),
-('Platform', 'Juegos de plataformas');
+-- Tabla de puntuaciones
+CREATE TABLE game_scores (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    game_id UUID REFERENCES games(id) ON DELETE CASCADE,
+    score INTEGER NOT NULL DEFAULT 0,
+    achieved_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, game_id)
+);
 
+-- Índices para optimización
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_games_platform ON games(platform);
+CREATE INDEX idx_games_genre ON games(genre);
+CREATE INDEX idx_game_scores_user_id ON game_scores(user_id);
+CREATE INDEX idx_game_scores_game_id ON game_scores(game_id);
+CREATE INDEX idx_game_scores_score ON game_scores(score DESC);
 ```
-
 </Tab>
-<Tab title="Probar Localmente">
+<Tab title="Rollback - Drop inicial">
+```sql
+-- U001__drop_initial_schema.sql
+DROP INDEX IF EXISTS idx_game_scores_score;
+DROP INDEX IF EXISTS idx_game_scores_game_id;
+DROP INDEX IF EXISTS idx_game_scores_user_id;
+DROP INDEX IF EXISTS idx_games_genre;
+DROP INDEX IF EXISTS idx_games_platform;
+DROP INDEX IF EXISTS idx_users_username;
+DROP INDEX IF EXISTS idx_users_email;
 
-```bash
+DROP TABLE IF EXISTS game_scores;
+DROP TABLE IF EXISTS games;
+DROP TABLE IF EXISTS users;
 
-# Ejecutar contenedor Flyway local
-docker-compose up flyway
-
-# Verificar migración
-docker exec -it postgres psql -U postgres -d retrogame -c "\dt"
-
+DROP EXTENSION IF EXISTS "pgcrypto";
+DROP EXTENSION IF EXISTS "uuid-ossp";
 ```
-
 </Tab>
 </Tabs>
 
-#### 2. Validación en Staging
-
-```yaml
-
-# kubernetes/jobs/flyway-migration.yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: flyway-migration-v024
-  namespace: retrogame-staging
-spec:
-  template:
-    spec:
-      containers:
-      - name: flyway
-        image: flyway/flyway:8.5.13
-        command: ["flyway"]
-        args: [
-          "-url=jdbc:postgresql://$(DB_HOST):5432/$(DB_NAME)",
-          "-user=$(DB_USER)",
-          "-password=$(DB_PASSWORD)",
-          "migrate"
-        ]
-        env:
-        - name: DB_HOST
-          valueFrom:
-            secretKeyRef:
-              name: db-credentials
-              key: host
-        volumeMounts:
-        - name: migrations
-          mountPath: /flyway/sql
-      restartPolicy: Never
-
-```
-
-#### 3. Despliegue en Producción
-
-<Warning>
-Las migraciones en producción requieren ventana de mantenimiento aprobada para cambios destructivos.
-</Warning>
-
-```bash
-
-# Ejecutar con ArgoCD
-kubectl apply -f kubernetes/jobs/flyway-migration.yaml -n retrogame-prod
-
-# Monitorear progreso
-kubectl logs -f job/flyway-migration-v024 -n retrogame-prod
-
-```
-
-## Estrategias de Rollback
-
-### Tipos de Rollback
+### Migración de Logros de Usuario
 
 <Tabs>
-<Tab title="Rollback Automático">
-Para migraciones que fallan durante la ejecución:
-
+<Tab title="V002__add_user_achievements.sql">
 ```sql
+-- Crear tabla de logros
+CREATE TABLE achievements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(100) UNIQUE NOT NULL,
+    description TEXT NOT NULL,
+    icon_url TEXT,
+    points INTEGER DEFAULT 0,
+    category VARCHAR(50) DEFAULT 'general',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-- - Flyway automáticamente revierte transacciones fallidas
+-- Crear tabla de logros de usuario
+CREATE TABLE user_achievements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    achievement_id UUID REFERENCES achievements(id) ON DELETE CASCADE,
+    unlocked_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    progress INTEGER DEFAULT 100,
+    UNIQUE(user_id, achievement_id)
+);
 
-- - No se requiere intervención manual
+-- Agregar columna de puntos totales a usuarios
+ALTER TABLE users ADD COLUMN total_achievement_points INTEGER DEFAULT 0;
 
+-- Índices para logros
+CREATE INDEX idx_achievements_category ON achievements(category);
+CREATE INDEX idx_user_achievements_user_id ON user_achievements(user_id);
+CREATE INDEX idx_user_achievements_unlocked_at ON user_achievements(unlocked_at);
+
+-- Insertar logros iniciales
+INSERT INTO achievements (name, description, points, category) VALUES 
+('Primer Juego', 'Juega tu primer juego retro', 10, 'gaming'),
+('Gamer Dedicado', 'Juega 10 juegos diferentes', 50, 'gaming'),
+('Puntuación Alta', 'Consigue más de 10,000 puntos en cualquier juego', 25, 'score'),
+('Veterano', 'Lleva 30 días registrado', 100, 'loyalty');
 ```
-
 </Tab>
-<Tab title="Rollback Manual">
-Para migraciones completadas que necesitan revertirse:
-
+<Tab title="U002__remove_user_achievements.sql">
 ```sql
+-- Eliminar índices
+DROP INDEX IF EXISTS idx_user_achievements_unlocked_at;
+DROP INDEX IF EXISTS idx_user_achievements_user_id;
+DROP INDEX IF EXISTS idx_achievements_category;
 
-- - U024__remove_game_categories.sql
-DROP INDEX IF EXISTS idx_game_categories_name;
-DROP TABLE IF EXISTS game_categories;
+-- Eliminar columna agregada
+ALTER TABLE users DROP COLUMN IF EXISTS total_achievement_points;
 
+-- Eliminar tablas
+DROP TABLE IF EXISTS user_achievements;
+DROP TABLE IF EXISTS achievements;
 ```
-
 </Tab>
 </Tabs>
 
-### Procedimiento de Rollback
-
-#### Rollback de Emergencia
-
-```bash
-
-# 1. Detener aplicaciones que usen las tablas afectadas
-kubectl scale deployment user-service --replicas=0 -n retrogame-prod
-
-# 2. Ejecutar script de rollback
-kubectl create job flyway-rollback-v024 --image=flyway/flyway:8.5.13 \
-  -- flyway -url=jdbc:postgresql://... -locations=filesystem:/rollback undo
-
-# 3. Verificar estado de la base de datos
-kubectl exec -it postgres-pod -- psql -c "SELECT * FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 5;"
-
-# 4. Restaurar aplicaciones
-kubectl scale deployment user-service --replicas=3 -n retrogame-prod
-
-```
-
-### Plan de Contingencia
-
-#### Backup Antes de Migración
-
-```bash
-
-# Crear backup automático antes de migraciones críticas
-pg_dump -h $DB_HOST -U $DB_USER -d retrogame \
-  --file=backup_pre_migration_v024_$(date +%Y%m%d_%H%M%S).sql
-
-```
-
-#### Restauración de Backup
-
-```bash
-
-# En caso de fallo crítico
-psql -h $DB_HOST -U $DB_USER -d retrogame < backup_pre_migration_v024.sql
-
-```
-
-## Mejores Prácticas
-
-### Migraciones Seguras
-
-<Card title="✅ Prácticas Recomendadas" icon="check">
-
-- Utilizar transacciones para operaciones atómicas
-
-- Crear índices de forma concurrente
-
-- Añadir columnas como opcionales inicialmente
-
-- Probar con datos de producción en staging
-
-- Mantener scripts de rollback actualizados
-</Card>
-
-<Card title="❌ Evitar Estas Prácticas" icon="x">
-
-- DROP COLUMN sin ventana de mantenimiento
-
-- Cambios de tipo de datos destructivos
-
-- Migraciones que requieren más de 5 minutos
-
-- Dependencias entre migraciones no secuenciales
-</Card>
-
-### Ejemplos de Migraciones Complejas
-
-#### Cambio de Tipo de Columna Seguro
+### Migración de Optimización de Índices
 
 <Tabs>
-<Tab title="Paso 1: Añadir Nueva Columna">
-
+<Tab title="V003__optimize_game_queries.sql">
 ```sql
+-- Crear índice compuesto para queries frecuentes
+CREATE INDEX CONCURRENTLY idx_games_platform_genre 
+ON games(platform, genre) 
+WHERE platform IS NOT NULL AND genre IS NOT NULL;
 
-- - V025__add_score_bigint.sql
-ALTER TABLE game_scores
-ADD COLUMN score_new BIGINT;
+-- Índice parcial para juegos activos
+CREATE INDEX CONCURRENTLY idx_games_active 
+ON games(created_at) 
+WHERE file_url IS NOT NULL;
 
-UPDATE game_scores
-SET score_new = score::BIGINT;
+-- Índice para ranking de puntuaciones
+CREATE INDEX CONCURRENTLY idx_game_scores_ranking 
+ON game_scores(game_id, score DESC, achieved_at DESC);
 
+-- Estadísticas para el optimizador
+ANALYZE games;
+ANALYZE game_scores;
 ```
-
 </Tab>
-<Tab title="Paso 2: Migrar Aplicación">
-
+<Tab title="U003__remove_game_optimizations.sql">
 ```sql
-
-- - Actualizar aplicación para usar score_new
-
-- - Desplegar nueva versión de microservicios
-
+DROP INDEX CONCURRENTLY IF EXISTS idx_game_scores_ranking;
+DROP INDEX CONCURRENTLY IF EXISTS idx_games_active;
+DROP INDEX CONCURRENTLY IF EXISTS idx_games_platform_genre;
 ```
-
-</Tab>
-<Tab title="Paso 3: Eliminar Columna Antigua">
-
-```sql
-
-- - V026__remove_old_score_column.sql
-ALTER TABLE game_scores
-DROP COLUMN score;
-
-ALTER TABLE game_scores
-RENAME COLUMN score_new TO score;
-
-```
-
 </Tab>
 </Tabs>
 
-### Monitoreo de Migraciones
+## Estrategias de Testing
 
-#### Métricas Importantes
+### Testing Automatizado
+
+<Tabs>
+<Tab title="test-migrations.sh">
+```bash
+#!/bin/bash
+set -e
+
+DB_NAME="retrogame_test"
+DB_USER="postgres"
+DB_HOST="localhost"
+
+echo "🧪 Iniciando tests de migración..."
+
+# Crear base de datos de prueba
+createdb -h $DB_HOST -U $DB_USER $DB_NAME || true
+
+# Función para limpiar al salir
+cleanup() {
+    echo "🧹 Limpiando base de datos de prueba..."
+    dropdb -h $DB_HOST -U $DB_USER $DB_NAME --if-exists
+}
+trap cleanup EXIT
+
+# Ejecutar migraciones
+echo "⬆️ Ejecutando migraciones..."
+flyway -url=jdbc:postgresql://$DB_HOST:5432/$DB_NAME \
+       -user=$DB_USER \
+       -locations=filesystem:./migrations/schema,filesystem:./migrations/data \
+       migrate
+
+# Verificar datos de prueba
+echo "✅ Insertando datos de prueba..."
+psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f ./tests/sample-data.sql
+
+# Ejecutar tests de integridad
+echo "🔍 Verificando integridad de datos..."
+psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f ./tests/integrity-tests.sql
+
+# Test de rollback
+echo "⬇️ Probando rollback..."
+flyway -url=jdbc:postgresql://$DB_HOST:5432/$DB_NAME \
+       -user=$DB_USER \
+       -locations=filesystem:./migrations/rollbacks \
+       migrate
+
+echo "✨ Todos los tests pasaron correctamente!"
+```
+</Tab>
+<Tab title="integrity-tests.sql">
+```sql
+-- Tests de integridad de datos
+DO $$
+DECLARE
+    user_count INTEGER;
+    game_count INTEGER;
+    orphaned_scores INTEGER;
+BEGIN
+    -- Verificar que existan usuarios
+    SELECT COUNT(*) INTO user_count FROM users;
+    IF user_count = 0 THEN
+        RAISE EXCEPTION 'No users found after migration';
+    END IF;
+    
+    -- Verificar que existan juegos
+    SELECT COUNT(*) INTO game_count FROM games;
+    IF game_count = 0 THEN
+        RAISE EXCEPTION 'No games found after migration';
+    END IF;
+    
+    -- Verificar integridad referencial
+    SELECT COUNT(*) INTO orphaned_scores 
+    FROM game_scores gs 
+    LEFT JOIN users u ON gs.user_id = u.id 
+    LEFT JOIN games g ON gs.game_id = g.id 
+    WHERE u.id IS NULL OR g.id IS NULL;
+    
+    IF orphaned_scores > 0 THEN
+        RAISE EXCEPTION 'Found % orphaned scores', orphaned_scores;
+    END IF;
+    
+    RAISE NOTICE '✅ Integrity tests passed - Users: %, Games: %', user_count, game_count;
+END $$;
+```
+</Tab>
+</Tabs>
+
+### Performance Testing
 
 ```sql
+-- performance-test.sql
+EXPLAIN (ANALYZE, BUFFERS) 
+SELECT g.title, gs.score, u.username 
+FROM games g
+JOIN game_scores gs ON g.id = gs.game_id
+JOIN users u ON gs.user_id = u.id
+WHERE g.platform = 'NES' 
+ORDER BY gs.score DESC 
+LIMIT 10;
 
-- - Consultar estado de migraciones
-SELECT
-  installed_rank,
-  version,
-  description,
-  type,
-  installed_on,
-  execution_time,
-  success
-FROM flyway_schema_history
-ORDER BY installed_rank DESC;
-
+-- Verificar que el query use índices apropiados
+DO $$
+DECLARE
+    query_plan TEXT;
+BEGIN
+    SELECT query_plan INTO query_plan FROM (
+        EXPLAIN (FORMAT JSON) 
+        SELECT * FROM games WHERE platform = 'NES' AND genre = 'Action'
+    ) AS plan_data;
+    
+    IF query_plan NOT LIKE '%Index%' THEN
+        RAISE WARNING 'Query may not be using indexes optimally';
+    END IF;
+END $$;
 ```
 
-#### Alertas de Prometheus
+## Estrategias Zero-Downtime
 
-```yaml
+### Blue-Green Deployment con RDS
 
-# alerts/database-migrations.yaml
+<Tabs>
+<Tab title="Preparación Blue-Green">
+```bash
+#!/bin/bash
+# blue-green-migration.sh
 
-- alert: MigrationFailed
-  expr: flyway_migration_success == 0
-  for: 0m
-  labels:
-    severity: critical
-  annotations:
-    summary: "Migración de base de datos falló"
-    description: "La migración {{ $labels.version }} ha fallado en {{ $labels.database }}"
+BLUE_DB="retrogame-prod"
+GREEN_DB="retrogame-staging"
 
+echo "🔄 Iniciando migración Blue-Green..."
+
+# 1. Sincronizar datos de Blue a Green
+aws rds create-db-snapshot \
+    --db-instance-identifier $BLUE_DB \
+    --db-snapshot-identifier "${BLUE_DB}-pre-migration-$(date +%Y%m%d)"
+
+# 2. Restaurar snapshot en Green
+aws rds restore-db-instance-from-db-snapshot \
+    --db-instance-identifier $GREEN_DB \
+    --db-snapshot-identifier "${BLUE_DB}-pre-migration-$(date +%Y%m%d)"
+
+# 3. Ejecutar migraciones en Green
+echo "⬆️ Ejecutando migraciones en Green..."
+flyway -url=jdbc:postgresql://${GREEN_DB}.region.rds.amazonaws.com:5432/retrogame \
+       -user=$DB_USER \
+       -password=$DB_PASSWORD \
+       migrate
+
+# 4. Validar Green
+echo "✅ Validando migración..."
+./validate-green-environment.sh
+
+echo "🎯 Green environment listo para switch"
 ```
+</Tab>
+<Tab title="Switch Traffic">
+```bash
+#!/bin/bash
+# switch-traffic.sh
 
-## Integración con CI/CD
+echo "🔄 Cambiando tráfico de Blue a Green..."
 
-### Pipeline de GitHub Actions
+# Actualizar Route53 record
+aws route53 change-resource-record-sets \
+    --hosted-zone-id $HOSTED_ZONE_ID \
+    --change-batch '{
+        "Changes": [{
+            "Action": "UPSERT",
+            "ResourceRecordSet": {
+                "Name": "db.retrogamecloud.com",
+                "Type": "CNAME",
+                "TTL": 60,
+                "ResourceRecords": [{"Value": "retrogame-staging.region.rds.amazonaws.com"}]
+            }
+        }]
+    }'
 
-```yaml
-name: Database Migration
-on:
-  push:
-    paths:
-      - 'migrations/**'
-    branches:
-      - main
+# Monitorear por 5 minutos
+echo "📊 Monitoreando por 5 minutos..."
+for i in {1..5}; do
+    echo "Minuto $i/5..."
+    curl -f http://health.retrogamecloud.com/db || {
+        echo "❌ Health check falló, ejecutando rollback..."
+        ./rollback-traffic.sh
+        exit 1
+    }
+    sleep 60
+done
 
-jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Validate SQL Syntax
-        run: |
-          for file in migrations/V*.sql; do
-            pg_prove --syntax-check "$file"
-          done
-
-      - name: Test Migration in Docker
-        run: |
-          docker-compose up -d postgres
-          docker-compose run flyway migrate
-          docker-compose run flyway validate
-
-  deploy-staging:
-    needs: validate
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to Staging
-        run: |
-          kubectl apply -f kubernetes/jobs/flyway-migration.yaml -n retrogame-staging
-
+echo "✅ Switch completado exitosamente"
 ```
+</Tab>
+</Tabs>
 
-## Casos de Emergencia
+### Migraciones Compatibles hacia Atrás
 
-### Rollback de Producción
+```sql
+-- Ejemplo: Agregar columna sin romper versiones anteriores
+-- V004__add_user_avatar.sql
 
-<Warning>
-Sólo ejecutar rollbacks de producción con autorización del arquitecto de sistemas y notificación a stakeholders.
-</Warning>
+-- Paso 1: Agregar columna como nullable
+ALTER TABLE users ADD COLUMN avatar_url TEXT;
 
-#### Checklist de Rollback
-
-1. **Evaluación del Impacto**
-   - [ ] Identificar servicios afectados
-   - [ ] Estimar tiempo de inactividad
-   - [ ] Notificar a equipos relevantes
-
-2. **Preparación**
-   - [ ] Verificar existencia de script de rollback
-   - [ ] Confirmar backup reciente disponible
-   - [ ] Preparar comando de rollback
-
-3. **Ejecución**
-   - [ ] Poner aplicaciones en modo mantenimiento
-   - [ ] Ejecutar rollback de base de datos
-   - [ ] Verificar integridad de datos
-   - [ ] Restaurar aplicaciones
-
-4. **Post-Rollback**
-   - [ ] Validar funcionalidad completa
-   - [ ] Notificar resolución del incidente
-   - [ ] Documentar lecciones aprendidas
-
-### Contactos de Emergencia
-
-En caso de problemas críticos con migraciones:
-
-- **Arquitecto de Sistemas**: Escalación inmediata
-
-- **DBA Senior**: Consultas técnicas complejas
-
-- **DevOps Lead**: Problemas de infraestructura
-
-- **Product Owner**: Decisiones de negocio para rollbacks
-
-<Note>
-Esta guía debe revisarse trimestralmente y actualizarse según la evolución de la arquitectura de RetroGameCloud.
-</Note>
+-- Paso 2:
+```
