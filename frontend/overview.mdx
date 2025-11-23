@@ -1,7 +1,7 @@
 ---
-title: "4.1. Visión General del Frontend"
-description: "Interfaz de usuario retro para jugar juegos clásicos de DOS"
-icon: "display"
+title: 4.1. Visión General del Frontend
+description: Interfaz de usuario retro para jugar juegos clásicos de DOS
+icon: display
 ---
 
 ## Arquitectura del Frontend
@@ -44,11 +44,13 @@ CDN:
   - Nginx para juegos (.jsdos)
   - CloudFront para distribución global
   - Cache agresivo de assets
+
 ```
 
 ## Estructura de Archivos
 
 ```
+
 frontend/
 ├── server.js              # Express server
 ├── package.json          # Dependencias
@@ -62,6 +64,7 @@ frontend/
     ├── js-dos.js
     ├── wdosbox.js
     └── emulators/
+
 ```
 
 ## Páginas Principales
@@ -72,26 +75,41 @@ frontend/
 
 La página principal incluye:
 
-**Características:**
+* *Características:**
+
 - Sistema de login/registro con JWT
+
 - Validación de formularios en tiempo real
+
 - Diseño responsive con grid animado
+
 - Efecto CRT con scanlines y flicker
+
 - Modal para entrar credenciales
 
-**Funcionalidades:**
+* *Funcionalidades:**
+
 ```javascript
 // Autenticación
+
 - Login: POST /api/auth/login
+
 - Register: POST /api/auth/register
+
 - Token almacenado en localStorage
+
 - Auto-redirect a games.html si autenticado
 
 // Validaciones
+
 - Email formato válido
+
 - Username: 3-20 caracteres
+
 - Password: mínimo 6 caracteres
+
 - Confirmación de password
+
 ```
 
 </Accordion>
@@ -102,13 +120,17 @@ La página principal incluye:
 
 Grid de selección de juegos con:
 
-**Layout:**
+* *Layout:**
+
 - Grid responsive 3 columnas (desktop)
+
 - Cards con información del juego
+
 - Preview images y metadata
+
 - Botón "Jugar" por juego
 
-**Juegos Disponibles:**
+* *Juegos Disponibles:**
 1. Dangerous Dave 2
 2. Digger
 3. DOOM
@@ -120,7 +142,8 @@ Grid de selección de juegos con:
 9. Tetris
 10. Wolfenstein 3D
 
-**Integración:**
+* *Integración:**
+
 ```javascript
 // Carga de juego
 1. Click en "Jugar"
@@ -128,6 +151,7 @@ Grid de selección de juegos con:
 3. Inicializar js-dos con bundle
 4. Pantalla completa automática
 5. Score tracker activado
+
 ```
 
 </Accordion>
@@ -142,6 +166,7 @@ Simple página para Kubernetes liveness/readiness probes:
 <head><title>Health Check</title></head>
 <body><h1>OK</h1></body>
 </html>
+
 ```
 
 ## Sistema de Estilos (retro.css)
@@ -155,6 +180,7 @@ Simple página para Kubernetes liveness/readiness probes:
   --retro-black: #000000;
   --retro-glow: 0 0 10px #00ff88;
 }
+
 ```
 
 ### Efectos Visuales
@@ -166,13 +192,14 @@ Simple página para Kubernetes liveness/readiness probes:
       0%, 100% { opacity: 0.98; }
       50% { opacity: 1; }
     }
-    
+
     body {
       animation: crtFlicker 2s infinite;
     }
     ```
+
   </Tab>
-  
+
   <Tab title="Scanlines">
     ```css
     body::before {
@@ -186,22 +213,24 @@ Simple página para Kubernetes liveness/readiness probes:
       pointer-events: none;
     }
     ```
+
   </Tab>
-  
+
   <Tab title="Animated Grid">
     ```css
     @keyframes moveGrid {
       to { background-position: 40px 40px; }
     }
-    
+
     .grid-background {
-      background-image: 
+      background-image:
         linear-gradient(#004400 1px, transparent 1px),
         linear-gradient(90deg, #004400 1px, transparent 1px);
       background-size: 40px 40px;
       animation: moveGrid 4s linear infinite;
     }
     ```
+
   </Tab>
 </Tabs>
 
@@ -237,6 +266,7 @@ Simple página para Kubernetes liveness/readiness probes:
   border: 2px solid var(--retro-green);
   box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
 }
+
 ```
 
 ## Score Tracker (score-tracker.js)
@@ -254,39 +284,47 @@ class ScoreTracker {
     this.currentScore = 0;
     this.sessionId = this.generateSessionId();
   }
-  
+
   async startTracking() {
     // Monitoreo de memoria DOSBox
     // Polling cada 5 segundos
     // Detección de cambios en score
   }
 }
+
 ```
 
 ### Detección de Score
 
 <Accordion title="Métodos de detección">
 
-**1. Memory Scanning:**
+* *1. Memory Scanning:**
+
 ```javascript
 // Leer memoria del emulador
 const memory = dosInstance.getMemory();
 const scoreAddress = this.findScoreAddress(gameId);
 const newScore = memory.readUint32(scoreAddress);
+
 ```
 
-**2. Pattern Matching:**
+* *2. Pattern Matching:**
+
 ```javascript
 // Buscar patrones conocidos
 const patterns = {
   'doom': [0x10000, 0x20000],
   'tetris': [0x5000, 0x6000]
 };
+
 ```
 
-**3. Heurísticas:**
+* *3. Heurísticas:**
+
 - Incrementos detectados
+
 - Validación de rangos
+
 - Anti-cheat básico
 
 </Accordion>
@@ -309,7 +347,7 @@ async submitScore(score) {
         timestamp: Date.now()
       })
     });
-    
+
     if (response.ok) {
       this.showNotification('¡Score guardado!');
       this.updateLeaderboard();
@@ -318,6 +356,7 @@ async submitScore(score) {
     console.error('Error submitting score:', error);
   }
 }
+
 ```
 
 ## Integración con Backend
@@ -343,6 +382,7 @@ Ranking Service:
   - GET /api/rankings/game/:gameId/top
   - GET /api/rankings/global
   - GET /api/rankings/user/:userId/position
+
 ```
 
 ### Headers Requeridos
@@ -352,6 +392,7 @@ const headers = {
   'Authorization': `Bearer ${localStorage.getItem('token')}`,
   'Content-Type': 'application/json'
 };
+
 ```
 
 ## Deployment
@@ -374,6 +415,7 @@ HEALTHCHECK --interval=30s --timeout=3s \
   CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 CMD ["node", "server.js"]
+
 ```
 
 ### Kubernetes Service
@@ -390,6 +432,7 @@ spec:
     - port: 80
       targetPort: 3001
   type: ClusterIP
+
 ```
 
 ### Ingress Configuration
@@ -418,6 +461,7 @@ spec:
                 name: frontend
                 port:
                   number: 80
+
 ```
 
 ## Performance Optimization
@@ -439,18 +483,23 @@ self.addEventListener('install', (event) => {
     })
   );
 });
+
 ```
 
 ### Asset Optimization
 
 - **Minificación:** CSS/JS comprimidos en producción
+
 - **CDN:** Juegos servidos desde CloudFront
+
 - **Lazy Loading:** js-dos cargado bajo demanda
+
 - **Preconnect:** DNS prefetch para CDN
 
 ```html
 <link rel="preconnect" href="https://cdn.retrogamehub.games">
 <link rel="dns-prefetch" href="https://cdn.retrogamehub.games">
+
 ```
 
 ## Seguridad
@@ -470,6 +519,7 @@ app.use((req, res, next) => {
   );
   next();
 });
+
 ```
 
 ### XSS Protection
@@ -492,6 +542,7 @@ function verifyToken(token) {
     return null;
   }
 }
+
 ```
 
 ## Próximos Pasos

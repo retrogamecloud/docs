@@ -1,8 +1,8 @@
 ---
-title: "5.2. GET /rankings/game/:gameSlug"
-description: "Obtener ranking de un juego específico"
-api: "GET https://api.retrogamehub.games/rankings/game/:gameSlug"
-icon: "file-lines"
+title: 5.2. GET /rankings/game/:gameSlug
+description: Obtener ranking de un juego específico
+api: GET https://api.retrogamehub.games/rankings/game/:gameSlug
+icon: file-lines
 ---
 
 ## Descripción
@@ -33,16 +33,16 @@ Obtiene la tabla de clasificación (leaderboard) de un juego específico, ordena
 
 <ResponseField name="game" type="object">
   Información del juego
-  
+
   <Expandable title="properties">
     <ResponseField name="id" type="number">
       ID del juego
     </ResponseField>
-    
+
     <ResponseField name="name" type="string">
       Nombre del juego
     </ResponseField>
-    
+
     <ResponseField name="slug" type="string">
       Slug del juego
     </ResponseField>
@@ -51,28 +51,28 @@ Obtiene la tabla de clasificación (leaderboard) de un juego específico, ordena
 
 <ResponseField name="rankings" type="array">
   Array de jugadores ordenados por puntuación
-  
+
   <Expandable title="Ranking Object">
     <ResponseField name="rank" type="number">
       Posición en el ranking
     </ResponseField>
-    
+
     <ResponseField name="user_id" type="number">
       ID del usuario
     </ResponseField>
-    
+
     <ResponseField name="username" type="string">
       Nombre de usuario
     </ResponseField>
-    
+
     <ResponseField name="display_name" type="string">
       Nombre para mostrar
     </ResponseField>
-    
+
     <ResponseField name="score" type="number">
       Puntuación en el juego
     </ResponseField>
-    
+
     <ResponseField name="updated_at" type="string">
       Fecha del último highscore (ISO 8601)
     </ResponseField>
@@ -103,10 +103,12 @@ Obtiene la tabla de clasificación (leaderboard) de un juego específico, ordena
 
 ```bash cURL - Top 50 de DOOM
 curl https://api.retrogamehub.games/rankings/game/doom
+
 ```
 
 ```bash cURL - Top 10 semanal
 curl "https://api.retrogamehub.games/rankings/game/tetris?limit=10&period=weekly"
+
 ```
 
 ```javascript JavaScript
@@ -114,12 +116,12 @@ async function loadGameLeaderboard(gameSlug, period = 'all-time') {
   const response = await fetch(
     `https://api.retrogamehub.games/rankings/game/${gameSlug}?limit=100&period=${period}`
   );
-  
+
   const data = await response.json();
-  
+
   console.log(`Leaderboard de ${data.game.name}`);
   console.log(`Total de jugadores: ${data.total_players}`);
-  
+
   return data.rankings;
 }
 
@@ -128,6 +130,7 @@ const top10 = await loadGameLeaderboard('doom', 'all-time');
 top10.slice(0, 10).forEach(player => {
   console.log(`#${player.rank}: ${player.display_name} - ${player.score.toLocaleString()}`);
 });
+
 ```
 
 ```python Python
@@ -149,6 +152,7 @@ data = response.json()
 print(f"=== {data['game']['name']} - Top {period.upper()} ===")
 for player in data['rankings'][:10]:
     print(f"#{player['rank']}: {player['display_name']} - {player['score']:,}")
+
 ```
 
 </RequestExample>
@@ -194,18 +198,21 @@ for player in data['rankings'][:10]:
   "period": "all-time",
   "cached_at": "2025-11-19T15:32:00.000Z"
 }
+
 ```
 
 ```json 404 - Game Not Found
 {
   "error": "Juego no encontrado: invalid-slug"
 }
+
 ```
 
 ```json 400 - Invalid Period
 {
   "error": "Period debe ser: all-time, monthly, weekly o daily"
 }
+
 ```
 
 </ResponseExample>
@@ -215,36 +222,36 @@ for player in data['rankings'][:10]:
 <Tabs>
   <Tab title="All-Time">
     **Todos los tiempos**
-    
+
     Ranking histórico con todas las puntuaciones registradas desde el inicio.
-    
+
     - Caché: 5 minutos
     - Uso: Leaderboard principal
   </Tab>
-  
+
   <Tab title="Monthly">
     **Mes actual**
-    
+
     Solo puntuaciones del mes en curso (se resetea el día 1).
-    
+
     - Caché: 10 minutos
     - Uso: Competencia mensual
   </Tab>
-  
+
   <Tab title="Weekly">
     **Semana actual**
-    
+
     Solo puntuaciones de los últimos 7 días.
-    
+
     - Caché: 15 minutos
     - Uso: Desafíos semanales
   </Tab>
-  
+
   <Tab title="Daily">
     **Hoy**
-    
+
     Solo puntuaciones del día actual.
-    
+
     - Caché: 30 minutos
     - Uso: Competencia diaria
   </Tab>
@@ -263,7 +270,7 @@ class GameLeaderboard {
     this.currentPage = 0;
     this.pageSize = 50;
   }
-  
+
   async load() {
     const response = await fetch(
       `https://api.retrogamehub.games/rankings/game/${this.gameSlug}?` +
@@ -271,53 +278,53 @@ class GameLeaderboard {
       `offset=${this.currentPage * this.pageSize}&` +
       `period=${this.period}`
     );
-    
+
     const data = await response.json();
-    
+
     this.game = data.game;
     this.rankings = data.rankings;
     this.totalPlayers = data.total_players;
     this.cachedAt = new Date(data.cached_at);
-    
+
     this.render();
   }
-  
+
   render() {
     const container = document.getElementById('leaderboard');
-    
+
     container.innerHTML = `
       <div class="leaderboard-header">
         <h1>🎮 ${this.game.name}</h1>
         <h2>Tabla de Clasificación</h2>
-        
+
         <div class="period-selector">
           ${this.renderPeriodTabs()}
         </div>
-        
+
         <p class="total-players">
           ${this.totalPlayers.toLocaleString()} jugadores
         </p>
-        
+
         <p class="cache-info">
           Actualizado: ${this.cachedAt.toLocaleString()}
         </p>
       </div>
-      
+
       <div class="leaderboard-content">
         ${this.renderTopThree()}
         ${this.renderTable()}
       </div>
-      
+
       <div class="pagination">
         ${this.renderPagination()}
       </div>
-      
+
       <div class="my-position">
         ${this.renderMyPosition()}
       </div>
     `;
   }
-  
+
   renderPeriodTabs() {
     const periods = [
       { value: 'all-time', label: 'Todo' },
@@ -325,9 +332,9 @@ class GameLeaderboard {
       { value: 'weekly', label: 'Semana' },
       { value: 'daily', label: 'Hoy' }
     ];
-    
+
     return periods.map(p => `
-      <button 
+      <button
         class="period-tab ${this.period === p.value ? 'active' : ''}"
         onclick="leaderboard.changePeriod('${p.value}')"
       >
@@ -335,12 +342,12 @@ class GameLeaderboard {
       </button>
     `).join('');
   }
-  
+
   renderTopThree() {
     const top3 = this.rankings.slice(0, 3);
-    
+
     if (top3.length === 0) return '';
-    
+
     return `
       <div class="podium">
         ${top3[1] ? this.renderPodiumPlayer(top3[1], 2, '🥈') : ''}
@@ -349,10 +356,10 @@ class GameLeaderboard {
       </div>
     `;
   }
-  
+
   renderPodiumPlayer(player, rank, medal) {
     const height = rank === 1 ? 'tall' : rank === 2 ? 'medium' : 'short';
-    
+
     return `
       <div class="podium-player ${height}">
         <div class="medal">${medal}</div>
@@ -361,10 +368,10 @@ class GameLeaderboard {
       </div>
     `;
   }
-  
+
   renderTable() {
     const remainingPlayers = this.rankings.slice(3);
-    
+
     return `
       <table class="leaderboard-table">
         <thead>
@@ -394,13 +401,13 @@ class GameLeaderboard {
       </table>
     `;
   }
-  
+
   renderMyPosition() {
     const userId = this.getCurrentUserId();
     if (!userId) return '';
-    
+
     const myRank = this.rankings.find(p => p.user_id === userId);
-    
+
     if (myRank) {
       return `
         <div class="my-rank highlight">
@@ -419,23 +426,23 @@ class GameLeaderboard {
       `;
     }
   }
-  
+
   renderPagination() {
     const totalPages = Math.ceil(this.totalPlayers / this.pageSize);
-    
+
     return `
-      <button 
-        onclick="leaderboard.previousPage()" 
+      <button
+        onclick="leaderboard.previousPage()"
         ${this.currentPage === 0 ? 'disabled' : ''}
       >
         ← Anterior
       </button>
-      
+
       <span class="page-info">
         Página ${this.currentPage + 1} de ${totalPages}
       </span>
-      
-      <button 
+
+      <button
         onclick="leaderboard.nextPage()"
         ${this.currentPage >= totalPages - 1 ? 'disabled' : ''}
       >
@@ -443,34 +450,34 @@ class GameLeaderboard {
       </button>
     `;
   }
-  
+
   async changePeriod(period) {
     this.period = period;
     this.currentPage = 0;
     await this.load();
   }
-  
+
   async nextPage() {
     this.currentPage++;
     await this.load();
     window.scrollTo(0, 0);
   }
-  
+
   async previousPage() {
     this.currentPage = Math.max(0, this.currentPage - 1);
     await this.load();
     window.scrollTo(0, 0);
   }
-  
+
   getCurrentUserId() {
     // Obtener del localStorage o token JWT
     const token = localStorage.getItem('token');
     if (!token) return null;
-    
+
     const payload = JSON.parse(atob(token.split('.')[1]));
     return payload.userId;
   }
-  
+
   // Auto-refresh cada 2 minutos
   startAutoRefresh() {
     setInterval(() => this.load(), 2 * 60 * 1000);
@@ -482,13 +489,14 @@ const gameSlug = new URLSearchParams(window.location.search).get('game');
 const leaderboard = new GameLeaderboard(gameSlug);
 leaderboard.load();
 leaderboard.startAutoRefresh();
+
 ```
 
 ## Caching y Performance
 
 <Info>
   Los rankings se cachean en **Redis con diferentes TTL** según el periodo:
-  
+
   - All-time: 5 minutos
   - Monthly: 10 minutos
   - Weekly: 15 minutos
@@ -513,14 +521,16 @@ async function onScoreSubmitted(gameSlug) {
   await redis.del(`ranking:${gameSlug}:monthly`);
   await redis.del(`ranking:${gameSlug}:weekly`);
   await redis.del(`ranking:${gameSlug}:daily`);
-  
+
   console.log(`Cache invalidado para ${gameSlug}`);
 }
+
 ```
 
 ## Rate Limiting
 
 - **Límite**: 100 peticiones por minuto por IP
+
 - **Recomendación**: Cachea en el frontend y refresca cada 2-5 minutos
 
 ## Competencias y Eventos
@@ -532,14 +542,14 @@ async function showMonthlyCompetition(gameSlug) {
   const response = await fetch(
     `https://api.retrogamehub.games/rankings/game/${gameSlug}?period=monthly&limit=10`
   );
-  
+
   const data = await response.json();
-  
+
   const daysLeft = getDaysLeftInMonth();
-  
+
   console.log(`🏆 Competencia de ${data.game.name} - ${daysLeft} días restantes`);
   console.log('Top 10 del mes:');
-  
+
   data.rankings.forEach(player => {
     console.log(`#${player.rank}: ${player.display_name} - ${player.score.toLocaleString()}`);
   });
@@ -550,4 +560,5 @@ function getDaysLeftInMonth() {
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   return lastDay.getDate() - now.getDate();
 }
+
 ```

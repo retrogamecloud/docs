@@ -1,7 +1,7 @@
 ---
-title: "6.3. Networking y Seguridad"
-description: "Arquitectura de red VPC, subnets y security groups"
-icon: "network-wired"
+title: 6.3. Networking y Seguridad
+description: Arquitectura de red VPC, subnets y security groups
+icon: network-wired
 ---
 
 ## Arquitectura de Red
@@ -13,19 +13,19 @@ Retro Game Hub utiliza una VPC dedicada con subnets públicas y privadas distrib
 <CardGroup cols={3}>
   <Card title="CIDR Block" icon="network-wired">
     **10.0.0.0/16**
-    
+
     65,536 IPs disponibles
   </Card>
-  
+
   <Card title="Zonas" icon="server">
     **3 AZs**
-    
+
     Alta disponibilidad
   </Card>
-  
+
   <Card title="Subnets" icon="diagram-project">
     **6 Subnets**
-    
+
     3 públicas + 3 privadas
   </Card>
 </CardGroup>
@@ -67,9 +67,12 @@ Tienen acceso directo a Internet vía Internet Gateway.
   </tbody>
 </Table>
 
-**Recursos en subnets públicas:**
+* *Recursos en subnets públicas:**
+
 - Application Load Balancer (ALB)
+
 - NAT Gateway
+
 - Bastion Host (opcional)
 
 ### Subnets Privadas
@@ -107,15 +110,20 @@ Sin acceso directo a Internet - salen a través del NAT Gateway.
   </tbody>
 </Table>
 
-**Recursos en subnets privadas:**
+* *Recursos en subnets privadas:**
+
 - Nodos de EKS
+
 - Pods de Kubernetes
+
 - RDS PostgreSQL
+
 - ElastiCache Redis
 
 ## Configuración de Terraform
 
 <CodeGroup>
+
 ```hcl vpc.tf
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
@@ -165,13 +173,17 @@ resource "aws_eip" "nat" {
 
   depends_on = [module.vpc.igw_id]
 }
+
 ```
 
 ```hcl route_tables.tf
+
 # Tabla de rutas para subnets públicas (automática)
+
 # Ruta: 0.0.0.0/0 → Internet Gateway
 
 # Tabla de rutas para subnets privadas (automática)
+
 # Ruta: 0.0.0.0/0 → NAT Gateway
 
 # Ver rutas
@@ -182,7 +194,9 @@ data "aws_route_table" "public" {
 data "aws_route_table" "private" {
   subnet_id = module.vpc.private_subnets[0]
 }
+
 ```
+
 </CodeGroup>
 
 ## Flujo de Tráfico
@@ -190,52 +204,60 @@ data "aws_route_table" "private" {
 <Steps>
   <Step title="Usuario → ALB">
     **Puerto**: 443 (HTTPS)
-    
+
     ```
-    Usuario (Internet) 
+
+    Usuario (Internet)
       → Route53 (DNS)
       → ALB (Subnet Pública)
     ```
-    
+
+
     - SSL/TLS termina en el ALB
     - ACM certificate automático
   </Step>
-  
+
   <Step title="ALB → Pods">
     **Puerto**: Variable (3001-3005, 8000)
-    
+
     ```
+
     ALB (Subnet Pública)
       → EKS Pods (Subnet Privada)
       → Servicios ClusterIP
     ```
-    
+
+
     - Enrutamiento basado en path
     - Health checks cada 30s
   </Step>
-  
+
   <Step title="Pods → RDS/Redis">
     **Puerto**: 5432 (PostgreSQL), 6379 (Redis)
-    
+
     ```
+
     Pods (Subnet Privada)
       → RDS/Redis (Subnet Privada)
     ```
-    
+
+
     - Comunicación interna en VPC
     - Sin salida a Internet
   </Step>
-  
+
   <Step title="Pods → Internet">
     **Puerto**: 443 (HTTPS saliente)
-    
+
     ```
+
     Pods (Subnet Privada)
       → NAT Gateway (Subnet Pública)
       → Internet Gateway
       → Internet
     ```
-    
+
+
     - Para pull de imágenes Docker
     - Llamadas a APIs externas
   </Step>
@@ -284,6 +306,7 @@ resource "aws_security_group" "alb" {
     Name = "${var.cluster_name}-alb-sg"
   }
 }
+
 ```
 
 ### EKS Node Security Group
@@ -336,6 +359,7 @@ resource "aws_security_group" "node_group" {
     Name = "${var.cluster_name}-node-sg"
   }
 }
+
 ```
 
 ### RDS Security Group
@@ -369,6 +393,7 @@ resource "aws_security_group" "rds" {
     Name = "${var.cluster_name}-rds-sg"
   }
 }
+
 ```
 
 ### Redis Security Group
@@ -394,6 +419,7 @@ resource "aws_security_group" "redis" {
     Name = "${var.cluster_name}-redis-sg"
   }
 }
+
 ```
 
 ## Network ACLs
@@ -401,8 +427,11 @@ resource "aws_security_group" "redis" {
 Por defecto, usamos NACLs permisivas (allow all) y confiamos en Security Groups para control granular.
 
 ```hcl
+
 # NACL por defecto permite todo el tráfico
+
 # Security Groups proporcionan control stateful
+
 ```
 
 <Warning>
@@ -414,12 +443,14 @@ Por defecto, usamos NACLs permisivas (allow all) y confiamos en Security Groups 
 Para reducir costos de NAT Gateway y mejorar seguridad, usar VPC Endpoints para servicios AWS.
 
 <CodeGroup>
+
 ```hcl vpc_endpoints.tf
+
 # S3 Gateway Endpoint (gratis)
 resource "aws_vpc_endpoint" "s3" {
   vpc_id       = module.vpc.vpc_id
   service_name = "com.amazonaws.eu-west-1.s3"
-  
+
   route_table_ids = concat(
     module.vpc.private_route_table_ids,
     module.vpc.public_route_table_ids
@@ -476,12 +507,17 @@ resource "aws_security_group" "vpc_endpoints" {
     Name = "${var.cluster_name}-vpc-endpoints-sg"
   }
 }
+
 ```
+
 </CodeGroup>
 
-**Ahorro con VPC Endpoints:**
+* *Ahorro con VPC Endpoints:**
+
 - S3: $0 (gateway endpoint gratuito)
+
 - ECR: ~$7/mes - pero reduces NAT Gateway data transfer
+
 - NAT Gateway data: $0.045/GB → VPC Endpoint: $0.01/GB
 
 ## DNS Resolution
@@ -520,15 +556,18 @@ resource "aws_route53_record" "redis" {
   ttl     = 300
   records = [aws_elasticache_cluster.redis.cache_nodes[0].address]
 }
+
 ```
 
 Uso en aplicaciones:
+
 ```javascript
 // En lugar de:
 DB_HOST=retrogame-db.xxxxx.eu-west-1.rds.amazonaws.com
 
 // Usar:
 DB_HOST=postgres.retrogame.internal
+
 ```
 
 ## Costos de Networking
@@ -580,13 +619,13 @@ DB_HOST=postgres.retrogame.internal
 <CardGroup cols={2}>
   <Card title="1 NAT por AZ" icon="money-bill-wave">
     **Dev**: 1 NAT total
-    
+
     **Prod**: 1 NAT por AZ (alta disponibilidad)
   </Card>
-  
+
   <Card title="VPC Endpoints" icon="link">
     Para tráfico alto a S3/ECR
-    
+
     Break-even: ~800GB/mes
   </Card>
 </CardGroup>
@@ -596,20 +635,26 @@ DB_HOST=postgres.retrogame.internal
 Controla tráfico entre pods con Network Policies de Kubernetes.
 
 <Accordion title="Instalar Calico (opcional)">
+
 ```bash
+
 # EKS usa VPC CNI por defecto (no soporta Network Policies)
+
 # Para Network Policies, instalar Calico:
 
 kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico-vxlan.yaml
 
 # Verificar instalación
 kubectl get pods -n kube-system | grep calico
+
 ```
+
 </Accordion>
 
 ### Ejemplo: Aislar Namespace
 
 ```yaml
+
 # Solo permite tráfico dentro del namespace
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -623,11 +668,13 @@ spec:
   ingress:
   - from:
     - podSelector: {}  # Solo pods del mismo namespace
+
 ```
 
 ### Ejemplo: Solo desde ALB
 
 ```yaml
+
 # Solo permite tráfico desde pods del ingress controller
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -648,6 +695,7 @@ spec:
       podSelector:
         matchLabels:
           app: aws-load-balancer-controller
+
 ```
 
 ## Troubleshooting
@@ -657,42 +705,45 @@ spec:
     ```bash
     # Verificar que hay ruta al NAT Gateway
     kubectl run test --image=busybox --rm -it -- wget -O- https://www.google.com
-    
+
     # Verificar tabla de rutas
     aws ec2 describe-route-tables --filters "Name=vpc-id,Values=<VPC_ID>"
-    
+
     # Verificar NAT Gateway está activo
     aws ec2 describe-nat-gateways --filter "Name=vpc-id,Values=<VPC_ID>"
     ```
+
   </Accordion>
-  
+
   <Accordion title="RDS no accesible desde pods">
     ```bash
     # Verificar security group
     aws ec2 describe-security-groups --group-ids <RDS_SG_ID>
-    
+
     # Test de conectividad desde un pod
     kubectl run db-test --image=postgres:15 --rm -it -- \
       psql -h postgres.retrogame.internal -U postgres -d retrogamedb
-    
+
     # Verificar DNS
     kubectl run dns-test --image=busybox --rm -it -- \
       nslookup postgres.retrogame.internal
     ```
+
   </Accordion>
-  
+
   <Accordion title="ALB no distribuye tráfico">
     ```bash
     # Ver target groups
     aws elbv2 describe-target-health --target-group-arn <TG_ARN>
-    
+
     # Verificar health checks
     kubectl get svc -n retrogame
     kubectl describe svc <service-name> -n retrogame
-    
+
     # Ver logs del ALB
     aws logs tail /aws/elasticloadbalancing/app/<alb-name> --follow
     ```
+
   </Accordion>
 </AccordionGroup>
 
@@ -702,15 +753,15 @@ spec:
   <Card title="Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
     Prometheus, Grafana y alertas de red
   </Card>
-  
+
   <Card title="Cluster EKS" icon="dharmachakra" href="/infrastructure/eks-cluster">
     Configuración del cluster de Kubernetes
   </Card>
-  
+
   <Card title="Desplegar Servicios" icon="cubes" href="/services/auth-service">
     Microservicios en la red
   </Card>
-  
+
   <Card title="Infraestructura General" icon="server" href="/infrastructure/overview">
     Vista general de toda la infra
   </Card>

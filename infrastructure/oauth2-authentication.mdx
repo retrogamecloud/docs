@@ -1,7 +1,7 @@
 ---
-title: "5.1. Autenticación OAuth2 con GitHub"
-description: "Protección de herramientas de monitoreo con OAuth2-Proxy y GitHub"
-icon: "lock"
+title: 5.1. Autenticación OAuth2 con GitHub
+description: Protección de herramientas de monitoreo con OAuth2-Proxy y GitHub
+icon: lock
 ---
 
 ## Arquitectura de Autenticación
@@ -11,19 +11,19 @@ Retro Game Hub protege el acceso a Grafana, Prometheus y AlertManager usando **O
 <CardGroup cols={3}>
   <Card title="OAuth2-Proxy" icon="shield-halved">
     **Capa de Auth**
-    
+
     Intercepta requests
   </Card>
-  
+
   <Card title="GitHub OAuth" icon="github">
     **Identity Provider**
-    
+
     Valida usuarios
   </Card>
-  
+
   <Card title="Ingress NGINX" icon="route">
     **Routing**
-    
+
     Annotations para auth
   </Card>
 </CardGroup>
@@ -40,7 +40,7 @@ sequenceDiagram
 
     User->>NGINX: GET /grafana
     NGINX->>OAuth2: auth-url: /oauth2/auth
-    
+
     alt No autenticado
         OAuth2-->>NGINX: 401 Unauthorized
         NGINX-->>User: 302 Redirect /oauth2/start
@@ -54,7 +54,7 @@ sequenceDiagram
         OAuth2->>OAuth2: Verify org membership
         OAuth2-->>User: Set cookie + 302 Redirect /grafana
     end
-    
+
     User->>NGINX: GET /grafana (with cookie)
     NGINX->>OAuth2: auth-url: /oauth2/auth
     OAuth2->>OAuth2: Validate cookie
@@ -62,6 +62,7 @@ sequenceDiagram
     NGINX->>Grafana: Forward request + headers
     Grafana-->>NGINX: Response
     NGINX-->>User: Grafana dashboard
+
 ```
 
 ## GitHub OAuth App
@@ -73,47 +74,49 @@ sequenceDiagram
     1. Ve a **GitHub → Settings → Developer settings**
     2. Click en **OAuth Apps**
     3. Click en **New OAuth App**
-    
+
     URL: https://github.com/settings/developers
   </Step>
-  
+
   <Step title="Configurar OAuth App">
     **Application name**: `RetroGame Monitoring`
-    
+
     **Homepage URL**: `https://retrogamehub.games`
-    
+
     **Application description**: `OAuth authentication for Grafana, Prometheus and AlertManager`
-    
+
     **Authorization callback URL**: `https://retrogamehub.games/oauth2/callback`
-    
+
     <Warning>
       La callback URL debe coincidir exactamente con la configurada en oauth2-proxy.
     </Warning>
   </Step>
-  
+
   <Step title="Obtener Credenciales">
     Después de crear la app, GitHub te proporcionará:
-    
+
     - **Client ID**: `Gh1p5A9hK3uL7mNo...`
     - **Client Secret**: (genera un nuevo secret)
-    
+
     <Note>
       Guarda estas credenciales de forma segura. Las necesitarás para configurar Terraform.
     </Note>
   </Step>
-  
+
   <Step title="Configurar en Terraform">
     ```hcl
     # terraform.tfvars
     github_oauth_client_id     = "Gh1p5A9hK3uL7mNo..."
     github_oauth_client_secret = "gho_SuperSecretTokenHere..."
     ```
-    
+
+
     O usa variables de entorno:
     ```bash
     export TF_VAR_github_oauth_client_id="Gh1p5A9hK3uL7mNo..."
     export TF_VAR_github_oauth_client_secret="gho_SuperSecretTokenHere..."
     ```
+
   </Step>
 </Steps>
 
@@ -138,7 +141,7 @@ resource "kubernetes_deployment" "oauth2_proxy" {
         container {
           name  = "oauth2-proxy"
           image = "quay.io/oauth2-proxy/oauth2-proxy:v7.6.0"
-          
+
           args = [
             "--config=/etc/oauth2-proxy/oauth2_proxy.cfg",
             "--client-id=$(CLIENT_ID)",
@@ -196,6 +199,7 @@ resource "kubernetes_deployment" "oauth2_proxy" {
     }
   }
 }
+
 ```
 
 ### ConfigMap de Configuración
@@ -211,25 +215,25 @@ resource "kubernetes_config_map" "oauth2_proxy" {
     "oauth2_proxy.cfg" = <<-EOT
       # Proveedor OAuth2
       provider = "github"
-      
+
       # Dominios de email permitidos
       email_domains = [ "*" ]
-      
+
       # Restringir a organización de GitHub
       github_org = "retrogamecloud"
-      
+
       # Restringir a equipo específico (opcional)
       # github_team = "platform-team"
-      
+
       # Restringir a usuarios específicos (opcional)
       # github_users = [ "usuario1", "usuario2" ]
-      
+
       # Upstream con path-based routing
       upstreams = [ "static://202" ]
-      
+
       # Configuración HTTP
       http_address = "0.0.0.0:4180"
-      
+
       # Configuración de cookies
       cookie_name = "_oauth2_proxy"
       cookie_secure = true
@@ -237,25 +241,25 @@ resource "kubernetes_config_map" "oauth2_proxy" {
       cookie_samesite = "lax"
       cookie_domains = [ ".retrogamehub.games" ]
       cookie_path = "/"
-      
+
       # Expiración de sesión
       cookie_expire = "168h"  # 7 días
       cookie_refresh = "1h"
-      
+
       # Headers
       pass_access_token = false
       pass_authorization_header = true
       pass_user_headers = true
       set_xauthrequest = true
       set_authorization_header = true
-      
+
       # Logging
       request_logging = true
       auth_logging = true
-      
+
       # Seguridad
       reverse_proxy = true
-      
+
       # Rutas sin autenticación
       skip_auth_routes = [
         "^/ping$",
@@ -264,6 +268,7 @@ resource "kubernetes_config_map" "oauth2_proxy" {
     EOT
   }
 }
+
 ```
 
 ### Parámetros Clave
@@ -331,6 +336,7 @@ spec:
   - name: http
     port: 4180
     targetPort: 4180
+
 ```
 
 ## Ingress NGINX con Autenticación
@@ -361,6 +367,7 @@ resource "helm_release" "ingress_nginx" {
     })
   ]
 }
+
 ```
 
 ### Ingress para Grafana con OAuth2
@@ -390,25 +397,26 @@ spec:
             name: kube-prometheus-stack-grafana
             port:
               number: 80
+
 ```
 
-**Annotations clave:**
+* *Annotations clave:**
 
 <Accordion title="auth-url">
   **Valor**: `http://oauth2-proxy.monitoring.svc.cluster.local:4180/oauth2/auth`
-  
+
   **Función**: NGINX consulta este endpoint antes de permitir acceso. Si devuelve 200, permite; si devuelve 401, redirige a `/oauth2/start`.
 </Accordion>
 
 <Accordion title="auth-signin">
   **Valor**: `https://retrogamehub.games/oauth2/start?rd=$escaped_request_uri`
-  
+
   **Función**: URL a la que redirigir usuarios no autenticados. El parámetro `rd` (return destination) guarda la URL original para redirigir después del login.
 </Accordion>
 
 <Accordion title="auth-response-headers">
   **Valor**: `X-Auth-Request-User,X-Auth-Request-Email,Authorization`
-  
+
   **Función**: Headers que OAuth2-Proxy añade a la request y que NGINX forwarde al backend. Útil para que Grafana sepa quién es el usuario.
 </Accordion>
 
@@ -433,6 +441,7 @@ spec:
             name: oauth2-proxy
             port:
               number: 4180
+
 ```
 
 <Note>
@@ -444,6 +453,7 @@ spec:
 Similar a Grafana, con las mismas annotations de auth:
 
 <CodeGroup>
+
 ```yaml Prometheus
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -467,6 +477,7 @@ spec:
             name: kube-prometheus-stack-prometheus
             port:
               number: 9090
+
 ```
 
 ```yaml AlertManager
@@ -492,7 +503,9 @@ spec:
             name: kube-prometheus-stack-alertmanager
             port:
               number: 9093
+
 ```
+
 </CodeGroup>
 
 ## Flujo de Autenticación
@@ -502,28 +515,32 @@ spec:
 <Steps>
   <Step title="Usuario accede a Grafana">
     ```
+
     https://retrogamehub.games/grafana
     ```
+
   </Step>
-  
+
   <Step title="NGINX consulta OAuth2-Proxy">
     ```bash
     # Request interno de NGINX
     GET http://oauth2-proxy.monitoring.svc.cluster.local:4180/oauth2/auth
     Cookie: _oauth2_proxy=...
-    
+
     # Response: 401 Unauthorized (sin cookie válida)
     ```
+
   </Step>
-  
+
   <Step title="NGINX redirige a login">
     ```bash
     # Response al usuario
     HTTP/1.1 302 Found
     Location: https://retrogamehub.games/oauth2/start?rd=%2Fgrafana
     ```
+
   </Step>
-  
+
   <Step title="OAuth2-Proxy redirige a GitHub">
     ```bash
     # OAuth2-Proxy response
@@ -534,18 +551,19 @@ spec:
       scope=user:email,read:org&
       state=random_state_token
     ```
+
   </Step>
-  
+
   <Step title="Usuario se autentica en GitHub">
     - Login con usuario/password o 2FA
     - Autoriza la aplicación OAuth (primera vez)
     - GitHub verifica pertenencia a organización `retrogamecloud`
   </Step>
-  
+
   <Step title="GitHub callback a OAuth2-Proxy">
     ```bash
     GET https://retrogamehub.games/oauth2/callback?code=abc123&state=...
-    
+
     # OAuth2-Proxy intercambia code por access token
     POST https://github.com/login/oauth/access_token
     {
@@ -553,7 +571,7 @@ spec:
       "client_secret": "gho_SuperSecretTokenHere...",
       "code": "abc123"
     }
-    
+
     # GitHub response
     {
       "access_token": "ghu_AccessTokenHere...",
@@ -561,56 +579,60 @@ spec:
       "scope": "user:email,read:org"
     }
     ```
+
   </Step>
-  
+
   <Step title="OAuth2-Proxy valida usuario">
     ```bash
     # Obtener info del usuario
     GET https://api.github.com/user
     Authorization: token ghu_AccessTokenHere...
-    
+
     # Verificar membresía de organización
     GET https://api.github.com/orgs/retrogamecloud/members/username
     Authorization: token ghu_AccessTokenHere...
-    
+
     # Response: 204 No Content (es miembro) ✅
     ```
+
   </Step>
-  
+
   <Step title="OAuth2-Proxy establece cookie">
     ```bash
     HTTP/1.1 302 Found
     Location: https://retrogamehub.games/grafana
-    Set-Cookie: _oauth2_proxy=encrypted_session_data; 
-                Path=/; 
-                Domain=.retrogamehub.games; 
-                Secure; 
-                HttpOnly; 
-                SameSite=Lax; 
+    Set-Cookie: _oauth2_proxy=encrypted_session_data;
+                Path=/;
+                Domain=.retrogamehub.games;
+                Secure;
+                HttpOnly;
+                SameSite=Lax;
                 Max-Age=604800
     ```
+
   </Step>
-  
+
   <Step title="Usuario accede a Grafana">
     Ahora con cookie válida, NGINX permite el acceso:
-    
+
     ```bash
     GET https://retrogamehub.games/grafana
     Cookie: _oauth2_proxy=encrypted_session_data
-    
+
     # NGINX auth check
     GET http://oauth2-proxy/oauth2/auth
     Cookie: _oauth2_proxy=encrypted_session_data
-    
+
     # OAuth2-Proxy response: 200 OK ✅
     X-Auth-Request-User: username
     X-Auth-Request-Email: user@example.com
-    
+
     # NGINX forward to Grafana con headers
     GET http://kube-prometheus-stack-grafana.monitoring/
     X-Auth-Request-User: username
     X-Auth-Request-Email: user@example.com
     ```
+
   </Step>
 </Steps>
 
@@ -665,12 +687,14 @@ spec:
 ### Logout Manual
 
 ```bash
+
 # Eliminar cookie y cerrar sesión
 curl -X POST https://retrogamehub.games/oauth2/sign_out \
   -H "Cookie: _oauth2_proxy=..."
 
 # O desde el navegador
 https://retrogamehub.games/oauth2/sign_out
+
 ```
 
 ## Control de Acceso
@@ -678,16 +702,20 @@ https://retrogamehub.games/oauth2/sign_out
 ### Por Organización
 
 ```hcl
+
 # Permitir solo usuarios de la organización retrogamecloud
 github_org = "retrogamecloud"
+
 ```
 
 ### Por Equipo (Team)
 
 ```hcl
+
 # Permitir solo miembros del equipo "platform-team"
 github_org = "retrogamecloud"
 github_team = "platform-team"
+
 ```
 
 <Note>
@@ -697,18 +725,22 @@ github_team = "platform-team"
 ### Por Usuario Específico
 
 ```hcl
+
 # Lista blanca de usuarios
 github_users = [ "usuario1", "usuario2", "admin" ]
+
 ```
 
 ### Combinaciones
 
 ```hcl
+
 # Usuarios específicos Y miembros de la org
 github_org = "retrogamecloud"
 github_users = [ "usuario1", "usuario2" ]
 
 # Criterio: OR (usuario EN la lista O miembro de la org)
+
 ```
 
 ## Troubleshooting
@@ -716,99 +748,104 @@ github_users = [ "usuario1", "usuario2" ]
 <AccordionGroup>
   <Accordion title="Error: User not in permitted organization">
     **Causa**: Usuario no es miembro de la organización `retrogamecloud`
-    
+
     **Solución**:
     ```bash
     # Verificar membresía
     gh api orgs/retrogamecloud/members/USERNAME
-    
+
     # Añadir usuario a la organización
     gh api -X PUT orgs/retrogamecloud/memberships/USERNAME
-    
+
     # O cambiar configuración para permitir cualquier usuario
     # oauth2_proxy.cfg:
     # github_org = ""
     # email_domains = [ "*" ]
     ```
+
   </Accordion>
-  
+
   <Accordion title="Redirect loop infinito">
     **Causa**: Cookie no se establece correctamente o domain mismatch
-    
+
     **Solución**:
     ```bash
     # Verificar configuración de cookie domain
     kubectl get configmap oauth2-proxy -n monitoring -o yaml | grep cookie_domains
-    
+
     # Debe ser: .retrogamehub.games (con punto al inicio)
-    
+
     # Verificar callback URL en GitHub OAuth App
     # Debe ser: https://retrogamehub.games/oauth2/callback
-    
+
     # Limpiar cookies del navegador
     # DevTools → Application → Cookies → Clear all
     ```
+
   </Accordion>
-  
+
   <Accordion title="502 Bad Gateway en /grafana">
     **Causa**: OAuth2-Proxy no está corriendo o service name incorrecto
-    
+
     **Solución**:
     ```bash
     # Verificar pods de oauth2-proxy
     kubectl get pods -n monitoring -l app=oauth2-proxy
-    
+
     # Ver logs
     kubectl logs -n monitoring -l app=oauth2-proxy --tail=50
-    
+
     # Verificar service
     kubectl get svc oauth2-proxy -n monitoring
-    
+
     # Debe devolver:
     # oauth2-proxy   ClusterIP   10.100.x.x   <none>   4180/TCP
-    
+
     # Test de conectividad
     kubectl run test --rm -it --image=curlimages/curl -n monitoring -- \
       curl http://oauth2-proxy.monitoring.svc.cluster.local:4180/ping
     ```
+
   </Accordion>
-  
+
   <Accordion title="Cookie no persiste entre recargas">
     **Causa**: Cookie secure flag sin HTTPS o domain incorrecto
-    
+
     **Solución**:
     ```bash
     # Verificar que estás usando HTTPS
     # http://retrogamehub.games ❌
     # https://retrogamehub.games ✅
-    
+
     # Verificar configuración de cookie
     kubectl exec -n monitoring deployment/oauth2-proxy -- \
       cat /etc/oauth2-proxy/oauth2_proxy.cfg | grep cookie
-    
+
     # Debe incluir:
     # cookie_secure = true
     # cookie_domains = [ ".retrogamehub.games" ]
     # cookie_httponly = true
     ```
+
   </Accordion>
-  
+
   <Accordion title="GitHub OAuth App error: redirect_uri_mismatch">
     **Causa**: Callback URL no coincide entre GitHub y oauth2-proxy
-    
+
     **Solución**:
     ```bash
     # Verificar GitHub OAuth App callback URL
     # Debe ser: https://retrogamehub.games/oauth2/callback
-    
+
     # Verificar configuración de oauth2-proxy
     kubectl logs -n monitoring -l app=oauth2-proxy | grep redirect
-    
+
     # Debe mostrar: --redirect-url=https://retrogamehub.games/oauth2/callback
-    
+
     # Si no coincide, actualizar GitHub OAuth App:
     # https://github.com/settings/developers → Edit app → Update URL
     ```
+
   </Accordion>
 </AccordionGroup>
 
@@ -819,25 +856,27 @@ github_users = [ "usuario1", "usuario2" ]
 OAuth2-Proxy expone métricas en `/metrics`:
 
 ```bash
+
 # Port-forward para acceder
 kubectl port-forward -n monitoring svc/oauth2-proxy 4180:4180
 
 # Ver métricas
 curl http://localhost:4180/metrics
+
 ```
 
-**Métricas clave:**
+* *Métricas clave:**
 
 <CardGroup cols={2}>
   <Card title="oauth2_proxy_requests_total" icon="chart-line">
     Total de requests procesadas
-    
+
     Labels: `path`, `method`, `status`
   </Card>
-  
+
   <Card title="oauth2_proxy_authentication_errors_total" icon="triangle-exclamation">
     Errores de autenticación
-    
+
     Labels: `error`
   </Card>
 </CardGroup>
@@ -845,6 +884,7 @@ curl http://localhost:4180/metrics
 ### Logs
 
 ```bash
+
 # Ver logs de oauth2-proxy
 kubectl logs -f -n monitoring -l app=oauth2-proxy
 
@@ -853,6 +893,7 @@ kubectl logs -n monitoring -l app=oauth2-proxy | grep "authentication complete"
 
 # Filtrar por errores
 kubectl logs -n monitoring -l app=oauth2-proxy | grep "error"
+
 ```
 
 ## Seguridad
@@ -862,33 +903,33 @@ kubectl logs -n monitoring -l app=oauth2-proxy | grep "error"
 <CardGroup cols={2}>
   <Card title="Cookie Segura" icon="cookie">
     ✅ Secure flag (HTTPS only)
-    
+
     ✅ HttpOnly (no JS access)
-    
+
     ✅ SameSite=Lax (CSRF protection)
   </Card>
-  
+
   <Card title="Secrets Seguros" icon="key">
     ✅ Client secret en Kubernetes Secret
-    
+
     ✅ Cookie secret aleatorio (32 bytes)
-    
+
     ✅ No hardcoded en código
   </Card>
-  
+
   <Card title="Scope Mínimo" icon="shield">
     ✅ Solo scopes necesarios: user:email, read:org
-    
+
     ❌ No solicita write access
-    
+
     ❌ No solicita repo access
   </Card>
-  
+
   <Card title="Validación de Org" icon="building">
     ✅ Solo usuarios de retrogamecloud
-    
+
     ✅ Verificación server-side
-    
+
     ❌ No confía en claims del cliente
   </Card>
 </CardGroup>
@@ -896,6 +937,7 @@ kubectl logs -n monitoring -l app=oauth2-proxy | grep "error"
 ### Rotación de Secrets
 
 ```bash
+
 # Generar nuevo cookie secret
 NEW_SECRET=$(openssl rand -base64 32)
 
@@ -907,6 +949,7 @@ kubectl patch secret oauth2-proxy -n monitoring \
 kubectl rollout restart deployment oauth2-proxy -n monitoring
 
 # Esto invalidará todas las sesiones activas (logout forzado)
+
 ```
 
 ## URLs de Acceso
@@ -916,19 +959,19 @@ Después de la autenticación, estos endpoints están protegidos:
 <CardGroup cols={3}>
   <Card title="Grafana" icon="chart-area">
     **URL**: https://retrogamehub.games/grafana
-    
+
     Dashboards y visualización
   </Card>
-  
+
   <Card title="Prometheus" icon="chart-line">
     **URL**: https://retrogamehub.games/prometheus
-    
+
     Queries y métricas
   </Card>
-  
+
   <Card title="AlertManager" icon="bell">
     **URL**: https://retrogamehub.games/alertmanager
-    
+
     Gestión de alertas
   </Card>
 </CardGroup>
@@ -939,15 +982,15 @@ Después de la autenticación, estos endpoints están protegidos:
   <Card title="Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
     Stack completo de Prometheus y Grafana
   </Card>
-  
+
   <Card title="Route53 y SSL" icon="certificate" href="/infrastructure/route53-ssl">
     Configuración de dominio y certificados
   </Card>
-  
+
   <Card title="Networking" icon="network-wired" href="/infrastructure/networking">
     Arquitectura de red y security groups
   </Card>
-  
+
   <Card title="Despliegue" icon="rocket" href="/deployment">
     Guía completa de despliegue
   </Card>

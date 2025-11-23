@@ -1,0 +1,568 @@
+{
+  "version": "1.0",
+  "last_full_analysis": "2025-11-23T13:45:27.741382",
+  "files": {
+    "troubleshooting.mdx": {
+      "hash": "c88e64299b01a978f1709ee27ebdf61f928161d09ae53540b7cd352268f45f7b",
+      "last_analyzed": "2025-11-23T13:45:27.741442",
+      "size": 20137
+    },
+    "sequence-diagrams.mdx": {
+      "hash": "a9836e004f68a16a02f395bca157748ff7ebc1a5f5da1476344b29e19236dfed",
+      "last_analyzed": "2025-11-23T13:45:27.741503",
+      "size": 19638
+    },
+    "architecture.mdx": {
+      "hash": "1008fce9235dde1d6b5628db0568a67e6b44ee70180ea99017ee62dc6da2c136",
+      "last_analyzed": "2025-11-23T13:45:27.741545",
+      "size": 6391
+    },
+    "configuration.mdx": {
+      "hash": "89e8bff078814672f341de43dcf58fc8c0ab791cf89d86ec797c906599431258",
+      "last_analyzed": "2025-11-23T13:45:27.741592",
+      "size": 19437
+    },
+    "desarrollo-local.mdx": {
+      "hash": "471de1cb05ea17125d3cbc7fd7bcb9d701e67c9ee14fb7c376bb62c79465a1c4",
+      "last_analyzed": "2025-11-23T13:45:27.741636",
+      "size": 21373
+    },
+    "development.mdx": {
+      "hash": "6a0b0758e35588288877fb9c9f7b2440452b32857438baadf1b98bea07e9fcba",
+      "last_analyzed": "2025-11-23T13:45:27.741668",
+      "size": 2777
+    },
+    "quickstart.mdx": {
+      "hash": "85374ad4fc60f9ba8a87b7d76fb6618fbc7aba03cabc8f9fc18c6498a5b23f8f",
+      "last_analyzed": "2025-11-23T13:45:27.741705",
+      "size": 10816
+    },
+    "deployment.mdx": {
+      "hash": "c5f8cd0bd96450a8ee55ff132329252307ebea364386fa8e2013aea70888bf77",
+      "last_analyzed": "2025-11-23T13:45:27.741754",
+      "size": 16223
+    },
+    "index.mdx": {
+      "hash": "f6b84cae57bf70d1f203d8d1983ad0501b862e5cd7691d26cef91c1246f09cfc",
+      "last_analyzed": "2025-11-23T13:45:27.741787",
+      "size": 2500
+    },
+    "services/game-catalog.mdx": {
+      "hash": "b28df964d83c82b4523d5b46fb0e4c2b5c9dd1821f6fe800cbd5ab4134962a7d",
+      "last_analyzed": "2025-11-23T13:45:27.741821",
+      "size": 7848
+    },
+    "services/ranking-service.mdx": {
+      "hash": "39fc46b8192e65d5333948d8027da2af48d295301e00b259896762ecb69e6f67",
+      "last_analyzed": "2025-11-23T13:45:27.741856",
+      "size": 9790
+    },
+    "services/auth-service.mdx": {
+      "hash": "993cb55d5af098f621510ba87870fc7268ac6c3d5eb96b11dcda4464523d61a2",
+      "last_analyzed": "2025-11-23T13:45:27.741894",
+      "size": 12868
+    },
+    "services/score-service.mdx": {
+      "hash": "830958b5746af25606f7f0965996b7d94dab276f9839186982e7a57c7f596d8b",
+      "last_analyzed": "2025-11-23T13:45:27.741931",
+      "size": 7995
+    },
+    "services/user-service.mdx": {
+      "hash": "106e3d1c085a27de56f647d926d3c100ccf81f21a405471ee9ef538feb7af3d5",
+      "last_analyzed": "2025-11-23T13:45:27.741968",
+      "size": 11431
+    },
+    "docs/api/auth-register.mdx": {
+      "hash": "00af92c24320854bcadb4dcd1ce35667a63309a4c73724b0b79f68f18183ef74",
+      "last_analyzed": "2025-11-23T13:45:27.741996",
+      "size": 1299
+    },
+    "snippets/snippet-intro.mdx": {
+      "hash": "64728fc9c661833b4424b60b5f5533c57280bf8d2ab755b73bee529ec921f64d",
+      "last_analyzed": "2025-11-23T13:45:27.742022",
+      "size": 311
+    },
+    "infrastructure/route53-ssl.mdx": {
+      "hash": "26dccda66a3148c778050f1ad04a4fc31e10c0939172e67d08e37122d53abb82",
+      "last_analyzed": "2025-11-23T13:45:27.742063",
+      "size": 20787
+    },
+    "infrastructure/cdn-cloudfront.mdx": {
+      "hash": "50072c678b59361171d499fb1c8699e41e465a6333f13b02435fc2a11ba390ec",
+      "last_analyzed": "2025-11-23T13:45:27.742102",
+      "size": 18107
+    },
+    "infrastructure/networking.mdx": {
+      "hash": "ba959408b4acfde6d57597c9db0858d804576dc2b04b85a4eec1307f3be34c32",
+      "last_analyzed": "2025-11-23T13:45:27.742140",
+      "size": 15715
+    },
+    "infrastructure/eks-cluster.mdx": {
+      "hash": "6e6184196712f966f79dbec43badef2035ab3e8b6f67f25271a43972a6fe63a7",
+      "last_analyzed": "2025-11-23T13:45:27.742177",
+      "size": 16103
+    },
+    "infrastructure/oauth2-authentication.mdx": {
+      "hash": "8c110efed758f1df38c893ecbfb8e14f963cc8327159b5f579ba6159f9f88910",
+      "last_analyzed": "2025-11-23T13:45:27.742246",
+      "size": 23860
+    },
+    "infrastructure/monitoring.mdx": {
+      "hash": "d9e24a2192b58b668143f5243d63a9fff94f9e93954d6394903137bdce00aaaa",
+      "last_analyzed": "2025-11-23T13:45:27.742292",
+      "size": 22878
+    },
+    "infrastructure/argocd-gitops.mdx": {
+      "hash": "8c4258fe29d9650d351f2a753336d002fabf96b127ae17dfc61c70d0e7ccee95",
+      "last_analyzed": "2025-11-23T13:45:27.742328",
+      "size": 10770
+    },
+    "infrastructure/overview.mdx": {
+      "hash": "8855c5fb45332ee157676123111e0df6f0197a6679fa4501adfbee767e9b8661",
+      "last_analyzed": "2025-11-23T13:45:27.742358",
+      "size": 6270
+    },
+    "cicd/github-actions.mdx": {
+      "hash": "e982ccd42e9b99787fe5be5534282dccb3deb5ac2058b8db16b06fee3be9c39b",
+      "last_analyzed": "2025-11-23T13:45:27.742433",
+      "size": 40748
+    },
+    "cicd/gitops-workflow.mdx": {
+      "hash": "a2bbb51a422af875536f2196b8ca513ff57c6656137d2e48f43a374ea9332dc6",
+      "last_analyzed": "2025-11-23T13:45:27.742479",
+      "size": 18693
+    },
+    "cicd/overview.mdx": {
+      "hash": "6210045171c237bbbfde6ddc8edbacf1bf8dfb25bd931500155b41584b8f9869",
+      "last_analyzed": "2025-11-23T13:45:27.742513",
+      "size": 9000
+    },
+    "frontend/jsdos-integration.mdx": {
+      "hash": "623881483074f390e699f794df190c09963e2f1c563e4488b7af77d52c48d21c",
+      "last_analyzed": "2025-11-23T13:45:27.742551",
+      "size": 16006
+    },
+    "frontend/overview.mdx": {
+      "hash": "f7825ca06968c4e7126374e5138bfa74900a181d0a6650bf5b9ec629b60d70fa",
+      "last_analyzed": "2025-11-23T13:45:27.742584",
+      "size": 10427
+    },
+    "ai-tools/claude-code.mdx": {
+      "hash": "129e4066fb71eca25cdb86bd4399c0a83390d36d162eca63fb283b706b26218f",
+      "last_analyzed": "2025-11-23T13:45:27.742611",
+      "size": 2473
+    },
+    "ai-tools/cursor.mdx": {
+      "hash": "a6230151334474f99cc23fccbe49e867ba68e7985e169a40607e5a3f5f4bbe81",
+      "last_analyzed": "2025-11-23T13:45:27.742644",
+      "size": 11076
+    },
+    "ai-tools/windsurf.mdx": {
+      "hash": "f67033d437ea6fa0961c84dba4bc27c0290a06dbd2781175947f9fde0e83d9fa",
+      "last_analyzed": "2025-11-23T13:45:27.742672",
+      "size": 2783
+    },
+    "essentials/images.mdx": {
+      "hash": "65e9360a5646d3c1f47d32c73fd2851db9995d25946810ddac41346d4bd1567d",
+      "last_analyzed": "2025-11-23T13:45:27.742698",
+      "size": 1550
+    },
+    "essentials/navigation.mdx": {
+      "hash": "7227f4c339ce1b0928b190af7e3553eeea60719c734b16cf7f52afdfb0ed7ffe",
+      "last_analyzed": "2025-11-23T13:45:27.742726",
+      "size": 1974
+    },
+    "essentials/markdown.mdx": {
+      "hash": "54a7c9361f9842037563a08f94227993bbdcf4fff700e77e1a0df5b57f7965cb",
+      "last_analyzed": "2025-11-23T13:45:27.742754",
+      "size": 2570
+    },
+    "essentials/code.mdx": {
+      "hash": "7404bb9af6309688e32632a7c0908006789e0ac3ca4c5dca1ba4c52125e6be61",
+      "last_analyzed": "2025-11-23T13:45:27.742779",
+      "size": 895
+    },
+    "essentials/settings.mdx": {
+      "hash": "8d3b9fad87b2499efc11580c372d6d5723a82aeeeb374fd7676b60d168971bc9",
+      "last_analyzed": "2025-11-23T13:45:27.742817",
+      "size": 11353
+    },
+    "api-reference/kubernetes.mdx": {
+      "hash": "a05a1caec5b4fe3d0331545619f8fa9f7cc02b21b6de5d64aef92e0fbc034c0e",
+      "last_analyzed": "2025-11-23T13:45:27.742862",
+      "size": 26296
+    },
+    "api-reference/infrastructure-docs.mdx": {
+      "hash": "6ef46f94af1005d8e2b7fa3d250a2b71953129d5f69a2193e42f6d4a3cbddc5d",
+      "last_analyzed": "2025-11-23T13:45:27.742909",
+      "size": 29018
+    },
+    "api-reference/introduction.mdx": {
+      "hash": "d4c6dadb8104e28159e4607b7cb06e22d47baa249b903123a3bfb98af3d4a182",
+      "last_analyzed": "2025-11-23T13:45:27.742936",
+      "size": 883
+    },
+    "api-reference/backend-main.mdx": {
+      "hash": "5776cf18475bae3210621e464ef53204eecc475fc0ae1e518ca24da92d7ea6a4",
+      "last_analyzed": "2025-11-23T13:45:27.742961",
+      "size": 463
+    },
+    "api-reference/frontend.mdx": {
+      "hash": "46375ca3b505791be5eec21038b9aa173d20a23e95a2c8c08cb026f426620243",
+      "last_analyzed": "2025-11-23T13:45:27.742990",
+      "size": 436
+    },
+    "api-reference/kubernetes-manifests.mdx": {
+      "hash": "3e0aa80604749a8fb3bbeef302e2a2e56728a4dbb2543c417c3cd9a5e121cf61",
+      "last_analyzed": "2025-11-23T13:45:27.743037",
+      "size": 28026
+    },
+    "api-reference/kong-config.mdx": {
+      "hash": "76b2bff63c6070c5bbf370f295d2e517d02b46567d477537f0dfe4af3ee24c9f",
+      "last_analyzed": "2025-11-23T13:45:27.743081",
+      "size": 22149
+    },
+    "api-reference/kong.mdx": {
+      "hash": "f3e3b585f6107875f48b84f2e7aff4f0bd4d7392090ecf8b56ae9c79d58ae949",
+      "last_analyzed": "2025-11-23T13:45:27.743121",
+      "size": 19831
+    },
+    "api-reference/ranking-service.mdx": {
+      "hash": "b2880da5f26acaab69bb7ca36d71348b717db2cde58d684f27f7a1dbab53407e",
+      "last_analyzed": "2025-11-23T13:45:27.743156",
+      "size": 13059
+    },
+    "api-reference/auth-service.mdx": {
+      "hash": "16a29db09c520bcf9cbdbd7637a825f37fc08dcc4cc566973d06dd6767662dac",
+      "last_analyzed": "2025-11-23T13:45:27.743215",
+      "size": 6672
+    },
+    "api-reference/infrastructure.mdx": {
+      "hash": "6d0fe5d30ea93700daa4d3947b287f22a52c616907c6b3eeb0b14264c3283c76",
+      "last_analyzed": "2025-11-23T13:45:27.743251",
+      "size": 1103
+    },
+    "api-reference/game-catalog-service.mdx": {
+      "hash": "2a7a7c62d2aa79fbba0c1b25fec6d32db8ee0b8c99de3894c07f7e6e8251f9cd",
+      "last_analyzed": "2025-11-23T13:45:27.743283",
+      "size": 7638
+    },
+    "api-reference/score-service.mdx": {
+      "hash": "4dc94f0e69d6377c5099e4ff7857f40796d8999643a9fb97d4c3de153513e06d",
+      "last_analyzed": "2025-11-23T13:45:27.743316",
+      "size": 9631
+    },
+    "api-reference/user-service.mdx": {
+      "hash": "fd23528ab18b47f2260bf227f94b9cd836905f26142aa0c0f55d064ac2ca9875",
+      "last_analyzed": "2025-11-23T13:45:27.743349",
+      "size": 10646
+    },
+    "api-reference/scores/get.mdx": {
+      "hash": "694a1c2fedc378e29f54bf791bc585e5ea28ca3b1aa828be31e851697a2d08e1",
+      "last_analyzed": "2025-11-23T13:45:27.743379",
+      "size": 7151
+    },
+    "api-reference/scores/submit.mdx": {
+      "hash": "5f666783586f85ef148746cd6e506ce2574675d4f17c5d7f783d19bbab324538",
+      "last_analyzed": "2025-11-23T13:45:27.743411",
+      "size": 9826
+    },
+    "api-reference/games/list.mdx": {
+      "hash": "99ac40de809314031d537d1e97ff6ed19c1de622b194ead057f4227b4a2081db",
+      "last_analyzed": "2025-11-23T13:45:27.743442",
+      "size": 7171
+    },
+    "api-reference/games/get.mdx": {
+      "hash": "14646e331943d4863f2a93a0e6542dceabc9e687da3f0c8fe39af701b618b8a3",
+      "last_analyzed": "2025-11-23T13:45:27.743474",
+      "size": 8599
+    },
+    "api-reference/auth/login.mdx": {
+      "hash": "de1fbf490028d788dbaa2a9cca9bdef851dac5e3addcd7ee41072ec49f07fd48",
+      "last_analyzed": "2025-11-23T13:45:27.743502",
+      "size": 3474
+    },
+    "api-reference/auth/register.mdx": {
+      "hash": "2d6de14f3bb0b080105451cd96c17d8b6e2eb209b7e816665073ed496fefc2d3",
+      "last_analyzed": "2025-11-23T13:45:27.743531",
+      "size": 4419
+    },
+    "api-reference/auth/verify.mdx": {
+      "hash": "d425369cbac417b3095512d20c90d0734d4ddb10369693bec3e020cb79f4d84a",
+      "last_analyzed": "2025-11-23T13:45:27.743566",
+      "size": 5296
+    },
+    "api-reference/endpoint/get.mdx": {
+      "hash": "034b93f4111ef4b8b95558a492e6c67d3988ba13819b9d316d030544f0097cb5",
+      "last_analyzed": "2025-11-23T13:45:27.743592",
+      "size": 103
+    },
+    "api-reference/endpoint/create.mdx": {
+      "hash": "6f3d8a932c3ba8c1ab6aeff9d2020203363c21ae5a637674d7dd6fe819bc13a5",
+      "last_analyzed": "2025-11-23T13:45:27.743618",
+      "size": 108
+    },
+    "api-reference/endpoint/delete.mdx": {
+      "hash": "295499c2a7cb55da40409e2583da34caea696f7e5f21bc8d15a5be33a6c667a9",
+      "last_analyzed": "2025-11-23T13:45:27.743643",
+      "size": 115
+    },
+    "api-reference/endpoint/webhook.mdx": {
+      "hash": "6c47d2649635b90508bda60c8a7d65bb195212299ff828a152f2399be97b5a44",
+      "last_analyzed": "2025-11-23T13:45:27.743668",
+      "size": 112
+    },
+    "api-reference/rankings/by-game.mdx": {
+      "hash": "dcaaee6bfcd8515311ece0d778d2a0b290b1edfe6ad4b19717d702bdd9437be6",
+      "last_analyzed": "2025-11-23T13:45:27.743703",
+      "size": 13085
+    },
+    "api-reference/rankings/global.mdx": {
+      "hash": "8460e4e975087edab5388b669fa09b7091fd59be2a00639bc5e81bb154c4a3d2",
+      "last_analyzed": "2025-11-23T13:45:27.743736",
+      "size": 10236
+    },
+    "AUTO_FIXES_REPORT.md": {
+      "hash": "30e4fe3c1970e9b854247b16268b9dbf01158c330dfe2b919a81f69778f938d3",
+      "last_analyzed": "2025-11-23T13:45:27.743768",
+      "size": 7222
+    },
+    "STRUCTURE_CHANGELOG.md": {
+      "hash": "a0cf5a08faa2d2741baa3edbb9a02590e099ddbb6692383420cb6537fba6fe71",
+      "last_analyzed": "2025-11-23T13:45:27.743795",
+      "size": 1161
+    },
+    "CHANGELOG_WIKI_2025-11-20.md": {
+      "hash": "d13877754ef905f75e10e04599d08786c84a78b89b5a478d17f4b058a96099e0",
+      "last_analyzed": "2025-11-23T13:45:27.743830",
+      "size": 12710
+    },
+    "README.md": {
+      "hash": "024bf7c7673705356f681d02d8192dcae1115ccbdf621307bae295c7f89abb0b",
+      "last_analyzed": "2025-11-23T13:45:27.743862",
+      "size": 1394
+    },
+    "BROKEN_LINKS_REPORT.md": {
+      "hash": "e4ab54560729b962ac916a4e6b6973bf22d4d25116ffdc19cfc55dd40efc776b",
+      "last_analyzed": "2025-11-23T13:45:27.743897",
+      "size": 3244
+    },
+    "IMPROVEMENTS.md": {
+      "hash": "e7529827ce272b493505ca7d7cc9ba9bc9eaf3f283e313f74ffd92fa933e1186",
+      "last_analyzed": "2025-11-23T13:45:27.743938",
+      "size": 16593
+    }
+  },
+  "analysis_results": {
+    "troubleshooting.mdx": {
+      "analyzed": true
+    },
+    "sequence-diagrams.mdx": {
+      "analyzed": true
+    },
+    "architecture.mdx": {
+      "analyzed": true
+    },
+    "configuration.mdx": {
+      "analyzed": true
+    },
+    "desarrollo-local.mdx": {
+      "analyzed": true
+    },
+    "development.mdx": {
+      "analyzed": true
+    },
+    "quickstart.mdx": {
+      "analyzed": true
+    },
+    "deployment.mdx": {
+      "analyzed": true
+    },
+    "index.mdx": {
+      "analyzed": true
+    },
+    "services/game-catalog.mdx": {
+      "analyzed": true
+    },
+    "services/ranking-service.mdx": {
+      "analyzed": true
+    },
+    "services/auth-service.mdx": {
+      "analyzed": true
+    },
+    "services/score-service.mdx": {
+      "analyzed": true
+    },
+    "services/user-service.mdx": {
+      "analyzed": true
+    },
+    "docs/api/auth-register.mdx": {
+      "analyzed": true
+    },
+    "snippets/snippet-intro.mdx": {
+      "analyzed": true
+    },
+    "infrastructure/route53-ssl.mdx": {
+      "analyzed": true
+    },
+    "infrastructure/cdn-cloudfront.mdx": {
+      "analyzed": true
+    },
+    "infrastructure/networking.mdx": {
+      "analyzed": true
+    },
+    "infrastructure/eks-cluster.mdx": {
+      "analyzed": true
+    },
+    "infrastructure/oauth2-authentication.mdx": {
+      "analyzed": true
+    },
+    "infrastructure/monitoring.mdx": {
+      "analyzed": true
+    },
+    "infrastructure/argocd-gitops.mdx": {
+      "analyzed": true
+    },
+    "infrastructure/overview.mdx": {
+      "analyzed": true
+    },
+    "cicd/github-actions.mdx": {
+      "analyzed": true
+    },
+    "cicd/gitops-workflow.mdx": {
+      "analyzed": true
+    },
+    "cicd/overview.mdx": {
+      "analyzed": true
+    },
+    "frontend/jsdos-integration.mdx": {
+      "analyzed": true
+    },
+    "frontend/overview.mdx": {
+      "analyzed": true
+    },
+    "ai-tools/claude-code.mdx": {
+      "analyzed": true
+    },
+    "ai-tools/cursor.mdx": {
+      "analyzed": true
+    },
+    "ai-tools/windsurf.mdx": {
+      "analyzed": true
+    },
+    "essentials/images.mdx": {
+      "analyzed": true
+    },
+    "essentials/navigation.mdx": {
+      "analyzed": true
+    },
+    "essentials/markdown.mdx": {
+      "analyzed": true
+    },
+    "essentials/code.mdx": {
+      "analyzed": true
+    },
+    "essentials/settings.mdx": {
+      "analyzed": true
+    },
+    "api-reference/kubernetes.mdx": {
+      "analyzed": true
+    },
+    "api-reference/infrastructure-docs.mdx": {
+      "analyzed": true
+    },
+    "api-reference/introduction.mdx": {
+      "analyzed": true
+    },
+    "api-reference/backend-main.mdx": {
+      "analyzed": true
+    },
+    "api-reference/frontend.mdx": {
+      "analyzed": true
+    },
+    "api-reference/kubernetes-manifests.mdx": {
+      "analyzed": true
+    },
+    "api-reference/kong-config.mdx": {
+      "analyzed": true
+    },
+    "api-reference/kong.mdx": {
+      "analyzed": true
+    },
+    "api-reference/ranking-service.mdx": {
+      "analyzed": true
+    },
+    "api-reference/auth-service.mdx": {
+      "analyzed": true
+    },
+    "api-reference/infrastructure.mdx": {
+      "analyzed": true
+    },
+    "api-reference/game-catalog-service.mdx": {
+      "analyzed": true
+    },
+    "api-reference/score-service.mdx": {
+      "analyzed": true
+    },
+    "api-reference/user-service.mdx": {
+      "analyzed": true
+    },
+    "api-reference/scores/get.mdx": {
+      "analyzed": true
+    },
+    "api-reference/scores/submit.mdx": {
+      "analyzed": true
+    },
+    "api-reference/games/list.mdx": {
+      "analyzed": true
+    },
+    "api-reference/games/get.mdx": {
+      "analyzed": true
+    },
+    "api-reference/auth/login.mdx": {
+      "analyzed": true
+    },
+    "api-reference/auth/register.mdx": {
+      "analyzed": true
+    },
+    "api-reference/auth/verify.mdx": {
+      "analyzed": true
+    },
+    "api-reference/endpoint/get.mdx": {
+      "analyzed": true
+    },
+    "api-reference/endpoint/create.mdx": {
+      "analyzed": true
+    },
+    "api-reference/endpoint/delete.mdx": {
+      "analyzed": true
+    },
+    "api-reference/endpoint/webhook.mdx": {
+      "analyzed": true
+    },
+    "api-reference/rankings/by-game.mdx": {
+      "analyzed": true
+    },
+    "api-reference/rankings/global.mdx": {
+      "analyzed": true
+    },
+    "AUTO_FIXES_REPORT.md": {
+      "analyzed": true
+    },
+    "STRUCTURE_CHANGELOG.md": {
+      "analyzed": true
+    },
+    "CHANGELOG_WIKI_2025-11-20.md": {
+      "analyzed": true
+    },
+    "README.md": {
+      "analyzed": true
+    },
+    "BROKEN_LINKS_REPORT.md": {
+      "analyzed": true
+    },
+    "IMPROVEMENTS.md": {
+      "analyzed": true
+    }
+  }
+}

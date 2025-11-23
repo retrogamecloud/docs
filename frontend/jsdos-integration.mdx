@@ -1,7 +1,7 @@
 ---
-title: "4.2. Integración de js-dos"
-description: "Integración del emulador DOSBox en WebAssembly"
-icon: "gamepad"
+title: 4.2. Integración de js-dos
+description: Integración del emulador DOSBox en WebAssembly
+icon: gamepad
 ---
 
 ## ¿Qué es js-dos?
@@ -38,6 +38,7 @@ js-dos es una biblioteca JavaScript que permite ejecutar juegos y programas de M
     "wlibzip.js": "ZIP decompression support"
   }
 }
+
 ```
 
 <Note>
@@ -60,6 +61,7 @@ graph TD
     G --> K[Fullscreen Display]
     F --> L[Memory Access]
     L --> M[Score Tracker]
+
 ```
 
 ## Estructura de un Bundle .jsdos
@@ -67,11 +69,13 @@ graph TD
 Un archivo `.jsdos` es un ZIP que contiene:
 
 ```
+
 game.jsdos
 ├── game.exe              # Ejecutable del juego
 ├── *.dat, *.wad, etc.   # Assets del juego
 ├── dosbox.conf          # Configuración DOSBox
 └── metadata.json        # Información del bundle
+
 ```
 
 ### Ejemplo: doom.jsdos
@@ -91,6 +95,7 @@ game.jsdos
     "memsize": 16
   }
 }
+
 ```
 
 ## Inicialización de js-dos
@@ -105,10 +110,11 @@ game.jsdos
 </head>
 <body>
   <div id="dos-container"></div>
-  
+
   <script src="/jsdos/js-dos.js"></script>
 </body>
 </html>
+
 ```
 
 ### Paso 2: Configurar Emulador
@@ -123,10 +129,11 @@ Dos(dosContainer, {
   autolock: false
 }).ready((fs, main) => {
   console.log('DOSBox listo');
-  
+
   // Cargar juego
   loadGame(fs, main);
 });
+
 ```
 
 ### Paso 3: Cargar Bundle
@@ -137,18 +144,19 @@ async function loadGame(fs, main) {
     // Fetch bundle desde CDN
     const response = await fetch('https://cdn.retrogamehub.games/juegos/doom.jsdos');
     const bundle = await response.arrayBuffer();
-    
+
     // Extraer bundle en filesystem virtual
     await fs.extract(bundle);
-    
+
     // Ejecutar juego
     main(['-conf', 'dosbox.conf']);
-    
+
   } catch (error) {
     console.error('Error cargando juego:', error);
     showErrorModal('No se pudo cargar el juego');
   }
 }
+
 ```
 
 ## Configuración Avanzada
@@ -160,24 +168,25 @@ const dosboxConfig = {
   // CPU
   cycles: "max",           // Velocidad máxima
   core: "dynamic",         // Recompilación dinámica
-  
+
   // Video
   machine: "svga_s3",      // S3 Trio64 (mejor para juegos 90s)
   output: "surface",       // Direct surface rendering
   aspect: true,            // Mantener aspect ratio 4:3
-  
+
   // Audio
   sbtype: "sb16",          // Sound Blaster 16
   rate: 44100,             // Sample rate
   oplemu: "default",       // OPL emulation
-  
+
   // Memoria
   memsize: 16,             // 16 MB RAM (suficiente para DOS)
-  
+
   // Rendering
   frameskip: 0,            // Sin frame skip
   scaler: "none"           // Sin filtros (pixels perfectos)
 };
+
 ```
 
 ### Optimización de Rendimiento
@@ -192,30 +201,33 @@ const dosboxConfig = {
       dosboxConfig.cycles = "20000"; // Fijo para hardware débil
     }
     ```
+
   </Tab>
-  
+
   <Tab title="Core">
     ```javascript
     // Dynamic core ofrece mejor rendimiento
     dosboxConfig.core = "dynamic";
-    
+
     // Pero si hay problemas:
     // dosboxConfig.core = "normal";
     // dosboxConfig.core = "simple";
     ```
+
   </Tab>
-  
+
   <Tab title="Graphics">
     ```javascript
     // Para juegos VGA (320x200)
     dosboxConfig.machine = "vgaonly";
-    
+
     // Para juegos SVGA (640x480+)
     dosboxConfig.machine = "svga_s3";
-    
+
     // Para juegos EGA (16 colores)
     dosboxConfig.machine = "ega";
     ```
+
   </Tab>
 </Tabs>
 
@@ -226,7 +238,7 @@ const dosboxConfig = {
 ```javascript
 function goFullscreen() {
   const canvas = document.querySelector('canvas');
-  
+
   if (canvas.requestFullscreen) {
     canvas.requestFullscreen();
   } else if (canvas.webkitRequestFullscreen) {
@@ -234,7 +246,7 @@ function goFullscreen() {
   } else if (canvas.msRequestFullscreen) {
     canvas.msRequestFullscreen(); // IE11
   }
-  
+
   // Bloquear pointer automáticamente
   canvas.requestPointerLock();
 }
@@ -246,6 +258,7 @@ document.addEventListener('fullscreenchange', () => {
     // Pausar juego o mostrar menú
   }
 });
+
 ```
 
 ### Pointer Lock
@@ -265,6 +278,7 @@ document.addEventListener('pointerlockchange', () => {
     console.log('Mouse liberado');
   }
 });
+
 ```
 
 ## Control de Input
@@ -291,6 +305,7 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
   }
 });
+
 ```
 
 ### Gamepad Support
@@ -305,11 +320,11 @@ window.addEventListener('gamepadconnected', (e) => {
 function startGamepadPolling(gamepad) {
   setInterval(() => {
     const gp = navigator.getGamepads()[gamepad.index];
-    
+
     // Mapear botones a teclas
     if (gp.buttons[0].pressed) simulateKey('SPACE'); // A button
     if (gp.buttons[1].pressed) simulateKey('CTRL');  // B button
-    
+
     // Mapear joystick a flechas
     if (gp.axes[0] < -0.5) simulateKey('LEFT');
     if (gp.axes[0] > 0.5) simulateKey('RIGHT');
@@ -317,6 +332,7 @@ function startGamepadPolling(gamepad) {
     if (gp.axes[1] > 0.5) simulateKey('DOWN');
   }, 16); // ~60 FPS
 }
+
 ```
 
 ## Acceso a Memoria (Score Tracking)
@@ -329,42 +345,42 @@ class MemoryReader {
     this.dos = dosInstance;
     this.memory = null;
   }
-  
+
   async initialize() {
     // Obtener handle de memoria
     this.memory = await this.dos.getMemory();
   }
-  
+
   readByte(address) {
     return this.memory[address];
   }
-  
+
   readWord(address) {
     // Little-endian
     return this.memory[address] | (this.memory[address + 1] << 8);
   }
-  
+
   readDWord(address) {
     return this.memory[address] |
            (this.memory[address + 1] << 8) |
            (this.memory[address + 2] << 16) |
            (this.memory[address + 3] << 24);
   }
-  
+
   // Buscar score en memoria
   findScore(gameId) {
     const patterns = this.getScorePatterns(gameId);
-    
+
     for (const pattern of patterns) {
       const value = this.readDWord(pattern.address);
       if (value >= pattern.min && value <= pattern.max) {
         return value;
       }
     }
-    
+
     return null;
   }
-  
+
   getScorePatterns(gameId) {
     const patterns = {
       'doom': [
@@ -378,10 +394,11 @@ class MemoryReader {
         { address: 0x15000, min: 0, max: 9999999 }
       ]
     };
-    
+
     return patterns[gameId] || [];
   }
 }
+
 ```
 
 ### Polling de Score
@@ -394,27 +411,27 @@ class ScorePoller {
     this.lastScore = 0;
     this.pollInterval = null;
   }
-  
+
   start() {
     this.pollInterval = setInterval(() => {
       const currentScore = this.reader.findScore(this.gameId);
-      
+
       if (currentScore !== null && currentScore > this.lastScore) {
         this.onScoreChange(currentScore);
         this.lastScore = currentScore;
       }
     }, 5000); // Check cada 5 segundos
   }
-  
+
   stop() {
     if (this.pollInterval) {
       clearInterval(this.pollInterval);
     }
   }
-  
+
   onScoreChange(newScore) {
     console.log('Nuevo score detectado:', newScore);
-    
+
     // Enviar a backend
     fetch('/api/scores', {
       method: 'POST',
@@ -430,6 +447,7 @@ class ScorePoller {
     });
   }
 }
+
 ```
 
 ## Manejo de Saves
@@ -441,21 +459,22 @@ async function saveGameState(fs, saveName) {
   try {
     // Extraer filesystem completo
     const state = await fs.extractAll();
-    
+
     // Serializar a JSON
     const stateJson = JSON.stringify(state);
-    
+
     // Guardar en localStorage (máx 5MB)
     localStorage.setItem(`save_${saveName}`, stateJson);
-    
+
     console.log('Juego guardado:', saveName);
     showNotification('¡Partida guardada!');
-    
+
   } catch (error) {
     console.error('Error guardando:', error);
     showNotification('Error al guardar');
   }
 }
+
 ```
 
 ### Cargar Estado
@@ -465,25 +484,26 @@ async function loadGameState(fs, saveName) {
   try {
     // Recuperar de localStorage
     const stateJson = localStorage.getItem(`save_${saveName}`);
-    
+
     if (!stateJson) {
       throw new Error('Save no encontrado');
     }
-    
+
     // Deserializar
     const state = JSON.parse(stateJson);
-    
+
     // Restaurar filesystem
     await fs.restoreAll(state);
-    
+
     console.log('Juego cargado:', saveName);
     showNotification('¡Partida cargada!');
-    
+
   } catch (error) {
     console.error('Error cargando:', error);
     showNotification('Error al cargar');
   }
 }
+
 ```
 
 ### Auto-Save
@@ -497,10 +517,11 @@ setInterval(async () => {
 // Save al cerrar ventana
 window.addEventListener('beforeunload', async (e) => {
   await saveGameState(fs, 'autosave');
-  
+
   e.preventDefault();
   e.returnValue = '¿Seguro que quieres salir?';
 });
+
 ```
 
 ## Audio Configuration
@@ -515,16 +536,17 @@ const audioConfig = {
   irq: 7,             // IRQ
   dma: 1,             // DMA channel
   hdma: 5,            // High DMA
-  
+
   // Mixer
   rate: 44100,        // Sample rate (44.1 kHz)
   blocksize: 1024,    // Buffer size
   prebuffer: 25,      // Pre-buffer ms
-  
+
   // OPL (AdLib/FM synthesis)
   oplemu: "default",
   oplrate: 44100
 };
+
 ```
 
 ### Web Audio API Integration
@@ -537,7 +559,7 @@ const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 function connectDosAudio(dosAudioNode) {
   const gainNode = audioContext.createGain();
   gainNode.gain.value = 0.8; // 80% volumen
-  
+
   dosAudioNode.connect(gainNode);
   gainNode.connect(audioContext.destination);
 }
@@ -547,6 +569,7 @@ function setVolume(level) {
   // level: 0.0 - 1.0
   gainNode.gain.value = level;
 }
+
 ```
 
 ## Debugging y Troubleshooting
@@ -562,6 +585,7 @@ Dos(container, {
     console.log(`[Loading] ${stage}: ${current}/${total}`);
   }
 });
+
 ```
 
 ### Performance Monitoring
@@ -572,31 +596,32 @@ class PerformanceMonitor {
     this.frameCount = 0;
     this.lastTime = performance.now();
   }
-  
+
   start() {
     setInterval(() => {
       const now = performance.now();
       const delta = now - this.lastTime;
       const fps = Math.round(this.frameCount / (delta / 1000));
-      
+
       console.log(`FPS: ${fps}`);
-      
+
       this.frameCount = 0;
       this.lastTime = now;
     }, 1000);
   }
-  
+
   countFrame() {
     this.frameCount++;
   }
 }
+
 ```
 
 ### Common Issues
 
 <Accordion title="El juego va muy lento">
 
-**Soluciones:**
+* *Soluciones:**
 1. Reducir cycles: `cycles: "10000"`
 2. Cambiar core: `core: "simple"`
 3. Deshabilitar audio: `sbtype: "none"`
@@ -606,7 +631,7 @@ class PerformanceMonitor {
 
 <Accordion title="No se escucha audio">
 
-**Verificar:**
+* *Verificar:**
 1. AudioContext iniciado (requiere user gesture)
 2. sbtype configurado correctamente
 3. Permisos del navegador
@@ -617,13 +642,15 @@ class PerformanceMonitor {
 document.addEventListener('click', () => {
   audioContext.resume();
 }, { once: true });
+
 ```
 
 </Accordion>
 
 <Accordion title="Canvas no responde a teclado">
 
-**Solución:**
+* *Solución:**
+
 ```javascript
 // Asegurar que canvas tiene focus
 canvas.setAttribute('tabindex', '0');
@@ -631,6 +658,7 @@ canvas.focus();
 
 // Listener directo en canvas
 canvas.addEventListener('keydown', handleKey);
+
 ```
 
 </Accordion>
@@ -647,40 +675,40 @@ class GameLauncher {
     this.memoryReader = null;
     this.scorePoller = null;
   }
-  
+
   async launch() {
     try {
       // 1. Crear contenedor
       const container = this.createContainer();
-      
+
       // 2. Inicializar DOSBox
       this.dos = await Dos(container, {
         wdosboxUrl: "/jsdos/wdosbox.js",
         cycles: "max",
         autolock: false
       });
-      
+
       // 3. Esperar que esté listo
       this.dos.ready(async (fs, main) => {
         // 4. Cargar bundle
         await this.loadBundle(fs);
-        
+
         // 5. Iniciar score tracking
         this.startScoreTracking();
-        
+
         // 6. Ejecutar juego
         main(['-conf', 'dosbox.conf']);
-        
+
         // 7. Fullscreen
         this.goFullscreen();
       });
-      
+
     } catch (error) {
       console.error('Error launching game:', error);
       this.showError(error.message);
     }
   }
-  
+
   createContainer() {
     const container = document.createElement('div');
     container.id = 'dos-container';
@@ -689,34 +717,34 @@ class GameLauncher {
     document.body.appendChild(container);
     return container;
   }
-  
+
   async loadBundle(fs) {
     const response = await fetch(
       `https://cdn.retrogamehub.games/juegos/${this.gameId}.jsdos`
     );
-    
+
     if (!response.ok) {
       throw new Error('Bundle not found');
     }
-    
+
     const bundle = await response.arrayBuffer();
     await fs.extract(bundle);
   }
-  
+
   startScoreTracking() {
     this.memoryReader = new MemoryReader(this.dos);
     this.memoryReader.initialize();
-    
+
     this.scorePoller = new ScorePoller(this.memoryReader, this.gameId);
     this.scorePoller.start();
   }
-  
+
   goFullscreen() {
     const canvas = document.querySelector('canvas');
     canvas.requestFullscreen();
     canvas.requestPointerLock();
   }
-  
+
   showError(message) {
     alert(`Error: ${message}`);
   }
@@ -725,6 +753,7 @@ class GameLauncher {
 // Uso
 const launcher = new GameLauncher('doom');
 launcher.launch();
+
 ```
 
 ## Próximos Pasos

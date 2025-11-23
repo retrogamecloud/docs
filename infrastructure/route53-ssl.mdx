@@ -1,7 +1,7 @@
 ---
-title: "6.5. Route53 y Certificados SSL"
-description: "Configuración de DNS, dominios personalizados y certificados HTTPS"
-icon: "globe"
+title: 6.5. Route53 y Certificados SSL
+description: Configuración de DNS, dominios personalizados y certificados HTTPS
+icon: globe
 ---
 
 ## Arquitectura DNS
@@ -11,19 +11,19 @@ Retro Game Hub utiliza **Amazon Route53** para gestión de DNS y **AWS Certifica
 <CardGroup cols={3}>
   <Card title="Route53" icon="route">
     **Gestión DNS**
-    
+
     Zona hostada + records
   </Card>
-  
+
   <Card title="ACM" icon="certificate">
     **Certificados SSL**
-    
+
     HTTPS automático
   </Card>
-  
+
   <Card title="Namecheap" icon="n">
     **Registrar**
-    
+
     Dominio comprado aquí
   </Card>
 </CardGroup>
@@ -38,20 +38,21 @@ graph TD
     D --> E[Namecheap Nameservers]
     E --> F[Route53 Nameservers]
     F --> G{Record Type}
-    
+
     G -->|A Record| H[ALB DNS Name]
     G -->|CNAME| I[CloudFront DNS]
-    
+
     H --> J[Application Load Balancer]
     J --> K[Ingress NGINX]
     K --> L[Pods en EKS]
-    
+
     I --> M[CloudFront Distribution]
     M --> N[S3 Bucket]
-    
+
     style F fill:#ff9900
     style J fill:#ff9900
     style M fill:#ff9900
+
 ```
 
 ## Configuración de Route53
@@ -69,14 +70,18 @@ resource "aws_route53_zone" "main" {
     ManagedBy   = "terraform"
   }
 }
+
 ```
 
-**Nameservers asignados por AWS** (ejemplo):
+* *Nameservers asignados por AWS** (ejemplo):
+
 ```
+
 ns-1234.awsdns-12.org
 ns-5678.awsdns-34.co.uk
 ns-9012.awsdns-56.com
 ns-3456.awsdns-78.net
+
 ```
 
 <Warning>
@@ -90,47 +95,51 @@ ns-3456.awsdns-78.net
     ```bash
     # Via Terraform
     terraform output route53_nameservers
-    
+
     # O via AWS CLI
     aws route53 get-hosted-zone --id Z1234EXAMPLE \
       --query 'DelegationSet.NameServers' \
       --output table
     ```
+
   </Step>
-  
+
   <Step title="Acceder a Namecheap">
     1. Login en https://www.namecheap.com
     2. Ve a **Domain List**
     3. Click en **Manage** junto a `retrogamehub.games`
   </Step>
-  
+
   <Step title="Cambiar nameservers">
     1. Ve a la pestaña **Domain**
     2. En **Nameservers**, selecciona **Custom DNS**
     3. Añade los 4 nameservers de Route53:
        ```
+
        ns-1234.awsdns-12.org
        ns-5678.awsdns-34.co.uk
        ns-9012.awsdns-56.com
        ns-3456.awsdns-78.net
        ```
+
     4. Click en el ícono de checkmark ✓ para guardar
   </Step>
-  
+
   <Step title="Esperar propagación">
     **Tiempo de propagación**: 24-48 horas (usualmente ~2 horas)
-    
+
     Verificar propagación:
     ```bash
     # Verificar nameservers
     dig NS retrogamehub.games
-    
+
     # Verificar record A
     dig retrogamehub.games
-    
+
     # Verificar desde múltiples ubicaciones
     https://dnschecker.org
     ```
+
   </Step>
 </Steps>
 
@@ -158,10 +167,13 @@ resource "aws_acm_certificate" "main" {
     create_before_destroy = true
   }
 }
+
 ```
 
-**Cobertura del certificado:**
+* *Cobertura del certificado:**
+
 - ✅ `retrogamehub.games`
+
 - ✅ `*.retrogamehub.games` (wildcard)
   - `www.retrogamehub.games`
   - `api.retrogamehub.games`
@@ -199,9 +211,10 @@ resource "aws_acm_certificate_validation" "main" {
     create = "45m"
   }
 }
+
 ```
 
-**Proceso de validación:**
+* *Proceso de validación:**
 1. ACM genera un CNAME record único
 2. Terraform crea el record en Route53
 3. ACM verifica el record (cada 60 segundos)
@@ -210,6 +223,7 @@ resource "aws_acm_certificate_validation" "main" {
 ### Verificar Estado del Certificado
 
 ```bash
+
 # Via Terraform
 terraform output ssl_certificate_arn
 
@@ -224,6 +238,7 @@ aws acm describe-certificate \
 # Ver detalles completos
 aws acm describe-certificate \
   --certificate-arn arn:aws:acm:eu-west-1:ACCOUNT:certificate/abc123...
+
 ```
 
 ### Renovación Automática
@@ -254,11 +269,15 @@ resource "aws_route53_record" "main" {
 
   depends_on = [aws_lb.main]
 }
+
 ```
 
-**Características:**
+* *Características:**
+
 - **Alias record**: No paga por queries (gratis con ALB)
+
 - **Health check**: Evalúa salud del ALB antes de responder
+
 - **Dinámico**: Sigue al ALB si cambia de IP
 
 ### Record A Wildcard
@@ -279,17 +298,23 @@ resource "aws_route53_record" "wildcard" {
 
   depends_on = [aws_lb.main]
 }
+
 ```
 
-**Cubre subdominios:**
+* *Cubre subdominios:**
+
 - `www.retrogamehub.games`
+
 - `api.retrogamehub.games`
+
 - `grafana.retrogamehub.games`
+
 - `cualquier-cosa.retrogamehub.games`
 
 ### Otros Records Útiles
 
 <CodeGroup>
+
 ```hcl CNAME para CloudFront (opcional)
 resource "aws_route53_record" "cdn" {
   zone_id = aws_route53_zone.main.zone_id
@@ -298,6 +323,7 @@ resource "aws_route53_record" "cdn" {
   ttl     = 300
   records = [aws_cloudfront_distribution.games_cdn.domain_name]
 }
+
 ```
 
 ```hcl Record MX para email (opcional)
@@ -311,6 +337,7 @@ resource "aws_route53_record" "mx" {
     "20 mx2.emailprovider.com"
   ]
 }
+
 ```
 
 ```hcl Record TXT para verificación (opcional)
@@ -324,7 +351,9 @@ resource "aws_route53_record" "txt_verification" {
     "google-site-verification=abc123..."
   ]
 }
+
 ```
+
 </CodeGroup>
 
 ## Integración con Load Balancer
@@ -361,11 +390,15 @@ resource "aws_lb_listener" "http" {
     }
   }
 }
+
 ```
 
-**Características:**
+* *Características:**
+
 - ✅ TLS 1.3 (política `ELBSecurityPolicy-TLS13-1-2-2021-06`)
+
 - ✅ Redirección automática HTTP → HTTPS
+
 - ✅ Certificado válido para dominio y wildcard
 
 ### Políticas SSL Recomendadas
@@ -409,31 +442,36 @@ resource "aws_lb_listener" "http" {
 <Steps>
   <Step title="Usuario ingresa URL">
     ```
+
     https://retrogamehub.games
     ```
+
   </Step>
-  
+
   <Step title="Resolver DNS consulta Root Servers">
     ```bash
     # Consulta a . (root)
     . → Responde con nameservers de .games TLD
     ```
+
   </Step>
-  
+
   <Step title="Consulta TLD .games">
     ```bash
     # Consulta a .games TLD
     .games → Responde con nameservers de Namecheap
     ```
+
   </Step>
-  
+
   <Step title="Consulta Namecheap">
     ```bash
     # Namecheap delega a Route53
     Nameservers configurados → Route53 nameservers
     ```
+
   </Step>
-  
+
   <Step title="Consulta Route53">
     ```bash
     # Route53 responde con record A
@@ -441,8 +479,9 @@ resource "aws_lb_listener" "http" {
     ALB DNS: myalb-123.eu-west-1.elb.amazonaws.com
     IP: 54.123.45.67 (ejemplo)
     ```
+
   </Step>
-  
+
   <Step title="Conexión HTTPS al ALB">
     ```bash
     # Handshake TLS
@@ -451,49 +490,63 @@ resource "aws_lb_listener" "http" {
     Client → Verifica certificado (ACM)
     Client → Establece sesión TLS 1.3
     ```
+
   </Step>
-  
+
   <Step title="ALB forward a backend">
     ```bash
     # Terminación SSL en ALB, HTTP interno
     ALB → HTTP → Ingress NGINX (puerto 80)
     NGINX → Routing → Pods (backend services)
     ```
+
   </Step>
 </Steps>
 
 ### Verificación Manual
 
 ```bash
+
 # 1. Verificar resolución DNS
 dig retrogamehub.games
 
 # Debe mostrar:
+
 # ;; ANSWER SECTION:
+
 # retrogamehub.games. 300 IN A 54.123.45.67
 
 # 2. Verificar certificado SSL
 openssl s_client -connect retrogamehub.games:443 -servername retrogamehub.games
 
 # Debe mostrar:
+
 # subject=CN=retrogamehub.games
+
 # issuer=C=US, O=Amazon, CN=Amazon RSA 2048 M02
+
 # Verify return code: 0 (ok)
 
 # 3. Test HTTPS completo
 curl -I https://retrogamehub.games
 
 # Debe devolver:
+
 # HTTP/2 200
+
 # server: nginx
+
 # ...
 
 # 4. Verificar redirección HTTP → HTTPS
 curl -I http://retrogamehub.games
 
 # Debe devolver:
+
 # HTTP/1.1 301 Moved Permanently
+
 # Location: https://retrogamehub.games/
+
 ```
 
 ## Subdominios Específicos
@@ -510,6 +563,7 @@ resource "aws_route53_record" "cdn" {
   ttl     = 300
   records = [aws_cloudfront_distribution.games_cdn.domain_name]
 }
+
 ```
 
 Luego configura CloudFront alternate domain names:
@@ -517,15 +571,16 @@ Luego configura CloudFront alternate domain names:
 ```hcl
 resource "aws_cloudfront_distribution" "games_cdn" {
   # ... configuración existente ...
-  
+
   aliases = ["cdn.retrogamehub.games"]
-  
+
   viewer_certificate {
     acm_certificate_arn      = aws_acm_certificate.main.arn
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
   }
 }
+
 ```
 
 <Warning>
@@ -546,6 +601,7 @@ resource "aws_route53_record" "api" {
     evaluate_target_health = true
   }
 }
+
 ```
 
 <Note>
@@ -596,8 +652,10 @@ resource "aws_route53_record" "api" {
   </tbody>
 </Table>
 
-**Ahorro con Alias Records:**
+* *Ahorro con Alias Records:**
+
 - Standard CNAME: $0.40/millón queries
+
 - Alias Record to ALB: **$0.00** ✅
 
 ## Monitoreo
@@ -635,9 +693,10 @@ resource "aws_cloudwatch_metric_alarm" "route53_health" {
     HealthCheckId = aws_route53_health_check.main.id
   }
 }
+
 ```
 
-**Costo**: $0.50/mes por health check
+* *Costo**: $0.50/mes por health check
 
 ### Query Logs (opcional)
 
@@ -655,138 +714,155 @@ resource "aws_route53_query_log" "main" {
   cloudwatch_log_group_arn = aws_cloudwatch_log_group.route53_query_logs.arn
   zone_id                  = aws_route53_zone.main.zone_id
 }
+
 ```
 
-**Costo**: ~$0.50/mes (primera 5GB gratis, luego $0.50/GB)
+* *Costo**: ~$0.50/mes (primera 5GB gratis, luego $0.50/GB)
 
 ## Troubleshooting
 
 <AccordionGroup>
   <Accordion title="DNS no resuelve después de cambiar nameservers">
     **Causa**: Propagación DNS aún en proceso o nameservers incorrectos
-    
+
     ```bash
     # Verificar nameservers actuales
     dig NS retrogamehub.games +short
-    
+
     # Debe mostrar nameservers de Route53:
     # ns-1234.awsdns-12.org
     # ns-5678.awsdns-34.co.uk
     # ns-9012.awsdns-56.com
     # ns-3456.awsdns-78.net
-    
+
     # Si muestra nameservers de Namecheap, espera propagación
     # O verifica que actualizaste correctamente en Namecheap
-    
+
     # Test desde múltiples ubicaciones
     https://dnschecker.org
     ```
+
   </Accordion>
-  
+
   <Accordion title="Certificado SSL no válido o expired">
     **Causa**: Certificado no validado o record de validación eliminado
-    
+
     ```bash
     # Verificar estado del certificado
     aws acm describe-certificate \
       --certificate-arn arn:aws:acm:eu-west-1:ACCOUNT:certificate/abc123...
-    
+
     # Si Status != ISSUED:
     # 1. Verificar que el record DNS de validación existe
     aws route53 list-resource-record-sets \
       --hosted-zone-id Z1234EXAMPLE \
       --query "ResourceRecordSets[?Type=='CNAME']"
-    
+
     # 2. Si no existe, Terraform debe recrearlo
     terraform apply
-    
+
     # 3. Esperar 5-10 minutos para validación
     ```
+
   </Accordion>
-  
+
   <Accordion title="Browser muestra 'NET::ERR_CERT_COMMON_NAME_INVALID'">
     **Causa**: ALB usando certificado incorrecto o dominio no incluido en certificate
-    
+
     ```bash
     # Verificar dominio del certificado
     aws acm describe-certificate \
       --certificate-arn arn:aws:acm:eu-west-1:ACCOUNT:certificate/abc123... \
       --query 'Certificate.[DomainName,SubjectAlternativeNames]'
-    
+
     # Debe incluir:
     # ["retrogamehub.games", ["retrogamehub.games", "*.retrogamehub.games"]]
-    
+
     # Verificar listener del ALB usa el certificado correcto
     aws elbv2 describe-listeners \
       --load-balancer-arn arn:aws:elasticloadbalancing:eu-west-1:ACCOUNT:loadbalancer/app/retrogame-alb/abc123
-    
+
     # Verificar que certificate_arn coincide
     ```
+
   </Accordion>
-  
+
   <Accordion title="HTTP no redirige a HTTPS">
     **Causa**: Listener HTTP no configurado o redirección faltante
-    
+
     ```bash
     # Verificar listener HTTP existe
     aws elbv2 describe-listeners \
       --load-balancer-arn arn:aws:elasticloadbalancing:eu-west-1:ACCOUNT:loadbalancer/app/retrogame-alb/abc123
-    
+
     # Debe tener:
     # - Listener en puerto 80
     # - DefaultAction.Type = "redirect"
     # - RedirectConfig.Protocol = "HTTPS"
     # - RedirectConfig.StatusCode = "HTTP_301"
-    
+
     # Si falta, terraform apply debe crearlo
     ```
+
   </Accordion>
-  
+
   <Accordion title="Record A no apunta correctamente al ALB">
     **Causa**: Alias record incorrecto o ALB DNS cambió
-    
+
     ```bash
     # Verificar DNS actual del ALB
     aws elbv2 describe-load-balancers \
       --load-balancer-arns arn:aws:elasticloadbalancing:eu-west-1:ACCOUNT:loadbalancer/app/retrogame-alb/abc123 \
       --query 'LoadBalancers[0].DNSName'
-    
+
     # Verificar record en Route53
     aws route53 list-resource-record-sets \
       --hosted-zone-id Z1234EXAMPLE \
       --query "ResourceRecordSets[?Name=='retrogamehub.games.']"
-    
+
     # AliasTarget.DNSName debe coincidir con el DNS del ALB
-    
+
     # Si no coincide, terraform apply debe actualizarlo
     terraform apply
     ```
+
   </Accordion>
 </AccordionGroup>
 
 ## Outputs de Terraform
 
 ```bash
+
 # Zona Route53
 terraform output route53_zone_id
+
 # Z1234EXAMPLEZONEID
 
 # Nameservers (para Namecheap)
 terraform output route53_nameservers
+
 # [
-#   "ns-1234.awsdns-12.org",
-#   "ns-5678.awsdns-34.co.uk",
-#   "ns-9012.awsdns-56.com",
-#   "ns-3456.awsdns-78.net"
+
+# "ns-1234.awsdns-12.org",
+
+# "ns-5678.awsdns-34.co.uk",
+
+# "ns-9012.awsdns-56.com",
+
+# "ns-3456.awsdns-78.net"
+
 # ]
 
 # ARN del certificado SSL
 terraform output ssl_certificate_arn
+
 # arn:aws:acm:eu-west-1:ACCOUNT:certificate/abc123...
 
 # URL del dominio
 terraform output domain_url
+
 # https://retrogamehub.games
+
 ```
 
 ## Checklist de Configuración
@@ -797,49 +873,54 @@ terraform output domain_url
     terraform apply
     # Crear aws_route53_zone.main
     ```
+
   </Step>
-  
+
   <Step title="✅ Actualizar nameservers en Namecheap">
     Copiar nameservers de Route53 y configurar en Namecheap
-    
+
     Esperar propagación (2-48 horas)
   </Step>
-  
+
   <Step title="✅ Solicitar certificado ACM">
     ```bash
     terraform apply
     # Crear aws_acm_certificate.main
     # Validación DNS automática
     ```
+
   </Step>
-  
+
   <Step title="✅ Esperar validación del certificado">
     Verificar estado: `ISSUED`
-    
+
     Tiempo: 5-10 minutos
   </Step>
-  
+
   <Step title="✅ Crear records DNS">
     ```bash
     terraform apply
     # Crear aws_route53_record.main (A)
     # Crear aws_route53_record.wildcard (A)
     ```
+
   </Step>
-  
+
   <Step title="✅ Configurar ALB con SSL">
     ```bash
     terraform apply
     # ALB listener 443 con certificate_arn
     # ALB listener 80 con redirect a HTTPS
     ```
+
   </Step>
-  
+
   <Step title="✅ Verificar acceso HTTPS">
     ```bash
     curl -I https://retrogamehub.games
     # HTTP/2 200
     ```
+
   </Step>
 </Steps>
 
@@ -849,15 +930,15 @@ terraform output domain_url
   <Card title="CDN y CloudFront" icon="cloud" href="/infrastructure/cdn-cloudfront">
     Distribución de contenido estático
   </Card>
-  
+
   <Card title="OAuth2 Authentication" icon="lock" href="/infrastructure/oauth2-authentication">
     Proteger herramientas de monitoreo
   </Card>
-  
+
   <Card title="Load Balancer" icon="scale-balanced" href="/infrastructure/networking">
     Configuración del ALB
   </Card>
-  
+
   <Card title="Despliegue" icon="rocket" href="/deployment">
     Guía completa de despliegue
   </Card>

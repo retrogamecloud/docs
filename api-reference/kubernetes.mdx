@@ -1,7 +1,7 @@
 ---
-title: "kubernetes"
-description: "Documentación generada automáticamente"
-icon: "code"
+title: Kubernetes
+description: Documentación generada automáticamente
+icon: code
 ---
 
 <Info>
@@ -12,7 +12,9 @@ icon: "code"
 # Kubernetes Manifests
 
 ## 04-frontend.yaml
+
 ```yaml
+
 # --- 1. Despliegue del Frontend ---
 apiVersion: apps/v1
 kind: Deployment
@@ -47,7 +49,8 @@ spec:
             - name: CDN_BASE_URL
               value: "/"
 
----
+- --
+
 # --- 2. Servicio Interno para el Frontend ---
 apiVersion: v1
 kind: Service
@@ -63,7 +66,9 @@ spec:
       targetPort: 8080```
 
 ## 05-kong.yaml
+
 ```yaml
+
 # --- 1. Configuración de Kong (¡LA VERSIÓN FINAL!) ---
 apiVersion: v1
 kind: ConfigMap
@@ -85,7 +90,7 @@ data:
             paths:
               - /api/
             strip_path: false
-            
+
           # --- RUTAS SIN /api ---
           - name: root-auth-routes
             paths:
@@ -97,7 +102,7 @@ data:
             methods:
               - POST
             strip_path: false
-          
+
           # --- Arreglo para GET /games (Rankings) ---
           - name: games-ranking-route
             paths:
@@ -142,7 +147,8 @@ data:
               - /
             strip_path: false
 
----
+- --
+
 # --- 2. Despliegue de Kong ---
 apiVersion: apps/v1
 kind: Deployment
@@ -194,7 +200,8 @@ spec:
           configMap:
             name: kong-config
 
----
+- --
+
 # --- 3. Servicio Externo (LoadBalancer) ---
 apiVersion: v1
 kind: Service
@@ -212,6 +219,7 @@ spec:
       targetPort: 8000```
 
 ## ci.yml
+
 ```yaml
 name: Kubernetes Manifests CI
 
@@ -224,21 +232,21 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-    
+
     - name: Install dependencies
       run: npm install
-    
+
     - name: Run tests
       run: npm test
-    
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
@@ -246,47 +254,49 @@ jobs:
         flags: manifests
         name: kubernetes-manifests
         fail_ci_if_error: false
-  
+
   validate-yamls:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Validate YAML syntax
       run: |
         sudo apt-get update
         sudo apt-get install -y yamllint
         yamllint *.yaml
-  
+
   kubectl-validate:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup kubectl
       uses: azure/setup-kubectl@v4
       with:
         version: 'latest'
-    
+
     - name: Setup kind
       uses: helm/kind-action@v1.10.0
       with:
         install_only: true
-    
+
     - name: Create kind cluster
       run: kind create cluster
-    
+
     - name: Validate Kubernetes manifests
       run: |
         for file in *.yaml; do
           echo "Validating $file..."
           kubectl apply --dry-run=client -f "$file"
         done
+
 ```
 
 ## sync-backend-manifest.yml
+
 ```yaml
 name: Sync Backend Manifest to Infrastructure
 
@@ -322,18 +332,18 @@ jobs:
           cd infrastructure
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           # Crear rama con timestamp para evitar conflictos
           BRANCH_NAME="sync/backend-manifest-$(date +%s)"
           git checkout -b $BRANCH_NAME
-          
+
           git add argocd/backend-overlays/base/02-backend.yaml
-          
+
           # Solo commit y push si hay cambios
           if ! git diff --staged --quiet; then
             git commit -m "chore: sync backend manifest from kubernetes repo"
             git push origin $BRANCH_NAME
-            
+
             # Crear PR usando GitHub CLI
             echo "Creating PR..."
             gh pr create \
@@ -348,9 +358,11 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+
 ```
 
 ## deployment.yaml
+
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -433,9 +445,11 @@ spec:
       - name: kong-config
         configMap:
           name: kong-config
+
 ```
 
 ## configmap.yaml
+
 ```yaml
 apiVersion: v1
 kind: ConfigMap
@@ -487,9 +501,11 @@ data:
             paths:
               - /
             strip_path: false
+
 ```
 
 ## service.yaml
+
 ```yaml
 apiVersion: v1
 kind: Service
@@ -511,7 +527,8 @@ spec:
     name: proxy-ssl
   selector:
     app: kong
----
+
+- --
 apiVersion: v1
 kind: Service
 metadata:
@@ -528,7 +545,8 @@ spec:
     name: http
   selector:
     app: kong
----
+
+- --
 apiVersion: v1
 kind: Service
 metadata:
@@ -549,9 +567,11 @@ spec:
     name: admin-ssl
   selector:
     app: kong
+
 ```
 
 ## deployment.yaml
+
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -624,9 +644,11 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 3
+
 ```
 
 ## service.yaml
+
 ```yaml
 apiVersion: v1
 kind: Service
@@ -644,9 +666,11 @@ spec:
     name: http
   selector:
     app: backend
+
 ```
 
 ## ingress.yaml
+
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -668,9 +692,11 @@ spec:
             name: backend-service
             port:
               number: 3000
+
 ```
 
 ## deployment.yaml
+
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -699,7 +725,7 @@ spec:
         volumeMounts:
         - name: app-files
           mountPath: /shared
-      
+
       # Init container 2: Reemplazar URLs en los archivos copiados
       - name: url-replacer
         image: busybox:1.35
@@ -709,7 +735,7 @@ spec:
           mountPath: /app
         - name: replacer-script
           mountPath: /scripts
-      
+
       containers:
       - name: frontend
         image: retrogamehub/frontend:sha-2fbfb66
@@ -749,7 +775,7 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 3
-      
+
       volumes:
       - name: app-files
         emptyDir: {}
@@ -757,9 +783,11 @@ spec:
         configMap:
           name: frontend-replacer
           defaultMode: 0755
+
 ```
 
 ## service.yaml
+
 ```yaml
 apiVersion: v1
 kind: Service
@@ -779,9 +807,11 @@ spec:
     name: http
   selector:
     app: frontend
+
 ```
 
 ## ingress.yaml
+
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -803,10 +833,13 @@ spec:
             name: frontend-service
             port:
               number: 8080
+
 ```
 
 ## 03-cdn.yaml
+
 ```yaml
+
 # --- 1. Despliegue del CDN ---
 apiVersion: apps/v1
 kind: Deployment
@@ -832,7 +865,8 @@ spec:
           ports:
             - containerPort: 80
 
----
+- --
+
 # --- 2. Servicio Interno para el CDN ---
 apiVersion: v1
 kind: Service
@@ -848,7 +882,9 @@ spec:
       targetPort: 80```
 
 ## 02-backend.yaml
+
 ```yaml
+
 # --- 1. Despliegue del Backend (API) ---
 apiVersion: apps/v1
 kind: Deployment
@@ -890,7 +926,8 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 5
 
----
+- --
+
 # --- 2. Servicio Interno para el Backend ---
 apiVersion: v1
 kind: Service
@@ -905,10 +942,13 @@ spec:
     - protocol: TCP
       port: 3000       # El puerto que Kong busca
       targetPort: 3000 # El puerto del contenedor# Test sync
+
 ```
 
 ## 01-postgres.yaml
+
 ```yaml
+
 # --- 1. Secreto para la contraseña de la BD ---
 apiVersion: v1
 kind: Secret
@@ -925,7 +965,8 @@ data:
   # POSTGRES_PASSWORD: gamecloud
   POSTGRES_PASSWORD: Z2FtZWNsb3Vk
 
----
+- --
+
 # --- 2. ConfigMap para el script de inicialización ---
 apiVersion: v1
 kind: ConfigMap
@@ -1007,7 +1048,8 @@ data:
     ('dangerousdave2', 'Dangerous Dave 2', 'Plataformas', 1990, 'John Romero')
     ON CONFLICT (slug) DO NOTHING;
 
----
+- --
+
 # --- 3. Petición de Volumen Persistente ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -1021,7 +1063,8 @@ spec:
     requests:
       storage: 2Gi # Pide 2GB de espacio
 
----
+- --
+
 # --- 4. El despliegue de la Base de Datos (StatefulSet) ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -1066,7 +1109,9 @@ spec:
         resources:
           requests:
             storage: 2Gi
----
+
+- --
+
 # --- 5. El Servicio interno (DNS) para la BD ---
 apiVersion: v1
 kind: Service
@@ -1082,6 +1127,7 @@ spec:
       targetPort: 5432```
 
 ## 00-namespace.yaml
+
 ```yaml
 apiVersion: v1
 kind: Namespace

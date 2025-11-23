@@ -1,7 +1,7 @@
 ---
-title: "6.5. Kubernetes Manifests"
-description: "Manifiestos completos de deployment de todos los servicios en Kubernetes"
-icon: "dharmachakra"
+title: 6.5. Kubernetes Manifests
+description: Manifiestos completos de deployment de todos los servicios en Kubernetes
+icon: dharmachakra
 ---
 
 ## Visión General
@@ -11,6 +11,7 @@ Esta sección documenta todos los manifiestos de Kubernetes para desplegar la pl
 ## Estructura de Namespaces
 
 ```
+
 retrogame-cluster/
 ├── retrogame (principal)
 │   ├── Deployments (microservicios)
@@ -30,11 +31,13 @@ retrogame-cluster/
 │
 └── oauth2-proxy
     └── OAuth2 Proxy
+
 ```
 
 ## Namespace Principal
 
 ```yaml
+
 # namespace.yaml
 apiVersion: v1
 kind: Namespace
@@ -43,6 +46,7 @@ metadata:
   labels:
     name: retrogame
     environment: production
+
 ```
 
 ## ConfigMaps
@@ -50,6 +54,7 @@ metadata:
 ### Database Configuration
 
 ```yaml
+
 # configmap-database.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -65,11 +70,13 @@ data:
   DB_POOL_MAX: "10"
   DB_IDLE_TIMEOUT: "30000"
   DB_CONNECTION_TIMEOUT: "5000"
+
 ```
 
 ### Redis Configuration
 
 ```yaml
+
 # configmap-redis.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -83,11 +90,13 @@ data:
   REDIS_CONNECT_TIMEOUT: "5000"
   REDIS_COMMAND_TIMEOUT: "2000"
   REDIS_MAX_RETRIES: "3"
+
 ```
 
 ### RabbitMQ Configuration
 
 ```yaml
+
 # configmap-rabbitmq.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -101,11 +110,13 @@ data:
   RABBITMQ_EXCHANGE: "retrogame-events"
   RABBITMQ_QUEUE_SCORES: "scores-queue"
   RABBITMQ_QUEUE_CACHE_INVALIDATION: "cache-invalidation-queue"
+
 ```
 
 ### CDN Configuration
 
 ```yaml
+
 # configmap-cdn.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -117,11 +128,13 @@ data:
   CDN_GAMES_PATH: "/juegos"
   CDN_IMAGES_PATH: "/img"
   CDN_EMULATOR_PATH: "/jsdos"
+
 ```
 
 ## Secrets
 
 ```yaml
+
 # secrets.yaml
 apiVersion: v1
 kind: Secret
@@ -138,6 +151,7 @@ stringData:
   RABBITMQ_PASSWORD: "your-rabbitmq-password"
   AWS_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE"
   AWS_SECRET_ACCESS_KEY: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+
 ```
 
 ## Deployments
@@ -145,6 +159,7 @@ stringData:
 ### Auth Service
 
 ```yaml
+
 # deployment-auth-service.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -189,7 +204,7 @@ spec:
           value: "3001"
         - name: SERVICE_NAME
           value: "auth-service"
-        
+
         # Database
         - name: DB_HOST
           valueFrom:
@@ -216,7 +231,7 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: DB_PASSWORD
-        
+
         # Redis
         - name: REDIS_HOST
           valueFrom:
@@ -228,7 +243,7 @@ spec:
             configMapKeyRef:
               name: redis-config
               key: REDIS_PORT
-        
+
         # JWT
         - name: JWT_SECRET
           valueFrom:
@@ -237,7 +252,7 @@ spec:
               key: JWT_SECRET
         - name: JWT_EXPIRES_IN
           value: "7d"
-        
+
         resources:
           requests:
             cpu: 100m
@@ -245,7 +260,7 @@ spec:
           limits:
             cpu: 200m
             memory: 256Mi
-        
+
         livenessProbe:
           httpGet:
             path: /health
@@ -254,7 +269,7 @@ spec:
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
-        
+
         readinessProbe:
           httpGet:
             path: /health
@@ -263,11 +278,13 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 3
+
 ```
 
 ### User Service
 
 ```yaml
+
 # deployment-user-service.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -312,7 +329,7 @@ spec:
           value: "3002"
         - name: SERVICE_NAME
           value: "user-service"
-        
+
         # Database
         - name: DB_HOST
           valueFrom:
@@ -339,7 +356,7 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: DB_PASSWORD
-        
+
         # Redis
         - name: REDIS_HOST
           valueFrom:
@@ -351,7 +368,7 @@ spec:
             configMapKeyRef:
               name: redis-config
               key: REDIS_PORT
-        
+
         # AWS S3 (para avatares)
         - name: AWS_REGION
           value: "us-east-1"
@@ -367,7 +384,7 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: AWS_SECRET_ACCESS_KEY
-        
+
         resources:
           requests:
             cpu: 100m
@@ -375,25 +392,27 @@ spec:
           limits:
             cpu: 200m
             memory: 256Mi
-        
+
         livenessProbe:
           httpGet:
             path: /health
             port: 3002
           initialDelaySeconds: 30
           periodSeconds: 10
-        
+
         readinessProbe:
           httpGet:
             path: /health
             port: 3002
           initialDelaySeconds: 10
           periodSeconds: 5
+
 ```
 
 ### Game Catalog Service
 
 ```yaml
+
 # deployment-game-catalog.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -431,7 +450,7 @@ spec:
           value: "3003"
         - name: SERVICE_NAME
           value: "game-catalog-service"
-        
+
         # Database
         - name: DB_HOST
           valueFrom:
@@ -458,14 +477,14 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: DB_PASSWORD
-        
+
         # CDN
         - name: CDN_URL
           valueFrom:
             configMapKeyRef:
               name: cdn-config
               key: CDN_URL
-        
+
         resources:
           requests:
             cpu: 50m
@@ -473,25 +492,27 @@ spec:
           limits:
             cpu: 100m
             memory: 128Mi
-        
+
         livenessProbe:
           httpGet:
             path: /health
             port: 3003
           initialDelaySeconds: 30
           periodSeconds: 10
-        
+
         readinessProbe:
           httpGet:
             path: /health
             port: 3003
           initialDelaySeconds: 10
           periodSeconds: 5
+
 ```
 
 ### Score Service
 
 ```yaml
+
 # deployment-score-service.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -529,7 +550,7 @@ spec:
           value: "3004"
         - name: SERVICE_NAME
           value: "score-service"
-        
+
         # Database
         - name: DB_HOST
           valueFrom:
@@ -556,7 +577,7 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: DB_PASSWORD
-        
+
         # RabbitMQ
         - name: RABBITMQ_URL
           value: "amqp://$(RABBITMQ_USER):$(RABBITMQ_PASSWORD)@$(RABBITMQ_HOST):$(RABBITMQ_PORT)/"
@@ -580,13 +601,13 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: RABBITMQ_PASSWORD
-        
+
         # Anti-cheat
         - name: ANTI_CHEAT_ENABLED
           value: "true"
         - name: MAX_SCORE_INCREASE_PER_SECOND
           value: "1000"
-        
+
         resources:
           requests:
             cpu: 100m
@@ -594,25 +615,27 @@ spec:
           limits:
             cpu: 200m
             memory: 256Mi
-        
+
         livenessProbe:
           httpGet:
             path: /health
             port: 3004
           initialDelaySeconds: 30
           periodSeconds: 10
-        
+
         readinessProbe:
           httpGet:
             path: /health
             port: 3004
           initialDelaySeconds: 10
           periodSeconds: 5
+
 ```
 
 ### Ranking Service
 
 ```yaml
+
 # deployment-ranking-service.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -650,7 +673,7 @@ spec:
           value: "3005"
         - name: SERVICE_NAME
           value: "ranking-service"
-        
+
         # Database
         - name: DB_HOST
           valueFrom:
@@ -677,7 +700,7 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: DB_PASSWORD
-        
+
         # Redis
         - name: REDIS_HOST
           valueFrom:
@@ -689,7 +712,7 @@ spec:
             configMapKeyRef:
               name: redis-config
               key: REDIS_PORT
-        
+
         # RabbitMQ
         - name: RABBITMQ_URL
           value: "amqp://$(RABBITMQ_USER):$(RABBITMQ_PASSWORD)@$(RABBITMQ_HOST):$(RABBITMQ_PORT)/"
@@ -713,13 +736,13 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: RABBITMQ_PASSWORD
-        
+
         # Cache
         - name: CACHE_TTL_GLOBAL_RANKING
           value: "300"
         - name: CACHE_TTL_GAME_RANKING
           value: "60"
-        
+
         resources:
           requests:
             cpu: 100m
@@ -727,25 +750,27 @@ spec:
           limits:
             cpu: 200m
             memory: 256Mi
-        
+
         livenessProbe:
           httpGet:
             path: /health
             port: 3005
           initialDelaySeconds: 30
           periodSeconds: 10
-        
+
         readinessProbe:
           httpGet:
             path: /health
             port: 3005
           initialDelaySeconds: 10
           periodSeconds: 5
+
 ```
 
 ### Frontend
 
 ```yaml
+
 # deployment-frontend.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -781,7 +806,7 @@ spec:
               key: CDN_URL
         - name: API_URL
           value: "http://kong-gateway:8000"
-        
+
         resources:
           requests:
             cpu: 50m
@@ -789,27 +814,30 @@ spec:
           limits:
             cpu: 100m
             memory: 128Mi
-        
+
         livenessProbe:
           httpGet:
             path: /health.html
             port: 80
           initialDelaySeconds: 10
           periodSeconds: 30
-        
+
         readinessProbe:
           httpGet:
             path: /health.html
             port: 80
           initialDelaySeconds: 5
           periodSeconds: 10
+
 ```
 
 ## Services
 
 ```yaml
+
 # services.yaml
----
+
+- --
 apiVersion: v1
 kind: Service
 metadata:
@@ -824,7 +852,8 @@ spec:
     port: 3001
     targetPort: 3001
     protocol: TCP
----
+
+- --
 apiVersion: v1
 kind: Service
 metadata:
@@ -839,7 +868,8 @@ spec:
     port: 3002
     targetPort: 3002
     protocol: TCP
----
+
+- --
 apiVersion: v1
 kind: Service
 metadata:
@@ -854,7 +884,8 @@ spec:
     port: 3003
     targetPort: 3003
     protocol: TCP
----
+
+- --
 apiVersion: v1
 kind: Service
 metadata:
@@ -869,7 +900,8 @@ spec:
     port: 3004
     targetPort: 3004
     protocol: TCP
----
+
+- --
 apiVersion: v1
 kind: Service
 metadata:
@@ -884,7 +916,8 @@ spec:
     port: 3005
     targetPort: 3005
     protocol: TCP
----
+
+- --
 apiVersion: v1
 kind: Service
 metadata:
@@ -899,11 +932,13 @@ spec:
     port: 80
     targetPort: 80
     protocol: TCP
+
 ```
 
 ## Ingress
 
 ```yaml
+
 # ingress.yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -934,7 +969,7 @@ spec:
                 name: frontend
                 port:
                   number: 80
-    
+
     - host: www.retrogamehub.games
       http:
         paths:
@@ -945,13 +980,16 @@ spec:
                 name: frontend
                 port:
                   number: 80
+
 ```
 
 ## HorizontalPodAutoscaler
 
 ```yaml
+
 # hpa.yaml
----
+
+- --
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -977,7 +1015,8 @@ spec:
       target:
         type: Utilization
         averageUtilization: 80
----
+
+- --
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -997,7 +1036,8 @@ spec:
       target:
         type: Utilization
         averageUtilization: 70
----
+
+- --
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -1017,13 +1057,16 @@ spec:
       target:
         type: Utilization
         averageUtilization: 70
+
 ```
 
 ## PodDisruptionBudget
 
 ```yaml
+
 # pdb.yaml
----
+
+- --
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -1034,7 +1077,8 @@ spec:
   selector:
     matchLabels:
       app: auth-service
----
+
+- --
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -1045,7 +1089,8 @@ spec:
   selector:
     matchLabels:
       app: score-service
----
+
+- --
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -1056,11 +1101,13 @@ spec:
   selector:
     matchLabels:
       app: ranking-service
+
 ```
 
 ## NetworkPolicy
 
 ```yaml
+
 # network-policy.yaml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -1087,7 +1134,8 @@ spec:
       port: 3004
     - protocol: TCP
       port: 3005
----
+
+- --
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -1103,11 +1151,13 @@ spec:
     ports:
     - protocol: TCP
       port: 5432
+
 ```
 
 ## ServiceMonitor (Prometheus)
 
 ```yaml
+
 # servicemonitor.yaml
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -1124,7 +1174,8 @@ spec:
   - port: http
     path: /metrics
     interval: 30s
----
+
+- --
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -1140,6 +1191,7 @@ spec:
   - port: admin
     path: /metrics
     interval: 30s
+
 ```
 
 ## Comandos de Deployment
@@ -1147,6 +1199,7 @@ spec:
 ### Aplicar todos los manifiestos
 
 ```bash
+
 # Namespace
 kubectl apply -f namespace.yaml
 
@@ -1180,11 +1233,13 @@ kubectl apply -f network-policy.yaml
 
 # ServiceMonitors
 kubectl apply -f servicemonitor.yaml
+
 ```
 
 ### Verificar deployment
 
 ```bash
+
 # Ver todos los recursos
 kubectl get all -n retrogame
 
@@ -1199,11 +1254,13 @@ kubectl get ingress -n retrogame
 
 # Ver HPA
 kubectl get hpa -n retrogame
+
 ```
 
 ### Logs y debugging
 
 ```bash
+
 # Logs de un pod
 kubectl logs -n retrogame deployment/auth-service --follow
 
@@ -1215,11 +1272,13 @@ kubectl exec -it -n retrogame deployment/auth-service -- /bin/sh
 
 # Port forward para testing local
 kubectl port-forward -n retrogame svc/auth-service 3001:3001
+
 ```
 
 ### Rollout
 
 ```bash
+
 # Ver estado de rollout
 kubectl rollout status deployment/auth-service -n retrogame
 
@@ -1237,6 +1296,7 @@ kubectl rollout pause deployment/auth-service -n retrogame
 
 # Reanudar rollout
 kubectl rollout resume deployment/auth-service -n retrogame
+
 ```
 
 ## Troubleshooting
@@ -1246,41 +1306,44 @@ kubectl rollout resume deployment/auth-service -n retrogame
     ```bash
     # Ver logs del pod
     kubectl logs -n retrogame <pod-name> --previous
-    
+
     # Describir pod para ver eventos
     kubectl describe pod -n retrogame <pod-name>
-    
+
     # Verificar ConfigMaps y Secrets
     kubectl get configmap -n retrogame
     kubectl get secret -n retrogame
     ```
+
   </Accordion>
 
   <Accordion title="Service no accesible">
     ```bash
     # Verificar endpoints
     kubectl get endpoints -n retrogame <service-name>
-    
+
     # Verificar labels de pods
     kubectl get pods -n retrogame --show-labels
-    
+
     # Test de conectividad desde otro pod
     kubectl run -it --rm debug --image=busybox --restart=Never -- wget -O- http://<service-name>:3001/health
     ```
+
   </Accordion>
 
   <Accordion title="Ingress no funciona">
     ```bash
     # Verificar Ingress Controller
     kubectl get pods -n ingress-nginx
-    
+
     # Ver logs del Ingress Controller
     kubectl logs -n ingress-nginx deployment/ingress-nginx-controller
-    
+
     # Verificar certificado TLS
     kubectl get certificate -n retrogame
     kubectl describe certificate retrogame-tls -n retrogame
     ```
+
   </Accordion>
 
   <Accordion title="HPA no escala">
@@ -1288,12 +1351,13 @@ kubectl rollout resume deployment/auth-service -n retrogame
     # Verificar métricas
     kubectl get hpa -n retrogame
     kubectl describe hpa auth-service-hpa -n retrogame
-    
+
     # Verificar Metrics Server
     kubectl get deployment metrics-server -n kube-system
     kubectl top nodes
     kubectl top pods -n retrogame
     ```
+
   </Accordion>
 </AccordionGroup>
 

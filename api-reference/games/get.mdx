@@ -1,8 +1,8 @@
 ---
-title: "3.2. GET /games/:slug"
-description: "Obtener detalles de un juego específico"
-api: "GET https://api.retrogamehub.games/games/:slug"
-icon: "file-lines"
+title: 3.2. GET /games/:slug
+description: Obtener detalles de un juego específico
+api: GET https://api.retrogamehub.games/games/:slug
+icon: file-lines
 ---
 
 ## Descripción
@@ -71,16 +71,16 @@ Obtiene información detallada de un juego específico usando su slug único.
 
 <ResponseField name="dosbox_config" type="object">
   Configuración recomendada de DOSBox
-  
+
   <Expandable title="properties">
     <ResponseField name="cycles" type="string">
       Velocidad de CPU (ej: "max", "10000")
     </ResponseField>
-    
+
     <ResponseField name="machine" type="string">
       Tipo de máquina (ej: "svga_s3", "vga")
     </ResponseField>
-    
+
     <ResponseField name="core" type="string">
       Core de CPU ("dynamic", "normal")
     </ResponseField>
@@ -103,6 +103,7 @@ Obtiene información detallada de un juego específico usando su slug único.
 
 ```bash cURL
 curl https://api.retrogamehub.games/games/doom
+
 ```
 
 ```javascript JavaScript
@@ -112,6 +113,7 @@ const response = await fetch(`https://api.retrogamehub.games/games/${gameSlug}`)
 const game = await response.json();
 
 console.log(`Cargando: ${game.name} (${game.size_mb}MB)`);
+
 ```
 
 ```python Python
@@ -123,6 +125,7 @@ response = requests.get(f'https://api.retrogamehub.games/games/{slug}')
 game = response.json()
 
 print(f"{game['name']} - {game['publisher']} ({game['year']})")
+
 ```
 
 </RequestExample>
@@ -163,12 +166,14 @@ print(f"{game['name']} - {game['publisher']} ({game['year']})")
   "highscore_count": 1547,
   "created_at": "2025-11-01T00:00:00.000Z"
 }
+
 ```
 
 ```json 404 - Game Not Found
 {
   "error": "Juego no encontrado: invalid-slug"
 }
+
 ```
 
 </ResponseExample>
@@ -181,22 +186,22 @@ print(f"{game['name']} - {game['publisher']} ({game['year']})")
     - `duke3d` - Duke Nukem 3D (1996)
     - `wolf` - Wolfenstein 3D (1992)
   </Accordion>
-  
+
   <Accordion title="Platformers">
     - `dangerousdave2` - Dangerous Dave 2 (1990)
     - `digger` - Digger (1983)
     - `lostvikings` - The Lost Vikings (1993)
   </Accordion>
-  
+
   <Accordion title="Fighting">
     - `mortalkombat` - Mortal Kombat (1992)
     - `streetfighter2` - Street Fighter II (1991)
   </Accordion>
-  
+
   <Accordion title="Strategy/RPG">
     - `heroesofmightandmagic2` - Heroes of Might and Magic II (1996)
   </Accordion>
-  
+
   <Accordion title="Puzzle">
     - `tetris` - Tetris (1984)
   </Accordion>
@@ -212,68 +217,68 @@ class GameLoader {
     try {
       // 1. Obtener metadata del juego
       const response = await fetch(`https://api.retrogamehub.games/games/${slug}`);
-      
+
       if (!response.ok) {
         throw new Error('Juego no encontrado');
       }
-      
+
       const game = await response.json();
-      
+
       // 2. Mostrar información
       this.displayGameInfo(game);
-      
+
       // 3. Iniciar descarga del bundle
       await this.downloadBundle(game.bundle_url, game.size_mb);
-      
+
       // 4. Configurar DOSBox
       await this.configureDosBox(game.dosbox_config);
-      
+
       // 5. Lanzar emulador
       await this.launchEmulator(game);
-      
+
     } catch (error) {
       console.error('Error cargando juego:', error);
       this.showError(error.message);
     }
   }
-  
+
   displayGameInfo(game) {
     document.getElementById('game-title').textContent = game.name;
     document.getElementById('game-year').textContent = game.year;
     document.getElementById('game-publisher').textContent = game.publisher;
     document.getElementById('game-description').textContent = game.description;
-    
+
     // Mostrar controles
     const controlsDiv = document.getElementById('controls');
     Object.entries(game.controls).forEach(([action, key]) => {
       controlsDiv.innerHTML += `<p><strong>${action}:</strong> ${key}</p>`;
     });
   }
-  
+
   async downloadBundle(url, sizeMB) {
     const progressBar = document.getElementById('progress');
-    
+
     const response = await fetch(url);
     const reader = response.body.getReader();
     const contentLength = sizeMB * 1024 * 1024;
-    
+
     let receivedLength = 0;
     const chunks = [];
-    
+
     while(true) {
       const {done, value} = await reader.read();
-      
+
       if (done) break;
-      
+
       chunks.push(value);
       receivedLength += value.length;
-      
+
       // Actualizar barra de progreso
       const percent = (receivedLength / contentLength) * 100;
       progressBar.style.width = `${percent}%`;
       progressBar.textContent = `${Math.round(percent)}%`;
     }
-    
+
     // Combinar chunks
     const bundleData = new Uint8Array(receivedLength);
     let position = 0;
@@ -281,10 +286,10 @@ class GameLoader {
       bundleData.set(chunk, position);
       position += chunk.length;
     }
-    
+
     return bundleData;
   }
-  
+
   async configureDosBox(config) {
     // Aplicar configuración recomendada
     window.dosboxConfig = {
@@ -292,20 +297,20 @@ class GameLoader {
       ...config
     };
   }
-  
+
   async launchEmulator(game) {
     // Iniciar js-dos con el bundle
     const dos = await Dos(document.getElementById('canvas-container'), window.dosboxConfig);
-    
+
     dos.run(game.bundle_url);
-    
+
     // Fullscreen automático
     requestFullscreen();
-    
+
     // Iniciar score tracking
     scoreTracker.start(game.slug);
   }
-  
+
   showError(message) {
     const errorDiv = document.createElement('div');
     errorDiv.className = 'error-modal';
@@ -322,6 +327,7 @@ class GameLoader {
 const loader = new GameLoader();
 const gameSlug = new URLSearchParams(window.location.search).get('game');
 loader.loadGame(gameSlug);
+
 ```
 
 ## Caching
@@ -333,4 +339,5 @@ loader.loadGame(gameSlug);
 ## Rate Limiting
 
 - **Límite**: 100 peticiones por minuto por IP
+
 - **Uso típico**: 1 petición al cargar la página del juego

@@ -1,7 +1,7 @@
 ---
-title: "2.1. Arquitectura del Sistema"
-description: "Visión general de la arquitectura de microservicios de Retro Game Hub"
-icon: "file-lines"
+title: 2.1. Arquitectura del Sistema
+description: Visión general de la arquitectura de microservicios de Retro Game Hub
+icon: file-lines
 ---
 
 ## Visión General de la Arquitectura
@@ -30,17 +30,23 @@ graph TD
     I --> N
     K --> O[Redis Cache]
     J --> O
+
 ```
 
 ## Componentes Principales
 
 ### Capa de Frontend
+
 - **Sitio Estático**: HTML/CSS/JS servido vía CloudFront
+
 - **Emulador js-dos**: Emulación DOS basada en navegador
+
 - **Assets de Juegos**: Archivos .jsdos alojados en CDN en S3
 
 ### Capa de API Gateway
+
 - **Kong**: Enrutamiento de peticiones, limitación de tasa, reenvío de autenticación
+
 - **Rutas**: `/auth`, `/games`, `/scores`, `/rankings`, `/users`
 
 ### Capa de Microservicios
@@ -51,27 +57,27 @@ graph TD
     - Autenticación de usuarios
     - Puerto: 3001
   </Card>
-  
+
   <Card title="Servicio de Catálogo de Juegos" icon="gamepad">
     - Gestión de metadatos de juegos
     - Listado de juegos disponibles
     - Puerto: 3002
   </Card>
-  
+
   <Card title="Servicio de Puntuaciones" icon="trophy">
     - Envío de puntuaciones
     - Validación de puntuaciones
     - Publicación de eventos
     - Puerto: 3003
   </Card>
-  
+
   <Card title="Servicio de Rankings" icon="ranking-star">
     - Generación de tablas de clasificación
     - Caché Redis
     - Invalidación de caché
     - Puerto: 3004
   </Card>
-  
+
   <Card title="Servicio de Usuarios" icon="user">
     - Gestión de perfiles de usuario
     - Estadísticas de usuario
@@ -87,7 +93,7 @@ graph TD
     - Transacciones ACID
     - Esquemas: users, games, scores, auth_tokens
   </Card>
-  
+
   <Card title="Redis" icon="bolt">
     - Caché de rankings
     - Almacenamiento de sesiones
@@ -103,19 +109,19 @@ graph TD
     - Auto-escalado
     - Despliegues continuos
   </Card>
-  
+
   <Card title="Terraform" icon="code">
     - Infraestructura como Código
     - Gestión de estado (S3)
     - Configuración modular
   </Card>
-  
+
   <Card title="Stack de Monitoreo" icon="chart-line">
     - Prometheus (métricas)
     - Grafana (visualización)
     - AlertManager (alertas)
   </Card>
-  
+
   <Card title="Redes" icon="network-wired">
     - VPC (10.0.0.0/16)
     - 3 subredes públicas + 3 privadas
@@ -126,14 +132,21 @@ graph TD
 ## Patrones de Comunicación
 
 ### Comunicación Síncrona
+
 - **Protocolo**: REST/HTTP
+
 - **Gateway**: Kong enruta peticiones a servicios
+
 - **Autenticación**: Tokens JWT en cabecera Authorization
+
 - **Formato**: JSON
 
 ### Comunicación Asíncrona
+
 - **Publicación de Eventos**: Servicio de puntuaciones publica eventos de puntuación
+
 - **Consumo de Eventos**: Servicio de rankings escucha invalidación de caché
+
 - **Patrón**: Pub/Sub vía Redis o cola de mensajes (futuro: Kafka)
 
 ## Seguridad
@@ -159,18 +172,27 @@ graph TD
 ## Escalabilidad
 
 ### Escalado Horizontal
+
 - **Kubernetes HPA**: Auto-escala pods basado en CPU/memoria
+
 - **Grupos de Nodos**: Auto-escala instancias EC2 basado en demanda
+
 - **Base de Datos**: Réplicas de lectura para operaciones intensivas en lectura
 
 ### Estrategia de Caché
+
 - **Redis**: Datos de ranking con TTL
+
 - **CloudFront**: Assets estáticos con caché en borde
+
 - **Aplicación**: Caché en memoria para datos accedidos frecuentemente
 
 ### Optimización de Rendimiento
+
 - **CDN**: Assets de juegos servidos desde ubicaciones de borde
+
 - **Indexación de Base de Datos**: Consultas optimizadas para tablas de clasificación
+
 - **Pool de Conexiones**: Conexiones eficientes a base de datos
 
 ## Próximos Pasos
@@ -189,3 +211,46 @@ graph TD
     Aprende sobre el stack de observabilidad
   </Card>
 </CardGroup>
+
+
+## Arquitectura de Componentes
+
+```mermaid
+graph LR
+    subgraph Frontend
+        UI[Interfaz Web]
+        JSDOS[JS-DOS Emulator]
+    end
+
+    subgraph Gateway
+        Kong[Kong API Gateway]
+        OAuth[OAuth2 Proxy]
+    end
+
+    subgraph Microservicios
+        Auth[Auth Service]
+        User[User Service]
+        Catalog[Game Catalog]
+        Score[Score Service]
+        Ranking[Ranking Service]
+    end
+
+    subgraph Datos
+        DB[(PostgreSQL)]
+        S3[S3 Storage]
+    end
+
+    UI --> Kong
+    Kong --> OAuth
+    OAuth --> Auth
+    Kong --> User
+    Kong --> Catalog
+    Kong --> Score
+    Kong --> Ranking
+    Auth --> DB
+    User --> DB
+    Catalog --> S3
+    Score --> DB
+    Ranking --> DB
+```
+

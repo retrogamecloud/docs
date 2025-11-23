@@ -1,14 +1,15 @@
 ---
-title: "8.1. Configuración de Entornos"
-description: 'Referencia completa de configuración para todos los servicios de Retro Game Hub'
-icon: "file-lines"
+title: 8.1. Configuración de Entornos
+description: Referencia completa de configuración para todos los servicios de Retro
+  Game Hub
+icon: file-lines
 ---
 
 # ⚙️ Configuración del Sistema
 
 Esta página documenta todas las variables de configuración, parámetros y ajustes disponibles en Retro Game Hub.
 
----
+- --
 
 ## 🔐 Variables de Entorno
 
@@ -17,6 +18,7 @@ Esta página documenta todas las variables de configuración, parámetros y ajus
 Variables de entorno para el servicio de autenticación:
 
 ```bash
+
 # Puerto del servicio
 PORT=3001
 
@@ -45,6 +47,7 @@ RATE_LIMIT_MAX_REQUESTS=10  # Máximo 10 requests/minuto
 
 # CORS
 CORS_ORIGIN=https://retrogamehub.games
+
 ```
 
 #### Valores Recomendados por Entorno
@@ -56,11 +59,12 @@ CORS_ORIGIN=https://retrogamehub.games
 | `RATE_LIMIT_MAX_REQUESTS` | `100` | `10` |
 | `DB_HOST` | `localhost` | RDS endpoint |
 
----
+- --
 
 ### User Service
 
 ```bash
+
 # Puerto del servicio
 PORT=3002
 
@@ -84,13 +88,15 @@ DEFAULT_AVATAR_URL=https://cdn.retrogamehub.games/avatars/default.png
 
 # Cache de perfiles (segundos)
 PROFILE_CACHE_TTL=300  # 5 minutos
+
 ```
 
----
+- --
 
 ### Game Catalog Service
 
 ```bash
+
 # Puerto del servicio
 PORT=3003
 
@@ -122,13 +128,15 @@ MAX_PAGE_SIZE=100
 # Cache
 GAMES_CACHE_TTL=3600  # 1 hora
 GAME_DETAIL_CACHE_TTL=86400  # 24 horas
+
 ```
 
----
+- --
 
 ### Score Service
 
 ```bash
+
 # Puerto del servicio
 PORT=3004
 
@@ -164,13 +172,15 @@ WOLF_SCORE_RANGE=0,300000
 
 # Redis Pub/Sub
 REDIS_CHANNEL_SCORE_SUBMITTED=score:submitted
+
 ```
 
----
+- --
 
 ### Ranking Service
 
 ```bash
+
 # Puerto del servicio
 PORT=3005
 
@@ -207,9 +217,10 @@ LEADERBOARD_DEFAULT_SIZE=10
 
 # Redis Pub/Sub
 REDIS_CHANNEL_CACHE_INVALIDATE=ranking:invalidate
+
 ```
 
----
+- --
 
 ## 🗄️ Configuración de Base de Datos
 
@@ -218,42 +229,47 @@ REDIS_CHANNEL_CACHE_INVALIDATE=ranking:invalidate
 #### Parámetros de Conexión
 
 ```sql
--- Configuración de conexión pool
+
+- - Configuración de conexión pool
 max_connections = 100
 shared_buffers = 256MB
 effective_cache_size = 1GB
 maintenance_work_mem = 64MB
 work_mem = 4MB
 
--- Logs
+- - Logs
 log_statement = 'all'  -- En development
 log_statement = 'ddl'  -- En production
 log_min_duration_statement = 1000  -- Log queries > 1 segundo
+
 ```
 
 #### Índices Recomendados
 
 ```sql
--- Usuarios
+
+- - Usuarios
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);
 
--- Juegos
+- - Juegos
 CREATE INDEX idx_games_slug ON games(slug);
 CREATE INDEX idx_games_genre ON games(genre);
 CREATE INDEX idx_games_year ON games(year);
 
--- Scores
+- - Scores
 CREATE INDEX idx_scores_user_id ON scores(user_id);
 CREATE INDEX idx_scores_game_slug ON scores(game_slug);
 CREATE INDEX idx_scores_score_desc ON scores(score DESC);
 CREATE INDEX idx_scores_created_at ON scores(created_at);
 CREATE INDEX idx_scores_composite ON scores(game_slug, score DESC, created_at);
+
 ```
 
 #### Backups
 
 ```bash
+
 # Automated backups (configurado en Terraform)
 backup_retention_period = 7  # días
 backup_window = "03:00-04:00"  # UTC
@@ -263,15 +279,17 @@ maintenance_window = "mon:04:00-mon:05:00"
 aws rds create-db-snapshot \
   --db-instance-identifier retrogame-db \
   --db-snapshot-identifier manual-backup-$(date +%Y%m%d)
+
 ```
 
----
+- --
 
 ## 🔴 Configuración de Redis
 
 ### ElastiCache Redis
 
 ```bash
+
 # Configuración básica
 redis_version = "7.0"
 node_type = "cache.t3.micro"
@@ -286,11 +304,13 @@ transit_encryption_enabled = true
 maxmemory-policy = "allkeys-lru"
 timeout = 300
 tcp-keepalive = 60
+
 ```
 
 ### Estructura de Claves en Redis
 
 ```bash
+
 # Rankings globales
 ranking:global -> Sorted Set con {userId: globalScore}
 
@@ -309,9 +329,10 @@ profile:{userId} -> JSON string
 # TTL por tipo
 SETEX ranking:global 300 <data>
 SETEX profile:123 300 <data>
+
 ```
 
----
+- --
 
 ## 🌐 Configuración de Kong API Gateway
 
@@ -326,16 +347,16 @@ _format_version: "3.0"
 services:
   - name: auth-service
     url: http://auth-service:3001
-    
+
   - name: user-service
     url: http://user-service:3002
-    
+
   - name: game-catalog-service
     url: http://game-catalog-service:3003
-    
+
   - name: score-service
     url: http://score-service:3004
-    
+
   - name: ranking-service
     url: http://ranking-service:3005
 
@@ -346,12 +367,13 @@ routes:
     paths:
       - /auth
     strip_path: false
-    
+
   - name: users-route
     service: user-service
     paths:
       - /users
     strip_path: false
+
 ```
 
 ### Plugins Habilitados
@@ -367,9 +389,10 @@ plugins:
       policy: local
       fault_tolerant: true
       hide_client_headers: false
+
 ```
 
-**Configuración por Endpoint:**
+* *Configuración por Endpoint:**
 
 | Endpoint | Rate Limit | Window |
 |----------|------------|--------|
@@ -400,6 +423,7 @@ plugins:
         - Content-Type
       credentials: true
       max_age: 3600
+
 ```
 
 #### Request Transformer
@@ -412,6 +436,7 @@ plugins:
         headers:
           - X-Forwarded-Proto:https
           - X-Kong-Request-ID:$(uuid())
+
 ```
 
 #### Response Transformer
@@ -424,15 +449,17 @@ plugins:
         headers:
           - X-Kong-Response-Time:$(latency)
           - X-RateLimit-Limit-Minute:100
+
 ```
 
----
+- --
 
 ## ☁️ Configuración de CloudFront
 
 ### Distribución de CloudFront
 
 ```hcl
+
 # Terraform configuration
 resource "aws_cloudfront_distribution" "cdn" {
   enabled             = true
@@ -471,7 +498,7 @@ resource "aws_cloudfront_distribution" "cdn" {
     allowed_methods  = ["GET", "HEAD"]
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "S3-retrogame-cdn"
-    
+
     min_ttl     = 0
     default_ttl = 86400   # 24 horas para juegos
     max_ttl     = 604800  # 7 días
@@ -483,7 +510,7 @@ resource "aws_cloudfront_distribution" "cdn" {
     allowed_methods  = ["GET", "HEAD"]
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "S3-retorgame-cdn"
-    
+
     default_ttl = 3600  # 1 hora para CSS
     compress    = true
   }
@@ -493,16 +520,18 @@ resource "aws_cloudfront_distribution" "cdn" {
     allowed_methods  = ["GET", "HEAD"]
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "S3-retrogame-cdn"
-    
+
     default_ttl = 3600  # 1 hora para JS
     compress    = true
   }
 }
+
 ```
 
 ### Invalidación de Caché
 
 ```bash
+
 # Invalidar todo el caché
 aws cloudfront create-invalidation \
   --distribution-id E1XXXXXXXXXXXXX \
@@ -517,9 +546,10 @@ aws cloudfront create-invalidation \
 aws cloudfront create-invalidation \
   --distribution-id E1XXXXXXXXXXXXX \
   --paths "/juegos/*"
+
 ```
 
----
+- --
 
 ## 🎮 Configuración de js-dos
 
@@ -557,6 +587,7 @@ Cada juego tiene su configuración específica en la base de datos:
     "ammo": "0x9ABC"
   }
 }
+
 ```
 
 #### Tetris
@@ -584,6 +615,7 @@ Cada juego tiene su configuración específica en la base de datos:
     "lines": "0x0608"
   }
 }
+
 ```
 
 #### Duke Nukem 3D
@@ -615,6 +647,7 @@ Cada juego tiene su configuración específica en la base de datos:
     "armor": "0x2008"
   }
 }
+
 ```
 
 ### Memory Scanner Configuration
@@ -642,9 +675,10 @@ const MEMORY_MAPS = {
     armor: { offset: 0x2008, type: 'uint8' }
   }
 };
+
 ```
 
----
+- --
 
 ## 🔒 Configuración de Seguridad
 
@@ -670,6 +704,7 @@ const jwtConfig = {
   "iss": "retrogamehub.games",
   "aud": "retrogamehub-users"
 }
+
 ```
 
 ### Password Hashing
@@ -684,6 +719,7 @@ const bcryptConfig = {
 // Ejemplo de hash
 const hash = await bcrypt.hash(password, 10);
 // $2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+
 ```
 
 ### CORS Policy
@@ -700,9 +736,10 @@ const corsOptions = {
   credentials: true,
   maxAge: 3600
 };
+
 ```
 
----
+- --
 
 ## 📊 Configuración de Logs
 
@@ -718,15 +755,16 @@ const loggerConfig = {
   ),
   transports: [
     new winston.transports.Console(),
-    new winston.transports.File({ 
-      filename: 'error.log', 
-      level: 'error' 
+    new winston.transports.File({
+      filename: 'error.log',
+      level: 'error'
     }),
-    new winston.transports.File({ 
-      filename: 'combined.log' 
+    new winston.transports.File({
+      filename: 'combined.log'
     })
   ]
 };
+
 ```
 
 ### Niveles de Log
@@ -737,11 +775,13 @@ logger.error('Error message');   // Errores críticos
 logger.warn('Warning message');  // Advertencias
 logger.info('Info message');     // Información general
 logger.debug('Debug message');   // Debugging
+
 ```
 
 ### CloudWatch Logs
 
 ```bash
+
 # Log groups por servicio
 /ecs/auth-service
 /ecs/user-service
@@ -752,15 +792,17 @@ logger.debug('Debug message');   // Debugging
 # Retention period
 retention_in_days = 7  # Development
 retention_in_days = 30 # Production
+
 ```
 
----
+- --
 
 ## 🚀 Configuración de Kubernetes
 
 ### Resource Limits
 
 ```yaml
+
 # auth-service deployment
 resources:
   requests:
@@ -778,11 +820,13 @@ resources:
   limits:
     memory: "512Mi"
     cpu: "400m"
+
 ```
 
 ### Health Checks
 
 ```yaml
+
 # Liveness probe
 livenessProbe:
   httpGet:
@@ -802,6 +846,7 @@ readinessProbe:
   periodSeconds: 5
   timeoutSeconds: 3
   failureThreshold: 3
+
 ```
 
 ### Horizontal Pod Autoscaler (HPA)
@@ -831,15 +876,17 @@ spec:
       target:
         type: Utilization
         averageUtilization: 80
+
 ```
 
----
+- --
 
 ## 🌍 Variables por Entorno
 
 ### Development
 
 ```bash
+
 # .env.development
 NODE_ENV=development
 PORT=3000
@@ -859,11 +906,13 @@ REDIS_PORT=6379
 RATE_LIMIT_ENABLED=false
 
 LOG_LEVEL=debug
+
 ```
 
 ### Staging
 
 ```bash
+
 # .env.staging
 NODE_ENV=staging
 PORT=3000
@@ -884,11 +933,13 @@ RATE_LIMIT_ENABLED=true
 RATE_LIMIT_MAX_REQUESTS=50
 
 LOG_LEVEL=info
+
 ```
 
 ### Production
 
 ```bash
+
 # .env.production
 NODE_ENV=production
 PORT=3000
@@ -910,50 +961,66 @@ RATE_LIMIT_ENABLED=true
 RATE_LIMIT_MAX_REQUESTS=10
 
 LOG_LEVEL=warn
+
 ```
 
----
+- --
 
 ## 📝 Checklist de Configuración
 
 ### Pre-Despliegue
 
 - [ ] Todas las variables de entorno configuradas
+
 - [ ] Secrets creados en Kubernetes
+
 - [ ] Base de datos migrada y con seeds
+
 - [ ] Redis conectado y funcionando
+
 - [ ] Kong configurado con rate limiting
+
 - [ ] CloudFront con certificado SSL
+
 - [ ] Dominio apuntando correctamente
+
 - [ ] Health checks respondiendo
 
 ### Post-Despliegue
 
 - [ ] Verificar logs sin errores
+
 - [ ] Probar endpoints críticos
+
 - [ ] Verificar cache de Redis
+
 - [ ] Revisar métricas de performance
+
 - [ ] Verificar backups automáticos
+
 - [ ] Configurar alertas de monitoreo
 
----
+- --
 
 ## 🔧 Modificar Configuración en Producción
 
 ### Actualizar Variables de Entorno
 
 ```bash
+
 # Editar ConfigMap
 kubectl edit configmap backend-config -n backend
 
 # Reiniciar deployments para aplicar cambios
 kubectl rollout restart deployment/auth-service -n backend
 kubectl rollout restart deployment/score-service -n backend
+
 ```
 
 ### Actualizar Secrets
 
 ```bash
+
 # Actualizar secret de base de datos
 kubectl create secret generic db-credentials \
   --namespace=backend \
@@ -962,11 +1029,13 @@ kubectl create secret generic db-credentials \
 
 # Reiniciar pods
 kubectl rollout restart deployment -n backend
+
 ```
 
 ### Aplicar Cambios de Kong
 
 ```bash
+
 # Editar configuración de Kong
 kubectl edit configmap kong-config -n backend
 
@@ -975,9 +1044,10 @@ kubectl rollout restart deployment/kong -n backend
 
 # Verificar configuración
 kubectl exec -it deployment/kong -n backend -- kong config db_export
+
 ```
 
----
+- --
 
 ## 📞 Soporte
 

@@ -1,27 +1,31 @@
 ---
-title: "8.2. Solución de Problemas Comunes"
-description: 'Guía de resolución de problemas comunes en Retro Game Hub'
-icon: "file-lines"
+title: 8.2. Solución de Problemas Comunes
+description: Guía de resolución de problemas comunes en Retro Game Hub
+icon: file-lines
 ---
 
 # 🔧 Troubleshooting
 
 Guía completa para diagnosticar y resolver problemas comunes en Retro Game Hub.
 
----
+- --
 
 ## 🚨 Problemas Comunes
 
 ### 1. Juego No Carga
 
 #### Síntomas
+
 - Pantalla negra después de seleccionar juego
+
 - Mensaje "Error loading game"
+
 - Barra de progreso se queda congelada
 
 #### Diagnóstico
 
 ```bash
+
 # 1. Verificar que el archivo .jsdos existe en S3
 aws s3 ls s3://retrogame-cdn-production/juegos/
 
@@ -33,12 +37,15 @@ aws cloudfront get-distribution --id E1XXXXXXXXXXXXX
 
 # 4. Probar descarga directa
 curl -I https://cdn.retrogamehub.games/juegos/doom.jsdos
+
 ```
 
 #### Soluciones
 
-**A. Archivo no encontrado (404)**
+* *A. Archivo no encontrado (404)**
+
 ```bash
+
 # Subir el archivo faltante
 aws s3 cp doom.jsdos s3://retrogame-cdn-production/juegos/
 
@@ -46,10 +53,13 @@ aws s3 cp doom.jsdos s3://retrogame-cdn-production/juegos/
 aws cloudfront create-invalidation \
   --distribution-id E1XXXXXXXXXXXXX \
   --paths "/juegos/doom.jsdos"
+
 ```
 
-**B. Problema de CORS**
+* *B. Problema de CORS**
+
 ```bash
+
 # Verificar configuración CORS del bucket
 aws s3api get-bucket-cors --bucket retrogame-cdn-production
 
@@ -68,29 +78,36 @@ EOF
 aws s3api put-bucket-cors \
   --bucket retrogame-cdn-production \
   --cors-configuration file://cors.json
+
 ```
 
-**C. js-dos no inicializa**
+* *C. js-dos no inicializa**
+
 ```javascript
 // Verificar en consola del navegador
 console.log(typeof Dos); // Debe ser 'function'
 
 // Si es undefined, verificar que js-dos.js está cargado
 <script src="jsdos/js-dos.js"></script>
+
 ```
 
----
+- --
 
 ### 2. Error de Autenticación
 
 #### Síntomas
+
 - Login falla con credenciales correctas
+
 - Token JWT inválido
+
 - "Unauthorized" en requests autenticados
 
 #### Diagnóstico
 
 ```bash
+
 # 1. Verificar que auth-service está corriendo
 kubectl get pods -n backend -l app=auth-service
 
@@ -103,12 +120,15 @@ kubectl exec -it deployment/auth-service -n backend -- \
 
 # 4. Verificar JWT_SECRET está configurado
 kubectl get secret jwt-secret -n backend -o jsonpath='{.data.secret}' | base64 -d
+
 ```
 
 #### Soluciones
 
-**A. Base de datos no conecta**
+* *A. Base de datos no conecta**
+
 ```bash
+
 # Verificar Security Group permite tráfico desde EKS
 aws ec2 describe-security-groups \
   --group-ids sg-xxxxx \
@@ -120,10 +140,13 @@ aws ec2 authorize-security-group-ingress \
   --protocol tcp \
   --port 5432 \
   --source-group sg-eks-nodes
+
 ```
 
-**B. JWT_SECRET no configurado o incorrecto**
+* *B. JWT_SECRET no configurado o incorrecto**
+
 ```bash
+
 # Generar nuevo secret
 NEW_SECRET=$(openssl rand -base64 32)
 
@@ -135,10 +158,13 @@ kubectl create secret generic jwt-secret \
 
 # Reiniciar auth-service
 kubectl rollout restart deployment/auth-service -n backend
+
 ```
 
-**C. Password hash no coincide**
+* *C. Password hash no coincide**
+
 ```bash
+
 # Conectar a base de datos
 kubectl run psql-client --rm -it --image=postgres:15 -n backend -- \
   psql -h <rds-endpoint> -U postgres -d retrogamedb
@@ -147,23 +173,28 @@ kubectl run psql-client --rm -it --image=postgres:15 -n backend -- \
 SELECT username, email FROM users WHERE username = 'testuser';
 
 # Resetear password si es necesario
-UPDATE users 
+UPDATE users
 SET password = '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 WHERE username = 'testuser';
+
 ```
 
----
+- --
 
 ### 3. Scores No Se Guardan
 
 #### Síntomas
+
 - Submit score retorna 200 pero no aparece en rankings
+
 - Error 429 (Too Many Requests)
+
 - Score no cambia después de jugar
 
 #### Diagnóstico
 
 ```bash
+
 # 1. Verificar score-service está corriendo
 kubectl get pods -n backend -l app=score-service
 
@@ -183,23 +214,29 @@ curl -X POST https://api.retrogamehub.games/scores \
     "score": 1000,
     "session_id": "test-session-123"
   }'
+
 ```
 
 #### Soluciones
 
-**A. Rate limit excedido**
+* *A. Rate limit excedido**
+
 ```bash
+
 # Ver configuración actual en Kong
 kubectl exec -it deployment/kong -n backend -- \
   curl http://localhost:8001/plugins
 
 # Ajustar rate limit si es necesario
+
 # Editar kong/kong.yml y aplicar:
 kubectl apply -f kong/kong.yml
 kubectl rollout restart deployment/kong -n backend
+
 ```
 
-**B. Validación de score falla (anti-cheat)**
+* *B. Validación de score falla (anti-cheat)**
+
 ```javascript
 // Verificar rangos válidos en score-service
 // Los rangos deben estar configurados correctamente
@@ -209,10 +246,13 @@ kubectl rollout restart deployment/kong -n backend
 // Duke3D: 0 - 500,000
 
 // Si el score está fuera de rango, ajustar en variables de entorno
+
 ```
 
-**C. Redis no responde**
+* *C. Redis no responde**
+
 ```bash
+
 # Verificar pod de Redis
 kubectl get pods -l app=redis -n backend
 
@@ -238,7 +278,8 @@ spec:
         image: redis:7-alpine
         ports:
         - containerPort: 6379
----
+
+- --
 apiVersion: v1
 kind: Service
 metadata:
@@ -251,29 +292,36 @@ spec:
   - port: 6379
     targetPort: 6379
 EOF
+
 ```
 
-**D. Session ID inválido**
+* *D. Session ID inválido**
+
 ```javascript
 // Verificar que el frontend genera session_id correcto
 const sessionId = `${userId}-${gameSlug}-${Date.now()}`;
 
 // Debe ser único por sesión de juego
 // No reutilizar el mismo session_id
+
 ```
 
----
+- --
 
 ### 4. Rankings No Actualizan
 
 #### Síntomas
+
 - Rankings muestran datos antiguos
+
 - Nuevo score no aparece inmediatamente
+
 - Rankings vacíos
 
 #### Diagnóstico
 
 ```bash
+
 # 1. Verificar ranking-service
 kubectl get pods -n backend -l app=ranking-service
 
@@ -287,12 +335,15 @@ kubectl exec -it deployment/redis -n backend -- redis-cli
 KEYS ranking:*
 TTL ranking:global
 GET ranking:global
+
 ```
 
 #### Soluciones
 
-**A. Cache desactualizado**
+* *A. Cache desactualizado**
+
 ```bash
+
 # Conectar a Redis
 kubectl exec -it deployment/redis -n backend -- redis-cli
 
@@ -305,10 +356,13 @@ DEL ranking:game:doom:monthly
 FLUSHDB
 
 # Los rankings se regenerarán en el siguiente request
+
 ```
 
-**B. Redis Pub/Sub no funciona**
+* *B. Redis Pub/Sub no funciona**
+
 ```bash
+
 # Verificar que score-service publica eventos
 kubectl logs deployment/score-service -n backend | grep "Published event"
 
@@ -316,32 +370,42 @@ kubectl logs deployment/score-service -n backend | grep "Published event"
 kubectl logs deployment/ranking-service -n backend | grep "Received event"
 
 # Si no hay logs, verificar configuración de Redis Pub/Sub
+
 ```
 
-**C. TTL muy largo**
+* *C. TTL muy largo**
+
 ```bash
+
 # Ajustar TTL en variables de entorno de ranking-service
 kubectl set env deployment/ranking-service \
   GLOBAL_RANKING_TTL=60 \
   -n backend
 
 # Valores recomendados:
+
 # - Global: 60-300 segundos
+
 # - By game: 300-600 segundos
+
 ```
 
----
+- --
 
 ### 5. API Gateway (Kong) No Responde
 
 #### Síntomas
+
 - Timeout en requests a API
+
 - 502 Bad Gateway
+
 - 503 Service Unavailable
 
 #### Diagnóstico
 
 ```bash
+
 # 1. Verificar Kong está corriendo
 kubectl get pods -n backend -l app=kong
 
@@ -358,17 +422,22 @@ kubectl exec -it deployment/kong -n backend -- \
 # 5. Verificar upstream services
 kubectl exec -it deployment/kong -n backend -- \
   curl http://auth-service:3001/health
+
 ```
 
 #### Soluciones
 
-**A. Kong pod en CrashLoopBackOff**
+* *A. Kong pod en CrashLoopBackOff**
+
 ```bash
+
 # Ver razón del crash
 kubectl describe pod -l app=kong -n backend
 
 # Errores comunes:
+
 # - Configuración inválida en kong.yml
+
 # - Falta de recursos (CPU/memoria)
 
 # Verificar configuración
@@ -377,10 +446,13 @@ kubectl exec -it deployment/kong -n backend -- kong config parse /etc/kong/kong.
 # Si configuración es inválida, corregir y aplicar
 kubectl delete -f kong/kong.yml
 kubectl apply -f kong/kong.yml
+
 ```
 
-**B. Upstream services no responden**
+* *B. Upstream services no responden**
+
 ```bash
+
 # Verificar todos los servicios backend
 kubectl get pods -n backend
 
@@ -390,35 +462,46 @@ kubectl get svc -n backend
 # Probar conectividad entre Kong y servicios
 kubectl exec -it deployment/kong -n backend -- \
   wget -qO- http://auth-service:3001/health
+
 ```
 
-**C. Load Balancer no tiene IP**
+* *C. Load Balancer no tiene IP**
+
 ```bash
+
 # Verificar estado del Load Balancer
 kubectl describe svc kong-proxy -n backend
 
 # Si está en Pending, verificar:
+
 # - Límite de ELBs en cuenta AWS
+
 # - Subnets tienen tags correctos
+
 # - Security Groups permiten tráfico
 
 # Re-crear servicio si es necesario
 kubectl delete svc kong-proxy -n backend
 kubectl apply -f kong/service.yml
+
 ```
 
----
+- --
 
 ### 6. CloudFront Muestra Contenido Antiguo
 
 #### Síntomas
+
 - Cambios en frontend no se reflejan
+
 - CSS/JS antiguo cacheado
+
 - Juegos no actualizan
 
 #### Diagnóstico
 
 ```bash
+
 # 1. Verificar archivo en S3
 aws s3 ls s3://retrogame-cdn-production/
 
@@ -426,19 +509,24 @@ aws s3 ls s3://retrogame-cdn-production/
 curl -I https://cdn.retrogamehub.games/index.html
 
 # Buscar headers:
+
 # X-Cache: Hit from cloudfront (cacheado)
+
 # X-Cache: Miss from cloudfront (no cacheado)
 
 # 3. Verificar última modificación en S3
 aws s3api head-object \
   --bucket retrogame-cdn-production \
   --key index.html
+
 ```
 
 #### Soluciones
 
-**A. Invalidar caché**
+* *A. Invalidar caché**
+
 ```bash
+
 # Invalidar todo el sitio
 aws cloudfront create-invalidation \
   --distribution-id E1XXXXXXXXXXXXX \
@@ -453,10 +541,13 @@ aws cloudfront create-invalidation \
 aws cloudfront get-invalidation \
   --distribution-id E1XXXXXXXXXXXXX \
   --id I2XXXXXXXXXXXXX
+
 ```
 
-**B. Ajustar TTL de cache**
+* *B. Ajustar TTL de cache**
+
 ```hcl
+
 # En terraform, ajustar:
 default_cache_behavior {
   min_ttl     = 0
@@ -466,27 +557,34 @@ default_cache_behavior {
 
 # Aplicar cambios
 terraform apply
+
 ```
 
-**C. Cache-busting con versioning**
+* *C. Cache-busting con versioning**
+
 ```html
 <!-- Agregar query string para forzar actualización -->
 <link rel="stylesheet" href="retro.css?v=1.0.1">
 <script src="score-tracker.js?v=1.0.1"></script>
+
 ```
 
----
+- --
 
 ### 7. Pods en CrashLoopBackOff
 
 #### Síntomas
+
 - Pod reinicia constantemente
+
 - Estado: CrashLoopBackOff
+
 - Aplicación no disponible
 
 #### Diagnóstico
 
 ```bash
+
 # 1. Ver estado del pod
 kubectl get pods -n backend
 
@@ -501,14 +599,19 @@ kubectl logs <pod-name> -n backend --previous
 
 # 5. Ver eventos
 kubectl get events -n backend --sort-by='.lastTimestamp' | grep <pod-name>
+
 ```
 
 #### Causas Comunes y Soluciones
 
-**A. Error de conexión a base de datos**
+* *A. Error de conexión a base de datos**
+
 ```bash
+
 # Error típico en logs:
+
 # "Error: connect ECONNREFUSED"
+
 # "Error: getaddrinfo ENOTFOUND"
 
 # Verificar secret de DB
@@ -519,12 +622,17 @@ kubectl run test --rm -it --image=postgres:15 -n backend -- \
   psql -h <rds-endpoint> -U postgres -d retrogamedb
 
 # Si falla, verificar Security Group de RDS
+
 ```
 
-**B. Variable de entorno faltante**
+* *B. Variable de entorno faltante**
+
 ```bash
+
 # Error típico:
+
 # "Error: JWT_SECRET is not defined"
+
 # "TypeError: Cannot read property 'xxx' of undefined"
 
 # Verificar ConfigMap
@@ -537,12 +645,17 @@ kubectl get secrets -n backend
 kubectl set env deployment/auth-service \
   JWT_SECRET=<value> \
   -n backend
+
 ```
 
-**C. Out of Memory (OOM)**
+* *C. Out of Memory (OOM)**
+
 ```bash
+
 # Ver en describe pod:
+
 # Last State: Terminated
+
 # Reason: OOMKilled
 
 # Aumentar límite de memoria
@@ -552,11 +665,15 @@ kubectl set resources deployment/score-service \
 
 # O editar deployment
 kubectl edit deployment score-service -n backend
+
 ```
 
-**D. Liveness probe falla**
+* *D. Liveness probe falla**
+
 ```bash
+
 # Ver en describe pod:
+
 # Liveness probe failed: HTTP probe failed with statuscode: 500
 
 # Verificar endpoint de health
@@ -574,20 +691,25 @@ spec:
           initialDelaySeconds: 60
           periodSeconds: 20
 '
+
 ```
 
----
+- --
 
 ### 8. Alta Latencia en API
 
 #### Síntomas
+
 - Requests tardan más de 2 segundos
+
 - Timeouts frecuentes
+
 - Performance degradada
 
 #### Diagnóstico
 
 ```bash
+
 # 1. Medir latencia desde varios puntos
 time curl https://api.retrogamehub.games/games
 
@@ -601,11 +723,13 @@ kubectl logs deployment/score-service -n backend | grep -i "latency"
 # 4. Verificar conexiones a base de datos
 kubectl exec -it deployment/auth-service -n backend -- \
   netstat -an | grep 5432 | wc -l
+
 ```
 
 #### Soluciones
 
-**A. Database connection pool agotado**
+* *A. Database connection pool agotado**
+
 ```javascript
 // Aumentar pool size en configuración
 const pool = new Pool({
@@ -613,34 +737,45 @@ const pool = new Pool({
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
 });
+
 ```
 
-**B. Queries SQL lentas**
+* *B. Queries SQL lentas**
+
 ```sql
--- En PostgreSQL, identificar queries lentas
+
+- - En PostgreSQL, identificar queries lentas
 SELECT pid, now() - pg_stat_activity.query_start AS duration, query
 FROM pg_stat_activity
 WHERE state = 'active'
 ORDER BY duration DESC;
 
--- Agregar índices faltantes
+- - Agregar índices faltantes
 CREATE INDEX idx_scores_composite ON scores(game_slug, score DESC, created_at);
+
 ```
 
-**C. Redis no está cacheando**
+* *C. Redis no está cacheando**
+
 ```bash
+
 # Verificar hit rate de Redis
 kubectl exec -it deployment/redis -n backend -- redis-cli INFO stats
 
 # Buscar:
+
 # keyspace_hits
+
 # keyspace_misses
 
 # Si hit rate < 80%, revisar TTL y estrategia de cache
+
 ```
 
-**D. Escalar horizontalmente**
+* *D. Escalar horizontalmente**
+
 ```bash
+
 # Aumentar réplicas
 kubectl scale deployment/auth-service --replicas=3 -n backend
 kubectl scale deployment/score-service --replicas=3 -n backend
@@ -650,15 +785,17 @@ kubectl autoscale deployment auth-service \
   --cpu-percent=70 \
   --min=2 --max=5 \
   -n backend
+
 ```
 
----
+- --
 
 ## 🔍 Comandos Útiles de Diagnóstico
 
 ### Kubernetes
 
 ```bash
+
 # Ver todos los recursos en un namespace
 kubectl get all -n backend
 
@@ -688,11 +825,13 @@ kubectl logs -l app=auth-service -n backend --tail=100
 # Copiar archivos desde/hacia pod
 kubectl cp <pod-name>:/path/to/file ./local-file -n backend
 kubectl cp ./local-file <pod-name>:/path/to/file -n backend
+
 ```
 
 ### AWS
 
 ```bash
+
 # Ver estado del cluster EKS
 aws eks describe-cluster --name retrogame-eks-cluster
 
@@ -716,11 +855,13 @@ aws cloudwatch get-metric-statistics \
 
 # Ver logs de CloudWatch
 aws logs tail /ecs/auth-service --follow
+
 ```
 
 ### Docker
 
 ```bash
+
 # Ver imágenes locales
 docker images
 
@@ -735,9 +876,10 @@ docker exec -it <container-id> /bin/sh
 
 # Inspeccionar contenedor
 docker inspect <container-id>
+
 ```
 
----
+- --
 
 ## 📊 Verificación de Salud del Sistema
 
@@ -745,6 +887,7 @@ docker inspect <container-id>
 
 ```bash
 #!/bin/bash
+
 # health-check.sh
 
 echo "=== Retro Game Hub Health Check ==="
@@ -791,15 +934,17 @@ curl -f -s -o /dev/null https://retrogamehub.games && echo "OK" || echo "FAILED"
 echo ""
 
 echo "=== Health check complete ==="
+
 ```
 
----
+- --
 
 ## 🚑 Recuperación de Desastres
 
 ### Restaurar desde Backup
 
 ```bash
+
 # 1. Listar snapshots disponibles
 aws rds describe-db-snapshots \
   --db-instance-identifier retrogame-db
@@ -817,11 +962,13 @@ aws rds wait db-instance-available \
 kubectl set env deployment/auth-service \
   DB_HOST=retrogame-db-restored.xxxxx.eu-west-1.rds.amazonaws.com \
   -n backend
+
 ```
 
 ### Rollback de Deployment
 
 ```bash
+
 # Ver historial de revisiones
 kubectl rollout history deployment/auth-service -n backend
 
@@ -835,18 +982,23 @@ kubectl rollout undo deployment/auth-service \
 
 # Verificar estado
 kubectl rollout status deployment/auth-service -n backend
+
 ```
 
----
+- --
 
 ## 📞 Escalamiento de Problemas
 
 ### Nivel 1: Auto-resolución
+
 - Revisar esta guía de troubleshooting
+
 - Verificar logs y métricas
+
 - Intentar soluciones documentadas
 
 ### Nivel 2: Equipo de Desarrollo
+
 - Abrir issue en GitHub con:
   - Descripción del problema
   - Logs relevantes
@@ -854,28 +1006,40 @@ kubectl rollout status deployment/auth-service -n backend
   - Configuración actual
 
 ### Nivel 3: Soporte AWS
+
 - Problemas de infraestructura AWS
+
 - Issues con EKS, RDS, CloudFront
+
 - Límites de cuenta
 
----
+- --
 
 ## 📝 Checklist de Troubleshooting
 
 Antes de reportar un problema, verifica:
 
 - [ ] Los logs del servicio afectado
+
 - [ ] El estado de todos los pods
+
 - [ ] La conectividad de red
+
 - [ ] Las variables de entorno
+
 - [ ] Los secrets de Kubernetes
+
 - [ ] El estado de la base de datos
+
 - [ ] El caché de Redis
+
 - [ ] Los eventos de Kubernetes
+
 - [ ] Las métricas de uso de recursos
+
 - [ ] Los logs de Kong API Gateway
 
----
+- --
 
 <Card title="¿Problema No Resuelto?" icon="life-ring">
   Si no encuentras solución aquí, consulta los [diagramas de secuencia](/sequence-diagrams) para entender mejor el flujo del sistema, o abre un issue en GitHub.

@@ -1,7 +1,7 @@
 ---
-title: "3.1. Servicio de Autenticación"
-description: "Servicio de autenticación con JWT y gestión de usuarios"
-icon: "lock"
+title: 3.1. Servicio de Autenticación
+description: Servicio de autenticación con JWT y gestión de usuarios
+icon: lock
 ---
 
 ## Descripción
@@ -12,11 +12,11 @@ El servicio de autenticación maneja el registro, login y validación de usuario
   <Card title="Registro" icon="user-plus">
     Crear nuevas cuentas con username único requerido
   </Card>
-  
+
   <Card title="Login" icon="right-to-bracket">
     Autenticación JWT con token válido por 24h
   </Card>
-  
+
   <Card title="Validación" icon="shield-check">
     Middleware protector que verifica tokens en cada request
   </Card>
@@ -32,6 +32,7 @@ graph TD
     D --> E[Services<br/>hashPass/genToken/validate]
     E --> F[Repositories<br/>create/findUser/update]
     F --> G[PostgreSQL<br/>Table: users]
+
 ```
 
 ## Tecnologías
@@ -52,6 +53,7 @@ graph TD
 Crea una nueva cuenta de usuario.
 
 <CodeGroup>
+
 ```bash cURL
 curl -X POST http://api.retrogamecloud.com/auth/register \
   -H "Content-Type: application/json" \
@@ -61,6 +63,7 @@ curl -X POST http://api.retrogamecloud.com/auth/register \
     "email": "player1@example.com",
     "display_name": "Player One"
   }'
+
 ```
 
 ```javascript JavaScript
@@ -75,6 +78,7 @@ const response = await fetch('http://api.retrogamecloud.com/auth/register', {
   })
 });
 const data = await response.json();
+
 ```
 
 ```python Python
@@ -90,10 +94,12 @@ response = requests.post(
     }
 )
 data = response.json()
+
 ```
+
 </CodeGroup>
 
-**Response 201 Created:**
+* *Response 201 Created:**
 
 ```json
 {
@@ -108,23 +114,29 @@ data = response.json()
   },
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
+
 ```
 
-**Error 409 Conflict:**
+* *Error 409 Conflict:**
 
 ```json
 {
   "error": "El usuario ya existe"
 }
+
 ```
 
-**Validaciones:**
+* *Validaciones:**
+
 - Username: 3-30 caracteres, alfanumérico + guiones bajos
+
 - Password: Mínimo 8 caracteres
+
 - Email: Formato válido (opcional)
+
 - Display name: Máximo 50 caracteres
 
-**Proceso interno:**
+* *Proceso interno:**
 1. Validar formato de datos
 2. Verificar que username no exista
 3. Hash de contraseña con bcrypt (10 rounds)
@@ -137,6 +149,7 @@ data = response.json()
 Autentica un usuario existente.
 
 <CodeGroup>
+
 ```bash cURL
 curl -X POST http://api.retrogamecloud.com/auth/login \
   -H "Content-Type: application/json" \
@@ -144,6 +157,7 @@ curl -X POST http://api.retrogamecloud.com/auth/login \
     "username": "player1",
     "password": "SecurePass123!"
   }'
+
 ```
 
 ```javascript JavaScript
@@ -156,6 +170,7 @@ const response = await fetch('http://api.retrogamecloud.com/auth/login', {
   })
 });
 const data = await response.json();
+
 ```
 
 ```python Python
@@ -169,10 +184,12 @@ response = requests.post(
     }
 )
 data = response.json()
+
 ```
+
 </CodeGroup>
 
-**Response 200 OK:**
+* *Response 200 OK:**
 
 ```json
 {
@@ -186,26 +203,31 @@ data = response.json()
   },
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
+
 ```
 
-**Error 401 Unauthorized:**
+* *Error 401 Unauthorized:**
 
 ```json
 {
   "error": "Credenciales inválidas"
 }
+
 ```
 
-**Proceso interno:**
+* *Proceso interno:**
 1. Buscar usuario por username
 2. Verificar que el usuario esté activo (`is_active = true`)
 3. Comparar contraseña con bcrypt.compare()
 4. Generar nuevo JWT token
 5. Retornar usuario y token
 
-**Seguridad:**
+* *Seguridad:**
+
 - ✅ Contraseñas hasheadas con bcrypt
+
 - ✅ No se retorna password_hash en respuesta
+
 - ✅ Mensaje genérico si usuario no existe (evita enumeration)
 
 ### GET /auth/verify
@@ -213,9 +235,11 @@ data = response.json()
 Valida un token JWT y retorna información del usuario.
 
 <CodeGroup>
+
 ```bash cURL
 curl -X GET http://api.retrogamecloud.com/auth/verify \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
 ```
 
 ```javascript JavaScript
@@ -225,6 +249,7 @@ const response = await fetch('http://api.retrogamecloud.com/auth/verify', {
   }
 });
 const data = await response.json();
+
 ```
 
 ```python Python
@@ -236,10 +261,12 @@ response = requests.get(
     headers=headers
 )
 data = response.json()
+
 ```
+
 </CodeGroup>
 
-**Response 200 OK:**
+* *Response 200 OK:**
 
 ```json
 {
@@ -252,18 +279,22 @@ data = response.json()
     "avatar_url": null
   }
 }
+
 ```
 
-**Error 401 Unauthorized:**
+* *Error 401 Unauthorized:**
 
 ```json
 {
   "error": "Token inválido o expirado"
 }
+
 ```
 
-**Uso típico:**
+* *Uso típico:**
+
 - Frontend verifica si el usuario sigue autenticado al cargar la app
+
 - Otros servicios validan tokens antes de operaciones sensibles
 
 ## Middleware: authMiddleware
@@ -280,9 +311,10 @@ app.post('/scores', authMiddleware, async (req, res) => {
   const { userId } = req.user;
   // ... lógica del endpoint
 });
+
 ```
 
-**Comportamiento:**
+* *Comportamiento:**
 1. Lee el header `Authorization: Bearer <token>`
 2. Verifica el token con `jwt.verify(token, SECRET_KEY)`
 3. Si válido: adjunta `req.user` y llama a `next()`
@@ -309,23 +341,35 @@ CREATE TABLE users (
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_active ON users(is_active);
+
 ```
 
-**Campos:**
+* *Campos:**
+
 - `id`: Identificador único autoincrementable
+
 - `username`: Nombre de usuario único (3-30 caracteres)
+
 - `email`: Email único (formato válido)
+
 - `password_hash`: Contraseña hasheada con bcrypt
+
 - `display_name`: Nombre visible en la UI
+
 - `avatar_url`: URL de imagen de perfil (opcional)
+
 - `bio`: Biografía corta (opcional)
+
 - `is_active`: Soft delete (false = cuenta desactivada)
+
 - `created_at`: Timestamp de registro
+
 - `updated_at`: Timestamp de última actualización
 
 ## Variables de Entorno
 
 ```bash
+
 # Puerto del servicio
 PORT=3001
 
@@ -343,13 +387,18 @@ JWT_EXPIRATION=24h
 
 # Logs
 LOG_LEVEL=info
+
 ```
 
 <Warning>
-**JWT_SECRET** debe ser una cadena aleatoria de al menos 32 caracteres en producción. Genera uno con:
+
+* *JWT_SECRET** debe ser una cadena aleatoria de al menos 32 caracteres en producción. Genera uno con:
+
 ```bash
 openssl rand -base64 32
+
 ```
+
 </Warning>
 
 ## Despliegue en Kubernetes
@@ -405,6 +454,7 @@ spec:
             path: /health
             port: 3001
           initialDelaySeconds: 5
+
 ```
 
 ## Tests
@@ -412,6 +462,7 @@ spec:
 ### Ejecutar Tests
 
 ```bash
+
 # Instalar dependencias
 npm install
 
@@ -420,6 +471,7 @@ npm test
 
 # Coverage
 npm run test:coverage
+
 ```
 
 ### Ejemplo de Test
@@ -435,30 +487,31 @@ describe('Auth Service', () => {
           password: 'TestPass123!',
           email: 'test@example.com'
         });
-      
+
       expect(res.status).toBe(201);
       expect(res.body).toHaveProperty('token');
       expect(res.body.user.username).toBe('testuser');
     });
-    
+
     it('debe rechazar username duplicado', async () => {
       await createTestUser('duplicate');
-      
+
       const res = await request(app)
         .post('/auth/register')
         .send({
           username: 'duplicate',
           password: 'Pass123!'
         });
-      
+
       expect(res.status).toBe(409);
       expect(res.body.error).toContain('ya existe');
     });
   });
 });
+
 ```
 
-**Cobertura esperada:** > 80%
+* *Cobertura esperada:** > 80%
 
 ## Seguridad
 
@@ -470,19 +523,19 @@ describe('Auth Service', () => {
     - Hash asíncrono para no bloquear event loop
     - Nunca retornar password_hash en respuestas
   </Accordion>
-  
+
   <Accordion title="✅ JWT con expiración">
     - Tokens válidos por 24 horas
     - Firmados con HS256
     - Payload mínimo: `{ userId, username }`
   </Accordion>
-  
+
   <Accordion title="✅ Validación de entrada">
     - Sanitización de strings
     - Validación de formatos (email, username)
     - Protección contra SQL injection (prepared statements)
   </Accordion>
-  
+
   <Accordion title="✅ Rate Limiting">
     - Limitar intentos de login (5 por minuto)
     - Protección contra brute force
@@ -495,36 +548,39 @@ describe('Auth Service', () => {
 <AccordionGroup>
   <Accordion title="Error: JWT_SECRET not configured">
     **Causa:** Variable de entorno JWT_SECRET no está definida
-    
+
     **Solución:**
     ```bash
     export JWT_SECRET=$(openssl rand -base64 32)
-    
+
     # O en Kubernetes
     kubectl create secret generic auth-service-secrets \
       --from-literal=JWT_SECRET=$(openssl rand -base64 32)
     ```
+
   </Accordion>
-  
+
   <Accordion title="Error: Cannot connect to database">
     **Causa:** PostgreSQL no accesible o DATABASE_URL incorrecta
-    
+
     **Solución:**
     ```bash
     kubectl get pods -n retrogame | grep postgres
-    
+
     kubectl run pg-test --image=postgres:15 --rm -it -- \
       psql postgresql://postgres:password@postgres:5432/retrogamedb
     ```
+
   </Accordion>
-  
+
   <Accordion title="Token inválido en otros servicios">
     **Causa:** JWT_SECRET diferente entre servicios
-    
+
     **Solución:** Todos los servicios deben usar el mismo JWT_SECRET
     ```bash
     kubectl get secret auth-service-secrets -o yaml
     ```
+
   </Accordion>
 </AccordionGroup>
 
@@ -534,15 +590,15 @@ describe('Auth Service', () => {
   <Card title="Game Catalog Service" icon="gamepad" href="/services/game-catalog">
     Servicio de catálogo de juegos
   </Card>
-  
+
   <Card title="Score Service" icon="trophy" href="/services/score-service">
     Gestión de puntuaciones
   </Card>
-  
+
   <Card title="API Reference" icon="book" href="/api-reference/auth/login">
     Referencia completa de la API
   </Card>
-  
+
   <Card title="Deployment Guide" icon="rocket" href="/deployment">
     Guía de despliegue
   </Card>

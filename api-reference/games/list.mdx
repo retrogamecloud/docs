@@ -1,8 +1,8 @@
 ---
-title: "3.1. GET /games"
-description: "Obtener lista de juegos disponibles"
-api: "GET https://api.retrogamehub.games/games"
-icon: "file-lines"
+title: 3.1. GET /games
+description: Obtener lista de juegos disponibles
+api: GET https://api.retrogamehub.games/games
+icon: file-lines
 ---
 
 ## Descripción
@@ -35,48 +35,48 @@ Obtiene el catálogo completo de juegos disponibles con su metadata, incluyendo 
 
 <ResponseField name="games" type="array">
   Array de objetos de juego
-  
+
   <Expandable title="Game Object">
     <ResponseField name="id" type="number">
       ID único del juego
     </ResponseField>
-    
+
     <ResponseField name="name" type="string">
       Nombre del juego
     </ResponseField>
-    
+
     <ResponseField name="slug" type="string">
       Identificador URL-friendly (ej: "doom", "duke3d")
     </ResponseField>
-    
+
     <ResponseField name="description" type="string">
       Descripción del juego
     </ResponseField>
-    
+
     <ResponseField name="year" type="number">
       Año de lanzamiento
     </ResponseField>
-    
+
     <ResponseField name="publisher" type="string">
       Empresa publicadora
     </ResponseField>
-    
+
     <ResponseField name="genre" type="string">
       Género del juego
     </ResponseField>
-    
+
     <ResponseField name="cover_url" type="string">
       URL de la imagen de portada
     </ResponseField>
-    
+
     <ResponseField name="bundle_url" type="string">
       URL del archivo .jsdos del juego
     </ResponseField>
-    
+
     <ResponseField name="players" type="number">
       Número de jugadores soportados
     </ResponseField>
-    
+
     <ResponseField name="created_at" type="string">
       Fecha de agregación al catálogo (ISO 8601)
     </ResponseField>
@@ -99,14 +99,17 @@ Obtiene el catálogo completo de juegos disponibles con su metadata, incluyendo 
 
 ```bash cURL - Todos los juegos
 curl https://api.retrogamehub.games/games
+
 ```
 
 ```bash cURL - Filtrar por género
 curl "https://api.retrogamehub.games/games?genre=fps&limit=10"
+
 ```
 
 ```bash cURL - Búsqueda
 curl "https://api.retrogamehub.games/games?search=doom"
+
 ```
 
 ```javascript JavaScript
@@ -118,6 +121,7 @@ const data = await response.json();
 data.games.forEach(game => {
   console.log(`${game.name} (${game.year})`);
 });
+
 ```
 
 ```python Python
@@ -136,6 +140,7 @@ response = requests.get(
 games = response.json()['games']
 for game in games:
     print(f"{game['name']} - {game['publisher']}")
+
 ```
 
 </RequestExample>
@@ -176,12 +181,14 @@ for game in games:
   "limit": 50,
   "offset": 0
 }
+
 ```
 
 ```json 400 - Invalid Parameters
 {
   "error": "Limit debe estar entre 1 y 100"
 }
+
 ```
 
 </ResponseExample>
@@ -192,23 +199,23 @@ for game in games:
   <Card title="FPS" icon="crosshairs">
     First-Person Shooter (DOOM, Duke3D, Wolfenstein)
   </Card>
-  
+
   <Card title="Platformer" icon="running">
     Juegos de plataformas (Dangerous Dave, Prince of Persia)
   </Card>
-  
+
   <Card title="RPG" icon="dragon">
     Role-Playing Games (Heroes of Might and Magic)
   </Card>
-  
+
   <Card title="Puzzle" icon="puzzle-piece">
     Juegos de puzzles (Tetris, Lemmings)
   </Card>
-  
+
   <Card title="Strategy" icon="chess">
     Estrategia (Civilization, Warcraft)
   </Card>
-  
+
   <Card title="Fighting" icon="hand-fist">
     Juegos de lucha (Mortal Kombat, Street Fighter)
   </Card>
@@ -225,11 +232,11 @@ async function loadPage() {
   const response = await fetch(
     `https://api.retrogamehub.games/games?limit=${limit}&offset=${offset}`
   );
-  
+
   const data = await response.json();
-  
+
   renderGames(data.games);
-  
+
   // Habilitar botón "Siguiente" si hay más
   if (offset + limit < data.total) {
     enableNextButton();
@@ -245,6 +252,7 @@ function previousPage() {
   offset = Math.max(0, offset - limit);
   loadPage();
 }
+
 ```
 
 ## Caching
@@ -256,7 +264,9 @@ function previousPage() {
 ## Rate Limiting
 
 - **Límite**: 100 peticiones por minuto por IP
+
 - **Header**: `X-RateLimit-Remaining`
+
 - **Recomendación**: Cachea los resultados en el frontend
 
 ## Ejemplo de Uso Completo
@@ -269,25 +279,25 @@ class GameCatalog {
     this.games = [];
     this.currentGenre = null;
   }
-  
+
   async loadGames(genre = null) {
     const url = new URL('https://api.retrogamehub.games/games');
-    
+
     if (genre) {
       url.searchParams.set('genre', genre);
     }
-    
+
     const response = await fetch(url);
     const data = await response.json();
-    
+
     this.games = data.games;
     this.renderGrid();
   }
-  
+
   renderGrid() {
     const grid = document.getElementById('games-grid');
     grid.innerHTML = '';
-    
+
     this.games.forEach(game => {
       const card = document.createElement('div');
       card.className = 'game-card';
@@ -299,11 +309,11 @@ class GameCatalog {
           JUGAR
         </button>
       `;
-      
+
       grid.appendChild(card);
     });
   }
-  
+
   filterByGenre(genre) {
     this.currentGenre = genre;
     this.loadGames(genre);
@@ -313,4 +323,5 @@ class GameCatalog {
 // Inicializar
 const catalog = new GameCatalog();
 catalog.loadGames();
+
 ```

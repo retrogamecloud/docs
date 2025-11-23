@@ -1,7 +1,7 @@
 ---
-title: "3.4. Servicio de Puntuaciones"
-description: "Gestión de puntuaciones y logros de jugadores"
-icon: "trophy"
+title: 3.4. Servicio de Puntuaciones
+description: Gestión de puntuaciones y logros de jugadores
+icon: trophy
 ---
 
 ## Descripción
@@ -11,19 +11,19 @@ El servicio de puntuaciones permite a los jugadores guardar y actualizar sus mej
 <CardGroup cols={3}>
   <Card title="JWT Protected" icon="lock">
     Autenticación requerida
-    
+
     Solo usuarios autenticados
   </Card>
-  
+
   <Card title="Best Score Only" icon="star">
     Solo el mejor
-    
+
     Actualiza si supera el anterior
   </Card>
-  
+
   <Card title="Real-time" icon="bolt">
     Guardado instantáneo
-    
+
     Sin delay
   </Card>
 </CardGroup>
@@ -35,6 +35,7 @@ El servicio de puntuaciones permite a los jugadores guardar y actualizar sus mej
 Guarda o actualiza la puntuación de un jugador.
 
 <CodeGroup>
+
 ```bash Request
 curl -X POST http://api.retrogamecloud.com/api/scores \
   -H "Authorization: Bearer <token>" \
@@ -43,6 +44,7 @@ curl -X POST http://api.retrogamecloud.com/api/scores \
     "game": "doom",
     "score": 125000
   }'
+
 ```
 
 ```json Response 200 (Nueva puntuación)
@@ -50,6 +52,7 @@ curl -X POST http://api.retrogamecloud.com/api/scores \
   "message": "Puntuación guardada",
   "score": 125000
 }
+
 ```
 
 ```json Response 200 (Actualización)
@@ -57,6 +60,7 @@ curl -X POST http://api.retrogamecloud.com/api/scores \
   "message": "Puntuación actualizada",
   "score": 150000
 }
+
 ```
 
 ```json Response 200 (Score menor)
@@ -64,27 +68,35 @@ curl -X POST http://api.retrogamecloud.com/api/scores \
   "message": "Puntuación existente es mayor",
   "score": 180000
 }
+
 ```
 
 ```json Error 401
 {
   "error": "Token no proporcionado"
 }
+
 ```
 
 ```json Error 404
 {
   "error": "Juego no encontrado: invalidgame"
 }
+
 ```
+
 </CodeGroup>
 
-**Headers requeridos:**
+* *Headers requeridos:**
+
 - `Authorization: Bearer <jwt_token>`
+
 - `Content-Type: application/json`
 
-**Body:**
+* *Body:**
+
 - `game` (string): Nombre o slug del juego
+
 - `score` (number): Puntuación obtenida
 
 ### GET /api/scores/user/:userId
@@ -92,8 +104,10 @@ curl -X POST http://api.retrogamecloud.com/api/scores \
 Obtiene todos los scores de un usuario.
 
 <CodeGroup>
+
 ```bash Request
 curl http://api.retrogamecloud.com/api/scores/user/123
+
 ```
 
 ```json Response 200
@@ -113,7 +127,9 @@ curl http://api.retrogamecloud.com/api/scores/user/123
     "updated_at": "2025-11-16T09:00:00.000Z"
   }
 ]
+
 ```
+
 </CodeGroup>
 
 ### GET /api/scores/game/:gameSlug
@@ -121,8 +137,10 @@ curl http://api.retrogamecloud.com/api/scores/user/123
 Obtiene todos los scores de un juego específico.
 
 <CodeGroup>
+
 ```bash Request
 curl http://api.retrogamecloud.com/api/scores/game/doom
+
 ```
 
 ```json Response 200
@@ -138,7 +156,9 @@ curl http://api.retrogamecloud.com/api/scores/game/doom
     "created_at": "2025-11-17T12:10:00.000Z"
   }
 ]
+
 ```
+
 </CodeGroup>
 
 ## Lógica de Negocio
@@ -151,8 +171,9 @@ curl http://api.retrogamecloud.com/api/scores/game/doom
     // Middleware verifica JWT token
     const { userId } = req.user;
     ```
+
   </Step>
-  
+
   <Step title="Normalizar nombre del juego">
     ```javascript
     // doom, DOOM, Doom → doom
@@ -160,21 +181,23 @@ curl http://api.retrogamecloud.com/api/scores/game/doom
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '');
     ```
+
   </Step>
-  
+
   <Step title="Buscar juego en BD">
     ```javascript
     const game = await pool.query(
       'SELECT id FROM games WHERE slug = $1',
       [gameSlug]
     );
-    
+
     if (!game.rows.length) {
       throw { status: 404, message: 'Juego no encontrado' };
     }
     ```
+
   </Step>
-  
+
   <Step title="Verificar score existente">
     ```javascript
     const existing = await pool.query(
@@ -182,8 +205,9 @@ curl http://api.retrogamecloud.com/api/scores/game/doom
       [userId, gameId]
     );
     ```
+
   </Step>
-  
+
   <Step title="Guardar o actualizar">
     ```javascript
     if (existing.rows.length > 0) {
@@ -208,6 +232,7 @@ curl http://api.retrogamecloud.com/api/scores/game/doom
       return { message: 'Puntuación guardada', score: newScore };
     }
     ```
+
   </Step>
 </Steps>
 
@@ -229,11 +254,15 @@ CREATE TABLE scores (
 CREATE INDEX idx_scores_user ON scores(user_id);
 CREATE INDEX idx_scores_game ON scores(game_id);
 CREATE INDEX idx_scores_high ON scores(score DESC);
+
 ```
 
-**Constraints importantes:**
+* *Constraints importantes:**
+
 - `UNIQUE(user_id, game_id)`: Un solo score por usuario y juego
+
 - `CHECK (score >= 0)`: Puntuaciones no negativas
+
 - `ON DELETE CASCADE`: Si se borra usuario, se borran sus scores
 
 ## Integración con Frontend
@@ -245,12 +274,12 @@ CREATE INDEX idx_scores_high ON scores(score DESC);
 class ScoreTracker {
   async saveScore(game, score) {
     const token = localStorage.getItem('token');
-    
+
     if (!token) {
       console.warn('Usuario no autenticado, score no guardado');
       return;
     }
-    
+
     try {
       const response = await fetch('http://api.retrogamecloud.com/api/scores', {
         method: 'POST',
@@ -260,23 +289,23 @@ class ScoreTracker {
         },
         body: JSON.stringify({ game, score })
       });
-      
+
       const data = await response.json();
       console.log('✅ Score guardado:', data.message);
-      
+
       // Mostrar notificación al usuario
       this.showNotification(data.message);
     } catch (error) {
       console.error('❌ Error guardando score:', error);
     }
   }
-  
+
   showNotification(message) {
     const notification = document.createElement('div');
     notification.className = 'score-notification';
     notification.textContent = message;
     document.body.appendChild(notification);
-    
+
     setTimeout(() => notification.remove(), 3000);
   }
 }
@@ -284,11 +313,13 @@ class ScoreTracker {
 // Uso
 const tracker = new ScoreTracker();
 tracker.saveScore('doom', 125000);
+
 ```
 
 ## Variables de Entorno
 
 ```bash
+
 # Puerto del servicio
 PORT=3003
 
@@ -300,6 +331,7 @@ JWT_SECRET=same-secret-as-auth-service
 
 # Logs
 LOG_LEVEL=info
+
 ```
 
 <Warning>
@@ -316,6 +348,7 @@ console.log('🎯 Guardando puntuación para:', gameName);
 console.log('✅ Puntuación guardada');
 console.log('✅ Puntuación actualizada');
 console.log('ℹ️ Puntuación existente es mayor');
+
 ```
 
 ### Prometheus Metrics
@@ -332,6 +365,7 @@ const scoresUpdated = new promClient.Counter({
   help: 'Total de puntuaciones actualizadas',
   labelNames: ['game']
 });
+
 ```
 
 ## Próximos Pasos
@@ -340,15 +374,15 @@ const scoresUpdated = new promClient.Counter({
   <Card title="Ranking Service" icon="ranking-star" href="/services/ranking-service">
     Ver rankings y leaderboards
   </Card>
-  
+
   <Card title="Auth Service" icon="lock" href="/services/auth-service">
     Sistema de autenticación
   </Card>
-  
+
   <Card title="Frontend Integration" icon="code" href="/frontend/jsdos-integration">
     Integración con js-dos
   </Card>
-  
+
   <Card title="API Reference" icon="book" href="/api-reference/scores/submit">
     Referencia completa de la API
   </Card>
