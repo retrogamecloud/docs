@@ -1,5 +1,5 @@
 ---
-title: Ai-powered Development Tools
+title: 1.0. AI-powered Development Tools
 description: Complete guide to setting up AI coding assistants for documentation workflows
 icon: robot
 ---
@@ -21,7 +21,6 @@ Claude Code is Anthropic's official CLI tool, excellent for documentation workfl
 ### Prerequisites
 
 - Active Claude subscription (Pro, Max, or API access)
-
 - Node.js installed
 
 ### Installation
@@ -30,7 +29,6 @@ Claude Code is Anthropic's official CLI tool, excellent for documentation workfl
 
 ```bash
 npm install -g @anthropic-ai/claude-code
-
 ```
 
 2. Navigate to your docs directory
@@ -42,228 +40,123 @@ npm install -g @anthropic-ai/claude-code
 Create a `CLAUDE.md` file at the root of your documentation repository:
 
 ````markdown
-
 # Mintlify Documentation Assistant
 
 ## Working Relationship
 
 - Push back on ideas when needed - cite sources and explain reasoning
-
 - ALWAYS ask for clarification rather than making assumptions
-
 - NEVER lie, guess, or make up information
 
 ## Project Context
 
 - Format: MDX files with YAML frontmatter
-
 - Config: docs.json for navigation, theme, settings
-
 - Components: Mintlify components available
 
 ## Content Strategy
 
 - Document just enough for user success
-
 - Prioritize accuracy and usability
-
 - Make content evergreen when possible
-
 - Check for existing content before adding new
-
 - Maintain consistency with existing patterns
-
 - Start with smallest reasonable changes
 
 ## Writing Standards
 
-- Second-person voice ("you")
+- Second-person voice ("you", "your")
+- Active voice when possible
+- Clear, concise sentences
+- Consistent terminology
+- Proper heading hierarchy
 
-- Prerequisites at start of procedures
+## File Naming Convention
 
-- Test all code examples
+- ALL .mdx files MUST use format X.Y. Title in frontmatter
+- Example: `1.0. Getting Started` not `getting-started`
+- Verify numbering consistency across all files
+- Update frontmatter title to match filename format
 
-- Include basic and advanced use cases
+## Quality Checks
 
-- Language tags on all code blocks
+Before finalizing any content:
 
-- Alt text on all images
-
-- Clear, descriptive titles and descriptions
-
+1. Verify all .mdx files follow X.Y. Title format
+2. Check frontmatter title consistency
+3. Ensure proper heading hierarchy
+4. Validate internal links
+5. Test code examples
+6. Review for accessibility
 ````
 
 ## Cursor Setup
 
-Cursor is a VS Code fork with built-in AI assistance.
+Cursor is a VS Code fork with built-in AI capabilities, perfect for editing documentation with intelligent suggestions.
 
 ### Installation
 
 1. Download from [cursor.sh](https://cursor.sh)
-2. Install like any desktop application
-3. Import your VS Code settings (optional)
-
-### Key Features
-
-- **Tab completion**: AI suggests code as you type
-
-- **Cmd+K**: Generate code from natural language
-
-- **Cmd+L**: Chat with AI about your code
-
-- **@ symbols**: Reference specific files or documentation
+2. Install and import your VS Code settings
+3. Configure AI model preferences
 
 ### Best Practices
 
-```javascript
-// Use descriptive comments for better AI suggestions
-// TODO: Add error handling for API calls
-const fetchUserData = async (userId) => {
-  // AI will suggest appropriate implementation
-}
-
-```
+- Use Cmd+K for inline AI editing
+- Leverage the composer for multi-file changes
+- Set up custom rules for documentation standards
 
 ## Windsurf Setup
 
-Windsurf excels at understanding entire project contexts and making multi-file changes.
+Windsurf excels at understanding entire project contexts and making coordinated changes across multiple files.
 
-### Installation
+### Getting Started
 
-1. Download from [codeium.com/windsurf](https://codeium.com/windsurf)
-2. Create account or sign in
-3. Open your documentation project
+1. Sign up at [windsurf.ai](https://windsurf.ai)
+2. Connect your documentation repository
+3. Configure project-specific prompts
 
-### Key Features
+### Documentation Workflow
 
-- **Cascade**: Multi-file AI editing
+- Use for large-scale content reorganization
+- Excellent for maintaining consistency across files
+- Helpful for generating related content sections
 
-- **Project understanding**: Analyzes entire codebase
+## Best Practices for AI-Assisted Documentation
 
-- **Smart suggestions**: Context-aware recommendations
+### Content Quality
 
-- **Collaborative editing**: Real-time AI assistance
+- Always review AI-generated content for accuracy
+- Maintain your brand voice and style
+- Verify technical accuracy of code examples
+- Test all provided instructions
 
 ### Workflow Integration
 
-1. Open your docs project in Windsurf
-2. Use Cascade for large refactoring tasks
-3. Let AI analyze project structure for consistency
-4. Use chat for planning documentation improvements
+- Use AI for first drafts, then refine manually
+- Leverage AI for consistency checks
+- Automate repetitive formatting tasks
+- Generate variations for A/B testing
 
-## Documentation-Specific Tips
+### File Organization
 
-### For All Tools
-
-<Tip>
-Always review AI-generated content for accuracy and consistency with your brand voice.
-</Tip>
-
-### Content Creation Workflow
-
-1. **Planning**: Use AI chat to brainstorm topics and structure
-2. **Writing**: Let AI help with first drafts and examples
-3. **Review**: AI can check for consistency and completeness
-4. **Testing**: Verify all code examples work as expected
-
-### Common Prompts
-
-```text
-"Create a troubleshooting section for [feature]"
-"Generate code examples for [API endpoint]"
-"Review this documentation for clarity and completeness"
-"Suggest improvements for user onboarding flow"
-
-```
-
-### Integration with Mintlify
-
-All three tools work well with Mintlify's MDX format:
-
-```mdx
-
-- --
-title: "AI-Generated Guide"
-description: "Documentation created with AI assistance"
-
-- --
-
-<Info>
-AI tools can help generate structured content like this info block.
-</Info>
-
-## Code Examples
-
-AI assistants excel at creating properly formatted code blocks:
-
-```javascript
-// AI can generate realistic, working examples
-const config = {
-  apiKey: process.env.API_KEY,
-  baseURL: 'https://api.example.com'
-};
-
-```
-
-## Best Practices
-
-### Security Considerations
-
-<Warning>
-Never include sensitive information like API keys or passwords in AI prompts.
-</Warning>
-
-- Use placeholder values in examples
-
-- Review generated code for security issues
-
-- Keep proprietary information out of AI conversations
-
-### Quality Control
-
-1. **Fact-check**: Verify all technical information
-2. **Test**: Run all code examples before publishing
-3. **Review**: Ensure content matches your style guide
-4. **Update**: Keep AI-generated content current
-
-### Productivity Tips
-
-- **Consistent prompts**: Develop standard prompts for common tasks
-
-- **Context files**: Maintain updated context files for each tool
-
-- **Iterative improvement**: Refine prompts based on results
-
-- **Team alignment**: Share successful prompts with your team
+- Ensure ALL .mdx files follow the X.Y. Title format
+- Maintain consistent frontmatter structure
+- Use AI tools to audit and fix naming inconsistencies
+- Regular cleanup of outdated content
 
 ## Troubleshooting
 
 ### Common Issues
 
-* *Claude Code not starting**: Check API key configuration and subscription status
+- **Authentication errors**: Verify API keys and subscriptions
+- **Context limitations**: Break large documents into smaller sections
+- **Inconsistent output**: Use detailed prompts and examples
+- **File naming issues**: Regular audits to ensure X.Y. format compliance
 
-* *Cursor suggestions not appearing**: Verify internet connection and try restarting
+### Performance Tips
 
-* *Windsurf project analysis slow**: Large projects may need time for initial analysis
-
-### Getting Help
-
-- Claude Code: Check Anthropic documentation
-
-- Cursor: Visit cursor.sh/docs
-
-- Windsurf: See Codeium support resources
-
-## Next Steps
-
-1. Choose the tool that best fits your workflow
-2. Set up configuration files for consistent results
-3. Start with simple documentation tasks
-4. Gradually integrate AI assistance into your full workflow
-5. Share learnings with your team
-
-<Tip>
-Consider using multiple tools - each has unique strengths that can complement your documentation process.
-</Tip>
-
-```
+- Provide clear, specific prompts
+- Include relevant context in your requests
+- Use examples to guide AI output
+- Iterate on prompts for better results

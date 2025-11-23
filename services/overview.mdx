@@ -1,7 +1,7 @@
 ---
 title: Servicios - Visión General
 description: Documentación consolidada de todos los microservicios de RetroGameCloud
-  con arquitectura, dependencias y endpoints principales
+  con arquitectura, dependencias, endpoints principales y SLOs de rendimiento
 icon: microchip
 ---
 
@@ -57,149 +57,173 @@ graph TB
     class AuthDB,UserDB,CatalogDB,ScoreDB,RankingDB database
     class S3,CDN external
     class Redis cache
-
 ```
 
 </div>
 
-## 3.2. Flujo de Comunicación
+## 3.2. Service Level Objectives (SLOs)
 
-<div className="mermaid">
+### 3.2.1. Métricas de Rendimiento por Microservicio
+
+| Servicio | Latencia P95 | Disponibilidad | Tasa Error Max | Descripción |
+|----------|--------------|----------------|----------------|-------------|
+| **Auth Service** | < 100ms | 99.9% | < 0.1% | Servicio crítico - autenticación y autorización |
+| **User Service** | < 150ms | 99.5% | < 0.5% | Gestión de perfiles y datos de usuario |
+| **Game Catalog** | < 200ms | 99.0% | < 1.0% | Catálogo de juegos y metadatos |
+| **Score Service** | < 50ms | 99.9% | < 0.1% | Registro de puntuaciones en tiempo real |
+| **Ranking Service** | < 300ms | 99.0% | < 1.0% | Cálculos de rankings globales |
+
+### 3.2.2. Justificación de SLOs
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+<div className="border rounded-lg p-4">
+**Auth Service - 99.9% / 100ms P95**
+- Servicio crítico del que dependen todos los demás
+- Latencia baja esencial para UX fluida
+- Tolerancia mínima a errores
+</div>
+
+<div className="border rounded-lg p-4">
+**Score Service - 99.9% / 50ms P95**
+- Funcionalidad core del gaming
+- Debe ser ultra-rápido para gameplay en tiempo real
+- Los errores afectan directamente la experiencia de juego
+</div>
+
+<div className="border rounded-lg p-4">
+**User Service - 99.5% / 150ms P95**
+- Importante pero no crítico para funcionalidad core
+- Tolerancia media a errores
+- Latencia aceptable para operaciones de perfil
+</div>
+
+<div className="border rounded-lg p-4">
+**Ranking Service - 99.0% / 300ms P95**
+- Operaciones complejas de agregación
+- Mayor tolerancia a latencia por naturaleza analítica
+- Funcionalidad complementaria
+</div>
+
+</div>
+
+### 3.2.3. Monitoreo y Alertas
+
+```yaml
+# Configuración de alertas por SLO
+alerts:
+  latency_p95:
+    threshold_multiplier: 1.2  # Alerta al 120% del SLO
+    evaluation_window: "5m"
+    
+  availability:
+    threshold_offset: -0.1%    # Alerta 0.1% antes del límite
+    evaluation_window: "10m"
+    
+  error_rate:
+    threshold_multiplier: 0.8  # Alerta al 80% del límite
+    evaluation_window: "5m"
+```
+
+## 3.3. Inventario de Servicios
+
+### 3.3.1. Servicios Core
+
+| Servicio | Puerto | Propósito | Dependencias |
+|----------|--------|-----------|--------------|
+| **auth-service** | 8001 | Autenticación JWT, gestión de sesiones | Redis, PostgreSQL |
+| **user-service** | 8002 | Perfiles de usuario, preferencias | PostgreSQL, auth-service |
+| **game-catalog** | 8003 | Catálogo de juegos, metadata | PostgreSQL, S3 |
+| **score-service** | 8004 | Puntuaciones, logros | PostgreSQL, Redis, auth-service |
+| **ranking-service** | 8005 | Rankings globales, estadísticas | PostgreSQL, score-service |
+
+### 3.3.2. Infraestructura
+
+| Componente | Propósito | Configuración |
+|------------|-----------|---------------|
+| **Kong Gateway** | API Gateway, rate limiting, auth | Puerto 8000/8443 |
+| **PostgreSQL** | Base de datos principal | Cluster multi-master |
+| **Redis** | Cache distribuido, sesiones | Cluster 3 nodos |
+| **AWS S3** | Almacenamiento de assets | Buckets por ambiente |
+
+## 3.4. Patrones de Comunicación
+
+### 3.4.1. Comunicación Síncrona
 
 ```mermaid
 sequenceDiagram
     participant C as Cliente
-    participant K as Kong Gateway
+    participant G as Gateway
+    participant S as Score Service
     participant A as Auth Service
     participant U as User Service
-    participant S as Score Service
-    participant R as Redis
 
-    Note over C,R: Ejemplo: Subir nueva puntuación
-
-    C->>K: POST /api/scores (con JWT)
-    K->>S: Reenvía request
-    S->>R: Busca token en cache
-    alt Token en cache
-        R-->>S: Token válido
-    else Token no en cache
-        S->>A: Valida token JWT
-        A-->>S: Token válido + user_id
-        S->>R: Guarda token en cache
-    end
-
-    S->>U: GET /users/{user_id}/profile
-    U-->>S: Datos del usuario
-
-    S->>S: Procesa y guarda puntuación
-    S-->>K: Respuesta exitosa
-    K-->>C: 201 Created
-
+    C->>G: POST /api/scores
+    G->>S: POST /scores
+    S->>A: GET /validate-token
+    A-->>S: Token válido
+    S->>U: GET /users/{id}
+    U-->>S: Datos usuario
+    S-->>G: Score guardado
+    G-->>C: 201 Created
 ```
+
+### 3.4.2. Manejo de Errores
+
+| Tipo Error | Código HTTP | Acción | Retry |
+|------------|-------------|---------|-------|
+| **Validation** | 400 | Retornar error | No |
+| **Auth** | 401/403 | Redirect login | No |
+| **Not Found** | 404 | Error específico | No |
+| **Rate Limit** | 429 | Backoff | Sí |
+| **Server Error** | 500 | Circuit breaker | Sí |
+
+## 3.5. Configuración de Desarrollo
+
+### 3.5.1. Docker Compose
+
+```yaml
+version: '3.8'
+services:
+  auth-service:
+    build: ./services/auth
+    ports: ['8001:8001']
+    environment:
+      - DATABASE_URL=postgresql://auth_db
+      - REDIS_URL=redis://redis:6379
+    
+  user-service:
+    build: ./services/user
+    ports: ['8002:8002']
+    depends_on: [auth-service]
+    
+  # ... otros servicios
+```
+
+### 3.5.2. Variables de Entorno
+
+| Variable | Servicio | Descripción | Requerida |
+|----------|----------|-------------|-----------|
+| `DATABASE_URL` | Todos | Conexión PostgreSQL | ✅ |
+| `REDIS_URL` | Auth, Score | Conexión Redis | ✅ |
+| `JWT_SECRET` | Auth | Clave para tokens | ✅ |
+| `AWS_S3_BUCKET` | Catalog | Bucket de assets | ✅ |
+| `LOG_LEVEL` | Todos | Nivel de logging | ❌ |
+
+## 3.6. Próximos Pasos
+
+<div className="flex flex-col gap-4">
+
+**📋 Documentación Detallada**
+- [Auth Service](/services/auth) - Autenticación y autorización
+- [User Service](/services/user) - Gestión de usuarios
+- [Game Catalog](/services/catalog) - Catálogo de juegos
+- [Score Service](/services/scores) - Sistema de puntuaciones
+- [Ranking Service](/services/rankings) - Rankings y estadísticas
+
+**🔧 Recursos Técnicos**
+- [Guía de Despliegue](/deployment/overview)
+- [Monitoreo y Alertas](/monitoring/setup)
+- [Desarrollo Local](/development/setup)
 
 </div>
-
-## 3.3. Tabla Comparativa de Servicios
-
-| Servicio | Puerto | Base de Datos | Cache | Dependencias Principales | Estado |
-|----------|--------|---------------|--------|-------------------------|--------|
-| [Auth Service](/services/auth-service) | 8001 | PostgreSQL (auth_db) | Redis | JWT, bcrypt, OAuth2 | ✅ Activo |
-| [User Service](/services/user-service) | 8002 | PostgreSQL (user_db) | Redis | Auth Service | ✅ Activo |
-| [Game Catalog](/services/game-catalog) | 8003 | PostgreSQL (catalog_db) | Redis | Auth, S3, CloudFront | ✅ Activo |
-| [Score Service](/services/score-service) | 8004 | PostgreSQL (score_db) | Redis | Auth, User Services | ✅ Activo |
-| [Ranking Service](/services/ranking-service) | 8005 | PostgreSQL (ranking_db) | Redis | Score Service | ✅ Activo |
-
-## 3.4. Servicios por Categoría
-
-<Tabs>
-  <Tab title="Autenticación y Usuarios">
-    <CardGroup cols={2}>
-      <Card title="Auth Service" icon="shield-check" href="/services/auth-service">
-        Gestión de autenticación, autorización y tokens JWT
-        - Login/Logout/Register
-        - Validación de tokens
-        - OAuth2 integration
-      </Card>
-      <Card title="User Service" icon="users" href="/services/user-service">
-        Gestión de perfiles y datos de usuarios
-        - Perfiles de usuario
-        - Preferencias de juego
-        - Historial de actividad
-      </Card>
-    </CardGroup>
-  </Tab>
-
-  <Tab title="Juegos y Contenido">
-    <Card title="Game Catalog" icon="gamepad-2" href="/services/game-catalog">
-      Catálogo de juegos retro y gestión de assets
-      - Biblioteca de ROMs
-      - Metadatos de juegos
-      - Integración con S3/CDN
-    </Card>
-  </Tab>
-
-  <Tab title="Puntuaciones y Rankings">
-    <CardGroup cols={2}>
-      <Card title="Score Service" icon="trophy" href="/services/score-service">
-        Gestión de puntuaciones y logros
-        - Registro de scores
-        - Sistema de logros
-        - Validación de puntuaciones
-      </Card>
-      <Card title="Ranking Service" icon="chart-bar" href="/services/ranking-service">
-        Rankings globales y leaderboards
-        - Tablas de clasificación
-        - Rankings por juego
-        - Estadísticas agregadas
-      </Card>
-    </CardGroup>
-  </Tab>
-</Tabs>
-
-## 3.5. Patrones de Comunicación
-
-### 3.5.1. Sincronización de Datos
-
-- **Cache distribuido**: Redis para sesiones y datos frecuentes
-
-- **Service-to-Service**: HTTP REST para comunicación directa
-
-- **Rate limiting**: Kong Gateway controla límites por servicio
-
-### 3.5.2. Manejo de Errores
-
-- **Circuit breaker**: Prevención de fallos en cascada
-
-- **Retry policies**: Reintentos automáticos configurables
-
-- **Fallback responses**: Respuestas por defecto en caso de fallo
-
-### 3.5.3. Seguridad
-
-- **JWT tokens**: Autenticación stateless
-
-- **Service mesh**: Comunicación segura entre servicios
-
-- **API rate limiting**: Protección contra abuso
-
-## 3.6. Dependencias Críticas
-
-<Warning>
-Los siguientes servicios son críticos para el funcionamiento del sistema:
-
-- **Kong Gateway**: Punto de entrada único
-
-- **Redis**: Cache distribuido y sesiones
-
-- **Auth Service**: Validación de tokens para todos los servicios
-</Warning>
-
-<Tip>
-Para desarrollo local, todos los servicios pueden ejecutarse con:
-
-```bash
-docker-compose up -d
-
-```
-
-</Tip>

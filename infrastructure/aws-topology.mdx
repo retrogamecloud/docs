@@ -54,18 +54,17 @@ graph TB
                 subgraph PRIV1[🔒 Private Subnet<br/>10.0.11.0/24]
                     subgraph EKS1[☸️ EKS Node Group 1<br/>t3.large instances]
                         subgraph PODS1[Pod Network]
-                            API1[🚀 API Gateway Pod]
-                            AUTH1[🔐 Auth Service Pod]
-                            GAME1[🎮 Game Service Pod]
-                            USER1[👤 User Service Pod]
-                            WS1[🔌 WebSocket Pod]
+                            API_POD1[🚀 API Gateway Pods<br/>3 replicas]
+                            AUTH_POD1[🔐 Auth Service Pods<br/>2 replicas]
+                            GAME_POD1[🎮 Game Service Pods<br/>3 replicas]
+                            USER_POD1[👤 User Service Pods<br/>2 replicas]
                         end
                     end
                 end
 
-                subgraph DB1[💾 Database Subnet<br/>10.0.21.0/24]
-                    RDS1[🗄️ RDS Primary<br/>PostgreSQL 14<br/>db.t3.medium]
-                    REDIS1[⚡ ElastiCache Redis<br/>cache.t3.micro<br/>Primary Node]
+                subgraph DB1[🗄️ Database Subnet<br/>10.0.21.0/24]
+                    RDS_PRIMARY[📊 RDS Primary<br/>PostgreSQL 14<br/>db.r5.large]
+                    REDIS_PRIMARY[⚡ ElastiCache Primary<br/>cache.r6g.large]
                 end
             end
 
@@ -79,18 +78,17 @@ graph TB
                 subgraph PRIV2[🔒 Private Subnet<br/>10.0.12.0/24]
                     subgraph EKS2[☸️ EKS Node Group 2<br/>t3.large instances]
                         subgraph PODS2[Pod Network]
-                            API2[🚀 API Gateway Pod]
-                            AUTH2[🔐 Auth Service Pod]
-                            GAME2[🎮 Game Service Pod]
-                            USER2[👤 User Service Pod]
-                            WS2[🔌 WebSocket Pod]
+                            API_POD2[🚀 API Gateway Pods<br/>3 replicas]
+                            AUTH_POD2[🔐 Auth Service Pods<br/>2 replicas]
+                            GAME_POD2[🎮 Game Service Pods<br/>3 replicas]
+                            USER_POD2[👤 User Service Pods<br/>2 replicas]
                         end
                     end
                 end
 
-                subgraph DB2[💾 Database Subnet<br/>10.0.22.0/24]
-                    RDS2[🗄️ RDS Replica<br/>PostgreSQL 14<br/>db.t3.medium]
-                    REDIS2[⚡ ElastiCache Redis<br/>cache.t3.micro<br/>Replica Node]
+                subgraph DB2[🗄️ Database Subnet<br/>10.0.22.0/24]
+                    RDS_STANDBY[📊 RDS Standby<br/>PostgreSQL 14<br/>db.r5.large]
+                    REDIS_REPLICA[⚡ ElastiCache Replica<br/>cache.r6g.large]
                 end
             end
 
@@ -102,269 +100,223 @@ graph TB
                 subgraph PRIV3[🔒 Private Subnet<br/>10.0.13.0/24]
                     subgraph EKS3[☸️ EKS Node Group 3<br/>t3.large instances]
                         subgraph PODS3[Pod Network]
-                            API3[🚀 API Gateway Pod]
-                            BATCH3[⚙️ Batch Jobs Pod]
-                            MONITOR3[📊 Monitoring Pod]
+                            API_POD3[🚀 API Gateway Pods<br/>2 replicas]
+                            WORKER_POD3[⚙️ Worker Pods<br/>Background Jobs]
+                            MONITOR_POD3[📊 Monitoring Pods<br/>Prometheus/Grafana]
                         end
                     end
                 end
 
-                subgraph STORAGE3[💽 Storage Subnet<br/>10.0.23.0/24]
-                    EFS[📁 Elastic File System<br/>Game Assets Storage]
+                subgraph DB3[🗄️ Database Subnet<br/>10.0.23.0/24]
+                    REDIS_BACKUP[⚡ ElastiCache Backup<br/>cache.r6g.large]
                 end
             end
 
-            subgraph EKS_CONTROL[☸️ EKS Control Plane]
-                EKS_MASTER[EKS Master Nodes<br/>Managed by AWS]
-                EKS_API[Kubernetes API Server]
-                EKS_ETCD[etcd Cluster]
+            subgraph STORAGE[💾 Storage Layer]
+                S3_ASSETS[🪣 S3 Games Assets<br/>Versioned/Encrypted]
+                S3_BACKUPS[🪣 S3 Database Backups<br/>Cross-Region Replication]
+                S3_LOGS[🪣 S3 Application Logs<br/>Lifecycle Policies]
+                EFS[📁 EFS Shared Storage<br/>Cross-AZ Access]
             end
 
-            subgraph S3_ZONE[☁️ S3 Storage Services]
-                S3_ASSETS[🎮 S3 Game Assets<br/>retrogame-assets]
-                S3_BACKUP[💾 S3 Backups<br/>retrogame-backups]
-                S3_LOGS[📝 S3 Logs<br/>retrogame-logs]
-                S3_STATIC[🌐 S3 Static Web<br/>retrogame-web]
+            subgraph CONTROL_PLANE[🎛️ EKS Control Plane]
+                EKS_API[☸️ Kubernetes API Server]
+                EKS_ETCD[💾 etcd Cluster]
+                EKS_SCHEDULER[⚙️ Scheduler]
             end
 
-            subgraph MONITORING[📊 Monitoring & Logging]
-                CW[☁️ CloudWatch<br/>Metrics & Logs]
-                CW_ALARMS[🚨 CloudWatch Alarms]
-                SNS[📧 SNS Notifications]
-                XRAY[🔍 X-Ray Tracing]
-            end
         end
     end
 
-    subgraph EXTERNAL[🔗 Servicios Externos]
-        GITHUB[🐙 GitHub<br/>CI/CD Webhooks]
-        STRIPE[💳 Stripe<br/>Payment Processing]
-        TWILIO[📱 Twilio<br/>SMS/Email]
-        SOCIAL[📱 OAuth Providers<br/>Google, Discord]
+    subgraph EXTERNAL[🌐 External Services]
+        GITHUB[📦 GitHub Container Registry]
+        DATADOG[📊 Datadog APM]
+        SENDGRID[📧 SendGrid Email]
     end
 
-    %% Conexiones de Red
-    U --> DNS_MAIN
-    U --> DNS_API
-    U --> DNS_CDN
-    DEV --> DNS_ADMIN
-
-    DNS_MAIN --> CF_WEB
-    DNS_API --> CF_API
-    DNS_CDN --> CF_ASSETS
-    DNS_ADMIN --> ALB1
-
-    CF_WEB --> WAF_RULES
-    CF_API --> WAF_RULES
-    WAF_RULES --> ALB1
-    WAF_RULES --> ALB2
-
+    %% Conexiones principales
+    U --> Route53
+    Route53 --> CloudFront
+    CloudFront --> WAF
+    WAF --> IGW
+    
     IGW --> ALB1
     IGW --> ALB2
-    IGW --> NAT1
-    IGW --> NAT2
-    IGW --> NAT3
-
-    ALB1 --> API1
-    ALB1 --> API2
-    ALB1 --> API3
-    ALB2 --> API1
-    ALB2 --> API2
-
-    NAT1 --> PRIV1
-    NAT2 --> PRIV2
-    NAT3 --> PRIV3
-
-    %% Comunicación entre Pods
-    API1 --> AUTH1
-    API1 --> GAME1
-    API1 --> USER1
-    API2 --> AUTH2
-    API2 --> GAME2
-    API2 --> USER2
-
-    %% Conexiones a Base de Datos
-    PODS1 --> RDS1
-    PODS1 --> REDIS1
-    PODS2 --> RDS2
-    PODS2 --> REDIS2
-    PODS3 --> RDS1
-
-    RDS1 -.-> RDS2
-    REDIS1 -.-> REDIS2
-
-    %% Conexiones a Storage
-    PODS1 --> EFS
-    PODS2 --> EFS
-    PODS3 --> EFS
-
+    
+    ALB1 --> API_POD1
+    ALB1 --> API_POD2
+    ALB2 --> API_POD3
+    
+    API_POD1 --> AUTH_POD1
+    API_POD1 --> GAME_POD1
+    API_POD1 --> USER_POD1
+    
+    API_POD2 --> AUTH_POD2
+    API_POD2 --> GAME_POD2
+    API_POD2 --> USER_POD2
+    
+    GAME_POD1 --> RDS_PRIMARY
+    USER_POD1 --> RDS_PRIMARY
+    AUTH_POD1 --> REDIS_PRIMARY
+    
+    RDS_PRIMARY --> RDS_STANDBY
+    REDIS_PRIMARY --> REDIS_REPLICA
+    
+    NAT1 --> IGW
+    NAT2 --> IGW
+    NAT3 --> IGW
+    
+    PODS1 --> NAT1
+    PODS2 --> NAT2
+    PODS3 --> NAT3
+    
     PODS1 --> S3_ASSETS
     PODS2 --> S3_ASSETS
     PODS3 --> S3_ASSETS
+    
+    DEV --> BASTION1
+    DEV --> BASTION2
+    
+    BASTION1 --> EKS1
+    BASTION2 --> EKS2
+    
+    PODS1 --> GITHUB
+    PODS2 --> GITHUB
+    PODS3 --> GITHUB
+    
+    MONITOR_POD3 --> DATADOG
+    USER_POD1 --> SENDGRID
+    USER_POD2 --> SENDGRID
 
-    %% EKS Control Plane
-    EKS_MASTER --> PODS1
-    EKS_MASTER --> PODS2
-    EKS_MASTER --> PODS3
-
-    %% Monitoring
-    PODS1 --> CW
-    PODS2 --> CW
-    PODS3 --> CW
-    RDS1 --> CW
-    RDS2 --> CW
-    ALB1 --> CW
-    ALB2 --> CW
-
-    CW --> CW_ALARMS
-    CW_ALARMS --> SNS
-
-    %% External Services
-    PODS1 --> STRIPE
-    PODS1 --> TWILIO
-    PODS1 --> SOCIAL
-    GITHUB --> PODS1
-
-    %% CDN to S3
-    CF_WEB --> S3_STATIC
-    CF_ASSETS --> S3_ASSETS
-
-    classDef internet fill:#e1f5fe
-    classDef aws fill:#ff9800
-    classDef compute fill:#4caf50
-    classDef storage fill:#9c27b0
-    classDef network fill:#2196f3
-    classDef security fill:#f44336
-    classDef monitoring fill:#ff5722
-
-    class U,API_EXT,DEV internet
-    class CF_WEB,CF_API,CF_ASSETS,DNS_MAIN,DNS_API,DNS_CDN aws
-    class EKS1,EKS2,EKS3,PODS1,PODS2,PODS3 compute
-    class RDS1,RDS2,REDIS1,REDIS2,S3_ASSETS,S3_BACKUP,EFS storage
-    class ALB1,ALB2,NAT1,NAT2,NAT3,IGW network
-    class WAF_RULES,BASTION1,BASTION2 security
-    class CW,CW_ALARMS,SNS,XRAY monitoring
+    style Internet fill:#e1f5fe
+    style Route53 fill:#f3e5f5
+    style CloudFront fill:#fff3e0
+    style WAF fill:#ffebee
+    style VPC fill:#e8f5e8
+    style AZ1 fill:#fff8e1
+    style AZ2 fill:#f1f8e9
+    style AZ3 fill:#fce4ec
 ```
 
-## Arquitectura de Red Detallada
+## Componentes de Red y Seguridad
 
 ### VPC y Subnetting
 
-La infraestructura utiliza una VPC con CIDR `10.0.0.0/16` distribuida en 3 zonas de disponibilidad:
+```mermaid
+graph TB
+    subgraph VPC[VPC RetroGameCloud - 10.0.0.0/16]
+        subgraph PUBLIC[Public Subnets]
+            PUB1[us-east-1a<br/>10.0.1.0/24]
+            PUB2[us-east-1b<br/>10.0.2.0/24]
+            PUB3[us-east-1c<br/>10.0.3.0/24]
+        end
+        
+        subgraph PRIVATE[Private Subnets]
+            PRIV1[us-east-1a<br/>10.0.11.0/24]
+            PRIV2[us-east-1b<br/>10.0.12.0/24]
+            PRIV3[us-east-1c<br/>10.0.13.0/24]
+        end
+        
+        subgraph DATABASE[Database Subnets]
+            DB1[us-east-1a<br/>10.0.21.0/24]
+            DB2[us-east-1b<br/>10.0.22.0/24]
+            DB3[us-east-1c<br/>10.0.23.0/24]
+        end
+        
+        subgraph ROUTING[Route Tables]
+            RT_PUB[Public Route Table<br/>0.0.0.0/0 → IGW]
+            RT_PRIV1[Private RT AZ-1a<br/>0.0.0.0/0 → NAT-1]
+            RT_PRIV2[Private RT AZ-1b<br/>0.0.0.0/0 → NAT-2]
+            RT_PRIV3[Private RT AZ-1c<br/>0.0.0.0/0 → NAT-3]
+            RT_DB[Database Route Table<br/>Local VPC Only]
+        end
+    end
+```
 
-| Zona | Subnet Pública | Subnet Privada | Subnet Database |
-|------|---------------|----------------|-----------------|
-| us-east-1a | 10.0.1.0/24 | 10.0.11.0/24 | 10.0.21.0/24 |
-| us-east-1b | 10.0.2.0/24 | 10.0.12.0/24 | 10.0.22.0/24 |
-| us-east-1c | 10.0.3.0/24 | 10.0.13.0/24 | 10.0.23.0/24 |
-
-### Flujos de Tráfico
+### Security Groups
 
 ```mermaid
-sequenceDiagram
-    participant User as 👥 Usuario
-    participant CF as ⚡ CloudFront
-    participant WAF as 🛡️ WAF
-    participant ALB as ⚖️ ALB
-    participant EKS as ☸️ EKS Pods
-    participant RDS as 🗄️ RDS
-    participant Redis as ⚡ Redis
-    participant S3 as ☁️ S3
-
-    User->>CF: 1. Request
-    CF->>WAF: 2. Security Check
-    WAF->>ALB: 3. Forward (if valid)
-    ALB->>EKS: 4. Route to Pod
-    EKS->>RDS: 5. Database Query
-    EKS->>Redis: 6. Cache Check
-    EKS->>S3: 7. Asset Request
-    S3-->>EKS: 8. Asset Response
-    Redis-->>EKS: 9. Cache Response
-    RDS-->>EKS: 10. DB Response
-    EKS-->>ALB: 11. API Response
-    ALB-->>CF: 12. Response
-    CF-->>User: 13. Final Response
-```
-
-## Componentes Principales
-
-### 1. Capa de Red Global
-
-#### Route 53
-- **Dominios**: retrogame.cloud, api.retrogame.cloud, cdn.retrogame.cloud
-- **Health Checks**: Monitoreo de endpoints críticos
-- **Routing Policies**: Latency-based para mejor performance
-
-#### CloudFront CDN
-- **Web Distribution**: Assets estáticos, cache 24h
-- **API Distribution**: Contenido dinámico, cache 5min
-- **Assets Distribution**: Archivos de juego, cache 7 días
-
-#### AWS WAF
-- **Rate Limiting**: 1000 requests/5min por IP
-- **SQL Injection Protection**: Pattern matching
-- **DDoS Mitigation**: Integración con Shield
-
-### 2. Capa de Compute
-
-#### EKS Cluster
-```yaml
-Cluster Configuration:
-  Version: 1.24
-  Endpoint: Private
-  Logging: API, Audit, Authenticator
-  
-Node Groups:
-  - Name: primary-nodes
-    Instance Type: t3.large
-    Min Size: 2
-    Max Size: 10
-    Desired: 3
+graph LR
+    subgraph SG_ALB[ALB Security Group]
+        ALB_IN[Inbound:<br/>443/tcp from 0.0.0.0/0<br/>80/tcp from 0.0.0.0/0]
+        ALB_OUT[Outbound:<br/>8080/tcp to EKS-SG]
+    end
     
-  - Name: batch-nodes
-    Instance Type: c5.xlarge
-    Min Size: 0
-    Max Size: 5
-    Desired: 1
+    subgraph SG_EKS[EKS Security Group]
+        EKS_IN[Inbound:<br/>8080/tcp from ALB-SG<br/>443/tcp from Bastion-SG<br/>All traffic from self]
+        EKS_OUT[Outbound:<br/>5432/tcp to RDS-SG<br/>6379/tcp to Redis-SG<br/>443/tcp to 0.0.0.0/0]
+    end
+    
+    subgraph SG_RDS[RDS Security Group]
+        RDS_IN[Inbound:<br/>5432/tcp from EKS-SG]
+        RDS_OUT[Outbound:<br/>None]
+    end
+    
+    subgraph SG_REDIS[Redis Security Group]
+        REDIS_IN[Inbound:<br/>6379/tcp from EKS-SG]
+        REDIS_OUT[Outbound:<br/>None]
+    end
+    
+    subgraph SG_BASTION[Bastion Security Group]
+        BASTION_IN[Inbound:<br/>22/tcp from Admin IPs]
+        BASTION_OUT[Outbound:<br/>22/tcp to EKS-SG<br/>443/tcp to 0.0.0.0/0]
+    end
 ```
 
-#### Pod Distribution
-| Service | AZ-1a | AZ-1b | AZ-1c | Total |
-|---------|-------|-------|-------|--------|
-| API Gateway | 2 | 2 | 1 | 5 |
-| Auth Service | 1 | 1 | 0 | 2 |
-| Game Service | 2 | 2 | 0 | 4 |
-| User Service | 1 | 1 | 0 | 2 |
-| WebSocket | 1 | 1 | 0 | 2 |
-| Batch Jobs | 0 | 0 | 1 | 1 |
+## Servicios de Infraestructura
 
-### 3. Capa de Datos
+### EKS Cluster Configuration
 
-#### RDS PostgreSQL
-```yaml
-Primary (us-east-1a):
-  Engine: PostgreSQL 14.6
-  Instance: db.t3.medium
-  Storage: 100GB GP2
-  Multi-AZ: true
-  Backup: 7 días
-
-Read Replica (us-east-1b):
-  Engine: PostgreSQL 14.6
-  Instance: db.t3.medium
-  Lag: < 100ms
-  Auto Failover: enabled
+```mermaid
+graph TB
+    subgraph EKS_CLUSTER[EKS Cluster: retrogame-prod]
+        subgraph CONTROL[Control Plane - Managed by AWS]
+            API_SERVER[Kubernetes API Server<br/>Multi-AZ Deployment]
+            ETCD[etcd Database<br/>Encrypted at Rest]
+            SCHEDULER[Kubernetes Scheduler]
+            CONTROLLER[Controller Manager]
+        end
+        
+        subgraph NODE_GROUPS[Node Groups]
+            subgraph NG1[Primary Node Group]
+                NG1_CONFIG[Instance Type: t3.large<br/>Min: 2, Max: 10, Desired: 6<br/>AZ: us-east-1a, us-east-1b]
+            end
+            
+            subgraph NG2[Monitoring Node Group]
+                NG2_CONFIG[Instance Type: t3.medium<br/>Min: 1, Max: 3, Desired: 2<br/>AZ: us-east-1c<br/>Taint: monitoring=true]
+            end
+        end
+        
+        subgraph ADDONS[EKS Add-ons]
+            VPC_CNI[VPC CNI<br/>Pod Networking]
+            CORE_DNS[CoreDNS<br/>Service Discovery]
+            KUBE_PROXY[kube-proxy<br/>Network Proxy]
+            AWS_LB[AWS Load Balancer Controller]
+            CSI_DRIVER[EBS CSI Driver<br/>Persistent Volumes]
+        end
+    end
 ```
 
-#### ElastiCache Redis
-```yaml
-Primary Node (us-east-1a):
-  Engine: Redis 7.0
-  Instance: cache.t3.micro
-  Memory: 1GB
-  
-Replica Node (us-east-1b):
-  Engine: Redis 7.0
-  Instance: cache.t3.micro
-  Replication:
+### Database Architecture
+
+```mermaid
+graph TB
+    subgraph RDS_CLUSTER[RDS PostgreSQL Multi-AZ]
+        subgraph PRIMARY[Primary Instance - us-east-1a]
+            RDS_P[PostgreSQL 14.7<br/>db.r5.large<br/>2 vCPU, 16 GB RAM<br/>100 GB gp3 Storage]
+        end
+        
+        subgraph STANDBY[Standby Instance - us-east-1b]
+            RDS_S[PostgreSQL 14.7<br/>db.r5.large<br/>2 vCPU, 16 GB RAM<br/>100 GB gp3 Storage<br/>Synchronous Replication]
+        end
+        
+        subgraph BACKUP[Backup Strategy]
+            AUTO_BACKUP[Automated Backups<br/>7 days retention<br/>Daily at 03:00 UTC]
+            SNAPSHOT[Manual Snapshots<br/>Before deployments]
+        end
+    end
+    
+    subgraph REDIS_CLUSTER[ElastiCache Redis Cluster]
+        subgraph REDIS_PRIMARY[Primary - us-east-1a]
+            REDIS
 ```

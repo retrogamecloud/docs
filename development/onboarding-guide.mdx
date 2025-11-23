@@ -1,6 +1,7 @@
 ---
 title: 8.5. Guía de Onboarding para Nuevos Desarrolladores
-description: 'Proceso completo de incorporación para nuevos desarrolladores: días 1-30 con setup local, primer PR, arquitectura y despliegue'
+description: 'Proceso completo de incorporación para nuevos desarrolladores: días
+  1-30 con setup local, primer PR, arquitectura y despliegue'
 icon: user-graduate
 ---
 
@@ -17,37 +18,59 @@ Esta guía te acompañará durante tus primeros 30 días en el proyecto RetroGam
 <Tabs>
 <Tab title="Accesos y Herramientas">
 
-**Accesos Básicos:**
+* *Accesos Básicos:**
+
 - [ ] Acceso al repositorio GitHub del proyecto
+
 - [ ] Configuración de SSH keys para GitHub
+
 - [ ] Invitación al Slack del equipo (#development, #general, #deployments)
+
 - [ ] Acceso a AWS Console (IAM user con permisos dev)
+
 - [ ] Cuenta en ArgoCD para deployments
+
 - [ ] Acceso a Grafana y Prometheus para monitoreo
+
 - [ ] Acceso a Sentry para error tracking
 
-**Herramientas de Desarrollo:**
+* *Herramientas de Desarrollo:**
+
 - [ ] Instalación de Node.js 18+ y npm
+
 - [ ] Configuración de Docker Desktop
+
 - [ ] Instalación de kubectl
+
 - [ ] Setup de AWS CLI
+
 - [ ] Instalación de IDE recomendado (VS Code + extensiones)
+
 - [ ] Configuración de Git (nombre, email, GPG signing)
 
 </Tab>
 <Tab title="Documentación Base">
 
-**Lectura Obligatoria (Día 1):**
+* *Lectura Obligatoria (Día 1):**
+
 - [ ] README principal del proyecto
+
 - [ ] [1.1. Visión General del Proyecto](/documentation/overview/project-overview)
+
 - [ ] [1.2. Funcionalidades Principales](/documentation/overview/main-features)
+
 - [ ] [2.1. Arquitectura General](/documentation/architecture/general-architecture)
+
 - [ ] [2.2. Microservicios Overview](/documentation/architecture/microservices-overview)
+
 - [ ] [8.1. Estándares de Desarrollo](/documentation/development/development-standards)
 
-**Para revisar durante la semana:**
+* *Para revisar durante la semana:**
+
 - [ ] [3.1. Base de Datos](/documentation/database/database-design)
+
 - [ ] [6.1. Monitoreo](/documentation/monitoring/monitoring-overview)
+
 - [ ] [7.1. Despliegue](/documentation/deployment/deployment-overview)
 
 </Tab>
@@ -59,6 +82,7 @@ Esta guía te acompañará durante tus primeros 30 días en el proyecto RetroGam
 <Tab title="Configuración Backend">
 
 ```bash
+
 # Clonar repositorio principal
 git clone git@github.com:company/retro-game-cloud.git
 cd retro-game-cloud
@@ -80,6 +104,7 @@ cd ../ranking-service && npm install
 cp .env.example .env.local
 
 # Configurar variables según documentación
+
 # DATABASE_URL, REDIS_URL, JWT_SECRET, etc.
 
 # Ejecutar migraciones
@@ -90,21 +115,30 @@ npm run seed:dev
 
 # Verificar setup
 npm run test:health
+
 ```
 
-**Checklist Backend:**
+* *Checklist Backend:**
+
 - [ ] PostgreSQL corriendo en puerto 5432
+
 - [ ] Redis corriendo en puerto 6379
+
 - [ ] Todas las dependencias instaladas sin errores
+
 - [ ] Variables de entorno configuradas
+
 - [ ] Migraciones ejecutadas exitosamente
+
 - [ ] Datos de prueba cargados
+
 - [ ] Health checks pasando
 
 </Tab>
 <Tab title="Configuración Frontend">
 
 ```bash
+
 # Setup del frontend
 cd frontend
 npm install
@@ -113,28 +147,39 @@ npm install
 cp .env.example .env.local
 
 # Variables principales:
+
 # NEXT_PUBLIC_API_URL=http://localhost:8080
+
 # NEXT_PUBLIC_WS_URL=ws://localhost:8081
+
 # NEXT_PUBLIC_CDN_URL=http://localhost:9000
 
 # Ejecutar en modo desarrollo
 npm run dev
 
 # Verificar en http://localhost:3000
+
 ```
 
-**Checklist Frontend:**
+* *Checklist Frontend:**
+
 - [ ] Dependencias instaladas correctamente
+
 - [ ] Variables de entorno configuradas
+
 - [ ] Aplicación corriendo en localhost:3000
+
 - [ ] Login funcional con usuarios de prueba
+
 - [ ] Navegación básica funcionando
+
 - [ ] Conexión con APIs backend establecida
 
 </Tab>
 <Tab title="Configuración DevOps">
 
 ```bash
+
 # Setup de kubectl para cluster local
 kubectl config use-context docker-desktop
 
@@ -143,6 +188,7 @@ kubectl get pods -n retro-game-dev
 
 # Setup de AWS CLI
 aws configure
+
 # Usar credenciales de desarrollo proporcionadas
 
 # Verificar acceso a S3
@@ -150,13 +196,19 @@ aws s3 ls s3://retro-game-assets-dev/
 
 # Setup de ArgoCD CLI (opcional)
 argocd login argocd.dev.company.com
+
 ```
 
-**Checklist DevOps:**
+* *Checklist DevOps:**
+
 - [ ] kubectl configurado correctamente
+
 - [ ] Acceso al cluster de desarrollo
+
 - [ ] AWS CLI configurado con credenciales dev
+
 - [ ] Acceso a buckets S3 de desarrollo
+
 - [ ] ArgoCD CLI instalado y configurado
 
 </Tab>
@@ -171,6 +223,7 @@ No hagas cambios directos en `main`. Siempre trabaja en feature branches y crea 
 #### Estructura de Trabajo
 
 ```bash
+
 # Crear branch para primera tarea
 git checkout -b feature/onboarding-fix-typo
 
@@ -180,45 +233,67 @@ git commit -m "fix: correct typo in user service documentation"
 git push origin feature/onboarding-fix-typo
 
 # Crear PR en GitHub
+
 ```
 
-**Tareas de Primera Contribución:**
+* *Tareas de Primera Contribución:**
 
 <Tabs>
 <Tab title="Semana 1 (Días 6-10)">
 
-**Tarea 1: Fix de Documentación (Día 6)**
+* *Tarea 1: Fix de Documentación (Día 6)**
+
 - [ ] Encontrar y corregir un typo en documentación
+
 - [ ] Crear PR con la corrección
+
 - [ ] Pasar code review
+
 - [ ] Merge exitoso
 
-**Tarea 2: Test Unitario Simple (Día 7-8)**
+* *Tarea 2: Test Unitario Simple (Día 7-8)**
+
 - [ ] Agregar test unitario faltante en auth-service
+
 - [ ] Asegurar 100% coverage en función específica
+
 - [ ] Ejecutar tests localmente
+
 - [ ] PR y review
 
-**Tarea 3: Bug Fix Menor (Día 9-10)**
+* *Tarea 3: Bug Fix Menor (Día 9-10)**
+
 - [ ] Resolver issue etiquetado como "good-first-issue"
+
 - [ ] Reproducir bug localmente
+
 - [ ] Implementar fix
+
 - [ ] Agregar test regression
+
 - [ ] PR con descripción detallada
 
 </Tab>
 <Tab title="Semana 2 (Días 11-15)">
 
-**Tarea 4: Nueva Feature Pequeña (Día 11-13)**
+* *Tarea 4: Nueva Feature Pequeña (Día 11-13)**
+
 - [ ] Implementar endpoint GET /api/health en user-service
+
 - [ ] Incluir información de database connection
+
 - [ ] Agregar tests de integración
+
 - [ ] Actualizar documentación API
 
-**Tarea 5: Refactoring (Día 14-15)**
+* *Tarea 5: Refactoring (Día 14-15)**
+
 - [ ] Refactorizar función específica en game-catalog
+
 - [ ] Mejorar legibilidad sin cambiar funcionalidad
+
 - [ ] Mantener todos los tests pasando
+
 - [ ] Agregar JSDoc comments
 
 </Tab>
@@ -226,17 +301,26 @@ git push origin feature/onboarding-fix-typo
 
 #### Code Review Process
 
-**Como Autor del PR:**
+* *Como Autor del PR:**
+
 - [ ] Self-review antes de solicitar review
+
 - [ ] Descripción clara del cambio
+
 - [ ] Screenshots si aplica (cambios UI)
+
 - [ ] Tests pasando en CI/CD
+
 - [ ] Resolver comentarios promptamente
 
-**Como Reviewer (a partir de la semana 3):**
+* *Como Reviewer (a partir de la semana 3):**
+
 - [ ] Revisar lógica de negocio
+
 - [ ] Verificar tests y coverage
+
 - [ ] Comprobar estándares de código
+
 - [ ] Sugerir mejoras constructivamente
 
 ### Días 16-20: Comprensión Profunda
@@ -244,44 +328,69 @@ git push origin feature/onboarding-fix-typo
 <Tabs>
 <Tab title="Arquitectura Técnica">
 
-**Sesiones de Pair Programming:**
+* *Sesiones de Pair Programming:**
+
 - [ ] Sesión con Tech Lead sobre arquitectura general
+
 - [ ] Pair programming en feature completa
+
 - [ ] Review de patrones de diseño utilizados
+
 - [ ] Comprensión de decisiones técnicas
 
-**Deep Dive por Microservicio:**
+* *Deep Dive por Microservicio:**
+
 - [ ] **Auth Service**: JWT, OAuth, rate limiting
+
 - [ ] **User Service**: Profile management, preferences
+
 - [ ] **Game Catalog**: Metadata, search, filtering
+
 - [ ] **Score Service**: Real-time scoring, leaderboards
+
 - [ ] **Ranking Service**: Algorithm analysis, caching
 
-**Conocimiento de Infraestructura:**
+* *Conocimiento de Infraestructura:**
+
 - [ ] Entender deployment pipeline en ArgoCD
+
 - [ ] Revisar logs en Grafana
+
 - [ ] Comprender alertas en Prometheus
+
 - [ ] Analizar métricas de performance
 
 </Tab>
 <Tab title="Proceso de Desarrollo">
 
-**Metodología de Trabajo:**
+* *Metodología de Trabajo:**
+
 - [ ] Participar en daily standups
+
 - [ ] Asistir a sprint planning
+
 - [ ] Contribuir en retrospectivas
+
 - [ ] Entender definition of done
 
-**Flujo de Features:**
+* *Flujo de Features:**
+
 - [ ] Desde issue hasta production
+
 - [ ] Process de testing (unit, integration, e2e)
+
 - [ ] Code review standards
+
 - [ ] Deployment y rollback procedures
 
-**Herramientas de Productividad:**
+* *Herramientas de Productividad:**
+
 - [ ] Setup de VS Code con snippets del proyecto
+
 - [ ] Configurar debugging para microservicios
+
 - [ ] Scripts de automatización personal
+
 - [ ] Shortcuts y aliases útiles
 
 </Tab>
@@ -292,7 +401,7 @@ git push origin feature/onboarding-fix-typo
 <Tabs>
 <Tab title="Feature Completa">
 
-**Proyecto Asignado: Sistema de Favoritos**
+* *Proyecto Asignado: Sistema de Favoritos**
 
 ```typescript
 // Ejemplo de estructura para nueva feature
@@ -308,71 +417,107 @@ interface FavoriteGame {
 // POST /api/favorites
 // DELETE /api/favorites/:gameId
 // GET /api/users/:userId/favorites
+
 ```
 
-**Checklist del Proyecto:**
+* *Checklist del Proyecto:**
+
 - [ ] **Análisis**: Revisar requirements con Product Owner
+
 - [ ] **Diseño**: Crear ADR para decisiones técnicas
+
 - [ ] **Database**: Diseñar schema y migraciones
+
 - [ ] **Backend**: Implementar APIs en user-service
+
 - [ ] **Frontend**: Crear componentes UI necesarios
+
 - [ ] **Testing**: Unit, integration y e2e tests
+
 - [ ] **Documentación**: API docs y user guides
+
 - [ ] **Deploy**: Feature flag y gradual rollout
 
 </Tab>
 <Tab title="Área de Especialización">
 
-**Elige tu área de foco:**
+* *Elige tu área de foco:**
 
 <AccordionGroup>
 <Accordion title="Backend/Microservicios" icon="server">
 
-**Profundización Técnica:**
+* *Profundización Técnica:**
+
 - [ ] Advanced Node.js patterns
+
 - [ ] Microservices communication patterns
+
 - [ ] Database optimization techniques
+
 - [ ] API design best practices
+
 - [ ] Event-driven architectures
 
-**Proyectos Sugeridos:**
+* *Proyectos Sugeridos:**
+
 - [ ] Implementar circuit breaker pattern
+
 - [ ] Optimizar queries más lentas
+
 - [ ] Agregar caching strategy
+
 - [ ] Implementar rate limiting avanzado
 
 </Accordion>
 
 <Accordion title="Frontend/UI" icon="palette">
 
-**Profundización Técnica:**
+* *Profundización Técnica:**
+
 - [ ] Advanced React patterns
+
 - [ ] State management optimization
+
 - [ ] Performance optimization
+
 - [ ] Accessibility best practices
+
 - [ ] Mobile-first design
 
-**Proyectos Sugeridos:**
+* *Proyectos Sugeridos:**
+
 - [ ] Implementar lazy loading
+
 - [ ] Optimizar bundle size
+
 - [ ] Agregar PWA capabilities
+
 - [ ] Mejorar mobile experience
 
 </Accordion>
 
 <Accordion title="DevOps/Infrastructure" icon="server-stack">
 
-**Profundización Técnica:**
+* *Profundización Técnica:**
+
 - [ ] Kubernetes deep dive
+
 - [ ] CI/CD pipeline optimization
+
 - [ ] Infrastructure as Code
+
 - [ ] Security best practices
+
 - [ ] Monitoring y observability
 
-**Proyectos Sugeridos:**
+* *Proyectos Sugeridos:**
+
 - [ ] Mejorar deployment pipeline
+
 - [ ] Implementar blue-green deployment
+
 - [ ] Optimizar resource usage
+
 - [ ] Agregar security scans
 
 </Accordion>
@@ -387,43 +532,66 @@ interface FavoriteGame {
 
 <CardGroup cols={2}>
 <Card title="Tech Lead" icon="user-tie">
-**@juan.martinez**
+
+* *@juan.martinez**
+
 - Arquitectura y decisiones técnicas
+
 - Code reviews complejos
+
 - Mentoring técnico
 </Card>
 
 <Card title="DevOps Lead" icon="server">
-**@maria.gonzalez** 
+
+* *@maria.gonzalez**
+
 - Issues de deployment
+
 - Configuración de infraestructura
+
 - Accesos y permisos
 </Card>
 
 <Card title="Frontend Lead" icon="palette">
-**@carlos.rodriguez**
+
+* *@carlos.rodriguez**
+
 - UI/UX guidelines
+
 - Frontend architecture
+
 - Performance optimization
 </Card>
 
 <Card title="QA Lead" icon="bug">
-**@ana.lopez**
+
+* *@ana.lopez**
+
 - Testing strategies
+
 - Bug reproduction
+
 - Quality standards
 </Card>
 </CardGroup>
 
 ### Canales de Comunicación
 
-**Slack Channels:**
+* *Slack Channels:**
+
 - `#onboarding` - Preguntas de nuevos developers
+
 - `#development` - Discussiones técnicas generales
+
 - `#backend` - Temas específicos de backend
+
 - `#frontend` - Temas específicos de frontend
+
 - `#devops` - Deployment y infrastructure
+
 - `#code-reviews` - Notificaciones de PRs
+
 - `#alerts` - Alertas de producción
 
 ### Herramientas de Productividad
@@ -444,12 +612,14 @@ interface FavoriteGame {
     "github.copilot"
   ]
 }
+
 ```
 
 </Tab>
 <Tab title="Git Aliases">
 
 ```bash
+
 # Agregar a ~/.gitconfig
 [alias]
     co = checkout
@@ -463,12 +633,14 @@ interface FavoriteGame {
     dev = checkout develop
     main = checkout main
     pr = !gh pr create --fill
+
 ```
 
 </Tab>
 <Tab title="Scripts Útiles">
 
 ```bash
+
 # ~/bin/rgc (RetroGameCloud utilities)
 #!/bin/bash
 
@@ -489,6 +661,7 @@ case "$1" in
     npm run seed:dev
     ;;
 esac
+
 ```
 
 </Tab>
@@ -498,15 +671,22 @@ esac
 
 ### Métricas de Éxito
 
-**Semana 1:**
+* *Semana 1:**
+
 - [ ] Entorno local funcionando al 100%
+
 - [ ] Primer PR merged exitosamente
+
 - [ ] Participación activa en daily standups
 
-**Semana 2:**
+* *Semana 2:**
+
 - [ ] 2-3 PRs adicionales merged
+
 - [ ] Comprensión básica de 3+ microservicios
+
 - [ ] Sin bloqueos técnicos mayores
 
-**Semana 3:**
+* *Semana 3:**
+
 - [ ] Feature completa

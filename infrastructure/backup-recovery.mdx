@@ -1,5 +1,5 @@
 ---
-title: "4.1 Estrategia de Respaldo y Recuperación Ante Desastres"
+title: 4.1 Estrategia de Respaldo y Recuperación Ante Desastres
 description: Documentación completa sobre backups, disaster recovery, RPO/RTO y procedimientos
   de restauración para RetroGameCloud
 icon: shield-check
@@ -16,15 +16,21 @@ Esta documentación cubre la estrategia completa de backup y disaster recovery (
 ### RPO (Recovery Point Objective)
 
 - **Base de Datos Principal**: 1 hora máximo
+
 - **Archivos de Juegos (S3)**: 24 horas máximo
+
 - **Configuraciones de Kubernetes**: 1 hora máximo
+
 - **Configuración Kong Gateway**: 1 hora máximo
 
 ### RTO (Recovery Time Objective)
 
 - **Servicios Críticos**: 4 horas máximo
+
 - **Base de Datos**: 2 horas máximo
+
 - **Frontend y CDN**: 30 minutos máximo
+
 - **API Gateway**: 1 hora máximo
 
 ## 4.1.2 Configuración de Backups Automatizados
@@ -91,6 +97,7 @@ resource "aws_cloudwatch_event_target" "lambda_target" {
   target_id = "TriggerLambdaFunction"
   arn       = aws_lambda_function.db_snapshot.arn
 }
+
 ```
 
 </Tab>
@@ -103,11 +110,11 @@ from datetime import datetime, timezone
 
 def lambda_handler(event, context):
     rds = boto3.client('rds')
-    
+
     db_instance_id = os.environ['DB_INSTANCE_ID']
     timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d-%H-%M-%S')
     snapshot_id = f"{db_instance_id}-manual-{timestamp}"
-    
+
     try:
         response = rds.create_db_snapshot(
             DBSnapshotIdentifier=snapshot_id,
@@ -127,7 +134,7 @@ def lambda_handler(event, context):
                 }
             ]
         )
-        
+
         return {
             'statusCode': 200,
             'body': json.dumps({
@@ -141,6 +148,7 @@ def lambda_handler(event, context):
             'statusCode': 500,
             'body': json.dumps({'error': str(e)})
         }
+
 ```
 
 </Tab>
@@ -152,6 +160,7 @@ def lambda_handler(event, context):
 <Tab title="Configuración Terraform">
 
 ```hcl
+
 # Bucket principal
 resource "aws_s3_bucket" "game_assets" {
   bucket = "retrogamecloud-assets-prod"
@@ -183,7 +192,7 @@ resource "aws_s3_bucket_replication_configuration" "replication" {
     destination {
       bucket        = aws_s3_bucket.game_assets_backup.arn
       storage_class = "STANDARD_IA"
-      
+
       encryption_configuration {
         replica_kms_key_id = aws_kms_key.backup_region_key.arn
       }
@@ -216,6 +225,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "lifecycle" {
     }
   }
 }
+
 ```
 
 </Tab>
@@ -227,6 +237,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "lifecycle" {
 <Tab title="Configuración Helm">
 
 ```yaml
+
 # values-velero.yaml
 velero:
   configuration:
@@ -239,7 +250,7 @@ velero:
     volumeSnapshotLocation:
       config:
         region: us-east-1
-    
+
   credentials:
     useSecret: true
     existingSecret: velero-credentials
@@ -257,7 +268,7 @@ velero:
         storageLocation: default
         volumeSnapshotLocations:
         - default
-    
+
     weekly:
       disabled: false
       schedule: "0 3 * * 0"  # Domingos
@@ -269,7 +280,7 @@ velero:
         - monitoring
 
   deployRestic: true
-  
+
   resources:
     requests:
       cpu: 500m
@@ -277,6 +288,7 @@ velero:
     limits:
       cpu: 1000m
       memory: 512Mi
+
 ```
 
 </Tab>
@@ -284,6 +296,7 @@ velero:
 
 ```bash
 #!/bin/bash
+
 # install-velero.sh
 
 set -e
@@ -361,6 +374,7 @@ helm upgrade --install velero vmware-tanzu/velero \
   --wait
 
 echo "Velero installed successfully!"
+
 ```
 
 </Tab>
@@ -375,6 +389,7 @@ echo "Velero installed successfully!"
 
 ```bash
 #!/bin/bash
+
 # restore-db-from-snapshot.sh
 
 set -e
@@ -417,6 +432,7 @@ NEW_ENDPOINT=$(aws rds describe-db-instances \
 echo "Database restored successfully!"
 echo "New endpoint: $NEW_ENDPOINT"
 echo "Update your application configuration to use the new endpoint."
+
 ```
 
 </Tab>
@@ -424,6 +440,7 @@ echo "Update your application configuration to use the new endpoint."
 
 ```bash
 #!/bin/bash
+
 # point-in-time-restore.sh
 
 set -e
@@ -460,6 +477,7 @@ aws rds restore-db-instance-to-point-in-time \
   --db-subnet-group-name retrogamecloud-db-subnet-group
 
 echo "Point-in-time restore initiated. Instance ID: $NEW_INSTANCE_ID"
+
 ```
 
 </Tab>
@@ -472,6 +490,7 @@ echo "Point-in-time restore initiated. Instance ID: $NEW_INSTANCE_ID"
 
 ```bash
 #!/bin/bash
+
 # restore-k8s-backup.sh
 
 set -e
@@ -505,6 +524,7 @@ velero restore describe $RESTORE_NAME
 # Verificar pods después del restore
 echo "Checking pod status in namespace $NAMESPACE..."
 kubectl get pods -n $NAMESPACE
+
 ```
 
 </Tab>
@@ -512,6 +532,7 @@ kubectl get pods -n $NAMESPACE
 
 ```bash
 #!/bin/bash
+
 # selective-restore.sh
 
 set -e
@@ -521,4 +542,5 @@ RESOURCE_TYPE="$2"
 RESOURCE
 </Tab>
 </Tabs>
+
 ```

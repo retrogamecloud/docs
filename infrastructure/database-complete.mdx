@@ -1,6 +1,7 @@
 ---
 title: 4.3. Base de Datos Completa
-description: 'Documentación completa de la base de datos PostgreSQL: esquema, migraciones, configuración y administración'
+description: 'Documentación completa de la base de datos PostgreSQL: esquema, migraciones,
+  configuración y administración'
 icon: database
 ---
 
@@ -20,6 +21,7 @@ RetroGameCloud utiliza Amazon RDS PostgreSQL 14.x con configuración Multi-AZ pa
 <Tab title="Configuración RDS">
 
 ```yaml
+
 # infrastructure/rds-config.yml
 Database:
   Engine: postgres
@@ -37,12 +39,14 @@ ParameterGroup:
   work_mem: "16MB"
   maintenance_work_mem: "256MB"
   checkpoint_completion_target: 0.9
+
 ```
 
 </Tab>
 <Tab title="Variables de Entorno">
 
 ```bash
+
 # Configuración común
 DATABASE_URL=postgresql://username:password@host:5432/retrogame_db
 DB_HOST=retrogame-postgres.cluster-xxx.eu-west-1.rds.amazonaws.com
@@ -55,6 +59,7 @@ AUTH_DB_NAME=retrogame_auth
 USER_DB_NAME=retrogame_users
 GAME_DB_NAME=retrogame_games
 SCORE_DB_NAME=retrogame_scores
+
 ```
 
 </Tab>
@@ -97,6 +102,7 @@ module.exports = {
   getClient: () => pool.connect(),
   pool
 };
+
 ```
 
 ## 4.3.3. Esquema de Base de Datos
@@ -114,7 +120,7 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
-    
+
     GAMES {
         uuid id PK
         string title
@@ -125,7 +131,7 @@ erDiagram
         enum status
         timestamp created_at
     }
-    
+
     GAME_SESSIONS {
         uuid id PK
         uuid user_id FK
@@ -135,7 +141,7 @@ erDiagram
         timestamp started_at
         timestamp last_played
     }
-    
+
     SCORES {
         uuid id PK
         uuid user_id FK
@@ -144,7 +150,7 @@ erDiagram
         jsonb metadata
         timestamp achieved_at
     }
-    
+
     ACHIEVEMENTS {
         uuid id PK
         uuid game_id FK
@@ -153,14 +159,14 @@ erDiagram
         jsonb criteria
         string icon_url
     }
-    
+
     USER_ACHIEVEMENTS {
         uuid id PK
         uuid user_id FK
         uuid achievement_id FK
         timestamp unlocked_at
     }
-    
+
     USERS ||--o{ GAME_SESSIONS : plays
     USERS ||--o{ SCORES : achieves
     USERS ||--o{ USER_ACHIEVEMENTS : unlocks
@@ -168,6 +174,7 @@ erDiagram
     GAMES ||--o{ SCORES : records
     GAMES ||--o{ ACHIEVEMENTS : contains
     ACHIEVEMENTS ||--o{ USER_ACHIEVEMENTS : awarded
+
 ```
 
 ### 4.3.4. Scripts de Creación de Tablas
@@ -176,7 +183,8 @@ erDiagram
 <Tab title="Usuarios y Autenticación">
 
 ```sql
--- users.sql
+
+- - users.sql
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
@@ -206,18 +214,20 @@ CREATE TABLE user_sessions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Índices para usuarios
+- - Índices para usuarios
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_user_sessions_token ON user_sessions(token_hash);
 CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id);
+
 ```
 
 </Tab>
 <Tab title="Juegos y Metadatos">
 
 ```sql
--- games.sql
+
+- - games.sql
 CREATE TYPE game_status AS ENUM ('active', 'inactive', 'maintenance');
 CREATE TYPE console_type AS ENUM ('nes', 'snes', 'gameboy', 'genesis', 'arcade');
 
@@ -259,19 +269,21 @@ CREATE TABLE game_category_mappings (
     PRIMARY KEY (game_id, category_id)
 );
 
--- Índices para juegos
+- - Índices para juegos
 CREATE INDEX idx_games_slug ON games(slug);
 CREATE INDEX idx_games_console ON games(console);
 CREATE INDEX idx_games_status ON games(status);
 CREATE INDEX idx_games_genre ON games(genre);
 CREATE INDEX idx_games_title_search ON games USING gin(to_tsvector('english', title));
+
 ```
 
 </Tab>
 <Tab title="Sesiones y Puntuaciones">
 
 ```sql
--- game_sessions.sql
+
+- - game_sessions.sql
 CREATE TABLE game_sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -311,18 +323,20 @@ CREATE TABLE leaderboards (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Índices para sesiones y puntuaciones
+- - Índices para sesiones y puntuaciones
 CREATE INDEX idx_game_sessions_user_game ON game_sessions(user_id, game_id);
 CREATE INDEX idx_game_sessions_last_played ON game_sessions(last_played);
 CREATE INDEX idx_scores_game_score ON scores(game_id, score DESC);
 CREATE INDEX idx_scores_user_game ON scores(user_id, game_id);
+
 ```
 
 </Tab>
 <Tab title="Logros y Estadísticas">
 
 ```sql
--- achievements.sql
+
+- - achievements.sql
 CREATE TYPE achievement_type AS ENUM ('score', 'time', 'level', 'special', 'collection');
 
 CREATE TABLE achievements (
@@ -364,11 +378,12 @@ CREATE TABLE user_statistics (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Índices para logros
+- - Índices para logros
 CREATE INDEX idx_achievements_game ON achievements(game_id);
 CREATE INDEX idx_user_achievements_user ON user_achievements(user_id);
 CREATE INDEX idx_user_achievements_unlocked ON user_achievements(unlocked_at);
 CREATE INDEX idx_user_statistics_user ON user_statistics(user_id);
+
 ```
 
 </Tab>
@@ -408,7 +423,7 @@ class Migrator {
   async executeMigration(filename) {
     const migrationPath = path.join(this.migrationsPath, filename);
     const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
-    
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -426,13 +441,13 @@ class Migrator {
 
   async migrate() {
     await this.createMigrationsTable();
-    
+
     const migrationFiles = fs.readdirSync(this.migrationsPath)
       .filter(file => file.endsWith('.sql'))
       .sort();
-    
+
     const executedMigrations = await this.getExecutedMigrations();
-    const pendingMigrations = migrationFiles.filter(file => 
+    const pendingMigrations = migrationFiles.filter(file =>
       !executedMigrations.includes(file)
     );
 
@@ -445,6 +460,7 @@ class Migrator {
 }
 
 module.exports = Migrator;
+
 ```
 
 ### Ejemplos de Migraciones
@@ -453,17 +469,19 @@ module.exports = Migrator;
 <Tab title="Initial Schema">
 
 ```sql
--- migrations/001_initial_schema.sql
--- Crear extensiones necesarias
+
+- - migrations/001_initial_schema.sql
+
+- - Crear extensiones necesarias
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Crear tipos enumerados
+- - Crear tipos enumerados
 CREATE TYPE game_status AS ENUM ('active', 'inactive', 'maintenance');
 CREATE TYPE console_type AS ENUM ('nes', 'snes', 'gameboy', 'genesis', 'arcade');
 CREATE TYPE achievement_type AS ENUM ('score', 'time', 'level', 'special', 'collection');
 
--- Tabla de usuarios
+- - Tabla de usuarios
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -475,7 +493,7 @@ CREATE TABLE users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Tabla de juegos
+- - Tabla de juegos
 CREATE TABLE games (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     title VARCHAR(255) NOT NULL,
@@ -484,4 +502,5 @@ CREATE TABLE games (
     console console_type NOT NULL,
 </Tab>
 </Tabs>
+
 ```

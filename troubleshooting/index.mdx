@@ -18,34 +18,54 @@ Para cada problema, sigue el proceso: **Síntomas** → **Diagnóstico** → **S
 
 <Steps>
 <Step title="Identificación">
-**Recopila información inicial:**
+
+* *Recopila información inicial:**
+
 - ¿Cuándo comenzó el problema?
+
 - ¿Qué cambios se realizaron recientemente?
+
 - ¿El problema es intermitente o constante?
+
 - ¿Afecta a todos los usuarios o solo a algunos?
 </Step>
 
 <Step title="Diagnóstico">
-**Examina los logs y métricas:**
+
+* *Examina los logs y métricas:**
+
 - Revisa logs de aplicación y sistema
+
 - Verifica métricas de rendimiento
+
 - Comprueba el estado de los servicios
+
 - Analiza la conectividad de red
 </Step>
 
 <Step title="Solución">
-**Aplica la corrección apropiada:**
+
+* *Aplica la corrección apropiada:**
+
 - Implementa la solución paso a paso
+
 - Documenta los cambios realizados
+
 - Verifica que el problema se resolvió
+
 - Monitorea para asegurar estabilidad
 </Step>
 
 <Step title="Prevención">
-**Implementa medidas preventivas:**
+
+* *Implementa medidas preventivas:**
+
 - Actualiza documentación
+
 - Mejora monitoreo y alertas
+
 - Aplica mejores prácticas
+
 - Planifica capacitación del equipo
 </Step>
 </Steps>
@@ -55,7 +75,9 @@ Para cada problema, sigue el proceso: **Síntomas** → **Diagnóstico** → **S
 ### Comandos Esenciales
 
 <CodeGroup>
+
 ```bash Kubernetes
+
 # Estado general del cluster
 kubectl get pods -A
 kubectl get services -A
@@ -67,9 +89,11 @@ kubectl describe pod <pod-name> -n <namespace>
 
 # Eventos del cluster
 kubectl get events --sort-by=.metadata.creationTimestamp
+
 ```
 
 ```bash Aplicación
+
 # Logs de la aplicación
 docker logs <container-id> --tail 100 -f
 
@@ -80,9 +104,11 @@ systemctl status <service-name>
 ping <hostname>
 telnet <hostname> <port>
 nslookup <domain>
+
 ```
 
 ```bash Base de Datos
+
 # Conexión PostgreSQL
 psql -h <host> -U <user> -d <database>
 
@@ -91,7 +117,9 @@ SELECT * FROM pg_stat_activity;
 
 # Verificar locks
 SELECT * FROM pg_locks;
+
 ```
+
 </CodeGroup>
 
 ## Índice de Problemas por Categoría
@@ -130,35 +158,48 @@ Latencia, memoria y optimización
 <Accordion title="Diagnóstico Rápido">
 <Steps>
 <Step title="Verificar Pods">
+
 ```bash
 kubectl get pods -n retrogame
 kubectl describe pod <failing-pod> -n retrogame
+
 ```
+
 </Step>
 
 <Step title="Revisar Servicios">
+
 ```bash
 kubectl get services -n retrogame
 kubectl get ingress -n retrogame
+
 ```
+
 </Step>
 
 <Step title="Comprobar Logs">
+
 ```bash
 kubectl logs -f deployment/retrogame-backend -n retrogame
 kubectl logs -f deployment/retrogame-frontend -n retrogame
+
 ```
+
 </Step>
 
 <Step title="Verificar Conectividad">
+
 ```bash
+
 # Test interno del cluster
 kubectl run test-pod --image=busybox -it --rm -- /bin/sh
 nslookup retrogame-backend.retrogame.svc.cluster.local
 
 # Test externo
 curl -I https://your-domain.com
+
 ```
+
 </Step>
 </Steps>
 </Accordion>
@@ -168,32 +209,45 @@ curl -I https://your-domain.com
 <Accordion title="Pasos de Resolución">
 <Steps>
 <Step title="Estado del Pod PostgreSQL">
+
 ```bash
 kubectl get pods -l app=postgresql -n retrogame
 kubectl logs postgresql-0 -n retrogame
+
 ```
+
 </Step>
 
 <Step title="Verificar Configuración">
+
 ```bash
 kubectl get configmap postgres-config -n retrogame -o yaml
 kubectl get secret postgres-secret -n retrogame -o yaml
+
 ```
+
 </Step>
 
 <Step title="Test de Conectividad">
+
 ```bash
+
 # Desde pod de aplicación
 kubectl exec -it deployment/retrogame-backend -n retrogame -- \
   psql -h postgresql -U retrogame -d retrogame_db -c "SELECT 1;"
+
 ```
+
 </Step>
 
 <Step title="Revisar Recursos">
+
 ```bash
 kubectl top pods -n retrogame
 kubectl describe pvc postgres-pvc -n retrogame
+
 ```
+
 </Step>
 </Steps>
 </Accordion>
@@ -203,20 +257,29 @@ kubectl describe pvc postgres-pvc -n retrogame
 <Accordion title="Solución Paso a Paso">
 <Steps>
 <Step title="Verificar JWT">
+
 - Comprobar expiración de tokens
+
 - Validar configuración de secretos
+
 - Revisar algoritmos de firma
 </Step>
 
 <Step title="OAuth Issues">
+
 - Verificar configuración de providers
+
 - Comprobar URLs de callback
+
 - Validar client_id y client_secret
 </Step>
 
 <Step title="Permisos y Roles">
+
 - Revisar asignación de roles
+
 - Verificar políticas de acceso
+
 - Comprobar middleware de autorización
 </Step>
 </Steps>
@@ -237,8 +300,11 @@ kubectl describe pvc postgres-pvc -n retrogame
 
 <Warning>
 En caso de problemas críticos en producción, contacta inmediatamente:
+
 - **Lead Técnico**: [contacto]
+
 - **DevOps**: [contacto]
+
 - **On-Call**: [contacto de guardia]
 </Warning>
 
@@ -247,16 +313,20 @@ En caso de problemas críticos en producción, contacta inmediatamente:
 ### Ubicaciones de Logs
 
 <CodeGroup>
+
 ```bash Kubernetes
+
 # Logs de aplicación
 kubectl logs -f deployment/retrogame-backend -n retrogame
 kubectl logs -f deployment/retrogame-frontend -n retrogame
 
 # Logs de sistema
 kubectl logs -f daemonset/fluentd -n kube-system
+
 ```
 
 ```bash Sistema
+
 # Logs del sistema
 tail -f /var/log/syslog
 journalctl -f -u docker
@@ -264,15 +334,21 @@ journalctl -f -u docker
 # Logs de aplicación (si deployado con Docker)
 docker logs -f retrogame_backend
 docker logs -f retrogame_frontend
+
 ```
+
 </CodeGroup>
 
 ### Métricas Importantes
 
 - **CPU y Memoria**: Uso de recursos por pod
+
 - **Red**: Latencia y throughput
+
 - **Base de Datos**: Conexiones activas y queries lentas
+
 - **Almacenamiento**: Uso de disco y I/O
+
 - **Aplicación**: Rate de errores y tiempo de respuesta
 
 ## Recursos Adicionales
@@ -299,14 +375,17 @@ Información de contacto y escalado
 Mantén estos scripts a mano para diagnósticos rápidos:
 
 ```bash
+
 # health-check.sh - Verificación rápida del sistema
 #!/bin/bash
 echo "=== RetroGameCloud Health Check ==="
 kubectl get pods -n retrogame
 kubectl get services -n retrogame
 curl -s -o /dev/null -w "%{http_code}" https://your-domain.com/health
+
 ```
 
 <Note>
-**Recuerda**: La documentación de cada problema específico se encuentra en las páginas dedicadas de cada categoría. Esta página sirve como punto de entrada y referencia general.
+
+* *Recuerda**: La documentación de cada problema específico se encuentra en las páginas dedicadas de cada categoría. Esta página sirve como punto de entrada y referencia general.
 </Note>

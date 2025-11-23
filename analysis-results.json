@@ -1,105 +1,28 @@
 {
-  "analysis_summary": "Documentación sólida con 50 archivos. Requiere consolidación de duplicados en troubleshooting, API reference y database. Faltan diagramas AWS.",
-  "overall_score": 7.8,
+  "analysis_summary": "Documentación sólida (7/10 criterios). Necesita: consolidar duplicados API, completar diagramas AWS, mejorar DR con escenarios reales",
+  "overall_score": 8.2,
   "improvements": [
     {
       "priority": "high",
       "category": "structure",
-      "title": "Consolidar documentación de base de datos duplicada",
-      "description": "Fusionar database.mdx, database-complete.mdx y database-schema.mdx en un único archivo authoritative. Eliminar redundancia y mantener versión completa.",
+      "title": "Consolidar documentación API duplicada",
+      "description": "Fusionar api-reference/auth-service.mdx con docs/api/auth-register.mdx y eliminar duplicados en endpoints de autenticación",
       "files_to_create": [],
       "files_to_modify": [
-        "infrastructure/database-complete.mdx"
+        "api-reference/auth-service.mdx"
       ],
       "files_to_delete": [
-        "infrastructure/database.mdx",
-        "infrastructure/database-schema.mdx"
+        "docs/api/auth-register.mdx"
       ],
       "proposed_content": "",
       "mermaid_diagram": "",
-      "rationale": "3 archivos documentan lo mismo. Consolidar en database-complete.mdx como fuente única."
-    },
-    {
-      "priority": "high",
-      "category": "structure",
-      "title": "Consolidar troubleshooting disperso",
-      "description": "Fusionar troubleshooting.mdx raíz con troubleshooting/index.mdx. Eliminar duplicación y mantener estructura organizada por categorías en carpeta.",
-      "files_to_create": [],
-      "files_to_modify": [
-        "troubleshooting/index.mdx"
-      ],
-      "files_to_delete": [
-        "troubleshooting.mdx"
-      ],
-      "proposed_content": "",
-      "mermaid_diagram": "",
-      "rationale": "Contenido duplicado entre raíz y carpeta. Mantener solo versión organizada en carpeta."
-    },
-    {
-      "priority": "high",
-      "category": "structure",
-      "title": "Eliminar endpoints genéricos de API reference",
-      "description": "Borrar api-reference/endpoint/* (get, create, delete, webhook). Son plantillas sin personalizar que no corresponden a servicios reales del sistema.",
-      "files_to_create": [],
-      "files_to_modify": [],
-      "files_to_delete": [
-        "api-reference/endpoint/get.mdx",
-        "api-reference/endpoint/create.mdx",
-        "api-reference/endpoint/delete.mdx",
-        "api-reference/endpoint/webhook.mdx"
-      ],
-      "proposed_content": "",
-      "mermaid_diagram": "",
-      "rationale": "Endpoints genéricos no reflejan arquitectura real. Mantener solo endpoints específicos."
-    },
-    {
-      "priority": "high",
-      "category": "structure",
-      "title": "Consolidar documentación de migraciones de BD",
-      "description": "Fusionar database-migrations.mdx y database-migrations-guide.mdx en un único archivo completo con procedimientos y ejemplos.",
-      "files_to_create": [],
-      "files_to_modify": [
-        "infrastructure/database-migrations-guide.mdx"
-      ],
-      "files_to_delete": [
-        "infrastructure/database-migrations.mdx"
-      ],
-      "proposed_content": "",
-      "mermaid_diagram": "",
-      "rationale": "Contenido solapado sobre migraciones. Unificar en guía completa."
-    },
-    {
-      "priority": "high",
-      "category": "content",
-      "title": "Añadir numeración 4.X a todos los archivos de infrastructure/",
-      "description": "Aplicar numeración consistente 4.1, 4.2, etc. a todos los archivos de infrastructure/ que carecen de prefijo numérico en títulos.",
-      "files_to_create": [],
-      "files_to_modify": [
-        "infrastructure/overview.mdx",
-        "infrastructure/eks-cluster.mdx",
-        "infrastructure/networking.mdx",
-        "infrastructure/database-complete.mdx",
-        "infrastructure/monitoring.mdx",
-        "infrastructure/security.mdx",
-        "infrastructure/backup-recovery.mdx",
-        "infrastructure/disaster-recovery-playbook.mdx",
-        "infrastructure/runbooks.mdx",
-        "infrastructure/secrets-management.mdx",
-        "infrastructure/logging.mdx",
-        "infrastructure/observabilidad.mdx",
-        "infrastructure/alerting.mdx",
-        "infrastructure/scaling-guide.mdx",
-        "infrastructure/cost-optimization.mdx"
-      ],
-      "proposed_content": "",
-      "mermaid_diagram": "",
-      "rationale": "Consistencia en numeración X.Y. requerida para score 9+. Sección 4 = Infraestructura."
+      "rationale": "Elimina duplicación entre /api-reference y /docs/api, mejora navegación"
     },
     {
       "priority": "high",
       "category": "diagrams",
-      "title": "Crear diagrama de topología AWS completo en aws-topology.mdx",
-      "description": "Añadir diagrama Mermaid detallado mostrando VPC, subnets, EKS, RDS, ElastiCache, ALB, Route53, CloudFront y flujos de red.",
+      "title": "Añadir diagrama topología AWS completo",
+      "description": "Completar infrastructure/aws-topology.mdx con diagrama Mermaid detallado: VPC, subnets, EKS, RDS, ElastiCache, ALB, Route53, CloudFront",
       "files_to_create": [],
       "files_to_modify": [
         "infrastructure/aws-topology.mdx"
@@ -107,31 +30,27 @@
       "files_to_delete": [],
       "proposed_content": "",
       "mermaid_diagram": "",
-      "rationale": "Falta visualización completa de infraestructura AWS. Crítico para arquitectos."
+      "rationale": "Criterio #2: diagramas AWS completos para score 9.0+"
     },
     {
-      "priority": "medium",
-      "category": "structure",
-      "title": "Consolidar documentación de API duplicada",
-      "description": "Fusionar api-reference/backend-main.mdx, infrastructure-docs.mdx e infrastructure.mdx. Eliminar redundancia y mantener estructura clara.",
+      "priority": "high",
+      "category": "content",
+      "title": "Enriquecer DR con escenarios específicos",
+      "description": "Ampliar infrastructure/disaster-recovery-playbook.mdx: RTO/RPO por servicio, runbooks de recuperación EKS/RDS/Redis, simulacros trimestrales",
       "files_to_create": [],
       "files_to_modify": [
-        "api-reference/introduction.mdx"
+        "infrastructure/disaster-recovery-playbook.mdx"
       ],
-      "files_to_delete": [
-        "api-reference/backend-main.mdx",
-        "api-reference/infrastructure-docs.mdx",
-        "api-reference/infrastructure.mdx"
-      ],
+      "files_to_delete": [],
       "proposed_content": "",
       "mermaid_diagram": "",
-      "rationale": "Múltiples archivos documentan estructura de API. Consolidar en introduction.mdx."
+      "rationale": "Criterio #6: DR enterprise con métricas y procedimientos ejecutables"
     },
     {
-      "priority": "medium",
+      "priority": "high",
       "category": "content",
-      "title": "Añadir schemas OpenAPI completos a endpoints de API",
-      "description": "Incluir request/response schemas JSON Schema en auth/login.mdx, auth/register.mdx, scores/submit.mdx, games/list.mdx con validaciones.",
+      "title": "Completar ejemplos curl en endpoints API",
+      "description": "Añadir ejemplos curl completos con headers JWT, payloads y respuestas en api-reference/auth/*.mdx, scores/*.mdx, games/*.mdx, rankings/*.mdx",
       "files_to_create": [],
       "files_to_modify": [
         "api-reference/auth/login.mdx",
@@ -142,72 +61,116 @@
       "files_to_delete": [],
       "proposed_content": "",
       "mermaid_diagram": "",
-      "rationale": "Schemas OpenAPI completos requeridos para score 9+. Facilita integración."
+      "rationale": "Criterio #3: APIs con ejemplos ejecutables completos"
     },
     {
       "priority": "medium",
-      "category": "content",
-      "title": "Completar disaster-recovery-playbook con RTO/RPO y tests",
-      "description": "Añadir objetivos RTO/RPO específicos, procedimientos de test trimestral y checklist de validación post-recuperación.",
-      "files_to_create": [],
-      "files_to_modify": [
-        "infrastructure/disaster-recovery-playbook.mdx"
-      ],
-      "files_to_delete": [],
-      "proposed_content": "",
-      "mermaid_diagram": "",
-      "rationale": "DR debe ser testeable con métricas claras. Crítico para producción enterprise."
-    },
-    {
-      "priority": "medium",
-      "category": "content",
-      "title": "Añadir guía de onboarding paso a paso en development/",
-      "description": "Completar onboarding-guide.mdx con checklist día 1-30, accesos necesarios, setup completo y primeras tareas para nuevos devs.",
-      "files_to_create": [],
-      "files_to_modify": [
-        "development/onboarding-guide.mdx"
-      ],
-      "files_to_delete": [],
-      "proposed_content": "",
-      "mermaid_diagram": "",
-      "rationale": "Guía end-to-end para nuevos desarrolladores requerida para score 9+."
-    },
-    {
-      "priority": "low",
-      "category": "quality",
-      "title": "Eliminar archivos de reporte temporal",
-      "description": "Borrar AUTO_FIXES_REPORT.md, BROKEN_LINKS_REPORT.md, STRUCTURE_CHANGELOG.md y CHANGELOG_WIKI_2025-11-20.md. Son reportes temporales.",
+      "category": "structure",
+      "title": "Eliminar directorio docs/api redundante",
+      "description": "Mover contenido útil de docs/api/ a api-reference/ y eliminar directorio docs/ completo para simplificar estructura",
       "files_to_create": [],
       "files_to_modify": [],
       "files_to_delete": [
-        "AUTO_FIXES_REPORT.md",
-        "BROKEN_LINKS_REPORT.md",
-        "STRUCTURE_CHANGELOG.md",
-        "CHANGELOG_WIKI_2025-11-20.md"
+        "docs/api/auth-register.mdx"
       ],
       "proposed_content": "",
       "mermaid_diagram": "",
-      "rationale": "Reportes temporales no pertenecen a documentación final. Mantener limpieza."
+      "rationale": "Estructura más limpia, evita confusión entre /docs y /api-reference"
+    },
+    {
+      "priority": "medium",
+      "category": "diagrams",
+      "title": "Añadir diagrama flujo CI/CD completo",
+      "description": "Crear diagrama Mermaid en cicd/github-actions.mdx: commit → build → test → scan → push ECR → ArgoCD sync → deploy EKS → smoke tests",
+      "files_to_create": [],
+      "files_to_modify": [
+        "cicd/github-actions.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "",
+      "mermaid_diagram": "",
+      "rationale": "Visualiza pipeline completo para desarrolladores y operaciones"
+    },
+    {
+      "priority": "medium",
+      "category": "content",
+      "title": "Añadir sección troubleshooting a cada servicio",
+      "description": "Incluir subsección Problemas Comunes en services/*.mdx: errores típicos, logs relevantes, soluciones rápidas específicas del servicio",
+      "files_to_create": [],
+      "files_to_modify": [
+        "services/auth-service.mdx",
+        "services/user-service.mdx",
+        "services/game-catalog.mdx",
+        "services/score-service.mdx",
+        "services/ranking-service.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "",
+      "mermaid_diagram": "",
+      "rationale": "Mejora experiencia desarrollador, reduce tiempo resolución incidencias"
+    },
+    {
+      "priority": "medium",
+      "category": "quality",
+      "title": "Estandarizar formato numeración en títulos",
+      "description": "Verificar que TODOS los archivos .mdx usen formato X.Y. Título en frontmatter title, corregir inconsistencias detectadas",
+      "files_to_create": [],
+      "files_to_modify": [
+        "frontend/overview.mdx",
+        "frontend/jsdos-integration.mdx",
+        "ai-tools/claude-code.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "",
+      "mermaid_diagram": "",
+      "rationale": "Criterio #8: numeración consistente en toda la documentación"
+    },
+    {
+      "priority": "low",
+      "category": "content",
+      "title": "Añadir métricas SLI/SLO por servicio",
+      "description": "Documentar en services/overview.mdx: latencia p95, disponibilidad objetivo, tasa error aceptable por microservicio",
+      "files_to_create": [],
+      "files_to_modify": [
+        "services/overview.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "",
+      "mermaid_diagram": "",
+      "rationale": "Establece expectativas claras de rendimiento y calidad de servicio"
+    },
+    {
+      "priority": "low",
+      "category": "diagrams",
+      "title": "Crear diagrama arquitectura frontend",
+      "description": "Añadir diagrama en frontend/overview.mdx: React components, js-dos integration, API calls, state management, routing",
+      "files_to_create": [],
+      "files_to_modify": [
+        "frontend/overview.mdx"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "",
+      "mermaid_diagram": "",
+      "rationale": "Completa visión arquitectura completa incluyendo capa presentación"
     }
   ],
   "new_sections": [],
   "diagrams_needed": [
-    "Diagrama de topología AWS completa con VPC, subnets y servicios",
-    "Diagrama de flujo de datos entre microservicios y bases de datos",
-    "Diagrama de arquitectura de seguridad con capas y controles",
-    "Diagrama de pipeline CI/CD completo desde commit hasta producción"
+    "Topología AWS completa con VPC/subnets/security groups",
+    "Flujo CI/CD end-to-end con GitHub Actions y ArgoCD",
+    "Arquitectura frontend React con integración js-dos",
+    "Diagrama recuperación desastres con tiempos RTO/RPO"
   ],
   "quick_wins": [
-    "Eliminar 4 endpoints genéricos de api-reference/endpoint/",
-    "Borrar 4 archivos de reportes temporales en raíz",
-    "Consolidar database.mdx y database-schema.mdx en database-complete.mdx",
-    "Fusionar troubleshooting.mdx raíz con troubleshooting/index.mdx"
+    "Añadir ejemplos curl a 15 endpoints API existentes",
+    "Eliminar directorio docs/api duplicado",
+    "Estandarizar numeración en 3 archivos frontend/ai-tools",
+    "Completar diagrama AWS en aws-topology.mdx existente"
   ],
   "critical_gaps": [
-    "Falta diagrama de topología AWS completo con todos los servicios",
-    "Schemas OpenAPI incompletos en endpoints de API",
-    "DR playbook sin RTO/RPO específicos ni procedimientos de test",
-    "Numeración inconsistente en sección infrastructure (falta 4.X)",
-    "Onboarding guide sin checklist detallado día a día"
+    "Ejemplos curl ejecutables en endpoints API",
+    "Diagramas arquitectura AWS detallados",
+    "Escenarios DR con RTO/RPO específicos",
+    "Métricas SLI/SLO por microservicio"
   ]
 }

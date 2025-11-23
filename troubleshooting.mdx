@@ -1,6 +1,7 @@
 ---
 title: 8.4. Solución de Problemas Comunes
-description: Guía completa de resolución de problemas en Retro Game Hub para desarrollo y producción
+description: Guía completa de resolución de problemas en Retro Game Hub para desarrollo
+  y producción
 icon: file-lines
 ---
 
@@ -8,7 +9,7 @@ icon: file-lines
 
 Guía completa para diagnosticar y resolver problemas comunes en Retro Game Hub en entornos de desarrollo y producción.
 
----
+- --
 
 ## 🏠 Entorno de Desarrollo
 
@@ -16,13 +17,18 @@ Guía completa para diagnosticar y resolver problemas comunes en Retro Game Hub 
 
 #### 1. Juego No Carga
 
-**Síntomas:**
+* *Síntomas:**
+
 - Pantalla negra después de seleccionar juego
+
 - Mensaje "Error loading game"
+
 - Barra de progreso se queda congelada
 
-**Diagnóstico:**
+* *Diagnóstico:**
+
 ```bash
+
 # 1. Verificar que el archivo .jsdos existe localmente
 ls -la public/juegos/
 
@@ -33,10 +39,13 @@ chmod 644 public/juegos/*.jsdos
 curl -I http://localhost:3000/juegos/doom.jsdos
 
 # 4. Verificar consola del navegador
+
 # F12 > Console > buscar errores de CORS o 404
+
 ```
 
-**Soluciones:**
+* *Soluciones:**
+
 - **A. Archivo no encontrado (404)**
   ```bash
   # Verificar que el archivo existe
@@ -65,19 +74,23 @@ curl -I http://localhost:3000/juegos/doom.jsdos
   ```javascript
   // Verificar en consola del navegador
   console.log(typeof Dos); // Debe ser 'function'
-  
+
   // Si es undefined, verificar que js-dos.js está cargado
   <script src="/jsdos/js-dos.js"></script>
   ```
 
 #### 2. Problemas de Performance
 
-**Síntomas:**
+* *Síntomas:**
+
 - Juego se ejecuta muy lento
+
 - Audio entrecortado
+
 - Controles con retraso
 
-**Soluciones:**
+* *Soluciones:**
+
 ```javascript
 // Ajustar configuración de js-dos
 const dosOptions = {
@@ -86,19 +99,25 @@ const dosOptions = {
   autolock: false,     // Desactivar para debugging
   aspectRatio: "keep"
 };
+
 ```
 
 ### 🔐 Problemas de Autenticación
 
 #### Error de Login
 
-**Síntomas:**
+* *Síntomas:**
+
 - Login falla con credenciales correctas
+
 - Error "Invalid credentials"
+
 - Redirección incorrecta después del login
 
-**Diagnóstico:**
+* *Diagnóstico:**
+
 ```bash
+
 # Verificar variables de entorno
 echo $NEXTAUTH_URL
 echo $NEXTAUTH_SECRET
@@ -108,10 +127,13 @@ npx prisma studio
 
 # Verificar logs de NextAuth
 DEBUG=nextauth* npm run dev
+
 ```
 
-**Soluciones:**
+* *Soluciones:**
+
 ```bash
+
 # 1. Configurar variables de entorno
 cat > .env.local <<EOF
 NEXTAUTH_URL=http://localhost:3000
@@ -123,14 +145,17 @@ EOF
 npx prisma migrate reset
 npx prisma generate
 npx prisma db push
+
 ```
 
 ### 🗄️ Problemas de Base de Datos
 
 #### Conexión Fallida
 
-**Diagnóstico:**
+* *Diagnóstico:**
+
 ```bash
+
 # Verificar que PostgreSQL está corriendo
 pg_isready -h localhost -p 5432
 
@@ -139,10 +164,13 @@ psql postgresql://user:pass@localhost:5432/retrogame
 
 # Verificar logs de Prisma
 npx prisma db pull --preview-feature
+
 ```
 
-**Soluciones:**
+* *Soluciones:**
+
 ```bash
+
 # Iniciar PostgreSQL (macOS)
 brew services start postgresql
 
@@ -154,14 +182,17 @@ createdb retrogame
 
 # Aplicar migraciones
 npx prisma migrate deploy
+
 ```
 
 ### 📦 Problemas de Dependencias
 
 #### Error de Instalación
 
-**Diagnóstico:**
+* *Diagnóstico:**
+
 ```bash
+
 # Limpiar cache
 rm -rf node_modules package-lock.json
 npm cache clean --force
@@ -172,10 +203,13 @@ npm --version
 
 # Instalar con logs verbosos
 npm install --verbose
+
 ```
 
-**Soluciones:**
+* *Soluciones:**
+
 ```bash
+
 # Usar versión correcta de Node
 nvm use 18
 nvm install 18
@@ -185,9 +219,10 @@ npm ci
 
 # Si persisten errores, usar yarn
 yarn install
+
 ```
 
----
+- --
 
 ## 🚀 Entorno de Producción
 
@@ -195,13 +230,18 @@ yarn install
 
 #### 1. Juego No Carga en Producción
 
-**Síntomas:**
+* *Síntomas:**
+
 - Funciona en desarrollo pero no en producción
+
 - Error 403/404 al cargar .jsdos
+
 - CORS errors en consola
 
-**Diagnóstico:**
+* *Diagnóstico:**
+
 ```bash
+
 # 1. Verificar que el archivo existe en S3
 aws s3 ls s3://retrogame-cdn-production/juegos/
 
@@ -220,18 +260,19 @@ curl -H "Origin: https://retrogamehub.games" \
      -H "Access-Control-Request-Headers: X-Requested-With" \
      -X OPTIONS \
      https://cdn.retrogamehub.games/juegos/doom.jsdos
+
 ```
 
-**Soluciones:**
+* *Soluciones:**
 
 - **A. Archivo no encontrado (404)**
   ```bash
   # Subir el archivo faltante
   aws s3 cp doom.jsdos s3://retrogame-cdn-production/juegos/
-  
+
   # Verificar que se subió correctamente
   aws s3 ls s3://retrogame-cdn-production/juegos/doom.jsdos
-  
+
   # Invalidar caché de CloudFront
   aws cloudfront create-invalidation \
     --distribution-id E1XXXXXXXXXXXXX \
@@ -242,7 +283,7 @@ curl -H "Origin: https://retrogamehub.games" \
   ```bash
   # Verificar configuración CORS actual
   aws s3api get-bucket-cors --bucket retrogame-cdn-production
-  
+
   # Aplicar política CORS correcta
   cat > cors.json <<EOF
   {
@@ -257,7 +298,7 @@ curl -H "Origin: https://retrogamehub.games" \
     }]
   }
   EOF
-  
+
   aws s3api put-bucket-cors \
     --bucket retrogame-cdn-production \
     --cors-configuration file://cors.json
@@ -281,13 +322,18 @@ curl -H "Origin: https://retrogamehub.games" \
 
 #### 2. CloudFront Issues
 
-**Síntomas:**
+* *Síntomas:**
+
 - Contenido desactualizado
+
 - Errores intermitentes
+
 - Performance lenta
 
-**Diagnóstico:**
+* *Diagnóstico:**
+
 ```bash
+
 # Verificar estado de distribución
 aws cloudfront get-distribution --id E1XXXXXXXXXXXXX
 
@@ -297,10 +343,13 @@ aws cloudfront list-invalidations --distribution-id E1XXXXXXXXXXXXX
 # Probar desde diferentes regiones
 curl -I -H "CloudFront-Viewer-Country: US" \
   https://cdn.retrogamehub.games/juegos/doom.jsdos
+
 ```
 
-**Soluciones:**
+* *Soluciones:**
+
 ```bash
+
 # Invalidar caché completo
 aws cloudfront create-invalidation \
   --distribution-id E1XXXXXXXXXXXXX \
@@ -310,14 +359,17 @@ aws cloudfront create-invalidation \
 aws cloudfront get-distribution-config \
   --id E1XXXXXXXXXXXXX \
   --query 'DistributionConfig.DefaultCacheBehavior'
+
 ```
 
 ### 🔒 Problemas de SSL/TLS
 
 #### Certificado Expirado
 
-**Diagnóstico:**
+* *Diagnóstico:**
+
 ```bash
+
 # Verificar certificado
 openssl s_client -connect retrogamehub.games:443 -servername retrogamehub.games
 
@@ -326,10 +378,13 @@ aws acm list-certificates --region us-east-1
 
 # Verificar fecha de expiración
 curl -vI https://retrogamehub.games 2>&1 | grep -i expire
+
 ```
 
-**Soluciones:**
+* *Soluciones:**
+
 ```bash
+
 # Renovar certificado (si es manual)
 aws acm request-certificate \
   --domain-name retrogamehub.games \
@@ -340,46 +395,55 @@ aws acm request-certificate \
 aws cloudfront update-distribution \
   --id E1XXXXXXXXXXXXX \
   --distribution-config file://new-cert-config.json
+
 ```
 
 ### 🗄️ Problemas de Base de Datos en Producción
 
 #### Conexión Lenta/Timeout
 
-**Diagnóstico:**
+* *Diagnóstico:**
+
 ```bash
+
 # Verificar conexiones activas
 SELECT count(*) FROM pg_stat_activity;
 
 # Verificar queries lentas
-SELECT query, mean_time, calls 
-FROM pg_stat_statements 
-ORDER BY mean_time DESC 
+SELECT query, mean_time, calls
+FROM pg_stat_statements
+ORDER BY mean_time DESC
 LIMIT 10;
 
 # Verificar locks
 SELECT * FROM pg_locks WHERE NOT granted;
+
 ```
 
-**Soluciones:**
+* *Soluciones:**
+
 ```sql
--- Optimizar conexiones
+
+- - Optimizar conexiones
 ALTER SYSTEM SET max_connections = 100;
 ALTER SYSTEM SET shared_buffers = '256MB';
 
--- Terminar conexiones colgadas
-SELECT pg_terminate_backend(pid) 
-FROM pg_stat_activity 
-WHERE state = 'idle' 
+- - Terminar conexiones colgadas
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE state = 'idle'
 AND state_change < current_timestamp - INTERVAL '1 hour';
+
 ```
 
 ### 📊 Problemas de Performance
 
 #### Carga Lenta
 
-**Diagnóstico:**
+* *Diagnóstico:**
+
 ```bash
+
 # Verificar métricas de CloudWatch
 aws cloudwatch get-metric-statistics \
   --namespace AWS/ApplicationELB \
@@ -396,9 +460,11 @@ aws logs filter-log-events \
 
 # Analizar bundle size
 npm run analyze
+
 ```
 
-**Soluciones:**
+* *Soluciones:**
+
 ```javascript
 // Optimizar imports
 import dynamic from 'next/dynamic';
@@ -419,15 +485,17 @@ import Image from 'next/image';
   priority={false}
   loading="lazy"
 />
+
 ```
 
----
+- --
 
 ## 🔧 Herramientas de Debugging
 
 ### Logs y Monitoreo
 
 ```bash
+
 # Logs de desarrollo
 npm run dev 2>&1 | tee debug.log
 
@@ -439,12 +507,14 @@ aws logs tail /aws/lambda/retrogame-api --follow
 
 # Monitoreo en tiempo real
 npx @next/bundle-analyzer
+
 ```
 
 ### Scripts de Diagnóstico
 
 ```bash
 #!/bin/bash
+
 # check-health.sh
 
 echo "🔍 Verificando salud del sistema..."
@@ -462,44 +532,58 @@ curl -I https://retrogamehub.games/api/health || echo "❌ API no responde"
 psql $DATABASE_URL -c "SELECT 1;" || echo "❌ Base de datos no accesible"
 
 echo "✅ Verificación completada"
+
 ```
 
----
+- --
 
 ## 📞 Escalación de Problemas
 
 ### Niveles de Severidad
 
-**🔴 Crítico (P0)**
+* *🔴 Crítico (P0)**
+
 - Sitio completamente inaccesible
+
 - Pérdida de datos
+
 - Vulnerabilidad de seguridad activa
 
-**🟡 Alto (P1)**
+* *🟡 Alto (P1)**
+
 - Funcionalidad principal no disponible
+
 - Performance severamente degradada
+
 - Errores que afectan a >50% de usuarios
 
-**🟢 Medio (P2)**
+* *🟢 Medio (P2)**
+
 - Funcionalidades secundarias afectadas
+
 - Problemas de UX menores
+
 - Errores intermitentes
 
-**🔵 Bajo (P3)**
+* *🔵 Bajo (P3)**
+
 - Mejoras cosméticas
+
 - Optimizaciones
+
 - Documentación
 
 ### Contactos de Emergencia
 
 ```yaml
+
 # contacts.yml
 production_issues:
   - role: "Lead Developer"
     contact: "dev@retrogamehub.games"
     phone: "+1-xxx-xxx-xxxx"
-    
-  - role: "DevOps Engineer" 
+
+  - role: "DevOps Engineer"
     contact: "devops@retrogamehub.games"
     phone: "+1-xxx-xxx-xxxx"
 
@@ -507,46 +591,52 @@ infrastructure:
   - service: "AWS Support"
     tier: "Business"
     case_url: "https://console.aws.amazon.com/support/"
-  
+
   - service: "Vercel Support"
     tier: "Pro"
     contact: "support@vercel.com"
+
 ```
 
----
+- --
 
 ## 📝 Reporting de Bugs
 
 ### Template de Reporte
 
 ```markdown
+
 ## 🐛 Bug Report
 
-**Descripción:**
+* *Descripción:**
 Descripción clara del problema
 
-**Pasos para Reproducir:**
+* *Pasos para Reproducir:**
 1. Ve a '...'
 2. Haz clic en '....'
 3. Desplázate hacia abajo hasta '....'
 4. Ver error
 
-**Comportamiento Esperado:**
+* *Comportamiento Esperado:**
 Descripción de lo que esperabas que ocurriera
 
-**Comportamiento Actual:**
+* *Comportamiento Actual:**
 Descripción de lo que realmente ocurre
 
-**Capturas de Pantalla:**
+* *Capturas de Pantalla:**
 Si aplica, adjuntar capturas
 
-**Información del Sistema:**
+* *Información del Sistema:**
+
 - OS: [e.g. macOS 14.0]
+
 - Browser: [e.g. Chrome 120.0]
+
 - Versión: [e.g. 1.2.0]
 
-**Información Adicional:**
+* *Información Adicional:**
 Cualquier otro contexto sobre el problema
+
 ```
 
 ### Logs Útiles
@@ -556,4 +646,5 @@ Cualquier otro contexto sobre el problema
 console.group('🎮 Game Loading Debug');
 console.log('Game URL:', gameUrl);
 console.log('js-dos loaded:', typeof Dos !== 'undefine
+
 ```

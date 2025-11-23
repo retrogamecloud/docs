@@ -1,6 +1,6 @@
 ---
 title: 4.1. Visión General del Frontend
-description: Interfaz de usuario retro para jugar juegos clásicos de DOS
+description: Interfaz de usuario retro para jugar juegos clásicos de DOS con arquitectura de componentes moderna
 icon: display
 ---
 
@@ -44,13 +44,159 @@ CDN:
   - Nginx para juegos (.jsdos)
   - CloudFront para distribución global
   - Cache agresivo de assets
+```
 
+## Arquitectura de Componentes
+
+```mermaid
+graph TB
+    subgraph "Frontend Architecture"
+        A[index.html - Landing Page] --> B[AuthManager]
+        A --> C[UIComponents]
+        
+        D[games.html - Game Selection] --> E[GameGrid]
+        D --> F[GameFilters]
+        
+        G[Game Player] --> H[js-dos Integration]
+        G --> I[ScoreTracker]
+        
+        B --> J[API Client]
+        I --> J
+        E --> J
+        
+        J --> K[Auth Service API]
+        J --> L[Games Service API]
+        J --> M[Scores Service API]
+        
+        H --> N[DOSBox WebAssembly]
+        H --> O[Game ROMs CDN]
+    end
+    
+    subgraph "State Management"
+        P[LocalStorage]
+        Q[SessionStorage]
+        R[Memory State]
+        
+        B --> P
+        I --> Q
+        E --> R
+    end
+    
+    subgraph "Routing"
+        S[Hash-based Router]
+        T[Page Navigation]
+        U[Game Loading]
+        
+        S --> T
+        S --> U
+    end
+```
+
+## Flujo de Datos y API Calls
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant F as Frontend
+    participant A as Auth API
+    participant G as Games API
+    participant S as Scores API
+    participant C as CDN
+    
+    Note over U,C: Authentication Flow
+    U->>F: Login/Register
+    F->>A: POST /auth/login
+    A->>F: JWT Token
+    F->>F: Store in localStorage
+    
+    Note over U,C: Game Selection Flow
+    F->>G: GET /games (with JWT)
+    G->>F: Games list + metadata
+    F->>F: Render game grid
+    
+    Note over U,C: Game Loading Flow
+    U->>F: Select game
+    F->>C: Request .jsdos file
+    C->>F: Game ROM data
+    F->>F: Initialize js-dos
+    F->>F: Mount DOSBox
+    
+    Note over U,C: Score Tracking Flow
+    F->>F: Monitor game events
+    F->>S: POST /scores/update
+    S->>F: Updated leaderboard
+    F->>F: Update UI rankings
+```
+
+## Gestión de Estado
+
+```mermaid
+graph LR
+    subgraph "Authentication State"
+        A1[User Token] --> A2[LocalStorage]
+        A3[Login Status] --> A4[Memory]
+        A5[User Profile] --> A2
+    end
+    
+    subgraph "Game State"
+        G1[Current Game] --> G2[SessionStorage]
+        G3[Game Progress] --> G2
+        G4[Save States] --> G5[IndexedDB]
+    end
+    
+    subgraph "UI State"
+        U1[Active Page] --> U2[Hash Router]
+        U3[Modal States] --> U4[Memory]
+        U5[Loading States] --> U4
+    end
+    
+    subgraph "Score State"
+        S1[Current Score] --> S2[Memory]
+        S2 --> S3[Real-time Updates]
+        S4[Leaderboards] --> S5[SessionStorage]
+    end
+```
+
+## Integración js-dos
+
+```mermaid
+graph TB
+    subgraph "js-dos Integration Layer"
+        A[Game Loader] --> B[DOSBox WASM]
+        A --> C[File System Mount]
+        A --> D[Input Handler]
+        
+        B --> E[DOS Environment]
+        C --> F[Virtual Drive C:]
+        D --> G[Keyboard/Mouse Events]
+        
+        E --> H[Game Execution]
+        F --> H
+        G --> H
+        
+        H --> I[Screen Buffer]
+        H --> J[Audio Buffer]
+        H --> K[Game Events]
+        
+        I --> L[Canvas Renderer]
+        J --> M[Audio Context]
+        K --> N[Score Tracker]
+    end
+    
+    subgraph "Performance Optimization"
+        O[WebWorker Thread]
+        P[Shared Array Buffer]
+        Q[Memory Pool]
+        
+        B --> O
+        E --> P
+        F --> Q
+    end
 ```
 
 ## Estructura de Archivos
 
 ```
-
 frontend/
 ├── server.js              # Express server
 ├── package.json          # Dependencias
@@ -59,12 +205,18 @@ frontend/
 ├── games.html         # Game selection grid
 ├── health.html       # Health check page
 ├── retro.css        # Estilos retro globales
+├── js/
+│   ├── auth-manager.js    # Gestión de autenticación
+│   ├── game-loader.js     # Carga y inicialización de juegos
+│   ├── api-client.js      # Cliente para APIs
+│   ├── router.js          # Enrutamiento hash-based
+│   ├── ui-components.js   # Componentes UI reutilizables
+│   └── state-manager.js   # Gestión de estado global
 ├── score-tracker.js # Gestión de puntuaciones
 └── jsdos/          # js-dos library
     ├── js-dos.js
     ├── wdosbox.js
     └── emulators/
-
 ```
 
 ## Páginas Principales
@@ -75,42 +227,18 @@ frontend/
 
 La página principal incluye:
 
-* *Características:**
+**Características:**
 
 - Sistema de login/registro con JWT
-
 - Validación de formularios en tiempo real
-
 - Diseño responsive con grid animado
+- Efecto CRT con scanlines
+- Transiciones suaves entre estados
 
-- Efecto CRT con scanlines y flicker
-
-- Modal para entrar credenciales
-
-* *Funcionalidades:**
-
-```javascript
-// Autenticación
-
-- Login: POST /api/auth/login
-
-- Register: POST /api/auth/register
-
-- Token almacenado en localStorage
-
-- Auto-redirect a games.html si autenticado
-
-// Validaciones
-
-- Email formato válido
-
-- Username: 3-20 caracteres
-
-- Password: mínimo 6 caracteres
-
-- Confirmación de password
-
-```
+**Componentes:**
+- `AuthForm`: Formularios de login/registro
+- `WelcomeScreen`: Pantalla de bienvenida
+- `LoadingSpinner`: Indicadores de carga retro
 
 </Accordion>
 
@@ -120,438 +248,59 @@ La página principal incluye:
 
 Grid de selección de juegos con:
 
-* *Layout:**
+**Características:**
+- Filtros por categoría y año
+- Búsqueda en tiempo real
+- Thumbnails animados
+- Información detallada de cada juego
+- Leaderboards por juego
 
-- Grid responsive 3 columnas (desktop)
-
-- Cards con información del juego
-
-- Preview images y metadata
-
-- Botón "Jugar" por juego
-
-* *Juegos Disponibles:**
-1. Dangerous Dave 2
-2. Digger
-3. DOOM
-4. Duke Nukem 3D
-5. Heroes of Might and Magic II
-6. The Lost Vikings
-7. Mortal Kombat
-8. Street Fighter II
-9. Tetris
-10. Wolfenstein 3D
-
-* *Integración:**
-
-```javascript
-// Carga de juego
-1. Click en "Jugar"
-2. Fetch .jsdos desde CDN
-3. Inicializar js-dos con bundle
-4. Pantalla completa automática
-5. Score tracker activado
-
-```
+**Componentes:**
+- `GameGrid`: Cuadrícula de juegos
+- `GameCard`: Tarjeta individual de juego
+- `FilterPanel`: Panel de filtros
+- `SearchBar`: Barra de búsqueda
 
 </Accordion>
 
-### Health Check (health.html)
+### Game Player
 
-Simple página para Kubernetes liveness/readiness probes:
+<Accordion title="Ver detalles del reproductor">
 
-```html
-<!DOCTYPE html>
-<html>
-<head><title>Health Check</title></head>
-<body><h1>OK</h1></body>
-</html>
+Interfaz de juego con:
 
-```
+**Características:**
+- Emulador js-dos embebido
+- Controles de pantalla completa
+- Sistema de guardado/carga
+- Tracker de puntuaciones en vivo
+- Chat opcional entre jugadores
 
-## Sistema de Estilos (retro.css)
-
-### Paleta de Colores
-
-```css
-:root {
-  --retro-green: #00ff88;
-  --retro-dark: #001100;
-  --retro-black: #000000;
-  --retro-glow: 0 0 10px #00ff88;
-}
-
-```
-
-### Efectos Visuales
-
-<Tabs>
-  <Tab title="CRT Flicker">
-    ```css
-    @keyframes crtFlicker {
-      0%, 100% { opacity: 0.98; }
-      50% { opacity: 1; }
-    }
-
-    body {
-      animation: crtFlicker 2s infinite;
-    }
-    ```
-
-  </Tab>
-
-  <Tab title="Scanlines">
-    ```css
-    body::before {
-      content: "";
-      position: fixed;
-      background: repeating-linear-gradient(
-        to bottom,
-        rgba(0, 255, 136, 0.05),
-        transparent 2px
-      );
-      pointer-events: none;
-    }
-    ```
-
-  </Tab>
-
-  <Tab title="Animated Grid">
-    ```css
-    @keyframes moveGrid {
-      to { background-position: 40px 40px; }
-    }
-
-    .grid-background {
-      background-image:
-        linear-gradient(#004400 1px, transparent 1px),
-        linear-gradient(90deg, #004400 1px, transparent 1px);
-      background-size: 40px 40px;
-      animation: moveGrid 4s linear infinite;
-    }
-    ```
-
-  </Tab>
-</Tabs>
-
-### Componentes Estilizados
-
-```css
-/* Buttons */
-.retro-button {
-  background: transparent;
-  border: 2px solid var(--retro-green);
-  color: var(--retro-green);
-  text-shadow: var(--retro-glow);
-  transition: 0.3s;
-}
-
-.retro-button:hover {
-  background: var(--retro-green);
-  color: black;
-  box-shadow: 0 0 20px var(--retro-green);
-}
-
-/* Input Fields */
-.retro-input {
-  background: black;
-  border: 2px solid var(--retro-green);
-  color: var(--retro-green);
-  font-family: 'VT323', monospace;
-}
-
-/* Cards */
-.game-card {
-  background: rgba(0, 17, 0, 0.8);
-  border: 2px solid var(--retro-green);
-  box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
-}
-
-```
-
-## Score Tracker (score-tracker.js)
-
-Sistema de seguimiento de puntuaciones integrado con el emulador.
-
-### Inicialización
-
-```javascript
-class ScoreTracker {
-  constructor(gameId, userId, token) {
-    this.gameId = gameId;
-    this.userId = userId;
-    this.token = token;
-    this.currentScore = 0;
-    this.sessionId = this.generateSessionId();
-  }
-
-  async startTracking() {
-    // Monitoreo de memoria DOSBox
-    // Polling cada 5 segundos
-    // Detección de cambios en score
-  }
-}
-
-```
-
-### Detección de Score
-
-<Accordion title="Métodos de detección">
-
-* *1. Memory Scanning:**
-
-```javascript
-// Leer memoria del emulador
-const memory = dosInstance.getMemory();
-const scoreAddress = this.findScoreAddress(gameId);
-const newScore = memory.readUint32(scoreAddress);
-
-```
-
-* *2. Pattern Matching:**
-
-```javascript
-// Buscar patrones conocidos
-const patterns = {
-  'doom': [0x10000, 0x20000],
-  'tetris': [0x5000, 0x6000]
-};
-
-```
-
-* *3. Heurísticas:**
-
-- Incrementos detectados
-
-- Validación de rangos
-
-- Anti-cheat básico
+**Componentes:**
+- `DosEmulator`: Wrapper del emulador
+- `GameControls`: Controles de juego
+- `ScoreDisplay`: Visualización de puntuación
+- `SaveStateManager`: Gestión de partidas guardadas
 
 </Accordion>
 
-### Envío de Scores
+## Routing y Navegación
+
+El sistema utiliza routing basado en hash para navegación SPA:
 
 ```javascript
-async submitScore(score) {
-  try {
-    const response = await fetch('/api/scores', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        gameId: this.gameId,
-        score: score,
-        sessionId: this.sessionId,
-        timestamp: Date.now()
-      })
-    });
-
-    if (response.ok) {
-      this.showNotification('¡Score guardado!');
-      this.updateLeaderboard();
-    }
-  } catch (error) {
-    console.error('Error submitting score:', error);
-  }
-}
-
+// Rutas principales
+#/                    // Landing page
+#/games              // Selección de juegos
+#/play/:gameId       // Reproductor de juego
+#/leaderboards       // Rankings globales
+#/profile           // Perfil de usuario
 ```
 
-## Integración con Backend
+## Optimizaciones de Rendimiento
 
-### API Endpoints Consumidos
-
-```yaml
-Auth Service:
-  - POST /api/auth/login
-  - POST /api/auth/register
-  - GET /api/auth/verify
-
-Game Catalog:
-  - GET /api/games
-  - GET /api/games/:id
-
-Score Service:
-  - POST /api/scores
-  - GET /api/scores/user/:userId
-  - GET /api/scores/game/:gameId
-
-Ranking Service:
-  - GET /api/rankings/game/:gameId/top
-  - GET /api/rankings/global
-  - GET /api/rankings/user/:userId/position
-
-```
-
-### Headers Requeridos
-
-```javascript
-const headers = {
-  'Authorization': `Bearer ${localStorage.getItem('token')}`,
-  'Content-Type': 'application/json'
-};
-
-```
-
-## Deployment
-
-### Docker Container
-
-```dockerfile
-FROM node:18-alpine
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm ci --only=production
-
-COPY . .
-
-EXPOSE 3001
-
-HEALTHCHECK --interval=30s --timeout=3s \
-  CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
-
-CMD ["node", "server.js"]
-
-```
-
-### Kubernetes Service
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: frontend
-spec:
-  selector:
-    app: frontend
-  ports:
-    - port: 80
-      targetPort: 3001
-  type: ClusterIP
-
-```
-
-### Ingress Configuration
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: frontend-ingress
-  annotations:
-    kubernetes.io/ingress.class: "nginx"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-spec:
-  tls:
-    - hosts:
-        - retrogamehub.games
-      secretName: frontend-tls
-  rules:
-    - host: retrogamehub.games
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: frontend
-                port:
-                  number: 80
-
-```
-
-## Performance Optimization
-
-### Caching Strategy
-
-```javascript
-// Service Worker para cache offline
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open('retrogame-v1').then((cache) => {
-      return cache.addAll([
-        '/',
-        '/games.html',
-        '/retro.css',
-        '/score-tracker.js',
-        '/jsdos/js-dos.js'
-      ]);
-    })
-  );
-});
-
-```
-
-### Asset Optimization
-
-- **Minificación:** CSS/JS comprimidos en producción
-
-- **CDN:** Juegos servidos desde CloudFront
-
-- **Lazy Loading:** js-dos cargado bajo demanda
-
-- **Preconnect:** DNS prefetch para CDN
-
-```html
-<link rel="preconnect" href="https://cdn.retrogamehub.games">
-<link rel="dns-prefetch" href="https://cdn.retrogamehub.games">
-
-```
-
-## Seguridad
-
-### Content Security Policy
-
-```javascript
-app.use((req, res, next) => {
-  res.setHeader(
-    'Content-Security-Policy',
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-    "style-src 'self' 'unsafe-inline' fonts.googleapis.com; " +
-    "font-src 'self' fonts.gstatic.com; " +
-    "connect-src 'self' https://api.retrogamehub.games; " +
-    "img-src 'self' data: https:;"
-  );
-  next();
-});
-
-```
-
-### XSS Protection
-
-```javascript
-// Sanitización de inputs
-function sanitizeInput(input) {
-  return input
-    .replace(/[<>]/g, '')
-    .trim()
-    .substring(0, 100);
-}
-
-// Validación JWT
-function verifyToken(token) {
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    return decoded;
-  } catch (error) {
-    return null;
-  }
-}
-
-```
-
-## Próximos Pasos
-
-<CardGroup cols={2}>
-  <Card title="js-dos Integration" icon="gamepad" href="/frontend/jsdos-integration">
-    Detalles de integración del emulador
-  </Card>
-  <Card title="Score Tracking" icon="chart-line" href="/services/score-service">
-    Sistema de puntuaciones detallado
-  </Card>
-</CardGroup>
+- **Lazy Loading**: Carga bajo demanda de componentes js-dos
+- **Service Workers**: Cache de assets y juegos
+- **WebAssembly**: DOSBox compilado para máximo rendimiento
+- **Memory Management**: Gestión cuidadosa de memoria en emulación
+- **Asset Compression**: Compresión de ROMs y recursos estáticos

@@ -32,7 +32,6 @@ graph TD
     D --> E[Services<br/>hashPass/genToken/validate]
     E --> F[Repositories<br/>create/findUser/update]
     F --> G[PostgreSQL<br/>Table: users]
-
 ```
 
 ## Configuración del Servicio
@@ -71,174 +70,156 @@ graph TD
 | **Node.js** | 20 LTS | Runtime de JavaScript |
 | **Express** | ^4.18 | Framework web |
 | **jsonwebtoken** | ^9.0 | Generación y validación de JWT |
-| **bcrypt** | ^5.1 | Hash de contraseñas (salt rounds: 10) |
+| **bcrypt** | ^5.1 | Hashing de contraseñas |
 | **pg** | ^8.11 | Cliente PostgreSQL |
-| **Jest** | ^29.7 | Testing framework |
-| **Helmet** | ^7.1 | Seguridad HTTP headers |
+| **joi** | ^17.9 | Validación de datos |
 
-## Modelo de Datos
+## Problemas Comunes
 
-### Tabla: users
+<AccordionGroup>
+  <Accordion title="❌ Error: JWT Token Inválido" icon="exclamation-triangle">
+    **Síntoma:**
+    ```bash
+    [ERROR] JWT verification failed: invalid signature
+    [ERROR] Token expired at 2024-01-15T10:30:00.000Z
+    ```
+    
+    **Posibles Causas:**
+    - JWT_SECRET diferente entre servicios
+    - Token expirado (>24h)
+    - Malformación del token en headers
+    
+    **Solución Rápida:**
+    ```bash
+    # Verificar JWT_SECRET consistente
+    docker exec auth-service printenv | grep JWT_SECRET
+    
+    # Regenerar token desde login
+    curl -X POST http://localhost:3001/auth/login \
+      -H "Content-Type: application/json" \
+      -d '{"email":"user@test.com","password":"123456"}'
+    ```
 
-```sql
-CREATE TABLE users (
-  id SERIAL PRIMARY KEY,
-  username VARCHAR(50) UNIQUE NOT NULL,
-  email VARCHAR(255) UNIQUE NOT NULL,
-  display_name VARCHAR(100),
-  password_hash VARCHAR(255) NOT NULL,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  last_login TIMESTAMP
-);
+  </Accordion>
 
-CREATE INDEX idx_users_username ON users(username);
-CREATE INDEX idx_users_email ON users(email);
+  <Accordion title="❌ Error: Conexión a Base de Datos" icon="database">
+    **Síntoma:**
+    ```bash
+    [ERROR] Connection terminated unexpectedly
+    [ERROR] ECONNREFUSED 127.0.0.1:5432
+    ```
+    
+    **Posibles Causas:**
+    - PostgreSQL no iniciado o inaccesible
+    - Credenciales incorrectas en DATABASE_URL
+    - Network issues entre contenedores
+    
+    **Solución Rápida:**
+    ```bash
+    # Verificar PostgreSQL
+    docker ps | grep postgres
+    
+    # Probar conexión manual
+    docker exec auth-service npx sequelize-cli db:migrate:status
+    
+    # Recrear conexión
+    docker-compose restart postgres auth-service
+    ```
 
-```
+  </Accordion>
 
-## Endpoints
+  <Accordion title="❌ Error: Hash/Compare Password" icon="key">
+    **Síntoma:**
+    ```bash
+    [ERROR] bcrypt.compare failed: data and hash arguments required
+    [ERROR] Password validation failed for user: john_doe
+    ```
+    
+    **Posibles Causas:**
+    - BCRYPT_SALT_ROUNDS mal configurado
+    - Hash corrupto en base de datos
+    - Password null/undefined
+    
+    **Solución Rápida:**
+    ```bash
+    # Verificar configuración bcrypt
+    echo "BCRYPT_SALT_ROUNDS=10" >> .env
+    
+    # Resetear password en DB
+    docker exec -it postgres psql -U user -d auth_db -c \
+      "UPDATE users SET password = NULL WHERE email = 'user@test.com';"
+    
+    # Forzar re-registro
+    curl -X POST http://localhost:3001/auth/register \
+      -H "Content-Type: application/json" \
+      -d '{"email":"user@test.com","password":"newpass123"}'
+    ```
 
-El servicio de autenticación expone los siguientes endpoints principales:
+  </Accordion>
 
-<CardGroup cols={2}>
-  <Card title="POST /auth/register" icon="user-plus" href="/api-reference/auth-service/register">
-    Registro de nuevos usuarios con validación de datos
-  </Card>
+  <Accordion title="❌ Error: Usuario Duplicado" icon="users">
+    **Síntoma:**
+    ```bash
+    [ERROR] Unique constraint failed: users.email
+    [ERROR] User already exists with email: john@example.com
+    ```
+    
+    **Posibles Causas:**
+    - Intento de registro con email existente
+    - Falta validación previa en frontend
+    - Race condition en requests concurrentes
+    
+    **Solución Rápida:**
+    ```bash
+    # Verificar usuario existente
+    docker exec -it postgres psql -U user -d auth_db -c \
+      "SELECT id, email, created_at FROM users WHERE email = 'john@example.com';"
+    
+    # Limpiar usuario para re-test (solo desarrollo)
+    docker exec -it postgres psql -U user -d auth_db -c \
+      "DELETE FROM users WHERE email = 'john@example.com';"
+    ```
 
-  <Card title="POST /auth/login" icon="right-to-bracket" href="/api-reference/auth-service/login">
-    Autenticación y generación de tokens JWT
-  </Card>
+  </Accordion>
 
-  <Card title="GET /auth/verify" icon="shield-check" href="/api-reference/auth-service/verify">
-    Validación de tokens y información del usuario
-  </Card>
+  <Accordion title="❌ Error: Headers Already Sent" icon="network-wired">
+    **Síntoma:**
+    ```bash
+    [ERROR] Cannot set headers after they are sent to the client
+    [ERROR] at ServerResponse.setHeader (_http_outgoing.js:356:11)
+    ```
+    
+    **Posibles Causas:**
+    - Múltiples res.send() en mismo endpoint
+    - Error handling después de respuesta exitosa
+    - Middleware calling next() after response
+    
+    **Solución Rápida:**
+    ```javascript
+    // Revisar controllers - usar return después de send
+    return res.status(200).json({ token, user });
+    
+    // Verificar middleware auth
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+    ```
 
-  <Card title="POST /auth/refresh" icon="arrow-rotate-right" href="/api-reference/auth-service/refresh">
-    Renovación de tokens expirados
-  </Card>
+  </Accordion>
+</AccordionGroup>
 
-  <Card title="POST /auth/logout" icon="right-from-bracket" href="/api-reference/auth-service/logout">
-    Invalidación de tokens (logout seguro)
-  </Card>
-
-  <Card title="GET /auth/health" icon="heart-pulse" href="/api-reference/auth-service/health">
-    Health check del servicio
-  </Card>
-</CardGroup>
-
-<Note>
-  Para detalles completos de cada endpoint, incluyendo parámetros, respuestas y ejemplos de código, consulta la [referencia completa de la API](/api-reference/auth-service).
-</Note>
-
-## Flujos de Autenticación
-
-### Flujo de Registro
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant A as Auth Service
-    participant DB as PostgreSQL
-
-    C->>A: POST /auth/register
-    A->>A: Validate input data
-    A->>DB: Check if username/email exists
-    DB-->>A: User existence result
-    A->>A: Hash password (bcrypt)
-    A->>DB: INSERT new user
-    DB-->>A: User created successfully
-    A->>A: Generate JWT token
-    A-->>C: 201 Created + JWT token
-
-```
-
-### Flujo de Login
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant A as Auth Service
-    participant DB as PostgreSQL
-
-    C->>A: POST /auth/login
-    A->>DB: SELECT user by username
-    DB-->>A: User data
-    A->>A: Compare password (bcrypt)
-    A->>A: Generate JWT token
-    A->>DB: UPDATE last_login
-    A-->>C: 200 OK + JWT token
-
-```
-
-## Seguridad
-
-<Warning>
-  **Consideraciones de Seguridad Críticas:**
-  - Todas las contraseñas se hashean con bcrypt (salt rounds: 10)
-  - Los tokens JWT incluyen expiración obligatoria (24h)
-  - Validación estricta de inputs para prevenir inyección SQL
-  - Rate limiting implementado para prevenir ataques de fuerza bruta
-</Warning>
-
-### Middleware de Protección
-
-```javascript
-// Ejemplo de uso del middleware de autenticación
-const authMiddleware = require('./middleware/auth');
-
-// Proteger rutas que requieren autenticación
-app.use('/games', authMiddleware.verifyToken);
-app.use('/save-states', authMiddleware.verifyToken);
-
-```
-
-## Métricas y Monitoreo
-
-| Métrica | Descripción | Umbral de Alerta |
-|---------|-------------|------------------|
-| **Response Time** | Tiempo promedio de respuesta | > 500ms |
-| **Success Rate** | % de requests exitosos | < 95% |
-| **Active Users** | Usuarios con sesión válida | - |
-| **Failed Logins** | Intentos fallidos por minuto | > 100/min |
-
-## Testing
-
-El servicio incluye pruebas exhaustivas:
-
-- **Unit Tests**: Lógica de negocio y utilidades
-
-- **Integration Tests**: Endpoints y base de datos
-
-- **Security Tests**: Validación de tokens y ataques comunes
+## Logs Útiles para Debugging
 
 ```bash
+# Logs en tiempo real del servicio auth
+docker logs -f auth-service
 
-# Ejecutar tests
-npm test                    # Todos los tests
-npm run test:unit          # Solo unit tests
-npm run test:integration   # Solo integration tests
-npm run test:coverage      # Con coverage report
+# Filtrar solo errores críticos
+docker logs auth-service 2>&1 | grep -E "(ERROR|FATAL)"
 
+# Logs de JWT específicos
+docker logs auth-service 2>&1 | grep -i "jwt\|token"
+
+# Logs de database connections
+docker logs auth-service 2>&1 | grep -i "database\|postgres\|connection"
 ```
-
-## Enlaces Relacionados
-
-<CardGroup cols={2}>
-  <Card title="API Reference" icon="code" href="/api-reference/auth-service">
-    Documentación técnica completa de endpoints
-  </Card>
-
-  <Card title="Overview de Servicios" icon="sitemap" href="/services/overview">
-    Comparativa de todos los microservicios
-  </Card>
-
-  <Card title="Kong Gateway" icon="route" href="/infrastructure/api-gateway">
-    Configuración de rutas y seguridad
-  </Card>
-
-  <Card title="Base de Datos" icon="database" href="/infrastructure/databases">
-    Esquemas y configuración de PostgreSQL
-  </Card>
-</CardGroup>
