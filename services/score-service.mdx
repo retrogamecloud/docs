@@ -1,6 +1,7 @@
 ---
 title: 3.4. Servicio de Puntuaciones
-description: Gestión de puntuaciones y logros de jugadores con sistema de rankings en tiempo real
+description: Gestión de puntuaciones y logros de jugadores con sistema de rankings
+  en tiempo real
 icon: trophy
 ---
 
@@ -51,7 +52,7 @@ sequenceDiagram
 
     Client->>ScoreAPI: POST /api/scores
     ScoreAPI->>DB: Verificar score actual
-    
+
     alt Score es mejor
         ScoreAPI->>DB: UPDATE score
         ScoreAPI->>Cache: INVALIDATE user_scores:{userId}
@@ -62,6 +63,7 @@ sequenceDiagram
     else Score no es mejor
         ScoreAPI->>Client: Score no actualizado
     end
+
 ```
 
 ## Características Principales
@@ -69,25 +71,33 @@ sequenceDiagram
 ### 🎯 Gestión de Puntuaciones
 
 - Almacenamiento del mejor score por usuario/juego
+
 - Validación automática contra scores existentes
+
 - Historial de mejoras de puntuaciones
 
 ### 🏆 Sistema de Rankings
 
 - Rankings globales por juego
+
 - Comparativas entre usuarios
+
 - Estadísticas de rendimiento
 
 ### 📊 Analytics de Jugador
 
 - Progress tracking individual
+
 - Métricas de mejora
+
 - Logros desbloqueados
 
 ### ⚡ Cache Inteligente
 
 - Invalidación selectiva por usuario y juego
+
 - Rankings precalculados en Redis
+
 - TTL automático para rankings globales
 
 ## Estrategia de Cache
@@ -169,7 +179,9 @@ El servicio expone los siguientes endpoints principales:
 ### Optimizaciones de Performance
 
 - **Lazy Loading:** Rankings se recalculan solo cuando son solicitados
+
 - **Batch Updates:** Múltiples scores se procesan en lotes durante picos de tráfico
+
 - **Conditional Invalidation:** Solo se invalidan caches que realmente se ven afectados
 
 ## Consideraciones de Escalabilidad
@@ -178,7 +190,9 @@ El servicio expone los siguientes endpoints principales:
 Durante eventos con alto volumen de submits (torneos), el sistema implementa:
 
 - **Queue System:** Redis Bull para procesar scores en background
+
 - **Rate Limiting:** Máximo 10 submits por minuto por usuario
+
 - **Partial Cache Updates:** Solo se actualizan posiciones relevantes en rankings
 </Warning>
 
@@ -187,6 +201,9 @@ Durante eventos con alto volumen de submits (torneos), el sistema implementa:
 El servicio incluye métricas específicas para:
 
 - Cache hit ratio por tipo de consulta
+
 - Tiempo de invalidación de rankings
+
 - Frecuencia de actualizaciones de score por juego
+
 - Latencia de recálculos de posiciones

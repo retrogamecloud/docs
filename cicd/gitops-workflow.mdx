@@ -35,6 +35,7 @@ Este repositorio centraliza todos los manifiestos de Kubernetes y scripts de mig
 ### Estructura del Repositorio
 
 ```
+
 kubernetes/
 ├── .github/
 │   └── workflows/
@@ -62,6 +63,7 @@ kubernetes/
 ├── 11-flyway-migration-job.yaml     # Job para ejecutar migraciones
 ├── README.md
 └── package.json
+
 ```
 
 ### Nomenclatura de Archivos
@@ -123,19 +125,21 @@ Utilizamos **Flyway** para versionado de esquema con migraciones SQL versionadas
 
     CREATE INDEX idx_leaderboard_game_score ON leaderboard(game_id, score DESC);
     ```
+
   </Step>
 
   <Step title="Probar en Local">
     ```bash
     # Usar Docker Compose para testing local
     docker-compose -f docker-compose.test.yml up postgres
-    
+
     # Ejecutar migración
     flyway -configFiles=migrations/flyway.conf migrate
-    
+
     # Validar resultado
     psql -h localhost -U retrogame_user -d retrogame_test -c "\dt"
     ```
+
   </Step>
 
   <Step title="Ejecutar en Staging">
@@ -175,16 +179,18 @@ Utilizamos **Flyway** para versionado de esquema con migraciones SQL versionadas
               name: flyway-migrations
           restartPolicy: Never
     ```
+
   </Step>
 
   <Step title="Validar Integridad">
     ```bash
     # Tests automatizados post-migración
     kubectl apply -f tests/migration-validation-job.yaml
-    
+
     # Verificar que no hay errores
     kubectl logs -f job/migration-validation
     ```
+
   </Step>
 
   <Step title="Desplegar en Producción">
@@ -195,10 +201,11 @@ Utilizamos **Flyway** para versionado de esquema con migraciones SQL versionadas
     ```bash
     # Aplicar con ArgoCD
     argocd app sync retrogame-production
-    
+
     # Monitorear ejecución
     kubectl logs -f job/flyway-migration-production
     ```
+
   </Step>
 </Steps>
 
@@ -227,6 +234,7 @@ Utilizamos **Flyway** para versionado de esquema con migraciones SQL versionadas
 ### Nomenclatura de Migraciones
 
 ```
+
 V{VERSION}__{DESCRIPCION}.sql     # Migración hacia adelante
 U{VERSION}__{DESCRIPCION}.sql     # Migración de rollback
 
@@ -236,6 +244,7 @@ V002__add_users_table.sql
 V003__add_games_indexes.sql
 U003__remove_games_indexes.sql   # Rollback de V003
 V004__add_leaderboard_table.sql
+
 ```
 
 ### Procedimientos de Rollback
@@ -246,10 +255,11 @@ V004__add_leaderboard_table.sql
   ```bash
   # Ejecutar rollback usando Flyway
   flyway undo -target=V002
-  
+
   # O mediante Job de Kubernetes
   kubectl apply -f jobs/flyway-rollback-job.yaml
   ```
+
 </Accordion>
 
 <Accordion title="Rollback Manual">
@@ -261,16 +271,18 @@ V004__add_leaderboard_table.sql
       -- Revisar historial de migraciones
       SELECT * FROM flyway_schema_history ORDER BY installed_on DESC;
       ```
+
     </Step>
 
     <Step title="Crear Script de Rollback">
       ```sql
       -- Ejemplo: Rollback de ADD COLUMN
       ALTER TABLE users DROP COLUMN last_login;
-      
+
       -- Ejemplo: Rollback de CREATE INDEX
       DROP INDEX CONCURRENTLY idx_users_email;
       ```
+
     </Step>
 
     <Step title="Aplicar con Precaución">
@@ -281,10 +293,11 @@ V004__add_leaderboard_table.sql
       ```bash
       # Backup antes del rollback
       pg_dump retrogame > backup_pre_rollback.sql
-      
+
       # Aplicar rollback
       psql -f rollback_script.sql retrogame
       ```
+
     </Step>
   </Steps>
 </Accordion>
@@ -294,6 +307,7 @@ V004__add_leaderboard_table.sql
 ### 1. Desarrollo Local
 
 ```bash
+
 # Developer workflow
 git checkout -b feature/new-leaderboard
 
@@ -308,11 +322,13 @@ flyway migrate
 git add migrations/
 git commit -m "feat: add leaderboard table migration"
 git push origin feature/new-leaderboard
+
 ```
 
 ### 2. CI/CD Pipeline
 
 ```yaml
+
 # .github/workflows/ci.yml
 name: Validate Manifests and Migrations
 
@@ -325,31 +341,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Validate Kubernetes YAMLs
       run: |
         kubectl --dry-run=client apply -f *.yaml
-    
+
     - name: Test Migrations
       run: |
         docker-compose -f docker-compose.test.yml up -d postgres
         flyway -configFiles=migrations/flyway.conf migrate
         flyway validate
+
 ```
 
 ### 3. ArgoCD Sync
 
 ```bash
+
 # ArgoCD detecta cambios en el repo
+
 # y aplica automáticamente:
 
 1. Manifiestos de Kubernetes actualizados
 2. Job de migración con nuevos scripts
 3. Validación post-despliegue
+
 ```
 
 <Info>
-**Resultado**: Infraestructura y esquema de base de datos siempre sincronizados con Git, con historial completo y capacidad de rollback.
+
+* *Resultado**: Infraestructura y esquema de base de datos siempre sincronizados con Git, con historial completo y capacidad de rollback.
 </Info>
 
 ## Mejores Prácticas

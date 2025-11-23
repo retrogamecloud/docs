@@ -1,7 +1,8 @@
 ---
-title: "6.8. Migraciones de Base de Datos"
-description: "Guía completa para ejecutar migraciones de esquema en RDS PostgreSQL de forma segura, con estrategias de versionado y procedimientos de rollback"
-icon: "database"
+title: 6.8. Migraciones de Base de Datos
+description: Guía completa para ejecutar migraciones de esquema en RDS PostgreSQL
+  de forma segura, con estrategias de versionado y procedimientos de rollback
+icon: database
 ---
 
 ## Introducción
@@ -18,8 +19,11 @@ Todas las migraciones deben probarse exhaustivamente en entornos locales y stagi
 Utilizamos **Flyway** como herramienta principal para el versionado y ejecución de migraciones de esquema:
 
 - Versionado automático de scripts SQL
+
 - Seguimiento del estado de migraciones
+
 - Validación de checksums
+
 - Soporte para rollbacks
 
 ### Configuración Docker
@@ -35,6 +39,7 @@ services:
       - ./migrations:/flyway/sql
     depends_on:
       - postgres
+
 ```
 
 ## Estructura de Migraciones
@@ -45,35 +50,50 @@ Las migraciones siguen una estructura estricta:
 
 <Tabs>
 <Tab title="Migraciones hacia adelante">
+
 ```
+
 V{version}__{descripción}.sql
 
 Ejemplos:
+
 - V001__initial_schema.sql
+
 - V002__add_user_achievements.sql
+
 - V003__create_game_scores_index.sql
+
 ```
+
 </Tab>
 <Tab title="Migraciones de rollback">
+
 ```
+
 U{version}__{descripción}.sql
 
 Ejemplos:
+
 - U002__remove_user_achievements.sql
+
 - U003__drop_game_scores_index.sql
+
 ```
+
 </Tab>
 </Tabs>
 
 ### Estructura de Directorios
 
 ```
+
 migrations/
 ├── V001__initial_schema.sql
 ├── V002__add_user_achievements.sql
 ├── V003__create_game_scores_index.sql
 ├── U002__remove_user_achievements.sql
 └── U003__drop_game_scores_index.sql
+
 ```
 
 ## Proceso de Migración
@@ -87,7 +107,7 @@ sequenceDiagram
     participant CI as GitHub Actions
     participant K8s as Kubernetes Job
     participant RDS as RDS PostgreSQL
-    
+
     Dev->>Git: Push migration V023__add_achievements.sql
     Git->>CI: Trigger Pipeline
     CI->>CI: Validar sintaxis SQL
@@ -99,6 +119,7 @@ sequenceDiagram
     K8s->>RDS: Actualizar schema_version a V023
     K8s-->>CI: Job completado
     CI-->>Dev: Notificación de éxito
+
 ```
 
 ### Pasos Detallados
@@ -107,8 +128,10 @@ sequenceDiagram
 
 <Tabs>
 <Tab title="Crear Migración">
+
 ```sql
--- V024__add_game_categories.sql
+
+- - V024__add_game_categories.sql
 CREATE TABLE game_categories (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
@@ -118,27 +141,34 @@ CREATE TABLE game_categories (
 
 CREATE INDEX idx_game_categories_name ON game_categories(name);
 
--- Insertar categorías por defecto
+- - Insertar categorías por defecto
 INSERT INTO game_categories (name, description) VALUES
 ('Arcade', 'Juegos de arcade clásicos'),
 ('RPG', 'Juegos de rol'),
 ('Platform', 'Juegos de plataformas');
+
 ```
+
 </Tab>
 <Tab title="Probar Localmente">
+
 ```bash
+
 # Ejecutar contenedor Flyway local
 docker-compose up flyway
 
 # Verificar migración
 docker exec -it postgres psql -U postgres -d retrogame -c "\dt"
+
 ```
+
 </Tab>
 </Tabs>
 
 #### 2. Validación en Staging
 
 ```yaml
+
 # kubernetes/jobs/flyway-migration.yaml
 apiVersion: batch/v1
 kind: Job
@@ -168,6 +198,7 @@ spec:
         - name: migrations
           mountPath: /flyway/sql
       restartPolicy: Never
+
 ```
 
 #### 3. Despliegue en Producción
@@ -177,11 +208,13 @@ Las migraciones en producción requieren ventana de mantenimiento aprobada para 
 </Warning>
 
 ```bash
+
 # Ejecutar con ArgoCD
 kubectl apply -f kubernetes/jobs/flyway-migration.yaml -n retrogame-prod
 
 # Monitorear progreso
 kubectl logs -f job/flyway-migration-v024 -n retrogame-prod
+
 ```
 
 ## Estrategias de Rollback
@@ -193,18 +226,25 @@ kubectl logs -f job/flyway-migration-v024 -n retrogame-prod
 Para migraciones que fallan durante la ejecución:
 
 ```sql
--- Flyway automáticamente revierte transacciones fallidas
--- No se requiere intervención manual
+
+- - Flyway automáticamente revierte transacciones fallidas
+
+- - No se requiere intervención manual
+
 ```
+
 </Tab>
 <Tab title="Rollback Manual">
 Para migraciones completadas que necesitan revertirse:
 
 ```sql
--- U024__remove_game_categories.sql
+
+- - U024__remove_game_categories.sql
 DROP INDEX IF EXISTS idx_game_categories_name;
 DROP TABLE IF EXISTS game_categories;
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -213,6 +253,7 @@ DROP TABLE IF EXISTS game_categories;
 #### Rollback de Emergencia
 
 ```bash
+
 # 1. Detener aplicaciones que usen las tablas afectadas
 kubectl scale deployment user-service --replicas=0 -n retrogame-prod
 
@@ -225,6 +266,7 @@ kubectl exec -it postgres-pod -- psql -c "SELECT * FROM flyway_schema_history OR
 
 # 4. Restaurar aplicaciones
 kubectl scale deployment user-service --replicas=3 -n retrogame-prod
+
 ```
 
 ### Plan de Contingencia
@@ -232,16 +274,20 @@ kubectl scale deployment user-service --replicas=3 -n retrogame-prod
 #### Backup Antes de Migración
 
 ```bash
+
 # Crear backup automático antes de migraciones críticas
 pg_dump -h $DB_HOST -U $DB_USER -d retrogame \
   --file=backup_pre_migration_v024_$(date +%Y%m%d_%H%M%S).sql
+
 ```
 
 #### Restauración de Backup
 
 ```bash
+
 # En caso de fallo crítico
 psql -h $DB_HOST -U $DB_USER -d retrogame < backup_pre_migration_v024.sql
+
 ```
 
 ## Mejores Prácticas
@@ -249,17 +295,26 @@ psql -h $DB_HOST -U $DB_USER -d retrogame < backup_pre_migration_v024.sql
 ### Migraciones Seguras
 
 <Card title="✅ Prácticas Recomendadas" icon="check">
+
 - Utilizar transacciones para operaciones atómicas
+
 - Crear índices de forma concurrente
+
 - Añadir columnas como opcionales inicialmente
+
 - Probar con datos de producción en staging
+
 - Mantener scripts de rollback actualizados
 </Card>
 
 <Card title="❌ Evitar Estas Prácticas" icon="x">
+
 - DROP COLUMN sin ventana de mantenimiento
+
 - Cambios de tipo de datos destructivos
+
 - Migraciones que requieren más de 5 minutos
+
 - Dependencias entre migraciones no secuenciales
 </Card>
 
@@ -269,30 +324,43 @@ psql -h $DB_HOST -U $DB_USER -d retrogame < backup_pre_migration_v024.sql
 
 <Tabs>
 <Tab title="Paso 1: Añadir Nueva Columna">
+
 ```sql
--- V025__add_score_bigint.sql
-ALTER TABLE game_scores 
+
+- - V025__add_score_bigint.sql
+ALTER TABLE game_scores
 ADD COLUMN score_new BIGINT;
 
-UPDATE game_scores 
+UPDATE game_scores
 SET score_new = score::BIGINT;
+
 ```
+
 </Tab>
 <Tab title="Paso 2: Migrar Aplicación">
+
 ```sql
--- Actualizar aplicación para usar score_new
--- Desplegar nueva versión de microservicios
+
+- - Actualizar aplicación para usar score_new
+
+- - Desplegar nueva versión de microservicios
+
 ```
+
 </Tab>
 <Tab title="Paso 3: Eliminar Columna Antigua">
+
 ```sql
--- V026__remove_old_score_column.sql
-ALTER TABLE game_scores 
+
+- - V026__remove_old_score_column.sql
+ALTER TABLE game_scores
 DROP COLUMN score;
 
-ALTER TABLE game_scores 
+ALTER TABLE game_scores
 RENAME COLUMN score_new TO score;
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -301,8 +369,9 @@ RENAME COLUMN score_new TO score;
 #### Métricas Importantes
 
 ```sql
--- Consultar estado de migraciones
-SELECT 
+
+- - Consultar estado de migraciones
+SELECT
   installed_rank,
   version,
   description,
@@ -312,12 +381,15 @@ SELECT
   success
 FROM flyway_schema_history
 ORDER BY installed_rank DESC;
+
 ```
 
 #### Alertas de Prometheus
 
 ```yaml
+
 # alerts/database-migrations.yaml
+
 - alert: MigrationFailed
   expr: flyway_migration_success == 0
   for: 0m
@@ -326,6 +398,7 @@ ORDER BY installed_rank DESC;
   annotations:
     summary: "Migración de base de datos falló"
     description: "La migración {{ $labels.version }} ha fallado en {{ $labels.database }}"
+
 ```
 
 ## Integración con CI/CD
@@ -346,19 +419,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Validate SQL Syntax
         run: |
           for file in migrations/V*.sql; do
             pg_prove --syntax-check "$file"
           done
-      
+
       - name: Test Migration in Docker
         run: |
           docker-compose up -d postgres
           docker-compose run flyway migrate
           docker-compose run flyway validate
-  
+
   deploy-staging:
     needs: validate
     runs-on: ubuntu-latest
@@ -366,6 +439,7 @@ jobs:
       - name: Deploy to Staging
         run: |
           kubectl apply -f kubernetes/jobs/flyway-migration.yaml -n retrogame-staging
+
 ```
 
 ## Casos de Emergencia
@@ -404,8 +478,11 @@ Sólo ejecutar rollbacks de producción con autorización del arquitecto de sist
 En caso de problemas críticos con migraciones:
 
 - **Arquitecto de Sistemas**: Escalación inmediata
+
 - **DBA Senior**: Consultas técnicas complejas
+
 - **DevOps Lead**: Problemas de infraestructura
+
 - **Product Owner**: Decisiones de negocio para rollbacks
 
 <Note>

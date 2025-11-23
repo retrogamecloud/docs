@@ -1,13 +1,13 @@
 ---
 title: 7.1. Visión General de CI/CD
 description: Pipeline completo de integración y despliegue continuo con GitHub Actions,
-  Docker, ECR y ArgoCD
+  Docker, ECR y ArgoCD con gates de aprobación y rollback automático
 icon: rocket
 ---
 
 ## Filosofía CI/CD
 
-Retro Game Hub implementa un pipeline completo de CI/CD que automatiza desde el commit hasta el despliegue en producción, siguiendo principios GitOps con zero-downtime deployments.
+Retro Game Hub implementa un pipeline completo de CI/CD que automatiza desde el commit hasta el despliegue en producción, siguiendo principios GitOps con zero-downtime deployments y mecanismos de rollback automático.
 
 <CardGroup cols={3}>
   <Card title="Automatización Total" icon="robot">
@@ -31,268 +31,251 @@ Retro Game Hub implementa un pipeline completo de CI/CD que automatiza desde el 
 
 ## Pipeline Completo de CI/CD
 
-El siguiente diagrama muestra el flujo completo desde el desarrollo hasta producción:
+El siguiente diagrama muestra el flujo completo desde el desarrollo hasta producción, incluyendo gates de aprobación y mecanismos de rollback:
 
 ```mermaid
 graph TB
     subgraph DEV["💻 DESARROLLO"]
-        A[Developer] -->|git push| B[GitHub Repository]
-        B --> B1[Trigger Webhook]
+        A[👨‍💻 Developer] -->|git push| B[📁 GitHub Repository]
+        B --> B1[🔔 Trigger Webhook]
     end
 
     subgraph CI["⚙️ CONTINUOUS INTEGRATION - GitHub Actions"]
-        B1 --> C1[Lint & Format Check]
-        C1 --> C2[Unit Tests]
-        C2 --> C3[Integration Tests]
-        C3 --> C4[Security Scan]
-        C4 --> D{All Tests Pass?}
+        B1 --> C1[🔍 Lint & Format Check]
+        C1 --> C2[🧪 Unit Tests]
+        C2 --> C3[🔧 Integration Tests]
+        C3 --> C4[🛡️ Security Scan]
+        C4 --> D{✅ All Tests Pass?}
 
-        D -->|✅ Success| E[Build Docker Image]
-        D -->|❌ Fail| STOP[❌ Stop Pipeline]
+        D -->|❌ Fail| STOP[🚫 Stop Pipeline<br/>Notify Developer]
+        D -->|✅ Success| E[🏗️ Build Docker Image]
 
-        E --> F[Multi-stage Build]
-        F --> G[Security Scan Image]
-        G --> H[Push to AWS ECR]
-        H --> I[Tag: latest, v1.0.X, sha-xxx]
+        E --> F[📦 Multi-stage Build]
+        F --> G[🔒 Security Scan Image]
+        G --> H[📤 Push to AWS ECR]
+        H --> I[🏷️ Tag: latest, v1.0.X, sha-xxx]
     end
 
     subgraph GITOPS["📦 GITOPS WORKFLOW"]
-        I --> J[Update K8s Manifests]
-        J --> K[Kustomize Build]
-        K --> L[Validate Manifests]
-        L --> M[Create PR to Config Repo]
+        I --> J[📝 Update K8s Manifests]
+        J --> K[⚙️ Kustomize Build]
+        K --> L[✅ Validate Manifests]
+        L --> M[📋 Create PR to Config Repo]
 
-        M --> N{Auto-merge Enabled?}
-        N -->|Yes| O[Auto-merge PR]
-        N -->|No| P[Manual Review]
+        M --> N{🤖 Auto-merge?}
+        N -->|No| P[👀 Manual Review]
+        N -->|Yes| O[🔀 Auto-merge PR]
         P --> O
-        O --> Q[Config Repo Updated]
+        O --> Q[📦 Config Repo Updated]
     end
 
-    subgraph CD["🚀 CONTINUOUS DEPLOYMENT - ArgoCD"]
-        Q --> R[ArgoCD Detects Change]
-        R --> S[Git Repository Sync]
-        S --> T[Kustomize Build]
-        T --> U[Apply to EKS Cluster]
-
-        U --> V[Rolling Update Strategy]
-        V --> W[Readiness Probe]
-        W --> X[Liveness Probe]
-        X --> Y{Health Check Pass?}
-
-        Y -->|✅ Healthy| Z[Deployment Complete]
-        Y -->|❌ Failed| AA[Automatic Rollback]
-        AA --> AB[Previous Version Restored]
+    subgraph STAGING["🧪 STAGING DEPLOYMENT"]
+        Q --> R[🔄 ArgoCD Detects Change]
+        R --> S[🚀 Deploy to Staging]
+        S --> T[⚡ Rolling Update]
+        T --> U[🏥 Health Check]
+        U --> V{💚 Staging Healthy?}
+        
+        V -->|❌ Fail| ROLLBACK_STG[⏪ Rollback Staging]
+        V -->|✅ Success| W[🎯 E2E Tests]
+        
+        W --> X{🧪 E2E Pass?}
+        X -->|❌ Fail| ROLLBACK_STG
+        X -->|✅ Success| Y[✅ Staging Validated]
     end
 
-    subgraph MONITORING["📊 MONITORING & OBSERVABILITY"]
-        Z --> AC[Prometheus Metrics]
-        Z --> AD[Application Logs]
-        Z --> AE[Jaeger Tracing]
-        AC --> AF[Grafana Dashboards]
-        AD --> AF
-        AE --> AF
+    subgraph APPROVAL["👥 APPROVAL GATE"]
+        Y --> Z{🛡️ Manual Approval<br/>Required?}
+        Z -->|No - Hotfix| AA[🚨 Auto-promote]
+        Z -->|Yes| BB[👨‍💼 Approval Request]
+        BB --> CC{✅ Approved?}
+        CC -->|❌ Rejected| END1[⛔ Deployment Stopped]
+        CC -->|✅ Approved| AA
     end
 
-    subgraph PROD["☁️ PRODUCCIÓN - AWS EKS"]
-        Z --> AG[Service Running]
-        AG --> AH[Kong Gateway]
-        AH --> AI[Load Balancer]
-        AI --> AJ[End Users]
-
-        AG --> AK[Auto-scaling]
-        AK --> AL[HPA & VPA]
+    subgraph PROD["🌟 PRODUCTION DEPLOYMENT"]
+        AA --> DD[🎯 ArgoCD Sync to Prod]
+        DD --> EE[🚀 Rolling Update Prod]
+        EE --> FF[🏥 Health Check Prod]
+        FF --> GG{💚 Production Healthy?}
+        
+        GG -->|❌ Fail| HH[🚨 Auto Rollback Prod]
+        GG -->|✅ Success| II[📊 Post-deploy Monitoring]
+        
+        HH --> JJ[🔔 Alert Team]
+        II --> KK{📈 Metrics OK?}
+        KK -->|❌ Degraded| HH
+        KK -->|✅ Success| LL[✅ Deployment Complete]
     end
 
-    style A fill:#00ff88,stroke:#00aa55,color:#000
-    style B fill:#2ea043,stroke:#00aa55,color:#fff
-    style E fill:#0969da,stroke:#0550ae,color:#fff
-    style H fill:#ff6b35,stroke:#cc5529,color:#fff
-    style J fill:#8250df,stroke:#6639ba,color:#fff
-    style R fill:#f85149,stroke:#da3633,color:#fff
-    style Z fill:#00d4aa,stroke:#00b894,color:#fff
-    style STOP fill:#ff6b6b,stroke:#ee5a52,color:#fff
-    style AA fill:#ffd93d,stroke:#ffcd02,color:#000
+    subgraph MONITORING["📊 CONTINUOUS MONITORING"]
+        LL --> MM[📈 Application Metrics]
+        MM --> NN[🏥 Health Checks]
+        NN --> OO[📋 Log Aggregation]
+        OO --> PP{🚨 Issues Detected?}
+        PP -->|Yes| QQ[🔔 Alert & Consider Rollback]
+        PP -->|No| RR[✅ Stable Production]
+    end
 
+    style STOP fill:#ff6b6b
+    style ROLLBACK_STG fill:#ffa726
+    style HH fill:#ffa726
+    style END1 fill:#ff6b6b
+    style LL fill:#4caf50
+    style RR fill:#4caf50
 ```
 
-## Etapas del Pipeline
+## Etapas Detalladas del Pipeline
 
-### 🔍 Validación y Testing
-
-<AccordionGroup>
-  <Accordion title="Análisis Estático" icon="magnifying-glass">
-    - **ESLint**: Análisis de código JavaScript/TypeScript
-    - **Prettier**: Formato consistente del código
-    - **SonarQube**: Análisis de calidad y vulnerabilidades
-    - **Hadolint**: Linting de Dockerfiles
-  </Accordion>
-
-  <Accordion title="Testing Automatizado" icon="flask">
-    - **Unit Tests**: Jest para componentes individuales
-    - **Integration Tests**: Cypress para flujos E2E
-    - **API Tests**: Postman/Newman para endpoints
-    - **Performance Tests**: k6 para carga
-  </Accordion>
-
-  <Accordion title="Seguridad" icon="shield">
-    - **Dependency Scan**: npm audit y Snyk
-    - **Container Scan**: Trivy para imágenes Docker
-    - **Secrets Detection**: GitLeaks
-    - **SAST**: Static Application Security Testing
-  </Accordion>
-</AccordionGroup>
-
-### 🏗️ Build y Containerización
-
-```yaml
-
-# Ejemplo de multi-stage Dockerfile
-FROM node:18-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-
-FROM node:18-alpine AS runtime
-WORKDIR /app
-COPY --from=builder /app/node_modules ./node_modules
-COPY . .
-EXPOSE 3000
-CMD ["npm", "start"]
-
-```
-
-<CardGroup cols={2}>
-  <Card title="Multi-stage Build" icon="layer-group">
-    Optimización del tamaño de imagen
-
-    Separación de dependencias build/runtime
-  </Card>
-
-  <Card title="Registry Push" icon="cloud-upload">
-    AWS ECR como registry privado
-
-    Versionado semántico automático
-  </Card>
-</CardGroup>
-
-### 🔄 GitOps y Despliegue
+### 1. Continuous Integration (CI)
 
 <Steps>
-  <Step title="Actualización de Manifiestos">
-    GitHub Actions actualiza automáticamente los manifiestos de Kubernetes con la nueva imagen
+  <Step title="Code Quality & Testing">
+    - **Lint & Format**: ESLint, Prettier para frontend; gofmt, golint para backend
+    - **Unit Tests**: Jest para React, Go test para APIs
+    - **Integration Tests**: Testcontainers para bases de datos
+    - **Security Scan**: SonarQube, Snyk para vulnerabilidades
   </Step>
 
-  <Step title="Validación de Configuración">
-    Kustomize valida la sintaxis y estructura de los manifiestos
-  </Step>
-
-  <Step title="Pull Request Automático">
-    Se crea un PR al repositorio de configuración con los cambios
-  </Step>
-
-  <Step title="Sincronización ArgoCD">
-    ArgoCD detecta cambios y sincroniza el estado deseado
-  </Step>
-
-  <Step title="Rolling Update">
-    Despliegue progresivo sin interrupciones de servicio
+  <Step title="Build & Package">
+    - **Multi-stage Docker Build**: Optimización de capas e imagen final mínima
+    - **Security Scanning**: Trivy para escaneo de vulnerabilidades en imagen
+    - **Registry Push**: AWS ECR con tags semánticos y SHA commits
   </Step>
 </Steps>
 
-## Estrategias de Despliegue
+### 2. GitOps Workflow
 
-<CardGroup cols={2}>
-  <Card title="Rolling Update" icon="arrows-spin">
-    **Por defecto**: Actualización progresiva
+<Steps>
+  <Step title="Manifest Update">
+    - Actualización automática de manifiestos Kubernetes
+    - Validación con Kustomize y Kubeval
+    - Creación de PR al repositorio de configuración
+  </Step>
 
-    - maxUnavailable: 25%
-    - maxSurge: 25%
-    - Zero downtime garantizado
-  </Card>
+  <Step title="Review Process">
+    - Auto-merge para hotfixes y patches menores
+    - Review manual para cambios mayores
+    - Validación de configuración antes del merge
+  </Step>
+</Steps>
 
-  <Card title="Blue-Green" icon="toggle-on">
-    **Para releases críticas**: Cambio instantáneo
+### 3. Deployment Stages
 
-    - Ambiente completo duplicado
-    - Switch inmediato de tráfico
-    - Rollback instantáneo
-  </Card>
-</CardGroup>
+<Steps>
+  <Step title="Staging Deployment">
+    - **Automático**: ArgoCD detecta cambios y despliega
+    - **Rolling Update**: Zero-downtime deployment
+    - **E2E Testing**: Cypress para testing completo
+    - **Rollback Automático**: Si health checks fallan
+  </Step>
 
-## Monitoreo y Observabilidad
+  <Step title="Approval Gate">
+    - Configuración por tipo de cambio (major/minor/patch)
+    - Notificaciones a equipos de aprobación
+    - Bypass automático para hotfixes críticos
+  </Step>
 
-### 📊 Métricas de Pipeline
+  <Step title="Production Deployment">
+    - **Rolling Update**: Actualización gradual de pods
+    - **Health Checks**: Readiness y liveness probes
+    - **Circuit Breaker**: Parada automática si falla
+    - **Auto Rollback**: Retorno a versión anterior estable
+  </Step>
+</Steps>
 
-```yaml
-
-# Métricas clave tracked
-pipeline_metrics:
-  - deployment_frequency: "Multiple times per day"
-  - lead_time_for_changes: "< 1 hour"
-  - time_to_restore_service: "< 30 minutes"
-  - change_failure_rate: "< 5%"
-
-```
-
-### 🚨 Alertas y Notificaciones
+### 4. Monitoring & Observability
 
 <Tabs>
-  <Tab title="Slack Integration">
-    - Notificaciones de despliegue
-    - Alertas de fallos en pipeline
-    - Métricas de rendimiento
+  <Tab title="Health Monitoring">
+    ```yaml
+    # Health check configuration
+    readinessProbe:
+      httpGet:
+        path: /health/ready
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      timeoutSeconds: 3
+      successThreshold: 1
+      failureThreshold: 3
+
+    livenessProbe:
+      httpGet:
+        path: /health/live
+        port: 8080
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    ```
   </Tab>
 
-  <Tab title="Email Alerts">
-    - Resumen diario de deployments
-    - Alertas críticas de seguridad
-    - Reportes semanales de calidad
+  <Tab title="Rollback Strategy">
+    ```bash
+    # Automatic rollback triggers
+    - Health check failures > 3 consecutive
+    - Error rate > 5% for 2 minutes
+    - Response time > 2s for 5 minutes
+    - Critical alerts from monitoring
+
+    # Rollback execution
+    kubectl rollout undo deployment/retro-game-hub
+    argocd app sync retro-game-hub --revision previous
+    ```
   </Tab>
 
-  <Tab title="PagerDuty">
-    - Incidentes críticos en producción
-    - Escalation automático
-    - On-call rotation
+  <Tab title="Notification Channels">
+    ```yaml
+    # Alert configuration
+    notifications:
+      - trigger: deployment.failed
+        channels: [slack, email, pagerduty]
+      - trigger: rollback.executed
+        channels: [slack, email]
+      - trigger: approval.required
+        channels: [slack, email]
+    ```
   </Tab>
 </Tabs>
 
-## Beneficios del Pipeline
+## Configuración de Gates y Políticas
 
 <CardGroup cols={2}>
-  <Card title="Velocidad" icon="gauge-high">
-    **Deploy en < 10 minutos**
+  <Card title="Approval Policies" icon="shield-check">
+    **Major Changes (v1.0.0 → v2.0.0)**
+    - Require manual approval
+    - Security team review
+    - Stakeholder sign-off
 
-    Desde commit hasta producción automatizado
+    **Minor Changes (v1.0.0 → v1.1.0)**
+    - Team lead approval
+    - Automated after 2 hours
+
+    **Patches (v1.0.0 → v1.0.1)**
+    - Auto-approve if tests pass
+    - Immediate deployment
   </Card>
 
-  <Card title="Confiabilidad" icon="check-double">
-    **99.9% Success Rate**
+  <Card title="Rollback Triggers" icon="arrow-rotate-left">
+    **Automatic Rollback**
+    - Health check failures
+    - Error rate spikes
+    - Performance degradation
+    - Critical security alerts
 
-    Tests exhaustivos y validaciones automáticas
-  </Card>
-
-  <Card title="Seguridad" icon="lock">
-    **Security by Design**
-
-    Scans automáticos en cada etapa del pipeline
-  </Card>
-
-  <Card title="Observabilidad" icon="chart-line">
-    **Full Visibility**
-
-    Métricas, logs y tracing completos
+    **Manual Rollback**
+    - Business decision
+    - User feedback
+    - Feature flag disable
   </Card>
 </CardGroup>
 
-## Próximos Pasos
+## Métricas y SLOs
 
-En las siguientes secciones profundizaremos en cada componente:
+El pipeline mantiene los siguientes Service Level Objectives:
 
-- **GitHub Actions**: Configuración de workflows y jobs
-
-- **Docker & ECR**: Estrategias de containerización y registry
-
-- **ArgoCD**: GitOps y continuous deployment
-
-- **Monitoreo**: Observabilidad y alertas del pipeline
+- **Lead Time**: < 30 minutos desde commit hasta staging
+- **Deployment Frequency**: Múltiples despliegues por día
+- **MTTR (Mean Time To Recovery)**: < 15 minutos con rollback automático
+- **Change Failure Rate**: < 5% con gates de calidad

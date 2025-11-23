@@ -1,6 +1,6 @@
 ---
 title: 5.1. Autenticación OAuth2 con GitHub
-description: Protección de herramientas de monitoreo con OAuth2-Proxy y GitHub
+description: Protección de herramientas de monitoreo con OAuth2-Proxy y GitHub usando Authorization Code Grant con PKCE
 icon: lock
 ---
 
@@ -28,163 +28,144 @@ Retro Game Hub protege el acceso a Grafana, Prometheus y AlertManager usando **O
   </Card>
 </CardGroup>
 
-## Diagrama de Flujo OAuth2
+## Flujo OAuth2 Authorization Code Grant con PKCE
 
-### Flujo de Autenticación Completo
+### Flujo Completo de Autenticación
 
 ```mermaid
 sequenceDiagram
     participant U as Usuario
-    participant B as Browser
+    participant F as Frontend/OAuth2-Proxy
     participant N as Ingress NGINX
-    participant O as OAuth2-Proxy
     participant G as GitHub OAuth
     participant M as Monitoreo (Grafana)
 
-    Note over U,M: Primera visita sin autenticación
+    Note over U,M: 1. Inicio del proceso de autenticación
 
-    U->>B: Accede a https://grafana.retrogamehub.com
-    B->>N: GET /
+    U->>F: Click "Login" en https://grafana.retrogamehub.com
+    
+    Note over F: 2. Generación PKCE
+    F->>F: code_verifier = random(128 chars)
+    F->>F: code_challenge = SHA256(code_verifier)
+    F->>F: method = "S256"
 
-    Note over N: Ingress annotation: nginx.ingress.kubernetes.io/auth-url
-    N->>O: auth-url: /oauth2/auth
-    O-->>N: 401 Unauthorized (no cookie)
-    N-->>B: 302 Redirect → /oauth2/start
+    Note over F,G: 3. Authorization Request con PKCE
 
-    Note over U,G: Proceso de autenticación GitHub
+    F-->>U: 302 Redirect → GitHub Authorization
+    Note right of F: https://github.com/login/oauth/authorize<br/>?response_type=code<br/>&client_id=CLIENT_ID<br/>&redirect_uri=CALLBACK_URL<br/>&scope=user:email,read:org<br/>&state=CSRF_TOKEN<br/>&code_challenge=CODE_CHALLENGE<br/>&code_challenge_method=S256
 
-    B->>O: GET /oauth2/start
-    O-->>B: 302 Redirect → GitHub OAuth
-    Note right of O: https://github.com/login/oauth/authorize<br/>?client_id=xxx&redirect_uri=xxx&scope=user:email
+    Note over U,G: 4. Autorización del usuario
 
-    B->>G: GET /login/oauth/authorize
-    G-->>B: Formulario de login
-    U->>B: Credenciales GitHub
-    B->>G: POST /login/oauth/authorize
-    G-->>B: Página de autorización
-    U->>B: Autoriza aplicación
+    U->>G: GET /login/oauth/authorize (con parámetros)
+    G-->>U: Formulario de login GitHub
+    U->>G: Credenciales GitHub
+    G-->>U: Página de autorización de la app
+    U->>G: Autoriza aplicación
 
-    Note over G,O: Intercambio de código por token
+    Note over G,F: 5. Authorization Code Response
 
-    G-->>B: 302 Redirect → /oauth2/callback?code=AUTHORIZATION_CODE
-    B->>O: GET /oauth2/callback?code=AUTHORIZATION_CODE
-    O->>G: POST /login/oauth/access_token
-    Note right of O: client_id, client_secret, code
-    G-->>O: Access Token
+    G-->>U: 302 Redirect → /oauth2/callback
+    Note right of G: ?code=AUTHORIZATION_CODE<br/>&state=CSRF_TOKEN
+    U->>F: GET /oauth2/callback?code=AUTH_CODE&state=STATE
 
-    Note over O: Validación de usuario y organización
+    Note over F: 6. Validaciones de seguridad
+    F->>F: Valida state = CSRF_TOKEN
+    F->>F: Extrae code_verifier del storage
 
-    O->>G: GET /user (con access token)
-    G-->>O: User info
-    O->>G: GET /user/orgs (con access token)
-    G-->>O: User organizations
-    O->>O: Verificar membership en 'retrogamecloud'
+    Note over F,G: 7. Token Exchange con PKCE
 
-    alt Usuario autorizado
-        O-->>B: Set-Cookie: _oauth2_proxy=xxx + 302 Redirect → /
-        Note over U,M: Acceso autorizado a la aplicación
-        B->>N: GET / (con cookie)
-        N->>O: auth-url: /oauth2/auth (con cookie)
-        O->>O: Validar cookie/sesión
-        O-->>N: 200 OK + Headers (X-Auth-Request-User, X-Auth-Request-Email)
-        N->>M: Forward request + auth headers
-        M-->>N: Grafana Dashboard
-        N-->>B: Dashboard response
-        B-->>U: Muestra Grafana
-    else Usuario no autorizado
-        O-->>B: 403 Forbidden
-        Note right of O: No es miembro de retrogamecloud
+    F->>G: POST /login/oauth/access_token
+    Note right of F: Content-Type: application/x-www-form-urlencoded<br/>grant_type=authorization_code<br/>&code=AUTHORIZATION_CODE<br/>&redirect_uri=CALLBACK_URL<br/>&client_id=CLIENT_ID<br/>&code_verifier=CODE_VERIFIER
+
+    Note over G: 8. Verificación PKCE
+    G->>G: Recalcula: SHA256(code_verifier) == code_challenge
+    G->>G: Valida authorization_code
+
+    G-->>F: 200 OK + JSON Response
+    Note left of G: {<br/>  "access_token": "ACCESS_TOKEN",<br/>  "token_type": "bearer",<br/>  "expires_in": 28800,<br/>  "refresh_token": "REFRESH_TOKEN",<br/>  "scope": "user:email,read:org"<br/>}
+
+    Note over F: 9. Almacenamiento seguro de tokens
+    F->>F: Guarda tokens en httpOnly cookie/session
+    F->>F: Limpia code_verifier del storage
+
+    Note over F,G: 10. Validación de usuario
+
+    F->>G: GET /user (con access_token)
+    G-->>F: Información del usuario
+    F->>G: GET /user/orgs (con access_token)
+    G-->>F: Organizaciones del usuario
+
+    F->>F: Valida pertenencia a "retrogamecloud"
+
+    Note over F,M: 11. Acceso autorizado
+
+    F-->>U: 302 Redirect → https://grafana.retrogamehub.com
+    U->>N: GET / (con auth cookie)
+    N->>F: auth-url: /oauth2/auth
+    F-->>N: 200 OK + Headers (X-User, X-Email)
+    N->>M: Proxy request con headers de usuario
+    M-->>N: Grafana Dashboard
+    N-->>U: Dashboard renderizado
+
+    Note over U,M: 12. Requests posteriores con token válido
+
+    loop Requests autenticadas
+        U->>N: GET /api/dashboards
+        N->>F: auth-url: /oauth2/auth
+        F->>F: Valida access_token (no expirado)
+        F-->>N: 200 OK + User Headers
+        N->>M: Proxy request
+        M-->>U: Response
     end
 
+    Note over F,G: 13. Refresh de token expirado
+
+    U->>N: GET /api/alerts
+    N->>F: auth-url: /oauth2/auth
+    F->>F: access_token EXPIRADO
+    
+    F->>G: POST /login/oauth/access_token
+    Note right of F: grant_type=refresh_token<br/>&refresh_token=REFRESH_TOKEN<br/>&client_id=CLIENT_ID
+
+    G-->>F: Nuevo access_token + refresh_token
+    F->>F: Actualiza tokens en session
+    F-->>N: 200 OK + User Headers
+    N->>M: Proxy request
+    M-->>U: Response
+
+    Note over U,G: 14. Logout y revocación
+
+    U->>F: GET /oauth2/sign_out
+    F->>G: POST /applications/CLIENT_ID/token
+    Note right of F: access_token=ACCESS_TOKEN
+    G-->>F: 200 OK (token revocado)
+    
+    F->>F: Elimina tokens de session
+    F->>F: Elimina cookies de auth
+    F-->>U: 302 Redirect → Login page
 ```
 
-### Diagrama de Arquitectura OAuth2
+### Detalles de Implementación PKCE
 
-```mermaid
-graph TB
-    subgraph "Internet"
-        U[👤 Usuario]
-    end
-
-    subgraph "Kubernetes Cluster"
-        subgraph "Ingress Layer"
-            I[🌐 Ingress NGINX<br/>grafana.retrogamehub.com]
-        end
-
-        subgraph "Auth Layer"
-            O[🔐 OAuth2-Proxy<br/>Pod]
-        end
-
-        subgraph "Monitoring Stack"
-            G[📊 Grafana]
-            P[📈 Prometheus]
-            A[🚨 AlertManager]
-        end
-    end
-
-    subgraph "External"
-        GH[🐙 GitHub OAuth<br/>github.com]
-        ORG[🏢 retrogamecloud<br/>Organization]
-    end
-
-    %% Flow connections
-    U -->|1. GET /grafana| I
-    I -->|2. auth-url check| O
-    O -->|3. Redirect to GitHub| GH
-    GH -->|4. OAuth flow| ORG
-    ORG -->|5. Validate membership| O
-    O -->|6. Set cookie & redirect| I
-    I -->|7. Forward request| G
-
-    %% Same protection for other services
-    I -.->|Protected| P
-    I -.->|Protected| A
-
-    %% Styling
-    classDef auth fill:#ff6b6b,stroke:#c92a2a,color:#fff
-    classDef monitor fill:#51cf66,stroke:#37b24d,color:#fff
-    classDef external fill:#339af0,stroke:#1c7ed6,color:#fff
-
-    class O auth
-    class G,P,A monitor
-    class GH,ORG external
-
-```
-
-## Configuraciones Requeridas
-
-### GitHub OAuth App
-
-<Steps>
-  <Step title="Crear OAuth App en GitHub">
-    1. Ve a GitHub Settings → Developer settings → OAuth Apps
-    2. Click "New OAuth App"
-    3. Completa el formulario:
-       - **Application name**: `Retro Game Hub Monitoring`
-       - **Homepage URL**: `https://retrogamehub.com`
-       - **Authorization callback URL**: `https://grafana.retrogamehub.com/oauth2/callback`
-  </Step>
-
-  <Step title="Obtener credenciales">
+<CardGroup cols={2}>
+  <Card title="Code Verifier" icon="key">
     ```bash
-    # Anotar estos valores
-    CLIENT_ID="Ghp_xxxxxxxxxxxx"
-    CLIENT_SECRET="gho_xxxxxxxxxxxx"
+    # Genera string aleatorio de 128 caracteres
+    code_verifier=$(openssl rand -base64 96 | tr -d "=+/" | cut -c1-128)
     ```
+  </Card>
 
-  </Step>
-
-  <Step title="Configurar organización">
-    ```yaml
-    # En oauth2-proxy config
-    github-org: "retrogamecloud"
-    email-domains: "*"  # Permitir cualquier email de la org
+  <Card title="Code Challenge" icon="lock">
+    ```bash
+    # SHA256 del verifier, codificado en base64url
+    code_challenge=$(echo -n $code_verifier | sha256sum | cut -d' ' -f1 | xxd -r -p | base64 | tr -d "=" | tr '/+' '_-')
     ```
+  </Card>
+</CardGroup>
 
-  </Step>
-</Steps>
+## Configuración OAuth2-Proxy
 
-### OAuth2-Proxy Configuration
+### ConfigMap con PKCE habilitado
 
 ```yaml
 apiVersion: v1
@@ -194,179 +175,123 @@ metadata:
   namespace: monitoring
 data:
   oauth2_proxy.cfg: |
-    # OAuth Provider
     provider = "github"
     github_org = "retrogamecloud"
-
-    # URLs
-    http_address = "0.0.0.0:4180"
-    redirect_url = "https://grafana.retrogamehub.com/oauth2/callback"
-
-    # Upstream
-    upstreams = [
-      "http://grafana.monitoring.svc.cluster.local:3000"
-    ]
-
+    
+    # PKCE Configuration
+    code_challenge_method = "S256"
+    force_code_challenge_method = true
+    
+    # GitHub OAuth App
+    client_id = "your-github-app-client-id"
+    
     # Security
     cookie_secure = true
     cookie_httponly = true
     cookie_samesite = "lax"
-    cookie_domains = [".retrogamehub.com"]
-
-    # Sessions
-    cookie_expire = "168h"  # 7 days
-    cookie_refresh = "1h"
-
-    # Email validation
-    email_domains = ["*"]
-
-    # Logging
-    request_logging = true
-    auth_logging = true
-
+    cookie_expire = "8h"
+    
+    # Token refresh
+    refresh_token = true
+    
+    # Scopes necesarios
+    scope = "user:email read:org"
+    
+    # URLs
+    redirect_url = "https://grafana.retrogamehub.com/oauth2/callback"
+    
+    # Session storage
+    session_store_type = "redis"
+    redis_connection_url = "redis://redis-service:6379"
 ```
 
-### Ingress Annotations
+### Ingress con Annotations de Auth
 
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: grafana-ingress
-  namespace: monitoring
   annotations:
-    # OAuth2 Proxy annotations
+    # OAuth2-Proxy Authentication
     nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.monitoring.svc.cluster.local:4180/oauth2/auth"
-    nginx.ingress.kubernetes.io/auth-signin: "https://grafana.retrogamehub.com/oauth2/start"
-    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email"
-
-    # SSL
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/auth-signin: "http://oauth2-proxy.monitoring.svc.cluster.local:4180/oauth2/start"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Access-Token"
+    
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      auth_request_set $auth_user $upstream_http_x_auth_request_user;
+      auth_request_set $auth_email $upstream_http_x_auth_request_email;
+      proxy_set_header X-User $auth_user;
+      proxy_set_header X-Email $auth_email;
 spec:
-  tls:
-    - hosts:
-        - grafana.retrogamehub.com
-      secretName: grafana-tls
   rules:
-    - host: grafana.retrogamehub.com
-      http:
-        paths:
-          - path: /oauth2
-            pathType: Prefix
-            backend:
-              service:
-                name: oauth2-proxy
-                port:
-                  number: 4180
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: grafana
-                port:
-                  number: 3000
-
+  - host: grafana.retrogamehub.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana-service
+            port:
+              number: 3000
 ```
 
 ## Seguridad y Mejores Prácticas
 
+### Validaciones de Seguridad
+
 <CardGroup cols={2}>
-  <Card title="Cookies Seguras" icon="cookie">
-    ```yaml
-    cookie_secure: true
-    cookie_httponly: true
-    cookie_samesite: "lax"
-    ```
-
+  <Card title="PKCE Protection" icon="shield-check">
+    - **Code Verifier**: String aleatorio de 128 caracteres
+    - **Code Challenge**: SHA256 hash del verifier
+    - **Verificación**: GitHub valida que SHA256(verifier) = challenge
+    - **Previene**: Intercepción de authorization codes
   </Card>
 
-  <Card title="Validación de Organización" icon="building">
-    ```yaml
-    github_org: "retrogamecloud"
-    # Solo miembros de la org
-    ```
-
-  </Card>
-
-  <Card title="Headers de Auth" icon="header">
-    ```yaml
-    auth-response-headers:
-      - X-Auth-Request-User
-      - X-Auth-Request-Email
-    ```
-
-  </Card>
-
-  <Card title="Renovación de Tokens" icon="refresh">
-    ```yaml
-    cookie_refresh: "1h"
-    cookie_expire: "168h"
-    ```
-
+  <Card title="State Parameter" icon="fingerprint">
+    - **CSRF Token**: Previene ataques CSRF
+    - **Validación**: Estado debe coincidir en callback
+    - **Entropía**: Valor aleatorio único por request
+    - **Almacenamiento**: Session storage temporal
   </Card>
 </CardGroup>
 
-## Troubleshooting
+### Manejo de Tokens
 
-### Problemas Comunes
-
-<AccordionGroup>
-  <Accordion title="Error 403: Forbidden después de login">
-    **Causa**: Usuario no es miembro de la organización `retrogamecloud`
-
-    **Solución**:
-    ```bash
-    # Verificar membership
-    curl -H "Authorization: token $GITHUB_TOKEN" \
-      https://api.github.com/orgs/retrogamecloud/members/USERNAME
-
-    # Agregar usuario a la organización
-    # Via GitHub UI: Settings → Member privileges
-    ```
-
-  </Accordion>
-
-  <Accordion title="Redirect loop infinito">
-    **Causa**: Misconfiguration en redirect URLs
-
-    **Solución**:
-    ```yaml
-    # Verificar URLs en oauth2-proxy
-    redirect_url: "https://grafana.retrogamehub.com/oauth2/callback"
-
-    # Y en GitHub OAuth App
-    Authorization callback URL: https://grafana.retrogamehub.com/oauth2/callback
-    ```
-
-  </Accordion>
-
-  <Accordion title="Cookie not secure warnings">
-    **Causa**: HTTPS no configurado correctamente
-
-    **Solución**:
-    ```yaml
-    # Forzar HTTPS en ingress
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-
-    # Cookie segura en oauth2-proxy
-    cookie_secure: true
-    ```
-
-  </Accordion>
-</AccordionGroup>
-
-### Logs Útiles
-
-```bash
-
-# Logs oauth2-proxy
-kubectl logs -f deployment/oauth2-proxy -n monitoring
-
-# Logs ingress-nginx
-kubectl logs -f deployment/ingress-nginx-controller -n ingress-nginx
-
-# Debug auth headers
-kubectl exec -it oauth2-proxy-pod -- curl -v http://localhost:4180/oauth2/auth
-
+```yaml
+# Token Storage en Redis
+apiVersion: v1
+kind: Secret
+metadata:
+  name: oauth2-proxy-tokens
+type: Opaque
+data:
+  # Configuración de expiración
+  access-token-ttl: "28800"  # 8 horas
+  refresh-token-ttl: "2592000"  # 30 días
+  
+  # Rotation policy
+  token-rotation-enabled: "true"
+  refresh-threshold: "900"  # 15 minutos antes de expirar
 ```
+
+### Revocación y Logout
+
+```mermaid
+graph TD
+    A[Usuario hace Logout] --> B[OAuth2-Proxy recibe /oauth2/sign_out]
+    B --> C[Revoca access_token en GitHub]
+    C --> D[Elimina refresh_token]
+    D --> E[Limpia session storage]
+    E --> F[Elimina auth cookies]
+    F --> G[Redirect a página de login]
+    
+    H[Token Expirado] --> I[Intenta refresh automático]
+    I --> J{Refresh exitoso?}
+    J -->|Sí| K[Continúa con nuevo token]
+    J -->|No| L[Fuerza re-autenticación]
+```
+
+Este flujo OAuth2 con PKCE proporciona una capa robusta de seguridad para el acceso a las herramientas de monitoreo, asegurando que solo miembros autorizados de la organización puedan acceder a información sensible del sistema.

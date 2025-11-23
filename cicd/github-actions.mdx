@@ -66,7 +66,7 @@ RetroGame Cloud utiliza GitHub Actions para automatizar completamente el ciclo d
   </Card>
 </CardGroup>
 
----
+- --
 
 ## Workflow Principal: Build & Deploy
 
@@ -99,6 +99,7 @@ env:
   IMAGE_NAME: retrogamecloud/frontend  # Cambia por servicio
   K8S_REPO: retrogamecloud/kubernetes
   K8S_MANIFEST_FILE: 04-frontend.yaml  # Cambia por servicio
+
 ```
 
 ```yaml Jobs
@@ -149,11 +150,12 @@ jobs:
     steps:
       - name: Build y push Docker image
         # ... resto de la configuración
+
 ```
 
 </CodeGroup>
 
----
+- --
 
 ## Tests End-to-End
 
@@ -219,6 +221,7 @@ Los tests E2E se ejecutan automáticamente en GitHub Actions contra un cluster e
 <CodeGroup>
 
 ```yaml Cluster Efímero
+
 - name: Setup cluster K8s
   uses: helm/kind-action@v1.4.0
   with:
@@ -239,28 +242,32 @@ Los tests E2E se ejecutan automáticamente en GitHub Actions contra un cluster e
           hostPort: 80
         - containerPort: 443
           hostPort: 443
+
 ```
 
 ```yaml Servicios Mock
+
 - name: Deploy test stack
   run: |
     # Auth service mock
     kubectl apply -f k8s/test/auth-mock.yaml
-    
+
     # Database mock (PostgreSQL)
     kubectl apply -f k8s/test/postgres-test.yaml
-    
+
     # Redis mock
     kubectl apply -f k8s/test/redis-test.yaml
-    
+
     # Game catalog con ROMs de test
     kubectl apply -f k8s/test/game-catalog-mock.yaml
-    
+
     # Esperar a que estén listos
     kubectl wait --for=condition=ready pod -l app=test-stack --timeout=300s
+
 ```
 
 ```yaml Ejecución Tests
+
 - name: Ejecutar tests Playwright
   run: |
     export TEST_BASE_URL=http://localhost:80
@@ -273,6 +280,7 @@ Los tests E2E se ejecutan automáticamente en GitHub Actions contra un cluster e
       --environment postman/test-environment.json \
       --reporters cli,junit \
       --reporter-junit-export results/api-tests.xml
+
 ```
 
 </CodeGroup>

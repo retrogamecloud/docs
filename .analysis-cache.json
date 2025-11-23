@@ -3,8 +3,8 @@
   "last_full_analysis": "2025-11-23T13:45:27.741382",
   "files": {
     "troubleshooting.mdx": {
-      "hash": "967e4e075a9f2ed323c54e746762149afbaf0276958463cf9d1e059dbe77bdca",
-      "last_analyzed": "2025-11-23T15:40:25.435615",
+      "hash": "96144f489a6c35ec9541274e754e6380b9e532f7a872e0f6ef11687245b30b98",
+      "last_analyzed": "2025-11-23T16:47:13.911443",
       "size": 10514
     },
     "sequence-diagrams.mdx": {
@@ -13,19 +13,19 @@
       "size": 19638
     },
     "architecture.mdx": {
-      "hash": "6ea9ecec1c4b309bc85b741ebef0ca2a66e2c97713a433fb672a796ba0492256",
-      "last_analyzed": "2025-11-23T16:08:41.384867",
-      "size": 10216
+      "hash": "a5dbce1d1ff8bbb9d94aa075069867eebabd0c36f8c47a6eb2be9bb92a21dc8f",
+      "last_analyzed": "2025-11-23T16:47:13.912208",
+      "size": 9535
     },
     "configuration.mdx": {
-      "hash": "89e8bff078814672f341de43dcf58fc8c0ab791cf89d86ec797c906599431258",
-      "last_analyzed": "2025-11-23T13:45:27.741592",
+      "hash": "5a0f1e010fe7b34aa466691c30767420f3343fd1d511a53958d733e5989c89dd",
+      "last_analyzed": "2025-11-23T16:47:13.911530",
       "size": 19437
     },
     "desarrollo-local.mdx": {
-      "hash": "471de1cb05ea17125d3cbc7fd7bcb9d701e67c9ee14fb7c376bb62c79465a1c4",
-      "last_analyzed": "2025-11-23T13:45:27.741636",
-      "size": 21373
+      "hash": "82c405e4873174bb556e492806a7835f8263ffe7227d772a0218fd31da84f275",
+      "last_analyzed": "2025-11-23T16:47:13.911696",
+      "size": 21370
     },
     "development.mdx": {
       "hash": "6a0b0758e35588288877fb9c9f7b2440452b32857438baadf1b98bea07e9fcba",
@@ -53,9 +53,9 @@
       "size": 3730
     },
     "services/ranking-service.mdx": {
-      "hash": "4ec4ea21fceb1cad51207cddc1ffd543b3ddbe956c5c029a03ba370bdebe9eb8",
-      "last_analyzed": "2025-11-23T15:40:25.435717",
-      "size": 3768
+      "hash": "6f68b12659724a0e1d0fa17be7847336eebcf87bc25c2faefc136d8796ed4e1b",
+      "last_analyzed": "2025-11-23T16:47:13.912334",
+      "size": 5984
     },
     "services/auth-service.mdx": {
       "hash": "776cea1369f556ac8cc5d97dc91865201621238fda253d186112e3ea45804f6d",
@@ -63,9 +63,9 @@
       "size": 6827
     },
     "services/score-service.mdx": {
-      "hash": "cfc3f0ae101cc6c7ba242f90fd66c767711670606641f0a89d99d479417e0c39",
-      "last_analyzed": "2025-11-23T15:40:25.435388",
-      "size": 4561
+      "hash": "dcf76f814a5db88dd29a3febf2ed07aad4c3602425da6a9db0a53d6f0cb0b52e",
+      "last_analyzed": "2025-11-23T16:47:13.911936",
+      "size": 5303
     },
     "services/user-service.mdx": {
       "hash": "ce33f749541f10f9b40399991695f849d389c6d3a46089c936752265b0c6b60c",
@@ -83,23 +83,23 @@
       "size": 311
     },
     "infrastructure/route53-ssl.mdx": {
-      "hash": "26dccda66a3148c778050f1ad04a4fc31e10c0939172e67d08e37122d53abb82",
-      "last_analyzed": "2025-11-23T13:45:27.742063",
+      "hash": "a35a6773b73b79b6a1c56fd80f295d1f13806fe63106cf884e5b31dc3ef30c15",
+      "last_analyzed": "2025-11-23T16:47:13.911487",
       "size": 20787
     },
     "infrastructure/cdn-cloudfront.mdx": {
-      "hash": "50072c678b59361171d499fb1c8699e41e465a6333f13b02435fc2a11ba390ec",
-      "last_analyzed": "2025-11-23T13:45:27.742102",
+      "hash": "116d409f31ce6a95246e642dff957aea92e71c1a1852d09d8d0c286623a554bd",
+      "last_analyzed": "2025-11-23T16:47:13.912437",
       "size": 18107
     },
     "infrastructure/networking.mdx": {
-      "hash": "1071a0788d1a72cb376d948cdd5c37f94b56c5b7e0bf1cda6ab164f36e82108b",
-      "last_analyzed": "2025-11-23T15:47:08.799615",
+      "hash": "30f1d58f2a8e4625ff1fc57df049526666b42c93638678c6c32c52cdeeeec7c3",
+      "last_analyzed": "2025-11-23T16:47:13.912135",
       "size": 9578
     },
     "infrastructure/eks-cluster.mdx": {
-      "hash": "6e6184196712f966f79dbec43badef2035ab3e8b6f67f25271a43972a6fe63a7",
-      "last_analyzed": "2025-11-23T13:45:27.742177",
+      "hash": "96f6217d649e3b412a918ded6a10f85cd411c2c1c5309369a9940488846b546f",
+      "last_analyzed": "2025-11-23T16:47:13.912473",
       "size": 16103
     },
     "infrastructure/oauth2-authentication.mdx": {
@@ -108,9 +108,9 @@
       "size": 9104
     },
     "infrastructure/monitoring.mdx": {
-      "hash": "b4fc250a24dee4e4dffa16cb624359a54516f4b412fe6aaf1c04c67d8a916b92",
-      "last_analyzed": "2025-11-23T15:40:25.436124",
-      "size": 13605
+      "hash": "715dbcacf648656818b8b57267cff207b4de89710a1d6b60b1ba7ea602c4091f",
+      "last_analyzed": "2025-11-23T16:47:13.912103",
+      "size": 13133
     },
     "infrastructure/argocd-gitops.mdx": {
       "hash": "8c4258fe29d9650d351f2a753336d002fabf96b127ae17dfc61c70d0e7ccee95",
@@ -118,19 +118,19 @@
       "size": 10770
     },
     "infrastructure/overview.mdx": {
-      "hash": "8855c5fb45332ee157676123111e0df6f0197a6679fa4501adfbee767e9b8661",
-      "last_analyzed": "2025-11-23T13:45:27.742358",
-      "size": 6270
+      "hash": "fa081feb56b768e2bb496b0338e77a157bf74e92e081dd0fbaf34227550f2a90",
+      "last_analyzed": "2025-11-23T16:47:13.911739",
+      "size": 6554
     },
     "cicd/github-actions.mdx": {
-      "hash": "3eee8d26d892beef848efebe80b993f80babf6f968d46b77d52e625e5f702bc7",
-      "last_analyzed": "2025-11-23T15:40:25.435058",
-      "size": 40753
+      "hash": "2c29901929da6d23d77138f4dea0a3ee1ae4b1b3edf80e286511ef1a02d8a133",
+      "last_analyzed": "2025-11-23T16:47:13.911989",
+      "size": 7347
     },
     "cicd/gitops-workflow.mdx": {
-      "hash": "a2bbb51a422af875536f2196b8ca513ff57c6656137d2e48f43a374ea9332dc6",
-      "last_analyzed": "2025-11-23T13:45:27.742479",
-      "size": 18693
+      "hash": "de44deeadada57842d07e4498a52e8f0a9787f01a9396ce0a917b71e902128eb",
+      "last_analyzed": "2025-11-23T16:47:13.912031",
+      "size": 9900
     },
     "cicd/overview.mdx": {
       "hash": "e6ebc7c6a2af6e2960405efb32b8b5ce24ddaed8838b988a3e58e6bbaac137ce",
@@ -323,34 +323,34 @@
       "size": 10236
     },
     "AUTO_FIXES_REPORT.md": {
-      "hash": "be114aeaca6082148ae4d54043791ac296fc7e2eb5734e410de197c552b51f67",
-      "last_analyzed": "2025-11-23T16:08:41.384820",
-      "size": 534
+      "hash": "775695aaf09a4f4168778ef8c2eb1a19356e724dbda0c174c8669069d4a55c5f",
+      "last_analyzed": "2025-11-23T16:47:13.911770",
+      "size": 2414
     },
     "STRUCTURE_CHANGELOG.md": {
-      "hash": "808aae3b69bf24a77b90966466b67ab9cdfe461ccbed8fa4c855ffd65504f728",
-      "last_analyzed": "2025-11-23T15:40:25.435415",
-      "size": 1474
+      "hash": "55abc37117cb0fc2e3772a1ed68b867ddfd3bb2c1954835d4b90b2fa55e32c8c",
+      "last_analyzed": "2025-11-23T16:47:13.911404",
+      "size": 1657
     },
     "CHANGELOG_WIKI_2025-11-20.md": {
       "hash": "d13877754ef905f75e10e04599d08786c84a78b89b5a478d17f4b058a96099e0",
-      "last_analyzed": "2025-11-23T16:08:41.384971",
+      "last_analyzed": "2025-11-23T16:47:13.912272",
       "size": 12710
     },
     "README.md": {
       "hash": "024bf7c7673705356f681d02d8192dcae1115ccbdf621307bae295c7f89abb0b",
-      "last_analyzed": "2025-11-23T16:08:41.384933",
+      "last_analyzed": "2025-11-23T16:47:13.911874",
       "size": 1394
     },
     "BROKEN_LINKS_REPORT.md": {
-      "hash": "cdfeb16c56cd104d00bc1238346d4f82405f37febd024b5aebccd3a27be458c4",
-      "last_analyzed": "2025-11-23T16:08:41.384903",
-      "size": 3658
+      "hash": "c827e58497964653e30cdb85e0ffb4286914e827d14861f714787049f1f2609d",
+      "last_analyzed": "2025-11-23T16:47:13.912174",
+      "size": 3351
     },
     "IMPROVEMENTS.md": {
-      "hash": "40440772511d805e76e03222b8a8f3420945f3a6c4a68114c810c9a33a8b53b2",
-      "last_analyzed": "2025-11-23T15:40:25.435886",
-      "size": 16503
+      "hash": "0373e4e03acc0cc4a8afb20a8a0f63a2734f34ef9aa27f4b83f7e51493ba2487",
+      "last_analyzed": "2025-11-23T16:47:13.912238",
+      "size": 7728
     },
     "infrastructure/backup-recovery.mdx": {
       "hash": "c900eec6d9c68cbca5318d1b61573ca7dc312e26731d749cd878c384e2fa8b2e",
@@ -363,9 +363,9 @@
       "size": 12851
     },
     "infrastructure/secrets-management.mdx": {
-      "hash": "8a1c2872387722acc7d1e3bc936362cdae2b910007e56fbb08b4e7ac50e869d6",
-      "last_analyzed": "2025-11-23T15:47:08.799363",
-      "size": 11591
+      "hash": "903eb27dc305682c9a3b7c377590e7718edb3fe33719b9417eec0be27c9277c1",
+      "last_analyzed": "2025-11-23T16:47:13.912400",
+      "size": 11932
     },
     "infrastructure/security.mdx": {
       "hash": "08a0b8dade9727273049dee46cb9bb62f683b55d2b0ab3ed7c4357e6157f95b5",
@@ -373,9 +373,9 @@
       "size": 12308
     },
     "infrastructure/database.mdx": {
-      "hash": "7c28b21a435fced42ebab2be8eeec8744f80d8d720e659c6627903b5cb5d2f84",
-      "last_analyzed": "2025-11-23T15:50:53.749108",
-      "size": 13376
+      "hash": "efa00e9bd4ceffb7e50eed2dca93a18bfd2b0a141bb8964496b4023deb6de304",
+      "last_analyzed": "2025-11-23T16:47:13.912366",
+      "size": 9518
     },
     "development/contributing.mdx": {
       "hash": "cfabc8bf340a76a60d9db450ab1f51d48bb3f2766ef38be192e3e87a94447270",
@@ -388,14 +388,14 @@
       "size": 6226
     },
     "development/new-microservice-guide.mdx": {
-      "hash": "197133a8e36e969ffa431f14bbe6f31ba8a3dde5fc56d0406516c923268378bf",
-      "last_analyzed": "2025-11-23T15:50:53.749043",
-      "size": 12506
+      "hash": "931eac37507786d5f6a805bca5de6ad9331db98cce935c2e49e2ffa8d85e7ce8",
+      "last_analyzed": "2025-11-23T16:47:13.911847",
+      "size": 12507
     },
     "development/testing-guide.mdx": {
-      "hash": "f23f9a39e1b511a95e34daf6b0ed5f19ad99d998dc9ed8467b9725c0ac0ea416",
-      "last_analyzed": "2025-11-23T15:40:25.435546",
-      "size": 12723
+      "hash": "3a8aea0d570d9d31f4a756a754b87bffd20353d6b5af19a04af1c115fe8fa19b",
+      "last_analyzed": "2025-11-23T16:47:13.911811",
+      "size": 13278
     },
     "development/code-standards.mdx": {
       "hash": "1980a00f6f82418d1851ddd16bcce5cec3c551a33a0e443fff3a813eb3e0a93d",
@@ -413,14 +413,14 @@
       "size": 12240
     },
     "troubleshooting-production.mdx": {
-      "hash": "a397019c6632f901e7c332eb6fb3e6639c27d32ceac7d5def33afffe1e635efd",
-      "last_analyzed": "2025-11-23T15:40:25.435787",
-      "size": 12539
+      "hash": "7a141ee812f4b36351b68e68c8ee7ab1e5eefd7a45c555cdc1445610732f8b82",
+      "last_analyzed": "2025-11-23T16:47:13.911363",
+      "size": 8829
     },
     "infrastructure/alerting.mdx": {
-      "hash": "c99133481168110c2b54b9d38d7e315b1ff3469c81b498b87489fb7f61dc9e46",
-      "last_analyzed": "2025-11-23T15:47:08.799316",
-      "size": 12504
+      "hash": "10594aa07b8ee5553596f7603ab5baff79715af663bb6bccea1b46bdd7ef255f",
+      "last_analyzed": "2025-11-23T16:47:13.911650",
+      "size": 12732
     },
     "infrastructure/logging.mdx": {
       "hash": "5a22b40ed3f2c383c9a9d3f3d3fd8b1c41c0dda2d1e579528c74802648d89040",
@@ -428,9 +428,29 @@
       "size": 11811
     },
     "infrastructure/disaster-recovery-playbook.mdx": {
-      "hash": "8b0677faa45471f2ec3cbb0da78aca08b531274529b06099c950415d901d9de3",
-      "last_analyzed": "2025-11-23T15:47:08.799660",
-      "size": 11751
+      "hash": "ed3a01f55e1c5061869d16a996f89116ea03010ab7c1f966966a2e37afc05cec",
+      "last_analyzed": "2025-11-23T16:47:13.912067",
+      "size": 11925
+    },
+    "infrastructure/database-migrations.mdx": {
+      "hash": "17919e9fe998c0052c91fafe2062ae46b1cb6d65f85a1a07b003b73f17d0c532",
+      "last_analyzed": "2025-11-23T16:47:13.911566",
+      "size": 10134
+    },
+    "development/e2e-testing.mdx": {
+      "hash": "0e9b718e4afe26e021ac02c94ff9485ad9a5d2c960bf09b3005056ae871bc73f",
+      "last_analyzed": "2025-11-23T16:47:13.911604",
+      "size": 11466
+    },
+    "infrastructure/aws-topology.mdx": {
+      "hash": "c25c8a2f1d1da151d65a52557c5dc7e14b08c177ed7ab7cac6e99f0f58954cf0",
+      "last_analyzed": "2025-11-23T16:47:13.911906",
+      "size": 8754
+    },
+    "infrastructure/redis-troubleshooting.mdx": {
+      "hash": "93775a20e1acc3b428be9e939d7ab7577b4314154baecc4a9bd6925034fe3c9e",
+      "last_analyzed": "2025-11-23T16:47:13.912304",
+      "size": 8294
     }
   },
   "analysis_results": {
@@ -690,6 +710,18 @@
       "analyzed": true
     },
     "infrastructure/disaster-recovery-playbook.mdx": {
+      "analyzed": true
+    },
+    "infrastructure/database-migrations.mdx": {
+      "analyzed": true
+    },
+    "development/e2e-testing.mdx": {
+      "analyzed": true
+    },
+    "infrastructure/aws-topology.mdx": {
+      "analyzed": true
+    },
+    "infrastructure/redis-troubleshooting.mdx": {
       "analyzed": true
     }
   }

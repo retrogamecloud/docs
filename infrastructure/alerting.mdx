@@ -142,6 +142,7 @@ leaderboard_requests_total:
   labels: ["game_id", "period"]
 
 ```
+
 </Tab>
 </Tabs>
 
@@ -567,17 +568,19 @@ kubectl rollout undo deployment/auth-service -n retrogame
 <Tab title="Nodos Unhealthy">
 
 ```bash
+
 # 1. Verificar estado del cluster
 kubectl get nodes
 
 # 2. Describir nodo problemático
 kubectl describe node <node-name>
 
-# 3. Revisar eventos del cluster  
+# 3. Revisar eventos del cluster
 kubectl get events --all-namespaces --sort-by='.lastTimestamp'
 
 # 4. Si es necesario, drenar y reemplazar el nodo
 kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data
+
 ```
 
 </Tab>

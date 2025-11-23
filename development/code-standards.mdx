@@ -1,7 +1,6 @@
 ---
 title: Guía de Contribución y Estándares de Código
-description: 'Proceso completo para contribuir al proyecto RetroGameCloud: pull requests,
-  estándares de código, testing y revisiones'
+description: 'Proceso completo para contribuir al proyecto RetroGameCloud: pull requests, estándares de código, testing y revisiones'
 icon: code-pull-request
 ---
 
@@ -30,6 +29,10 @@ Esta guía define el proceso completo para contribuir al proyecto RetroGameCloud
     npm run prepare
     ```
 
+    <Note>
+    La instalación debería completarse sin errores. Si encuentras problemas con dependencias, verifica que estés usando Node.js 18+ y npm 9+.
+    </Note>
+
   </Tab>
 
   <Tab title="Variables de Entorno">
@@ -44,6 +47,15 @@ Esta guía define el proceso completo para contribuir al proyecto RetroGameCloud
     AWS_REGION=eu-west-1
     ```
 
+    **Salida esperada en `.env.local`:**
+    ```env
+    NODE_ENV=development
+    DATABASE_URL=postgresql://localhost:5432/retrogame_dev
+    JWT_SECRET=your-dev-secret
+    AWS_REGION=eu-west-1
+    NEXTAUTH_URL=http://localhost:3000
+    ```
+
   </Tab>
 </Tabs>
 
@@ -54,20 +66,25 @@ Siempre crea tu branch desde `main` actualizado y usa nomenclatura descriptiva.
 </Note>
 
 ```bash
-
 # Actualizar main
 git checkout main
 git pull upstream main
 
-# Crear nueva rama
+# Crear nueva rama con nomenclatura estándar
 git checkout -b feature/nueva-funcionalidad
 
-# o
+# Para correcciones de bugs
 git checkout -b fix/correccion-bug
 
-# o
+# Para actualizaciones de documentación
 git checkout -b docs/actualizacion-readme
+```
 
+**Verificación del branch:**
+```bash
+# Confirmar que estás en el branch correcto
+git branch --show-current
+# Output: feature/nueva-funcionalidad
 ```
 
 ## Convenciones de Commits
@@ -76,473 +93,461 @@ git checkout -b docs/actualizacion-readme
 
 Utilizamos [Conventional Commits](https://www.conventionalcommits.org/es/) con el siguiente formato:
 
-```
-
+```text
 <tipo>(<ámbito>): <descripción>
 
 [cuerpo opcional]
 
 [pie opcional]
-
 ```
 
 ### Tipos de Commit
 
 <Card title="Tipos Principales" icon="git-branch">
-
 - `feat`: Nueva funcionalidad
-
 - `fix`: Corrección de errores
-
 - `docs`: Cambios en documentación
-
-- `style`: Formato, punto y coma faltante, etc.
-
-- `refactor`: Cambio de código que no corrige errores ni añade funcionalidad
-
-- `test`: Añadir tests faltantes o corregir existentes
-
-- `chore`: Cambios en build, dependencias, etc.
+- `style`: Cambios de formato (espacios, comas, etc.)
+- `refactor`: Refactorización de código
+- `test`: Añadir o modificar tests
+- `chore`: Tareas de mantenimiento
 </Card>
 
 ### Ejemplos de Commits
 
 ```bash
-
 # Funcionalidad nueva
-git commit -m "feat(auth): implementar autenticación OAuth2 con Kong"
+git commit -m "feat(auth): implementar autenticación con Google OAuth"
 
-# Corrección de error
-git commit -m "fix(game-catalog): resolver error de paginación en listado de juegos"
+# Corrección de bug
+git commit -m "fix(api): corregir validación de datos en endpoint /games"
 
 # Documentación
-git commit -m "docs(api): añadir ejemplos de uso para endpoints de ranking"
+git commit -m "docs(readme): actualizar instrucciones de instalación"
 
 # Refactorización
-git commit -m "refactor(user-service): migrar callbacks a async/await"
-
+git commit -m "refactor(utils): simplificar función de validación de ROMs"
 ```
 
 ## Estándares de Código
 
-### JavaScript/Node.js
+### JavaScript/TypeScript
 
 <Tabs>
-  <Tab title="Async/Await">
-    ```javascript
-    // ✅ Correcto - Usar async/await
-    async function getUserGames(userId) {
-      try {
-        const user = await User.findById(userId);
-        const games = await GameCatalog.findByUser(userId);
-        return { user, games };
-      } catch (error) {
-        logger.error('Error fetching user games:', error);
-        throw new Error('Failed to fetch user games');
-      }
+  <Tab title="Naming Conventions">
+    ```typescript
+    // ✅ Correcto - camelCase para variables y funciones
+    const gameTitle = "Super Mario Bros";
+    const calculateScore = (points: number) => points * 2;
+
+    // ✅ Correcto - PascalCase para clases y componentes
+    class GameManager {
+      private playerCount: number;
     }
 
-    // ❌ Incorrecto - Evitar callbacks
-    function getUserGames(userId, callback) {
-      User.findById(userId, (err, user) => {
-        if (err) return callback(err);
-        GameCatalog.findByUser(userId, (err, games) => {
-          if (err) return callback(err);
-          callback(null, { user, games });
-        });
-      });
-    }
+    // ✅ Correcto - UPPER_SNAKE_CASE para constantes
+    const MAX_PLAYERS = 4;
+    const API_ENDPOINTS = {
+      GAMES: '/api/games',
+      USERS: '/api/users'
+    } as const;
+
+    // ❌ Incorrecto
+    const game_title = "Super Mario Bros"; // snake_case
+    const CalculateScore = () => {}; // PascalCase para función
+    ```
+
+    **Resultado esperado en el linter:**
+    ```bash
+    ✓ No naming convention violations found
+    ```
+
+  </Tab>
+
+  <Tab title="Estructura de Funciones">
+    ```typescript
+    // ✅ Correcto - Función bien estructurada
+    /**
+     * Calcula el puntaje final del jugador
+     * @param baseScore - Puntaje base obtenido
+     * @param multiplier - Multiplicador por dificultad
+     * @param timeBonus - Bonus por tiempo restante
+     * @returns Puntaje final calculado
+     */
+    export const calculateFinalScore = (
+      baseScore: number,
+      multiplier: number = 1,
+      timeBonus: number = 0
+    ): number => {
+      // Validar inputs
+      if (baseScore < 0 || multiplier < 0) {
+        throw new Error('Score values cannot be negative');
+      }
+
+      // Cálculo principal
+      const multipliedScore = baseScore * multiplier;
+      const finalScore = multipliedScore + timeBonus;
+
+      return Math.round(finalScore);
+    };
+
+    // Ejemplo de uso
+    const playerScore = calculateFinalScore(1000, 1.5, 200);
+    // Expected output: 1700
     ```
 
   </Tab>
 
   <Tab title="Manejo de Errores">
-    ```javascript
-    // ✅ Correcto - Try-catch estructurado
-    async function createGame(gameData) {
+    ```typescript
+    // ✅ Correcto - Manejo de errores consistente
+    export const fetchGameData = async (gameId: string): Promise<Game> => {
       try {
-        // Validación de entrada
-        const validatedData = await gameSchema.validateAsync(gameData);
-
-        // Operación principal
-        const game = await Game.create(validatedData);
-
-        logger.info('Game created successfully', { gameId: game.id });
-        return game;
-
-      } catch (validationError) {
-        if (validationError.isJoi) {
-          logger.warn('Invalid game data', validationError.details);
-          throw new ValidationError('Invalid game data');
+        // Validación de input
+        if (!gameId || gameId.trim() === '') {
+          throw new ValidationError('Game ID is required');
         }
 
-        logger.error('Failed to create game', validationError);
-        throw new DatabaseError('Game creation failed');
+        // Llamada a API
+        const response = await fetch(`/api/games/${gameId}`);
+        
+        // Manejo de respuestas HTTP
+        if (!response.ok) {
+          throw new APIError(
+            `Failed to fetch game: ${response.status} ${response.statusText}`
+          );
+        }
+
+        const gameData = await response.json();
+        return gameData;
+
+      } catch (error) {
+        // Log estructurado
+        console.error('Error fetching game data:', {
+          gameId,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        
+        // Re-throw para que el caller pueda manejar
+        throw error;
       }
+    };
+
+    // Uso con manejo de errores
+    try {
+      const game = await fetchGameData('mario-bros-3');
+      console.log(`Loaded game: ${game.title}`);
+    } catch (error) {
+      // Handle error appropriately
     }
-    ```
-
-  </Tab>
-
-  <Tab title="Logging">
-    ```javascript
-    // ✅ Configuración de Winston
-    const winston = require('winston');
-
-    const logger = winston.createLogger({
-      level: process.env.LOG_LEVEL || 'info',
-      format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.errors({ stack: true }),
-        winston.format.json()
-      ),
-      transports: [
-        new winston.transports.Console(),
-        new winston.transports.File({ filename: 'logs/app.log' })
-      ]
-    });
-
-    // Uso del logger
-    logger.info('User authenticated', { userId, timestamp: new Date() });
-    logger.error('Database connection failed', { error: error.message });
     ```
 
   </Tab>
 </Tabs>
 
-### Validación de Datos
+### React Components
 
-<Warning>
-Siempre valida los datos de entrada usando Joi antes de procesarlos.
-</Warning>
+```tsx
+// ✅ Componente bien estructurado
+interface GameCardProps {
+  /** Datos del juego a mostrar */
+  game: Game;
+  /** Callback cuando se selecciona el juego */
+  onSelect?: (gameId: string) => void;
+  /** Mostrar información adicional */
+  showDetails?: boolean;
+}
 
-```javascript
-const Joi = require('joi');
+/**
+ * Tarjeta que muestra información de un juego retro
+ */
+export const GameCard: React.FC<GameCardProps> = ({
+  game,
+  onSelect,
+  showDetails = false
+}) => {
+  // Hooks al inicio
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Event handlers
+  const handleCardClick = useCallback(() => {
+    if (onSelect) {
+      setIsLoading(true);
+      onSelect(game.id);
+    }
+  }, [game.id, onSelect]);
 
-// Schema de validación
-const gameSchema = Joi.object({
-  title: Joi.string().min(1).max(100).required(),
-  description: Joi.string().max(500),
-  category: Joi.string().valid('arcade', 'platform', 'puzzle', 'rpg'),
-  romFile: Joi.string().required(),
-  coverImage: Joi.string().uri(),
-  releaseYear: Joi.number().integer().min(1970).max(new Date().getFullYear())
-});
-
-// Middleware de validación
-const validateGame = (req, res, next) => {
-  const { error, value } = gameSchema.validate(req.body);
-
-  if (error) {
-    return res.status(400).json({
-      error: 'Validation failed',
-      details: error.details.map(detail => detail.message)
-    });
+  // Early returns para casos especiales
+  if (!game) {
+    return <div>No game data available</div>;
   }
 
-  req.validatedData = value;
-  next();
+  // Render principal
+  return (
+    <div 
+      className="game-card"
+      onClick={handleCardClick}
+      role="button"
+      tabIndex={0}
+    >
+      <img 
+        src={game.coverUrl} 
+        alt={`${game.title} cover`}
+        loading="lazy"
+      />
+      <h3>{game.title}</h3>
+      
+      {showDetails && (
+        <div className="game-details">
+          <p>Platform: {game.platform}</p>
+          <p>Year: {game.releaseYear}</p>
+        </div>
+      )}
+      
+      {isLoading && <LoadingSpinner />}
+    </div>
+  );
 };
-
 ```
 
-## Requisitos de Testing
+## Testing Requirements
 
-### Cobertura Mínima
+### Unit Tests
 
-<Card title="Requisitos de Cobertura" icon="chart-line">
+```typescript
+// ✅ Test bien estructurado
+import { calculateFinalScore } from '../utils/scoring';
 
-- **Cobertura general**: > 80%
+describe('calculateFinalScore', () => {
+  // Test case básico
+  it('should calculate correct final score with all parameters', () => {
+    // Arrange
+    const baseScore = 1000;
+    const multiplier = 1.5;
+    const timeBonus = 200;
 
-- **Funciones críticas**: > 95%
+    // Act
+    const result = calculateFinalScore(baseScore, multiplier, timeBonus);
 
-- **Nuevas funcionalidades**: 100%
-
-- **Archivos de configuración**: > 70%
-</Card>
-
-### Estructura de Tests
-
-```javascript
-// tests/unit/game-service.test.js
-const { GameService } = require('../../src/services');
-const { Game } = require('../../src/models');
-
-describe('GameService', () => {
-  beforeEach(async () => {
-    await Game.deleteMany({});
+    // Assert
+    expect(result).toBe(1700);
   });
 
-  describe('createGame', () => {
-    it('should create a new game with valid data', async () => {
-      // Arrange
-      const gameData = {
-        title: 'Pac-Man',
-        category: 'arcade',
-        romFile: 'pacman.zip',
-        releaseYear: 1980
-      };
+  // Test edge cases
+  it('should handle zero values correctly', () => {
+    expect(calculateFinalScore(0, 1, 0)).toBe(0);
+  });
 
-      // Act
-      const result = await GameService.createGame(gameData);
+  it('should throw error for negative base score', () => {
+    expect(() => calculateFinalScore(-100, 1, 0))
+      .toThrow('Score values cannot be negative');
+  });
 
-      // Assert
-      expect(result).toHaveProperty('id');
-      expect(result.title).toBe('Pac-Man');
-      expect(result.category).toBe('arcade');
-    });
-
-    it('should throw ValidationError for invalid data', async () => {
-      // Arrange
-      const invalidData = { title: '' };
-
-      // Act & Assert
-      await expect(GameService.createGame(invalidData))
-        .rejects
-        .toThrow('Invalid game data');
-    });
+  // Test con valores por defecto
+  it('should use default multiplier when not provided', () => {
+    const result = calculateFinalScore(1000);
+    expect(result).toBe(1000); // multiplier = 1, timeBonus = 0
   });
 });
-
 ```
 
-### Comandos de Testing
-
+**Ejecutar tests:**
 ```bash
-
 # Ejecutar todos los tests
 npm test
 
-# Tests con cobertura
-npm run test:coverage
-
-# Tests en modo watch
-npm run test:watch
-
-# Tests de integración
-npm run test:integration
-
-# Linting
-npm run lint
-
-# Formateo de código
-npm run format
-
+# Output esperado:
+# PASS  src/utils/__tests__/scoring.test.ts
+#   calculateFinalScore
+#     ✓ should calculate correct final score (2 ms)
+#     ✓ should handle zero values correctly (1 ms)
+#     ✓ should throw error for negative values (1 ms)
 ```
 
-## Configuración de ESLint
+### Integration Tests
 
-Utilizamos la configuración de Airbnb con algunas personalizaciones:
+```typescript
+// ✅ Test de integración para API
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { GamesList } from '../GamesList';
+import { mockApiResponse } from '../../__mocks__/api';
+
+// Mock del API
+jest.mock('../../services/api', () => ({
+  fetchGames: jest.fn(() => Promise.resolve(mockApiResponse.games))
+}));
+
+describe('GamesList Integration', () => {
+  beforeEach(() => {
+    // Reset mocks antes de cada test
+    jest.clearAllMocks();
+  });
+
+  it('should fetch and display games on mount', async () => {
+    // Arrange & Act
+    render(<GamesList />);
+
+    // Assert - Loading state
+    expect(screen.getByText('Loading games...')).toBeInTheDocument();
+
+    // Assert - Data loaded
+    await waitFor(() => {
+      expect(screen.getByText('Super Mario Bros')).toBeInTheDocument();
+      expect(screen.getByText('The Legend of Zelda')).toBeInTheDocument();
+    });
+
+    // Verify API was called
+    expect(fetchGames).toHaveBeenCalledTimes(1);
+  });
+
+  it('should handle game selection', async () => {
+    // Arrange
+    const onGameSelect = jest.fn();
+    render(<GamesList onGameSelect={onGameSelect} />);
+
+    // Wait for games to load
+    await waitFor(() => {
+      expect(screen.getByText('Super Mario Bros')).toBeInTheDocument();
+    });
+
+    // Act - Click on game
+    fireEvent.click(screen.getByText('Super Mario Bros'));
+
+    // Assert
+    expect(onGameSelect).toHaveBeenCalledWith('mario-bros-1');
+  });
+});
+```
+
+## Pre-commit Hooks
+
+El proyecto incluye hooks automáticos que se ejecutan antes de cada commit:
 
 ```json
+// package.json - Configuración de husky
 {
-  "extends": [
-    "airbnb-base",
-    "plugin:jest/recommended"
-  ],
-  "env": {
-    "node": true,
-    "jest": true,
-    "es2021": true
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
+    }
   },
-  "rules": {
-    "no-console": "warn",
-    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
-    "max-len": ["error", { "code": 120 }],
-    "import/no-extraneous-dependencies": ["error", {
-      "devDependencies": ["**/*.test.js", "**/*.spec.js"]
-    }]
-  }
-}
-
-```
-
-## Template de Pull Request
-
-### Checklist Obligatorio
-
-Crea tus PR usando este template:
-
-```markdown
-
-## Descripción
-Breve descripción de los cambios realizados.
-
-## Tipo de Cambio
-
-- [ ] Bug fix (cambio que corrige un error)
-
-- [ ] Nueva funcionalidad (cambio que añade funcionalidad)
-
-- [ ] Breaking change (cambio que puede romper funcionalidad existente)
-
-- [ ] Actualización de documentación
-
-## Checklist Pre-merge
-
-- [ ] Los tests pasan localmente (`npm test`)
-
-- [ ] El código cumple con los estándares de linting (`npm run lint`)
-
-- [ ] La cobertura de tests es > 80% (`npm run test:coverage`)
-
-- [ ] Se ha actualizado la documentación si es necesario
-
-- [ ] No hay secretos o credenciales en el código
-
-- [ ] Se han añadido logs apropiados para debugging
-
-- [ ] Las migraciones de BD están incluidas (si aplica)
-
-- [ ] Se ha probado en entorno de desarrollo
-
-## Tests Realizados
-Describe las pruebas realizadas para verificar los cambios.
-
-## Screenshots (si aplica)
-Añade capturas de pantalla si hay cambios visuales.
-
-## Notas Adicionales
-Cualquier información adicional relevante para los revisores.
-
-```
-
-## Proceso de Code Review
-
-### Requisitos
-
-<Note>
-Cada PR debe ser revisado por **mínimo 2 personas** antes del merge.
-</Note>
-
-### Checklist para Revisores
-
-#### Código
-
-- [ ] El código es legible y está bien comentado
-
-- [ ] Sigue las convenciones de nomenclatura del proyecto
-
-- [ ] No hay código duplicado
-
-- [ ] Gestión adecuada de errores
-
-- [ ] Sin hardcoded values o secrets
-
-#### Tests
-
-- [ ] Tests cubren casos principales y edge cases
-
-- [ ] Tests son deterministas (no flaky)
-
-- [ ] Mocks apropiados para dependencias externas
-
-- [ ] Tests de integración incluidos si necesario
-
-#### Seguridad
-
-- [ ] Validación adecuada de inputs
-
-- [ ] No hay vulnerabilidades de inyección
-
-- [ ] Autenticación y autorización correctas
-
-- [ ] Datos sensibles correctamente manejados
-
-#### Performance
-
-- [ ] No hay operaciones bloqueantes innecesarias
-
-- [ ] Consultas de BD optimizadas
-
-- [ ] Gestión adecuada de memoria
-
-- [ ] Paginación en listados grandes
-
-### Merge Strategy
-
-<Warning>
-Utilizamos **Squash and Merge** para mantener un historial limpio en `main`.
-</Warning>
-
-```bash
-
-# El merge se realiza automáticamente tras aprobación
-
-# Título del commit de merge:
-feat(scope): descripción concisa del PR (#123)
-
-```
-
-## Flujo de Trabajo GitOps
-
-```mermaid
-graph LR
-    A[Desarrollo Local] --> B[Push a Feature Branch]
-    B --> C[Crear Pull Request]
-    C --> D[Automated Tests]
-    D --> E[Code Review]
-    E --> F{Approved?}
-    F -->|No| C
-    F -->|Yes| G[Squash & Merge]
-    G --> H[Deploy to Staging]
-    H --> I[Integration Tests]
-    I --> J[Deploy to Production]
-    J --> K[ArgoCD Sync]
-
-```
-
-## Herramientas y Scripts Útiles
-
-### Scripts de Desarrollo
-
-```json
-{
-  "scripts": {
-    "dev": "nodemon src/index.js",
-    "test": "jest",
-    "test:coverage": "jest --coverage",
-    "test:watch": "jest --watch",
-    "lint": "eslint src/ tests/",
-    "lint:fix": "eslint src/ tests/ --fix",
-    "format": "prettier --write 'src/**/*.js' 'tests/**/*.js'",
-    "pre-commit": "lint-staged",
-    "prepare": "husky install"
-  }
-}
-
-```
-
-### Configuración de Pre-commit
-
-```json
-{
   "lint-staged": {
-    "*.js": [
+    "*.{js,jsx,ts,tsx}": [
       "eslint --fix",
       "prettier --write",
       "git add"
     ],
-    "*.{json,md}": [
+    "*.{json,md,mdx}": [
       "prettier --write",
       "git add"
     ]
   }
 }
-
 ```
 
-## Contacto y Soporte
+**Ejemplo de ejecución:**
+```bash
+git commit -m "feat(games): add game filtering functionality"
 
-<Card title="Canales de Comunicación" icon="message-circle">
+# Output esperado:
+# ✓ Preparing...
+# ✓ Running tasks...
+# ✓ Applying modifications...
+# ✓ Cleaning up...
+# [feature/game-filtering abc1234] feat(games): add game filtering functionality
+```
 
-- **Slack**: `#retrogame-dev` para dudas generales
+## Pull Request Process
 
-- **GitHub Issues**: Para bugs y feature requests
+### 1. Checklist Pre-PR
 
-- **Tech Leads**: Para arquitectura y decisiones técnicas
+```markdown
+## Checklist antes de crear PR
 
-- **DevOps**: `#infrastructure` para temas de despliegue
-</Card>
+- [ ] ✅ Código sigue las convenciones establecidas
+- [ ] ✅ Tests añadidos/actualizados (coverage > 80%)
+- [ ] ✅ Documentación actualizada si es necesario
+- [ ] ✅ No hay warnings en ESLint/TypeScript
+- [ ] ✅ Build pasa correctamente (`npm run build`)
+- [ ] ✅ Tests pasan (`npm test`)
+```
 
-¿Tienes preguntas sobre el proceso de contribución? ¡No dudes en preguntar en nuestros canales de comunicación!
+### 2. Template de PR
+
+```markdown
+## Descripción
+
+Brief descripción de los cambios realizados.
+
+## Tipo de cambio
+
+- [ ] 🐛 Bug fix
+- [ ] ✨ Nueva funcionalidad
+- [ ] 💥 Breaking change
+- [ ] 📚 Documentación
+
+## Testing
+
+Describe las pruebas realizadas:
+
+```bash
+# Comandos de testing ejecutados
+npm test -- --coverage
+npm run e2e
+
+# Resultados esperados
+All tests passing ✅
+Coverage: 85% ✅
+```
+
+## Screenshots (si aplica)
+
+Antes/Después de cambios en UI.
+
+## Notas adicionales
+
+Cualquier información adicional para los revisores.
+```
+
+### 3. Proceso de Review
+
+<Steps>
+  <Step title="Automated Checks">
+    GitHub Actions ejecutará automáticamente:
+    ```yaml
+    # .github/workflows/pr-checks.yml (ejemplo)
+    name: PR Checks
+    on: [pull_request]
+    
+    jobs:
+      test:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v3
+          - uses: actions/setup-node@v3
+            with:
+              node-version: '18'
+          - run: npm ci
+          - run: npm run lint
+          - run: npm test -- --coverage
+          - run: npm run build
+    ```
+  </Step>
+
+  <Step title="Code Review">
+    Los maintainers revisarán:
+    - Calidad del código
+    - Cobertura de tests
+    - Documentación
+    - Breaking changes
+  </Step>
+
+  <Step title="Merge">
+    Una vez aprobado, el PR será merged usando "Squash and merge".
+  </Step>
+</Steps>
+
+## Debugging Guidelines
+
+### Logging Standards
