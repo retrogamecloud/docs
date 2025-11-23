@@ -406,6 +406,11 @@ def generate_improvements_report(analysis_result, output_path):
     if diagrams:
         report += "\n## 📈 Diagramas Requeridos\n\n"
         for diag in diagrams:
+            # Validar que diag sea un diccionario
+            if isinstance(diag, str):
+                report += f"- {diag}\n"
+                continue
+            
             report += f"### {diag.get('title', 'Diagrama')}\n\n"
             report += f"**Tipo**: {diag.get('type', 'N/A')}  \n"
             report += f"**Ubicación**: {diag.get('location', 'N/A')}  \n"
