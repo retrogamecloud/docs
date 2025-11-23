@@ -14,7 +14,7 @@
     },
     "architecture.mdx": {
       "hash": "c4e5fad432d2ce8ef6f117cba88f56d8c46f6760239f8f32870fb587a37ea5c9",
-      "last_analyzed": "2025-11-23T15:48:25.758177",
+      "last_analyzed": "2025-11-23T15:47:08.799434",
       "size": 8850
     },
     "configuration.mdx": {
@@ -94,7 +94,7 @@
     },
     "infrastructure/networking.mdx": {
       "hash": "1071a0788d1a72cb376d948cdd5c37f94b56c5b7e0bf1cda6ab164f36e82108b",
-      "last_analyzed": "2025-11-23T15:48:25.758477",
+      "last_analyzed": "2025-11-23T15:47:08.799615",
       "size": 9578
     },
     "infrastructure/eks-cluster.mdx": {
@@ -324,7 +324,7 @@
     },
     "AUTO_FIXES_REPORT.md": {
       "hash": "68b130bca12098d430d59fb8c8d56623d3dcadb728dd73c0c152d750c733174e",
-      "last_analyzed": "2025-11-23T15:48:25.758514",
+      "last_analyzed": "2025-11-23T15:47:08.799493",
       "size": 850
     },
     "STRUCTURE_CHANGELOG.md": {
@@ -334,17 +334,17 @@
     },
     "CHANGELOG_WIKI_2025-11-20.md": {
       "hash": "d13877754ef905f75e10e04599d08786c84a78b89b5a478d17f4b058a96099e0",
-      "last_analyzed": "2025-11-23T15:48:25.758226",
+      "last_analyzed": "2025-11-23T15:47:08.799531",
       "size": 12710
     },
     "README.md": {
       "hash": "024bf7c7673705356f681d02d8192dcae1115ccbdf621307bae295c7f89abb0b",
-      "last_analyzed": "2025-11-23T15:48:25.758395",
+      "last_analyzed": "2025-11-23T15:47:08.799398",
       "size": 1394
     },
     "BROKEN_LINKS_REPORT.md": {
       "hash": "cdfeb16c56cd104d00bc1238346d4f82405f37febd024b5aebccd3a27be458c4",
-      "last_analyzed": "2025-11-23T15:48:25.758582",
+      "last_analyzed": "2025-11-23T15:47:08.799465",
       "size": 3658
     },
     "IMPROVEMENTS.md": {
@@ -363,9 +363,9 @@
       "size": 12851
     },
     "infrastructure/secrets-management.mdx": {
-      "hash": "957e40bce43f59f4da85d141527cc4fc7478de140d662014052beed34d59caf7",
-      "last_analyzed": "2025-11-23T15:48:25.758365",
-      "size": 11570
+      "hash": "8a1c2872387722acc7d1e3bc936362cdae2b910007e56fbb08b4e7ac50e869d6",
+      "last_analyzed": "2025-11-23T15:47:08.799363",
+      "size": 11591
     },
     "infrastructure/security.mdx": {
       "hash": "08a0b8dade9727273049dee46cb9bb62f683b55d2b0ab3ed7c4357e6157f95b5",
@@ -388,9 +388,9 @@
       "size": 6226
     },
     "development/new-microservice-guide.mdx": {
-      "hash": "4b68ec8fc67ccb85f83cc51992ead52720223e2b0213c8c506d61175e8c0ef63",
-      "last_analyzed": "2025-11-23T15:48:25.758267",
-      "size": 12485
+      "hash": "201bfb25a6b222ce7afa20b62f57973bce251ef257b943a9ec32f2ac7a07934e",
+      "last_analyzed": "2025-11-23T15:47:08.799577",
+      "size": 12534
     },
     "development/testing-guide.mdx": {
       "hash": "f23f9a39e1b511a95e34daf6b0ed5f19ad99d998dc9ed8467b9725c0ac0ea416",
@@ -418,9 +418,9 @@
       "size": 12539
     },
     "infrastructure/alerting.mdx": {
-      "hash": "e6fe397aa204c624e33daba5678f421aa9fd7014d2ffd14803818a824de9948d",
-      "last_analyzed": "2025-11-23T15:48:25.758433",
-      "size": 12469
+      "hash": "c99133481168110c2b54b9d38d7e315b1ff3469c81b498b87489fb7f61dc9e46",
+      "last_analyzed": "2025-11-23T15:47:08.799316",
+      "size": 12504
     },
     "infrastructure/logging.mdx": {
       "hash": "5a22b40ed3f2c383c9a9d3f3d3fd8b1c41c0dda2d1e579528c74802648d89040",
@@ -428,9 +428,9 @@
       "size": 11811
     },
     "infrastructure/disaster-recovery-playbook.mdx": {
-      "hash": "1db34d599f16b16b0dc08460a9c4aa64967f0842088395e9470cc503b5a0734c",
-      "last_analyzed": "2025-11-23T15:48:25.758552",
-      "size": 11730
+      "hash": "8b0677faa45471f2ec3cbb0da78aca08b531274529b06099c950415d901d9de3",
+      "last_analyzed": "2025-11-23T15:47:08.799660",
+      "size": 11751
     }
   },
   "analysis_results": {
