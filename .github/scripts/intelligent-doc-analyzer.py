@@ -160,19 +160,24 @@ Analiza TODO y propón mejoras en:
    - ¿Qué aspectos están mal documentados?
    - ¿Qué ejemplos o tutoriales faltan?
 
-3. **DIAGRAMAS Y VISUALIZACIONES**
+3. **CONSOLIDACIÓN Y REORGANIZACIÓN (PRIORIDAD MÁXIMA)**
+   - ¿Hay archivos duplicados o con contenido similar que deberían fusionarse?
+   - ¿Hay páginas sin numeración correcta (formato X.Y. Título)?
+   - ¿Archivos en ubicaciones incorrectas que deben moverse?
+   - ¿Contenido redundante que debe eliminarse?
+   - ¿Estructura de navegación confusa que necesita simplificación?
+
+4. **DIAGRAMAS Y VISUALIZACIONES**
    - ¿Qué diagramas de arquitectura se necesitan? (especifica tipo: secuencia, componentes, flujo, etc)
    - ¿Qué visualizaciones ayudarían? (gráficos, tablas comparativas, etc)
    - Propón contenido exacto en Mermaid.js
 
-4. **MEJORAS DE CALIDAD**
+5. **MEJORAS DE CALIDAD**
    - Inconsistencias en estilo o formato
    - Información desactualizada o contradictoria
    - Mejoras en claridad y usabilidad
 
-5. **NUEVAS SECCIONES**
-   - Propón secciones completamente nuevas
-   - Con títulos, estructura y contenido base
+**IMPORTANTE**: ANTES de crear archivos nuevos, verifica si ya existe contenido similar que puede mejorarse o consolidarse. Prioriza MODIFICAR y REORGANIZAR sobre CREAR.
 
 ## FORMATO DE RESPUESTA
 

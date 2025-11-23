@@ -80,7 +80,15 @@ class ImprovementImplementer:
         proposed_content = improvement.get('proposed_content', '')
         mermaid_diagram = improvement.get('mermaid_diagram', '')
         
-        prompt = f"""Eres un experto en documentación técnica. Genera contenido COMPLETO en formato MDX para Mintlify.
+        prompt = f"""Eres un experto en documentación técnica. Tu objetivo es CONSOLIDAR, REORGANIZAR y MEJORAR la documentación existente, NO crear archivos nuevos innecesarios.
+
+## ESTRATEGIA PRIORITARIA
+
+1. **CONSOLIDAR contenido duplicado** - Fusionar archivos que tratan el mismo tema
+2. **CORREGIR numeración** - Asegurar formato X.Y. en todos los títulos
+3. **MEJORAR archivos existentes** - Añadir diagramas, ejemplos, detalles técnicos
+4. **REORGANIZAR estructura** - Mover archivos a ubicaciones lógicas
+5. **ELIMINAR redundancia** - Borrar archivos duplicados o innecesarios
 
 ## Mejora a Implementar
 
