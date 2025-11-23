@@ -74,7 +74,7 @@
             "description": "Arquitectura de la aplicación React, estructura de componentes e integración del emulador js-dos para juegos retro"
           },
           {
-            "group": "4. Microservicios",
+            "group": "4. Microservicios Backend",
             "pages": [
               "services/auth-service",
               "services/user-service",
@@ -138,7 +138,7 @@
             "description": "Endpoints de inicio de sesión, registro de usuarios, verificación de tokens y especificación completa del servicio de autenticación"
           },
           {
-            "group": "2. Usuarios",
+            "group": "2. Gestión de Usuarios",
             "pages": [
               "api-reference/user-service"
             ],
@@ -163,7 +163,7 @@
             "description": "Envío de puntuaciones de partidas, consulta de histórico personal, validación de resultados y especificación del servicio"
           },
           {
-            "group": "5. Rankings",
+            "group": "5. Rankings y Clasificaciones",
             "pages": [
               "api-reference/rankings/global",
               "api-reference/rankings/by-game",
@@ -172,21 +172,27 @@
             "description": "Tablas de clasificación globales, rankings específicos por juego, estadísticas y posicionamiento de jugadores"
           },
           {
-            "group": "6. Infraestructura y Configuración",
+            "group": "6. API Gateway",
             "pages": [
-              "api-reference/kong-config",
+              "api-reference/kong-config"
+            ],
+            "description": "Configuración de Kong Gateway: enrutamiento, políticas, rate limiting, autenticación y gestión de tráfico API"
+          },
+          {
+            "group": "7. Infraestructura como Código",
+            "pages": [
               "api-reference/kubernetes-manifests",
               "api-reference/infrastructure-docs"
             ],
-            "description": "Configuración de Kong Gateway como API Gateway, manifiestos de Kubernetes para orquestación y documentación completa de infraestructura como código"
+            "description": "Manifiestos de Kubernetes para orquestación de contenedores y documentación completa de infraestructura como código con Terraform"
           },
           {
-            "group": "7. Especificaciones Técnicas",
+            "group": "8. Especificaciones Técnicas Completas",
             "pages": [
               "api-reference/backend-main",
               "api-reference/frontend"
             ],
-            "description": "Documentación técnica completa de la arquitectura backend y especificaciones de la aplicación frontend"
+            "description": "Documentación técnica exhaustiva de la arquitectura backend y especificaciones detalladas de la aplicación frontend"
           }
         ]
       }
