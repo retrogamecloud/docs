@@ -1,0 +1,389 @@
+---
+title: "2.3. Arquitectura de Datos y Modelos de Dominio"
+description: "Estrategias de persistencia, modelos de datos distribuidos y patrones de consistencia eventual en microservicios"
+icon: "database"
+---
+
+<Note>
+Esta sección documenta la arquitectura completa de datos de RetroGameCloud, incluyendo estrategias de persistencia por servicio, patrones de consistencia distribuida y esquemas detallados de base de datos.
+</Note>
+
+## Visión General de la Arquitectura de Datos
+
+RetroGameCloud implementa una arquitectura de datos distribuida basada en el patrón **Database per Service**, donde cada microservicio gestiona su propia base de datos y mantiene la consistencia a través de eventos y patrones de saga.
+
+### Principios de Diseño
+
+<Tabs>
+<Tab title="Aislamiento de Datos">
+- Cada servicio posee y controla su esquema de datos
+- Sin acceso directo entre bases de datos de servicios
+- Comunicación únicamente a través de APIs
+</Tab>
+<Tab title="Consistencia Eventual">
+- Uso de eventos de dominio para sincronización
+- Patrones de compensación para transacciones distribuidas
+- Tolerancia a inconsistencias temporales
+</Tab>
+<Tab title="Escalabilidad">
+- Bases de datos optimizadas por tipo de carga
+- Particionado horizontal donde sea necesario
+- Estrategias de caché diferenciadas
+</Tab>
+</Tabs>
+
+## Estrategias de Persistencia por Servicio
+
+### Auth Service
+
+**Base de Datos Principal**: PostgreSQL 14  
+**Caché**: Redis 6.2  
+**Patrón**: Command Query Responsibility Segregation (CQRS)
+
+```sql
+-- Esquema Principal
+CREATE SCHEMA auth_service;
+
+-- Tabla de usuarios para autenticación
+CREATE TABLE auth_service.users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    salt VARCHAR(255) NOT NULL,
+    email_verified BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_login TIMESTAMP WITH TIME ZONE,
+    failed_login_attempts INTEGER DEFAULT 0,
+    locked_until TIMESTAMP WITH TIME ZONE,
+    password_reset_token VARCHAR(255),
+    password_reset_expires TIMESTAMP WITH TIME ZONE,
+    refresh_token_version INTEGER DEFAULT 0
+);
+
+-- Tokens de sesión
+CREATE TABLE auth_service.sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth_service.users(id) ON DELETE CASCADE,
+    access_token_hash VARCHAR(255) NOT NULL,
+    refresh_token_hash VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_used TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    user_agent TEXT,
+    ip_address INET,
+    revoked BOOLEAN DEFAULT FALSE
+);
+
+-- Índices de optimización
+CREATE INDEX idx_users_email ON auth_service.users(email);
+CREATE INDEX idx_users_email_verified ON auth_service.users(email_verified);
+CREATE INDEX idx_sessions_user_id ON auth_service.sessions(user_id);
+CREATE INDEX idx_sessions_expires ON auth_service.sessions(expires_at);
+CREATE INDEX idx_sessions_revoked ON auth_service.sessions(revoked) WHERE NOT revoked;
+```
+
+**Configuración Redis (Caché de Sesiones)**:
+```redis
+# Configuración de TTL para tokens
+SET auth:session:{session_id} "{session_data}" EX 3600
+SET auth:refresh:{user_id} "{refresh_data}" EX 604800
+SET auth:rate_limit:{ip}:{email} "{attempts}" EX 900
+```
+
+### User Service
+
+**Base de Datos Principal**: PostgreSQL 14  
+**Caché**: Redis 6.2  
+**Patrón**: Domain-Driven Design con agregados
+
+```sql
+-- Esquema de perfiles de usuario
+CREATE SCHEMA user_service;
+
+-- Perfiles de usuario
+CREATE TABLE user_service.user_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    auth_user_id UUID UNIQUE NOT NULL, -- Referencia a auth_service.users
+    username VARCHAR(50) UNIQUE NOT NULL,
+    display_name VARCHAR(100),
+    avatar_url TEXT,
+    bio TEXT,
+    country_code CHAR(2),
+    preferred_language CHAR(5) DEFAULT 'es-ES',
+    timezone VARCHAR(50) DEFAULT 'Europe/Madrid',
+    is_public BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_activity TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Configuraciones de usuario
+CREATE TABLE user_service.user_preferences (
+    user_id UUID PRIMARY KEY REFERENCES user_service.user_profiles(id) ON DELETE CASCADE,
+    game_volume INTEGER DEFAULT 50 CHECK (game_volume >= 0 AND game_volume <= 100),
+    enable_notifications BOOLEAN DEFAULT TRUE,
+    enable_leaderboard BOOLEAN DEFAULT TRUE,
+    theme VARCHAR(20) DEFAULT 'retro',
+    controls_config JSONB DEFAULT '{}',
+    privacy_settings JSONB DEFAULT '{
+        "show_scores": true,
+        "show_activity": true,
+        "allow_friend_requests": true
+    }'::jsonb
+);
+
+-- Relaciones de amistad
+CREATE TABLE user_service.friendships (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    requester_id UUID NOT NULL REFERENCES user_service.user_profiles(id) ON DELETE CASCADE,
+    addressee_id UUID NOT NULL REFERENCES user_service.user_profiles(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'accepted', 'blocked')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(requester_id, addressee_id)
+);
+
+-- Índices
+CREATE INDEX idx_profiles_username ON user_service.user_profiles(username);
+CREATE INDEX idx_profiles_auth_user_id ON user_service.user_profiles(auth_user_id);
+CREATE INDEX idx_profiles_last_activity ON user_service.user_profiles(last_activity DESC);
+CREATE INDEX idx_friendships_requester ON user_service.friendships(requester_id);
+CREATE INDEX idx_friendships_addressee ON user_service.friendships(addressee_id);
+CREATE INDEX idx_friendships_status ON user_service.friendships(status);
+```
+
+### Game Catalog Service
+
+**Base de Datos Principal**: PostgreSQL 14  
+**Búsqueda**: Elasticsearch 7.17  
+**Caché**: Redis 6.2
+
+```sql
+-- Esquema de catálogo de juegos
+CREATE SCHEMA game_catalog;
+
+-- Juegos
+CREATE TABLE game_catalog.games (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT,
+    release_year INTEGER,
+    developer VARCHAR(255),
+    publisher VARCHAR(255),
+    genre VARCHAR(100),
+    platform VARCHAR(50) NOT NULL,
+    rom_file_path TEXT NOT NULL,
+    rom_file_size BIGINT NOT NULL,
+    rom_file_hash VARCHAR(64) NOT NULL,
+    cover_image_url TEXT,
+    screenshots JSONB DEFAULT '[]'::jsonb,
+    controls_mapping JSONB NOT NULL,
+    emulator_config JSONB DEFAULT '{}'::jsonb,
+    is_active BOOLEAN DEFAULT TRUE,
+    is_featured BOOLEAN DEFAULT FALSE,
+    rating DECIMAL(3,2) DEFAULT 0.00,
+    play_count BIGINT DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Categorías de juegos
+CREATE TABLE game_catalog.categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) UNIQUE NOT NULL,
+    slug VARCHAR(100) UNIQUE NOT NULL,
+    description TEXT,
+    parent_id UUID REFERENCES game_catalog.categories(id),
+    sort_order INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Relación juegos-categorías (many-to-many)
+CREATE TABLE game_catalog.game_categories (
+    game_id UUID REFERENCES game_catalog.games(id) ON DELETE CASCADE,
+    category_id UUID REFERENCES game_catalog.categories(id) ON DELETE CASCADE,
+    PRIMARY KEY (game_id, category_id)
+);
+
+-- Valoraciones de juegos
+CREATE TABLE game_catalog.game_ratings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    game_id UUID NOT NULL REFERENCES game_catalog.games(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL, -- Referencia a user_service
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    review_text TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(game_id, user_id)
+);
+
+-- Índices
+CREATE INDEX idx_games_slug ON game_catalog.games(slug);
+CREATE INDEX idx_games_platform ON game_catalog.games(platform);
+CREATE INDEX idx_games_genre ON game_catalog.games(genre);
+CREATE INDEX idx_games_active ON game_catalog.games(is_active) WHERE is_active;
+CREATE INDEX idx_games_featured ON game_catalog.games(is_featured) WHERE is_featured;
+CREATE INDEX idx_games_rating ON game_catalog.games(rating DESC);
+CREATE INDEX idx_games_play_count ON game_catalog.games(play_count DESC);
+CREATE INDEX idx_ratings_game_id ON game_catalog.game_ratings(game_id);
+CREATE INDEX idx_ratings_user_id ON game_catalog.game_ratings(user_id);
+```
+
+### Score Service
+
+**Base de Datos Principal**: PostgreSQL 14  
+**Time-Series**: TimescaleDB extensión  
+**Caché**: Redis 6.2
+
+```sql
+-- Esquema de puntuaciones
+CREATE SCHEMA score_service;
+
+-- Extensión para time-series
+CREATE EXTENSION IF NOT EXISTS timescaledb;
+
+-- Partidas de juego
+CREATE TABLE score_service.game_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    game_id UUID NOT NULL,
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    ended_at TIMESTAMP WITH TIME ZONE,
+    duration_seconds INTEGER,
+    final_score BIGINT,
+    level_reached INTEGER,
+    completion_percentage DECIMAL(5,2),
+    session_data JSONB DEFAULT '{}'::jsonb,
+    is_valid BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Convertir a hypertable para optimización temporal
+SELECT create_hypertable('score_service.game_sessions', 'started_at');
+
+-- High scores (mejores puntuaciones)
+CREATE TABLE score_service.high_scores (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    game_id UUID NOT NULL,
+    score BIGINT NOT NULL,
+    level_reached INTEGER,
+    achievement_data JSONB DEFAULT '{}'::jsonb,
+    achieved_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    session_id UUID REFERENCES score_service.game_sessions(id),
+    is_verified BOOLEAN DEFAULT FALSE,
+    UNIQUE(user_id, game_id)
+);
+
+-- Eventos de gameplay
+CREATE TABLE score_service.gameplay_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES score_service.game_sessions(id) ON DELETE CASCADE,
+    event_type VARCHAR(50) NOT NULL,
+    event_data JSONB NOT NULL,
+    score_delta INTEGER DEFAULT 0,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+SELECT create_hypertable('score_service.gameplay_events', 'timestamp');
+
+-- Índices optimizados
+CREATE INDEX idx_sessions_user_game ON score_service.game_sessions(user_id, game_id);
+CREATE INDEX idx_sessions_started_at ON score_service.game_sessions(started_at DESC);
+CREATE INDEX idx_high_scores_game ON score_service.high_scores(game_id, score DESC);
+CREATE INDEX idx_high_scores_user ON score_service.high_scores(user_id);
+CREATE INDEX idx_gameplay_events_session ON score_service.gameplay_events(session_id);
+CREATE INDEX idx_gameplay_events_type ON score_service.gameplay_events(event_type);
+```
+
+### Ranking Service
+
+**Base de Datos Principal**: PostgreSQL 14  
+**Caché**: Redis 6.2 con estructuras ordenadas  
+**Patrón**: Materializada de vistas para rankings
+
+```sql
+-- Esquema de rankings
+CREATE SCHEMA ranking_service;
+
+-- Rankings globales por juego
+CREATE TABLE ranking_service.global_rankings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    game_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    score BIGINT NOT NULL,
+    rank_position INTEGER NOT NULL,
+    previous_rank INTEGER,
+    rank_change INTEGER GENERATED ALWAYS AS (COALESCE(previous_rank - rank_position, 0)) STORED,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(game_id, user_id)
+);
+
+-- Rankings semanales
+CREATE TABLE ranking_service.weekly_rankings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    game_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    week_start DATE NOT NULL,
+    best_score BIGINT NOT NULL,
+    total_plays INTEGER DEFAULT 1,
+    rank_position INTEGER NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(game_id, user_id, week_start)
+);
+
+-- Logros y achievements
+CREATE TABLE ranking_service.achievements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(100) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    game_id UUID, -- NULL para logros globales
+    icon_url TEXT,
+    points INTEGER DEFAULT 0,
+    rarity VARCHAR(20) DEFAULT 'common',
+    criteria JSONB NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Logros de usuarios
+CREATE TABLE ranking_service.user_achievements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    achievement_id UUID NOT NULL REFERENCES ranking_service.achievements(id),
+    earned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    progress_data JSONB DEFAULT '{}'::jsonb,
+    UNIQUE(user_id, achievement_id)
+);
+
+-- Índices para rendimiento
+CREATE INDEX idx_global_rankings_game_score ON ranking_service.global_rankings(game_id, score DESC);
+CREATE INDEX idx_global_rankings_user ON ranking_service.global_rankings(user_id);
+CREATE INDEX idx_weekly_rankings_game_week ON ranking_service.weekly_rankings(game_id, week_start);
+CREATE INDEX idx_user_achievements_user ON ranking_service.user_achievements(user_id);
+CREATE INDEX idx_achievements_game ON ranking_service.achievements(game_id) WHERE game_id IS NOT NULL;
+```
+
+## Patrones de Consistencia Distribuida
+
+### Eventos de Dominio
+
+RetroGameCloud utiliza un sistema de eventos para mantener la consistencia eventual entre servicios.
+
+```mermaid
+graph TB
+    subgraph "Event-Driven Architecture"
+        A[Auth Service] -->|UserRegistered| E[Event Bus]
+        B[User Service] -->|ProfileUpdated| E
+        C[Game Catalog] -->|GamePlayed| E
+        D[Score Service] -->|HighScoreAchieved| E
+        F[Ranking Service] -->|RankingUpdated| E
+        
+        E -->|UserRegistered| B
+        E -->|ProfileUpdated| A
+        E -->|GamePlayed| D
+        E -->|HighScoreAchieved| F
+        E -->|RankingUpdated| G[
+```

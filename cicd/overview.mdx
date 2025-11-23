@@ -75,10 +75,10 @@ graph TB
         S --> T[⚡ Rolling Update]
         T --> U[🏥 Health Check]
         U --> V{💚 Staging Healthy?}
-        
+
         V -->|❌ Fail| ROLLBACK_STG[⏪ Rollback Staging]
         V -->|✅ Success| W[🎯 E2E Tests]
-        
+
         W --> X{🧪 E2E Pass?}
         X -->|❌ Fail| ROLLBACK_STG
         X -->|✅ Success| Y[✅ Staging Validated]
@@ -98,10 +98,10 @@ graph TB
         DD --> EE[🚀 Rolling Update Prod]
         EE --> FF[🏥 Health Check Prod]
         FF --> GG{💚 Production Healthy?}
-        
+
         GG -->|❌ Fail| HH[🚨 Auto Rollback Prod]
         GG -->|✅ Success| II[📊 Post-deploy Monitoring]
-        
+
         HH --> JJ[🔔 Alert Team]
         II --> KK{📈 Metrics OK?}
         KK -->|❌ Degraded| HH
@@ -123,6 +123,7 @@ graph TB
     style END1 fill:#ff6b6b
     style LL fill:#4caf50
     style RR fill:#4caf50
+
 ```
 
 ## Etapas Detalladas del Pipeline
@@ -209,6 +210,7 @@ graph TB
       timeoutSeconds: 5
       failureThreshold: 3
     ```
+
   </Tab>
 
   <Tab title="Rollback Strategy">
@@ -223,6 +225,7 @@ graph TB
     kubectl rollout undo deployment/retro-game-hub
     argocd app sync retro-game-hub --revision previous
     ```
+
   </Tab>
 
   <Tab title="Notification Channels">
@@ -236,6 +239,7 @@ graph TB
       - trigger: approval.required
         channels: [slack, email]
     ```
+
   </Tab>
 </Tabs>
 
@@ -276,6 +280,9 @@ graph TB
 El pipeline mantiene los siguientes Service Level Objectives:
 
 - **Lead Time**: < 30 minutos desde commit hasta staging
+
 - **Deployment Frequency**: Múltiples despliegues por día
+
 - **MTTR (Mean Time To Recovery)**: < 15 minutos con rollback automático
+
 - **Change Failure Rate**: < 5% con gates de calidad

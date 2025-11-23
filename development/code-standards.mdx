@@ -1,6 +1,7 @@
 ---
 title: Guía de Contribución y Estándares de Código
-description: 'Proceso completo para contribuir al proyecto RetroGameCloud: pull requests, estándares de código, testing y revisiones'
+description: 'Proceso completo para contribuir al proyecto RetroGameCloud: pull requests,
+  estándares de código, testing y revisiones'
 icon: code-pull-request
 ---
 
@@ -66,6 +67,7 @@ Siempre crea tu branch desde `main` actualizado y usa nomenclatura descriptiva.
 </Note>
 
 ```bash
+
 # Actualizar main
 git checkout main
 git pull upstream main
@@ -78,13 +80,18 @@ git checkout -b fix/correccion-bug
 
 # Para actualizaciones de documentación
 git checkout -b docs/actualizacion-readme
+
 ```
 
-**Verificación del branch:**
+* *Verificación del branch:**
+
 ```bash
+
 # Confirmar que estás en el branch correcto
 git branch --show-current
+
 # Output: feature/nueva-funcionalidad
+
 ```
 
 ## Convenciones de Commits
@@ -99,23 +106,32 @@ Utilizamos [Conventional Commits](https://www.conventionalcommits.org/es/) con e
 [cuerpo opcional]
 
 [pie opcional]
+
 ```
 
 ### Tipos de Commit
 
 <Card title="Tipos Principales" icon="git-branch">
+
 - `feat`: Nueva funcionalidad
+
 - `fix`: Corrección de errores
+
 - `docs`: Cambios en documentación
+
 - `style`: Cambios de formato (espacios, comas, etc.)
+
 - `refactor`: Refactorización de código
+
 - `test`: Añadir o modificar tests
+
 - `chore`: Tareas de mantenimiento
 </Card>
 
 ### Ejemplos de Commits
 
 ```bash
+
 # Funcionalidad nueva
 git commit -m "feat(auth): implementar autenticación con Google OAuth"
 
@@ -127,6 +143,7 @@ git commit -m "docs(readme): actualizar instrucciones de instalación"
 
 # Refactorización
 git commit -m "refactor(utils): simplificar función de validación de ROMs"
+
 ```
 
 ## Estándares de Código
@@ -210,7 +227,7 @@ git commit -m "refactor(utils): simplificar función de validación de ROMs"
 
         // Llamada a API
         const response = await fetch(`/api/games/${gameId}`);
-        
+
         // Manejo de respuestas HTTP
         if (!response.ok) {
           throw new APIError(
@@ -227,7 +244,7 @@ git commit -m "refactor(utils): simplificar función de validación de ROMs"
           gameId,
           error: error instanceof Error ? error.message : 'Unknown error'
         });
-        
+
         // Re-throw para que el caller pueda manejar
         throw error;
       }
@@ -268,7 +285,7 @@ export const GameCard: React.FC<GameCardProps> = ({
 }) => {
   // Hooks al inicio
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Event handlers
   const handleCardClick = useCallback(() => {
     if (onSelect) {
@@ -284,30 +301,31 @@ export const GameCard: React.FC<GameCardProps> = ({
 
   // Render principal
   return (
-    <div 
+    <div
       className="game-card"
       onClick={handleCardClick}
       role="button"
       tabIndex={0}
     >
-      <img 
-        src={game.coverUrl} 
+      <img
+        src={game.coverUrl}
         alt={`${game.title} cover`}
         loading="lazy"
       />
       <h3>{game.title}</h3>
-      
+
       {showDetails && (
         <div className="game-details">
           <p>Platform: {game.platform}</p>
           <p>Year: {game.releaseYear}</p>
         </div>
       )}
-      
+
       {isLoading && <LoadingSpinner />}
     </div>
   );
 };
+
 ```
 
 ## Testing Requirements
@@ -349,19 +367,28 @@ describe('calculateFinalScore', () => {
     expect(result).toBe(1000); // multiplier = 1, timeBonus = 0
   });
 });
+
 ```
 
-**Ejecutar tests:**
+* *Ejecutar tests:**
+
 ```bash
+
 # Ejecutar todos los tests
 npm test
 
 # Output esperado:
+
 # PASS  src/utils/__tests__/scoring.test.ts
-#   calculateFinalScore
-#     ✓ should calculate correct final score (2 ms)
-#     ✓ should handle zero values correctly (1 ms)
-#     ✓ should throw error for negative values (1 ms)
+
+# calculateFinalScore
+
+# ✓ should calculate correct final score (2 ms)
+
+# ✓ should handle zero values correctly (1 ms)
+
+# ✓ should throw error for negative values (1 ms)
+
 ```
 
 ### Integration Tests
@@ -417,6 +444,7 @@ describe('GamesList Integration', () => {
     expect(onGameSelect).toHaveBeenCalledWith('mario-bros-1');
   });
 });
+
 ```
 
 ## Pre-commit Hooks
@@ -444,18 +472,26 @@ El proyecto incluye hooks automáticos que se ejecutan antes de cada commit:
     ]
   }
 }
+
 ```
 
-**Ejemplo de ejecución:**
+* *Ejemplo de ejecución:**
+
 ```bash
 git commit -m "feat(games): add game filtering functionality"
 
 # Output esperado:
+
 # ✓ Preparing...
+
 # ✓ Running tasks...
+
 # ✓ Applying modifications...
+
 # ✓ Cleaning up...
+
 # [feature/game-filtering abc1234] feat(games): add game filtering functionality
+
 ```
 
 ## Pull Request Process
@@ -463,19 +499,27 @@ git commit -m "feat(games): add game filtering functionality"
 ### 1. Checklist Pre-PR
 
 ```markdown
+
 ## Checklist antes de crear PR
 
 - [ ] ✅ Código sigue las convenciones establecidas
+
 - [ ] ✅ Tests añadidos/actualizados (coverage > 80%)
+
 - [ ] ✅ Documentación actualizada si es necesario
+
 - [ ] ✅ No hay warnings en ESLint/TypeScript
+
 - [ ] ✅ Build pasa correctamente (`npm run build`)
+
 - [ ] ✅ Tests pasan (`npm test`)
+
 ```
 
 ### 2. Template de PR
 
 ```markdown
+
 ## Descripción
 
 Brief descripción de los cambios realizados.
@@ -483,8 +527,11 @@ Brief descripción de los cambios realizados.
 ## Tipo de cambio
 
 - [ ] 🐛 Bug fix
+
 - [ ] ✨ Nueva funcionalidad
+
 - [ ] 💥 Breaking change
+
 - [ ] 📚 Documentación
 
 ## Testing
@@ -492,6 +539,7 @@ Brief descripción de los cambios realizados.
 Describe las pruebas realizadas:
 
 ```bash
+
 # Comandos de testing ejecutados
 npm test -- --coverage
 npm run e2e
@@ -499,6 +547,7 @@ npm run e2e
 # Resultados esperados
 All tests passing ✅
 Coverage: 85% ✅
+
 ```
 
 ## Screenshots (si aplica)
@@ -508,6 +557,7 @@ Antes/Después de cambios en UI.
 ## Notas adicionales
 
 Cualquier información adicional para los revisores.
+
 ```
 
 ### 3. Proceso de Review
@@ -519,7 +569,7 @@ Cualquier información adicional para los revisores.
     # .github/workflows/pr-checks.yml (ejemplo)
     name: PR Checks
     on: [pull_request]
-    
+
     jobs:
       test:
         runs-on: ubuntu-latest
@@ -533,6 +583,7 @@ Cualquier información adicional para los revisores.
           - run: npm test -- --coverage
           - run: npm run build
     ```
+
   </Step>
 
   <Step title="Code Review">

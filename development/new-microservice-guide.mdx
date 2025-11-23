@@ -1,7 +1,7 @@
 ---
 title: Guía de Desarrollo de Nuevos Microservicios
 description: Tutorial completo para agregar un nuevo microservicio al ecosistema RetroGameCloud
-  siguiendo los patrones establecidos
+  siguiendo los patrones establecidos - desde scaffolding hasta producción
 icon: microchip
 ---
 
@@ -15,542 +15,530 @@ Esta guía te llevará paso a paso por el proceso de creación e integración de
 Antes de comenzar, asegúrate de tener acceso a:
 
 - Repositorio del proyecto en GitHub
-
 - Cluster de AWS EKS
-
 - Kong Gateway configurado
-
 - ArgoCD instalado
-
 - Variables de entorno del proyecto
+- Node.js 18+ y npm/yarn
+- Docker Desktop
+- kubectl configurado
+- Prisma CLI instalado globalmente
 </Note>
 
-## 1. Estructura del proyecto
+## 1. Scaffolding inicial del proyecto
 
-### Template de carpetas
+### Clonando el template base
 
-Crea la siguiente estructura base para tu nuevo microservicio:
+Comienza clonando nuestro template de microservicio:
 
+```bash
+# Clonar template
+git clone https://github.com/retrogamecloud/microservice-template.git my-new-service
+cd my-new-service
+
+# Remover origen del template
+git remote remove origin
+
+# Configurar nuevo repositorio
+git remote add origin https://github.com/retrogamecloud/my-new-service.git
 ```
 
+### Estructura del proyecto generada
+
+El template incluye la siguiente estructura optimizada:
+
+```
 my-new-service/
 ├── src/
 │   ├── controllers/
-│   │   ├── index.js
-│   │   └── healthController.js
+│   │   ├── index.ts
+│   │   └── healthController.ts
 │   ├── routes/
-│   │   ├── index.js
-│   │   └── api.js
+│   │   ├── index.ts
+│   │   └── api.ts
 │   ├── models/
-│   │   └── index.js
+│   │   └── index.ts
 │   ├── middlewares/
-│   │   ├── auth.js
-│   │   ├── validation.js
-│   │   └── errorHandler.js
+│   │   ├── auth.ts
+│   │   ├── validation.ts
+│   │   ├── rateLimiting.ts
+│   │   └── errorHandler.ts
 │   ├── config/
-│   │   ├── database.js
-│   │   ├── kong.js
-│   │   └── env.js
+│   │   ├── database.ts
+│   │   ├── kong.ts
+│   │   └── env.ts
 │   ├── utils/
-│   │   └── logger.js
-│   └── app.js
+│   │   ├── logger.ts
+│   │   └── response.ts
+│   ├── types/
+│   │   └── index.ts
+│   └── app.ts
 ├── tests/
 │   ├── unit/
-│   └── integration/
+│   ├── integration/
+│   └── __mocks__/
+├── prisma/
+│   ├── schema.prisma
+│   ├── migrations/
+│   └── seeds/
 ├── k8s/
-│   ├── deployment.yaml
-│   ├── service.yaml
-│   ├── configmap.yaml
-│   └── secrets.yaml
+│   ├── base/
+│   │   ├── deployment.yaml
+│   │   ├── service.yaml
+│   │   ├── configmap.yaml
+│   │   └── hpa.yaml
+│   ├── overlays/
+│   │   ├── staging/
+│   │   └── production/
 ├── .github/
 │   └── workflows/
-│       └── ci-cd.yml
+│       ├── ci.yml
+│       └── cd.yml
 ├── Dockerfile
+├── docker-compose.yml
 ├── package.json
+├── tsconfig.json
+├── jest.config.js
 ├── .dockerignore
 ├── .gitignore
 └── README.md
-
 ```
+
+## 2. Configuración de Express + TypeScript
 
 ### Configuración base del servicio
 
 <Tabs>
-<Tab title="app.js">
+<Tab title="src/app.ts">
 
-```javascript
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const compression = require('compression');
-const rateLimit = require('express-rate-limit');
-const { errorHandler } = require('./middlewares/errorHandler');
-const routes = require('./routes');
-const config = require('./config/env');
-const logger = require('./utils/logger');
+```typescript
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import { rateLimit } from 'express-rate-limit';
+import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
+import { requestLogger } from './middlewares/logger';
+import { authMiddleware } from './middlewares/auth';
+import routes from './routes';
+import config from './config/env';
+import logger from './utils/logger';
+import { connectDatabase } from './config/database';
 
 const app = express();
 
-// Middlewares de seguridad
-app.use(helmet());
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
-  credentials: true
+// Security middlewares
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+    },
+  },
 }));
+
+// CORS configuration
+app.use(cors({
+  origin: config.ALLOWED_ORIGINS.split(','),
+  credentials: true,
+}));
+
+// Compression
+app.use(compression());
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100 // límite de requests por ventana
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP',
 });
 app.use(limiter);
 
-// Middlewares generales
-app.use(compression());
+// Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Health checks obligatorios
+// Request logging
+app.use(requestLogger);
+
+// Health check (before auth)
 app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'UP',
+  res.status(200).json({ 
+    status: 'ok', 
     timestamp: new Date().toISOString(),
-    service: process.env.SERVICE_NAME || 'my-new-service',
-    version: process.env.SERVICE_VERSION || '1.0.0'
+    service: config.SERVICE_NAME,
+    version: config.SERVICE_VERSION
   });
 });
 
-// Métricas para Prometheus
-app.get('/metrics', (req, res) => {
-  // Implementar métricas específicas del servicio
-  res.status(200).json({
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    timestamp: Date.now()
-  });
-});
+// Authentication middleware
+app.use('/api', authMiddleware);
 
-// Rutas principales
-app.use('/api/v1', routes);
+// Routes
+app.use('/api', routes);
 
-// Manejo de errores
+// Error handling
+app.use(notFoundHandler);
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  logger.info(`${config.serviceName} iniciado en puerto ${PORT}`);
-});
-
-module.exports = app;
-
-```
-
-</Tab>
-
-<Tab title="config/env.js">
-
-```javascript
-require('dotenv').config();
-
-module.exports = {
-  serviceName: process.env.SERVICE_NAME || 'my-new-service',
-  port: process.env.PORT || 3000,
-  nodeEnv: process.env.NODE_ENV || 'development',
-
-  // Base de datos
-  database: {
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 5432,
-    name: process.env.DB_NAME,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    ssl: process.env.DB_SSL === 'true'
-  },
-
-  // Kong Gateway
-  kong: {
-    adminUrl: process.env.KONG_ADMIN_URL || 'http://kong-admin:8001',
-    gatewayUrl: process.env.KONG_GATEWAY_URL || 'http://kong:8000'
-  },
-
-  // JWT
-  jwt: {
-    secret: process.env.JWT_SECRET,
-    expiresIn: process.env.JWT_EXPIRES_IN || '24h'
-  },
-
-  // Otros servicios
-  services: {
-    auth: process.env.AUTH_SERVICE_URL || 'http://auth-service:3000',
-    user: process.env.USER_SERVICE_URL || 'http://user-service:3000'
+// Start server
+const startServer = async () => {
+  try {
+    await connectDatabase();
+    
+    const port = config.PORT || 3000;
+    app.listen(port, () => {
+      logger.info(`${config.SERVICE_NAME} running on port ${port}`);
+    });
+  } catch (error) {
+    logger.error('Failed to start server:', error);
+    process.exit(1);
   }
 };
 
+if (require.main === module) {
+  startServer();
+}
+
+export default app;
 ```
 
 </Tab>
+<Tab title="src/config/env.ts">
 
-<Tab title="utils/logger.js">
+```typescript
+import dotenv from 'dotenv';
+import { z } from 'zod';
 
-```javascript
-const winston = require('winston');
+dotenv.config();
 
-const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    winston.format.json()
-  ),
-  defaultMeta: {
-    service: process.env.SERVICE_NAME || 'my-new-service',
-    version: process.env.SERVICE_VERSION || '1.0.0'
-  },
-  transports: [
-    new winston.transports.File({ filename: 'error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'combined.log' })
-  ]
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
+  PORT: z.string().transform(Number).default(3000),
+  SERVICE_NAME: z.string().default('my-new-service'),
+  SERVICE_VERSION: z.string().default('1.0.0'),
+  DATABASE_URL: z.string(),
+  REDIS_URL: z.string().optional(),
+  JWT_SECRET: z.string(),
+  KONG_ADMIN_URL: z.string(),
+  ALLOWED_ORIGINS: z.string().default('*'),
+  LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
 });
 
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: winston.format.simple()
-  }));
+const config = envSchema.parse(process.env);
+
+export default config;
+```
+
+</Tab>
+<Tab title="package.json">
+
+```json
+{
+  "name": "my-new-service",
+  "version": "1.0.0",
+  "description": "Nuevo microservicio para RetroGameCloud",
+  "main": "dist/app.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/app.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:seed": "ts-node prisma/seed.ts"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "compression": "^1.7.4",
+    "express-rate-limit": "^6.8.1",
+    "@prisma/client": "^5.1.1",
+    "jsonwebtoken": "^9.0.1",
+    "bcryptjs": "^2.4.3",
+    "zod": "^3.21.4",
+    "winston": "^3.10.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.4.5",
+    "@types/express": "^4.17.17",
+    "@types/cors": "^2.8.13",
+    "@types/compression": "^1.7.2",
+    "@types/jsonwebtoken": "^9.0.2",
+    "@types/bcryptjs": "^2.4.2",
+    "@types/jest": "^29.5.3",
+    "@types/supertest": "^2.0.12",
+    "typescript": "^5.1.6",
+    "ts-node": "^10.9.1",
+    "ts-node-dev": "^2.0.0",
+    "jest": "^29.6.1",
+    "ts-jest": "^29.1.1",
+    "supertest": "^6.3.3",
+    "prisma": "^5.1.1",
+    "@typescript-eslint/eslint-plugin": "^6.2.1",
+    "@typescript-eslint/parser": "^6.2.1",
+    "eslint": "^8.45.0"
+  }
 }
-
-module.exports = logger;
-
 ```
 
 </Tab>
 </Tabs>
 
-## 2. Dockerfile multi-stage
+## 3. Definición del esquema de base de datos
 
-Utiliza este template siguiendo el patrón establecido:
-
-```dockerfile
-
-# Stage 1: Build
-FROM node:18-alpine AS builder
-
-WORKDIR /app
-
-# Copiar archivos de dependencias
-COPY package*.json ./
-
-# Instalar dependencias
-RUN npm ci --only=production && npm cache clean --force
-
-# Stage 2: Runtime
-FROM node:18-alpine AS runtime
-
-# Crear usuario no-root
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
-
-WORKDIR /app
-
-# Copiar aplicación y dependencias desde builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --chown=nodejs:nodejs src ./src
-COPY --chown=nodejs:nodejs package*.json ./
-
-# Configurar usuario
-USER nodejs
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (res) => { \
-    process.exit(res.statusCode === 200 ? 0 : 1) \
-  }).on('error', () => process.exit(1))"
-
-EXPOSE 3000
-
-CMD ["node", "src/app.js"]
-
-```
-
-<Warning>
-Recuerda incluir un `.dockerignore` para optimizar el build:
-
-```
-
-node_modules
-npm-debug.log
-.git
-.gitignore
-README.md
-tests/
-k8s/
-.github/
-
-```
-
-</Warning>
-
-## 3. Configuración de Kong Gateway
-
-### Script de configuración
-
-Crea un script para registrar automáticamente el servicio en Kong:
+### Configuración de Prisma
 
 <Tabs>
-<Tab title="scripts/setup-kong.sh">
+<Tab title="prisma/schema.prisma">
+
+```prisma
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  profiles UserProfile[]
+  sessions UserSession[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id     String @id @default(cuid())
+  userId String
+  avatar String?
+  bio    String?
+  
+  // Relaciones
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  // Relaciones
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+```
+
+</Tab>
+<Tab title="src/config/database.ts">
+
+```typescript
+import { PrismaClient } from '@prisma/client';
+import logger from '../utils/logger';
+
+const prisma = new PrismaClient({
+  log: ['query', 'info', 'warn', 'error'],
+});
+
+export const connectDatabase = async () => {
+  try {
+    await prisma.$connect();
+    logger.info('Database connected successfully');
+  } catch (error) {
+    logger.error('Database connection failed:', error);
+    throw error;
+  }
+};
+
+export const disconnectDatabase = async () => {
+  try {
+    await prisma.$disconnect();
+    logger.info('Database disconnected successfully');
+  } catch (error) {
+    logger.error('Database disconnection failed:', error);
+  }
+};
+
+// Handle graceful shutdown
+process.on('SIGINT', async () => {
+  await disconnectDatabase();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  await disconnectDatabase();
+  process.exit(0);
+});
+
+export default prisma;
+```
+
+</Tab>
+<Tab title="prisma/seed.ts">
+
+```typescript
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log('🌱 Seeding database...');
+
+  // Create test users
+  const hashedPassword = await bcrypt.hash('password123', 10);
+
+  const user1 = await prisma.user.create({
+    data: {
+      email: 'test@example.com',
+      username: 'testuser',
+      password: hashedPassword,
+      profiles: {
+        create: {
+          bio: 'Test user for development',
+        },
+      },
+    },
+    include: {
+      profiles: true,
+    },
+  });
+
+  console.log('✅ Created user:', user1);
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Seeding failed:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+```
+
+</Tab>
+</Tabs>
+
+### Crear y ejecutar migraciones
 
 ```bash
-#!/bin/bash
+# Generar cliente Prisma
+npm run prisma:generate
 
-SERVICE_NAME="my-new-service"
-SERVICE_HOST="my-new-service.default.svc.cluster.local"
-SERVICE_PORT="3000"
-KONG_ADMIN_URL="${KONG_ADMIN_URL:-http://kong-admin:8001}"
+# Crear primera migración
+npm run prisma:migrate -- --name init
 
-echo "Configurando $SERVICE_NAME en Kong..."
-
-# 1. Crear upstream
-curl -X POST $KONG_ADMIN_URL/upstreams \
-  --data "name=$SERVICE_NAME-upstream" \
-  --data "algorithm=round-robin" \
-  --data "healthchecks.active.healthy.interval=30" \
-  --data "healthchecks.active.http_path=/health"
-
-# 2. Agregar target al upstream
-curl -X POST $KONG_ADMIN_URL/upstreams/$SERVICE_NAME-upstream/targets \
-  --data "target=$SERVICE_HOST:$SERVICE_PORT"
-
-# 3. Crear servicio
-curl -X POST $KONG_ADMIN_URL/services \
-  --data "name=$SERVICE_NAME" \
-  --data "host=$SERVICE_NAME-upstream" \
-  --data "port=80" \
-  --data "protocol=http"
-
-# 4. Crear ruta
-curl -X POST $KONG_ADMIN_URL/services/$SERVICE_NAME/routes \
-  --data "name=$SERVICE_NAME-route" \
-  --data "paths[]=/api/$SERVICE_NAME" \
-  --data "methods[]=GET" \
-  --data "methods[]=POST" \
-  --data "methods[]=PUT" \
-  --data "methods[]=DELETE"
-
-# 5. Configurar plugins
-
-# Rate limiting
-curl -X POST $KONG_ADMIN_URL/services/$SERVICE_NAME/plugins \
-  --data "name=rate-limiting" \
-  --data "config.minute=60" \
-  --data "config.hour=1000"
-
-# CORS
-curl -X POST $KONG_ADMIN_URL/services/$SERVICE_NAME/plugins \
-  --data "name=cors" \
-  --data "config.origins=*" \
-  --data "config.methods=GET,POST,PUT,DELETE" \
-  --data "config.headers=Accept,Authorization,Content-Type,X-Requested-With"
-
-# OAuth2 (si requiere autenticación)
-curl -X POST $KONG_ADMIN_URL/services/$SERVICE_NAME/plugins \
-  --data "name=oauth2" \
-  --data "config.scopes=read,write" \
-  --data "config.enable_authorization_code=true"
-
-echo "Configuración de Kong completada para $SERVICE_NAME"
-
+# Ejecutar seeds
+npm run prisma:seed
 ```
 
-</Tab>
-<Tab title="config/kong.js">
+## 4. Implementación de endpoints con validación
 
-```javascript
-const axios = require('axios');
-const config = require('./env');
-const logger = require('../utils/logger');
-
-class KongConfig {
-  constructor() {
-    this.adminUrl = config.kong.adminUrl;
-    this.serviceName = config.serviceName;
-  }
-
-  async registerService() {
-    try {
-      // Verificar si el servicio ya existe
-      const existingService = await this.getService();
-
-      if (existingService) {
-        logger.info(`Servicio ${this.serviceName} ya existe en Kong`);
-        return;
-      }
-
-      // Crear upstream
-      await this.createUpstream();
-
-      // Crear servicio
-      await this.createService();
-
-      // Crear ruta
-      await this.createRoute();
-
-      // Configurar plugins
-      await this.setupPlugins();
-
-      logger.info(`Servicio ${this.serviceName} registrado exitosamente en Kong`);
-    } catch (error) {
-      logger.error('Error al registrar servicio en Kong:', error);
-      throw error;
-    }
-  }
-
-  async getService() {
-    try {
-      const response = await axios.get(`${this.adminUrl}/services/${this.serviceName}`);
-      return response.data;
-    } catch (error) {
-      if (error.response?.status === 404) {
-        return null;
-      }
-      throw error;
-    }
-  }
-
-  async createUpstream() {
-    const upstreamData = {
-      name: `${this.serviceName}-upstream`,
-      algorithm: 'round-robin',
-      'healthchecks.active.healthy.interval': 30,
-      'healthchecks.active.http_path': '/health'
-    };
-
-    await axios.post(`${this.adminUrl}/upstreams`, upstreamData);
-
-    // Agregar target
-    const targetData = {
-      target: `${this.serviceName}.default.svc.cluster.local:3000`
-    };
-
-    await axios.post(
-      `${this.adminUrl}/upstreams/${this.serviceName}-upstream/targets`,
-      targetData
-    );
-  }
-
-  async createService() {
-    const serviceData = {
-      name: this.serviceName,
-      host: `${this.serviceName}-upstream`,
-      port: 80,
-      protocol: 'http'
-    };
-
-    await axios.post(`${this.adminUrl}/services`, serviceData);
-  }
-
-  async createRoute() {
-    const routeData = {
-      name: `${this.serviceName}-route`,
-      'paths[]': `/api/${this.serviceName}`,
-      'methods[]': ['GET', 'POST', 'PUT', 'DELETE']
-    };
-
-    await axios.post(`${this.adminUrl}/services/${this.serviceName}/routes`, routeData);
-  }
-
-  async setupPlugins() {
-    const plugins = [
-      {
-        name: 'rate-limiting',
-        config: {
-          minute: 60,
-          hour: 1000
-        }
-      },
-      {
-        name: 'cors',
-        config: {
-          origins: '*',
-          methods: 'GET,POST,PUT,DELETE',
-          headers: 'Accept,Authorization,Content-Type,X-Requested-With'
-        }
-      }
-    ];
-
-    for (const plugin of plugins) {
-      await axios.post(`${this.adminUrl}/services/${this.serviceName}/plugins`, plugin);
-    }
-  }
-}
-
-module.exports = KongConfig;
-
-```
-
-</Tab>
-</Tabs>
-
-## 4. Manifiestos de Kubernetes
+### Controllers con validación Zod
 
 <Tabs>
-<Tab title="k8s/deployment.yaml">
+<Tab title="src/controllers/userController.ts">
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: my-new-service
-  labels:
-    app: my-new-service
-    version: v1
-    tier: backend
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: my-new-service
-  template:
-    metadata:
-      labels:
-        app: my-new-service
-        version: v1
-    spec:
-      containers:
-      - name: my-new-service
-        image: retrogamecloud/my-new-service:latest
-        ports:
-        - containerPort: 3000
-          protocol: TCP
-        env:
-        - name: NODE_ENV
-          value: "production"
-        - name: SERVICE_NAME
-          value: "my-new-service"
-        - name: PORT
-          value: "3000"
-        envFrom:
-        - configMapRef:
-            name: my-new-service-config
-        - secretRef:
-            name: my-new-service-secrets
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 3000
-          initialDelaySeconds: 30
+```typescript
+import { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import prisma from '../config/database';
+import config from '../config/env';
+import { ApiResponse } from '../utils/response';
+import logger from '../utils/logger';
 
-```
+// Validation schemas
+const createUserSchema = z.object({
+  email: z.string().email(),
+  username: z.string().min(3).max(50),
+  password: z.string().min(6),
+  bio: z.string().optional(),
+});
 
-</Tab>
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+export class UserController {
+  static async createUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      const validatedData = createUserSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { email: validatedData.email },
+            { username: validatedData.username },
+          ],
+        },
+      });
+
+      if (existingUser) {
+        return ApiResponse.error(res, 'User already exists', 409);
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+
+      // Create user with profile
+      const user = await prisma.user.create({
+        data: {
+          email: validatedData.email,
+          username: validatedData.username,
+          password: hashedPassword,
+          profiles: {
+            create: {
+              bio: validatedData.bio,
+            },
+          },
+        },
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          isActive: true,
+          createdAt: true,
+          profiles: {
+            select: {
+              bio: true,
+              avatar: true,
+            },
+          },
+        },
+      });
+
+      logger.info(`User created: ${user.id}`);
+      
+      return ApiResponse.success(res, user, 'User created successfully', 201
 </Tabs>
-
-```
-
 ```

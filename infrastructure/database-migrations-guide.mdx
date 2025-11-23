@@ -1,7 +1,8 @@
 ---
-title: "8.5. Migraciones de Base de Datos"
-description: "Guía completa para crear, prostar y aplicar migraciones de esquema de forma segura en producción"
-icon: "database"
+title: 8.5. Migraciones de Base de Datos
+description: Guía completa para crear, prostar y aplicar migraciones de esquema de
+  forma segura en producción
+icon: database
 ---
 
 # 8.5. Migraciones de Base de Datos
@@ -23,12 +24,14 @@ graph LR
     H -->|Sí| I[Migración Completa]
     H -->|No| J[Rollback Automático]
     J --> K[Investigar Fallos]
+
 ```
 
 ## Herramientas de Migración por Servicio
 
 <Tabs>
 <Tab title="TypeORM (User Service)">
+
 ```typescript
 // src/migrations/1234567890123-AddUserPreferences.ts
 import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
@@ -49,9 +52,12 @@ export class AddUserPreferences1234567890123 implements MigrationInterface {
         await queryRunner.dropColumn('users', 'preferences');
     }
 }
+
 ```
+
 </Tab>
 <Tab title="Sequelize (Game Catalog)">
+
 ```javascript
 // migrations/20231201-add-game-tags.js
 'use strict';
@@ -75,9 +81,12 @@ module.exports = {
     await queryInterface.removeColumn('games', 'tags');
   }
 };
+
 ```
+
 </Tab>
 <Tab title="Knex (Score Service)">
+
 ```javascript
 // migrations/20231201_add_score_metadata.js
 exports.up = function(knex) {
@@ -93,7 +102,9 @@ exports.down = function(knex) {
     table.dropColumn('metadata');
   });
 };
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -108,11 +119,13 @@ Los cambios breaking deben realizarse en múltiples fases para mantener zero-dow
 #### Fase 1: Expand (Añadir nueva estructura)
 
 ```sql
--- Migración 001: Añadir nueva columna nullable
+
+- - Migración 001: Añadir nueva columna nullable
 ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT NULL;
 
--- Crear índice para mejorar performance
+- - Crear índice para mejorar performance
 CREATE INDEX CONCURRENTLY idx_users_email_verified ON users(email_verified);
+
 ```
 
 #### Fase 2: Migrate (Poblar datos y actualizar aplicación)
@@ -130,16 +143,16 @@ export class MigrateEmailVerification implements MigrationInterface {
 
         while (hasMore) {
             const result = await queryRunner.query(`
-                UPDATE users 
-                SET email_verified = CASE 
-                    WHEN verification_token IS NULL THEN true 
-                    ELSE false 
+                UPDATE users
+                SET email_verified = CASE
+                    WHEN verification_token IS NULL THEN true
+                    ELSE false
                 END
                 WHERE email_verified IS NULL
                 AND id IN (
-                    SELECT id FROM users 
-                    WHERE email_verified IS NULL 
-                    ORDER BY id 
+                    SELECT id FROM users
+                    WHERE email_verified IS NULL
+                    ORDER BY id
                     LIMIT $1 OFFSET $2
                 )
             `, [batchSize, offset]);
@@ -156,17 +169,21 @@ export class MigrateEmailVerification implements MigrationInterface {
         await queryRunner.query(`UPDATE users SET email_verified = NULL`);
     }
 }
+
 ```
 
 #### Fase 3: Contract (Eliminar estructura antigua)
 
 ```sql
--- Migración 003: Hacer campo obligatorio y limpiar
+
+- - Migración 003: Hacer campo obligatorio y limpiar
 ALTER TABLE users ALTER COLUMN email_verified SET NOT NULL;
 ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT false;
 
--- Eliminar campos antiguos (en siguiente release)
--- ALTER TABLE users DROP COLUMN verification_token;
+- - Eliminar campos antiguos (en siguiente release)
+
+- - ALTER TABLE users DROP COLUMN verification_token;
+
 ```
 
 ## Testing de Migraciones
@@ -174,6 +191,7 @@ ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT false;
 ### Testing Local
 
 ```bash
+
 # Script: scripts/test-migration.sh
 #!/bin/bash
 set -e
@@ -193,12 +211,14 @@ npm run migration:verify
 npm test -- --testNamePattern="migration"
 
 echo "✅ Testing de migración completado"
+
 ```
 
 ### Testing en Staging
 
 <Tabs>
 <Tab title="Verificación Automática">
+
 ```typescript
 // tests/migrations/verify-migration.test.ts
 import { DataSource } from 'typeorm';
@@ -214,7 +234,7 @@ describe('Migration Verification', () => {
     test('should maintain data integrity after migration', async () => {
         const userCount = await dataSource.getRepository(User).count();
         expect(userCount).toBeGreaterThan(0);
-        
+
         const usersWithNullEmail = await dataSource.getRepository(User)
             .count({ where: { emailVerified: null } });
         expect(usersWithNullEmail).toBe(0);
@@ -222,35 +242,40 @@ describe('Migration Verification', () => {
 
     test('should have proper indexes', async () => {
         const indexes = await dataSource.query(`
-            SELECT indexname FROM pg_indexes 
-            WHERE tablename = 'users' 
+            SELECT indexname FROM pg_indexes
+            WHERE tablename = 'users'
             AND indexname = 'idx_users_email_verified'
         `);
         expect(indexes).toHaveLength(1);
     });
 });
+
 ```
+
 </Tab>
 <Tab title="Performance Test">
+
 ```typescript
 // tests/migrations/performance.test.ts
 describe('Migration Performance', () => {
     test('should complete within acceptable time', async () => {
         const startTime = Date.now();
-        
+
         // Simular consulta típica después de migración
         const users = await dataSource.getRepository(User)
-            .find({ 
+            .find({
                 where: { emailVerified: true },
-                take: 100 
+                take: 100
             });
-        
+
         const executionTime = Date.now() - startTime;
         expect(executionTime).toBeLessThan(1000); // Max 1 segundo
         expect(users).toBeDefined();
     });
 });
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -263,6 +288,7 @@ Utiliza este checklist antes de cada migración en producción.
 </Note>
 
 ```yaml
+
 # .github/workflows/migration-checklist.yml
 name: Pre-Migration Checklist
 on:
@@ -281,13 +307,13 @@ jobs:
           kubectl exec -n retro-prod postgres-0 -- pg_dump \
             -U postgres retro_prod > backup-$(date +%Y%m%d-%H%M%S).sql
           aws s3 cp backup-*.sql s3://retro-backups/migrations/
-      
+
       - name: Dry Run Migration
         run: |
           # Ejecutar migración en modo dry-run
           kubectl exec -n retro-prod deployment/user-service -- \
             npm run migration:dry-run
-      
+
       - name: Verify Maintenance Window
         run: |
           # Verificar que estamos en ventana de mantenimiento
@@ -296,12 +322,14 @@ jobs:
             echo "❌ Fuera de ventana de mantenimiento (02:00-06:00 UTC)"
             exit 1
           fi
+
 ```
 
 ### Migración Zero-Downtime
 
 ```bash
 #!/bin/bash
+
 # scripts/zero-downtime-migration.sh
 
 set -e
@@ -335,6 +363,7 @@ kubectl exec -n $NAMESPACE deployment/user-service -- curl -f localhost:3000/hea
 kubectl exec -n $NAMESPACE deployment/user-service -- curl -f localhost:3000/metrics
 
 echo "✅ Migración completada exitosamente"
+
 ```
 
 ## Plan de Rollback Automático
@@ -356,7 +385,7 @@ export class MigrationHealthIndicator extends HealthIndicator {
     async isHealthy(key: string): Promise<HealthIndicatorResult> {
         try {
             // Verificar que las migraciones se ejecutaron correctamente
-            const migrations = await this.dataSource.runMigrations({ 
+            const migrations = await this.dataSource.runMigrations({
                 transaction: 'none',
                 fake: true // Solo verificar, no ejecutar
             });
@@ -377,12 +406,14 @@ export class MigrationHealthIndicator extends HealthIndicator {
         }
     }
 }
+
 ```
 
 ### Script de Rollback Automático
 
 ```bash
 #!/bin/bash
+
 # scripts/auto-rollback.sh
 
 NAMESPACE=${1:-"retro-prod"}
@@ -393,13 +424,13 @@ echo "🔍 Verificando health después de migración..."
 
 for i in $(seq 1 $MAX_RETRIES); do
     echo "Intento $i/$MAX_RETRIES..."
-    
+
     if kubectl exec -n $NAMESPACE deployment/user-service -- \
        curl -f localhost:3000/health/migration; then
         echo "✅ Health check exitoso"
         exit 0
     fi
-    
+
     echo "❌ Health check falló, esperando $RETRY_INTERVAL segundos..."
     sleep $RETRY_INTERVAL
 done
@@ -418,7 +449,7 @@ kubectl exec -n $NAMESPACE deployment/user-service -- npm run migration:revert
 if kubectl exec -n $NAMESPACE deployment/user-service -- \
    curl -f localhost:3000/health; then
     echo "✅ Rollback completado exitosamente"
-    
+
     # Notificar al equipo
     curl -X POST $SLACK_WEBHOOK_URL -H 'Content-type: application/json' \
       --data "{\"text\":\"🚨 Rollback automático ejecutado en $NAMESPACE para migración fallida\"}"
@@ -426,6 +457,7 @@ else
     echo "❌ ROLLBACK FALLÓ - INTERVENCIÓN MANUAL REQUERIDA"
     exit 1
 fi
+
 ```
 
 ## Monitorización de Migraciones
@@ -454,26 +486,28 @@ export class MigrationMetrics {
     constructor(private prometheus: PrometheusService) {}
 
     recordMigrationStart(migrationName: string) {
-        return this.migrationDuration.startTimer({ 
-            migration_name: migrationName 
+        return this.migrationDuration.startTimer({
+            migration_name: migrationName
         });
     }
 
     recordMigrationComplete(timer: any, migrationName: string, success: boolean) {
         const status = success ? 'success' : 'failed';
         timer({ migration_name: migrationName, status });
-        
-        this.migrationCounter.inc({ 
-            migration_name: migrationName, 
-            status 
+
+        this.migrationCounter.inc({
+            migration_name: migrationName,
+            status
         });
     }
 }
+
 ```
 
 ### Dashboard de Migraciones
 
 ```yaml
+
 # monitoring/migration-dashboard.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -495,4 +529,5 @@ data:
             "title": "Migration Success Rate",
             "targets": [{
               "
+
 ```

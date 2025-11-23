@@ -1,535 +1,494 @@
 ---
 title: 6.7. Monitoreo y Observabilidad
-description: Stack completo de observabilidad con Prometheus, Grafana, AlertManager y CloudWatch. Golden Signals, correlación de trazas y debugging distribuido para Retro Game Hub
+description: Stack completo de observabilidad con Prometheus, Grafana, ELK Stack, Jaeger y CloudWatch. Golden Signals, correlación de trazas, debugging distribuido y runbooks automatizados para Retro Game Hub
 icon: chart-line
 ---
 
 ## Stack de Monitoreo y Observabilidad
 
-Retro Game Hub implementa observabilidad completa siguiendo las mejores prácticas SRE con Golden Signals, logging estructurado y correlación distribuida para debugging eficiente.
+Retro Game Hub implementa observabilidad completa siguiendo las mejores prácticas SRE con Golden Signals, logging estructurado, distributed tracing y correlación automatizada para debugging eficiente y resolución rápida de incidentes.
 
 <CardGroup cols={4}>
   <Card title="Prometheus" icon="chart-line">
-    **Métricas**
+    **Métricas & SLIs**
 
-    Recolección y almacenamiento de métricas de aplicación y Golden Signals
+    Recolección de Golden Signals y métricas de negocio con retention de 15 días
   </Card>
 
   <Card title="Grafana" icon="chart-area">
-    **Visualización**
+    **Dashboards & SLOs**
 
-    Dashboards SLI/SLO y análisis de correlación
+    Visualización unificada con alertas basadas en Service Level Objectives
   </Card>
 
-  <Card title="CloudWatch" icon="cloud">
-    **AWS Native**
+  <Card title="ELK Stack" icon="magnifying-glass">
+    **Logs Estructurados**
 
-    Logs estructurados centralizados con retention policies
+    Elasticsearch, Logstash y Kibana para análisis centralizado de logs JSON
   </Card>
 
-  <Card title="AlertManager" icon="bell">
-    **Notificaciones**
+  <Card title="Jaeger" icon="project-diagram">
+    **Distributed Tracing**
 
-    Alertas inteligentes basadas en umbrales críticos
+    Correlación de requests distribuidos con sampling inteligente
   </Card>
 </CardGroup>
 
-## Arquitectura de Observabilidad
+## Arquitectura de Observabilidad Completa
 
 ```mermaid
-graph TD
-    A[Route53 DNS<br/>monitoring.retrogamecloud.com] --> B[Application Load Balancer<br/>SSL/TLS Termination]
-    B --> C[Grafana Pod<br/>:3000]
-    B --> D[Prometheus Pod<br/>:9090]
-    B --> E[AlertManager Pod<br/>:9093]
+graph TB
+    subgraph "Ingress & Load Balancing"
+        A[Route53 DNS<br/>monitoring.retrogame.cloud] --> B[Application Load Balancer<br/>SSL/TLS + WAF]
+    end
 
-    D --> F[Service Discovery]
-    F --> G[node-exporter<br/>Node Metrics]
-    F --> H[kube-state-metrics<br/>K8s Metrics]
-    F --> I[Application Pods<br/>/metrics endpoints]
+    subgraph "Observability Frontend"
+        B --> C[Grafana<br/>:3000]
+        B --> D[Kibana<br/>:5601]
+        B --> E[Jaeger UI<br/>:16686]
+        B --> F[Prometheus<br/>:9090]
+        B --> G[AlertManager<br/>:9093]
+    end
 
-    J[CloudWatch Logs] --> K[Log Groups - 30d retention]
-    K --> L[user-service logs]
-    K --> M[game-service logs]
-    K --> N[multiplayer-service logs]
+    subgraph "Metrics Collection"
+        F --> H[Service Discovery<br/>K8s API]
+        H --> I[node-exporter<br/>System Metrics]
+        H --> J[kube-state-metrics<br/>K8s Resources]
+        H --> K[Application Pods<br/>/metrics endpoints]
+        H --> L[Redis Exporter<br/>Cache Metrics]
+        H --> M[PostgreSQL Exporter<br/>DB Metrics]
+    end
 
-    C --> D
-    E --> D
-    E --> O[SNS Topics]
-    O --> P[Email/Slack Alerts]
+    subgraph "Logging Pipeline"
+        N[Application Pods<br/>JSON Logs] --> O[Fluent Bit<br/>Log Shipper]
+        O --> P[Logstash<br/>Parser & Enrichment]
+        P --> Q[Elasticsearch<br/>Index & Storage]
+        Q --> D
+    end
 
-    Q[CloudWatch Alarms] --> O
-    I --> J
+    subgraph "Distributed Tracing"
+        K --> R[Jaeger Agent<br/>Sidecar]
+        R --> S[Jaeger Collector<br/>Batch Processing]
+        S --> T[Cassandra<br/>Trace Storage]
+        T --> E
+    end
 
-    R[Redis Exporter] --> D
-    S[Redis Cluster] --> R
+    subgraph "Alerting & Notifications"
+        G --> U[SNS Topics]
+        U --> V[PagerDuty<br/>Critical Alerts]
+        U --> W[Slack<br/>Team Notifications]
+        U --> X[Email<br/>Weekly Reports]
+    end
 
-    T[Jaeger] --> U[Distributed Traces]
-    I --> T
-    V[Correlation Engine] --> J
-    V --> D
-    V --> T
+    subgraph "Correlation Engine"
+        Y[Correlation Service] --> Q
+        Y --> F
+        Y --> T
+        Y --> Z[Unified Dashboard<br/>Trace-Log-Metric]
+    end
 
-    style V fill:#f9f,stroke:#333,stroke-width:2px
+    C --> F
+    C --> Q
+    C --> T
+    G --> F
+
+    style Y fill:#ff9999,stroke:#333,stroke-width:3px
+    style Z fill:#99ccff,stroke:#333,stroke-width:2px
 ```
 
 ## Golden Signals por Servicio
 
-### 1. Latencia (Latency)
+### User Service - Métricas SLI
 
-<CodeGroup>
+<Tabs>
+  <Tab title="Latencia">
+    ```promql
+    # P95 Response Time
+    histogram_quantile(0.95, 
+      rate(http_request_duration_seconds_bucket{
+        service="user-service"
+      }[5m])
+    )
 
-```yaml user-service
-# User Service - Latency SLIs
-http_request_duration_seconds:
-  p95_threshold: 200ms    # Crítico: > 500ms
-  p99_threshold: 500ms    # Crítico: > 1s
-  
-login_duration_seconds:
-  p95_threshold: 300ms    # Crítico: > 800ms
-  
-jwt_validation_duration:
-  p95_threshold: 50ms     # Crítico: > 100ms
+    # SLO: P95 < 200ms
+    # Threshold: P95 > 300ms = Critical Alert
+    ```
+  </Tab>
+
+  <Tab title="Tráfico">
+    ```promql
+    # Requests per Second
+    sum(rate(http_requests_total{
+      service="user-service"
+    }[1m])) by (endpoint, method)
+
+    # Peak Traffic: 10,000 RPS
+    # Normal Traffic: 1,500-3,000 RPS
+    ```
+  </Tab>
+
+  <Tab title="Errores">
+    ```promql
+    # Error Rate %
+    sum(rate(http_requests_total{
+      service="user-service",
+      status=~"5..|4.."
+    }[5m])) / 
+    sum(rate(http_requests_total{
+      service="user-service"
+    }[5m])) * 100
+
+    # SLO: Error Rate < 0.1%
+    # Alert: Error Rate > 1%
+    ```
+  </Tab>
+
+  <Tab title="Saturación">
+    ```promql
+    # CPU Utilization
+    avg(rate(container_cpu_usage_seconds_total{
+      pod=~"user-service-.*"
+    }[5m])) * 100
+
+    # Memory Usage %
+    avg(container_memory_usage_bytes{
+      pod=~"user-service-.*"
+    }) / avg(container_spec_memory_limit_bytes{
+      pod=~"user-service-.*"
+    }) * 100
+
+    # Alert: CPU > 80% or Memory > 85%
+    ```
+  </Tab>
+</Tabs>
+
+### Game Service - Métricas de Negocio
+
+```promql
+# Game Sessions Activas
+sum(game_sessions_active{service="game-service"})
+
+# ROM Downloads por Minuto
+rate(rom_downloads_total[1m]) * 60
+
+# WebRTC Connections Quality
+avg(webrtc_connection_quality{service="multiplayer"})
+
+# Leaderboard Update Latency
+histogram_quantile(0.95, 
+  rate(leaderboard_update_duration_seconds_bucket[5m])
+)
 ```
 
-```yaml game-service
-# Game Service - Latency SLIs  
-game_search_duration_seconds:
-  p95_threshold: 150ms    # Crítico: > 400ms
-  
-game_metadata_fetch_duration:
-  p95_threshold: 100ms    # Crítico: > 250ms
-  
-save_state_duration_seconds:
-  p95_threshold: 200ms    # Crítico: > 600ms
-```
+## Dashboards Grafana Específicos
 
-```yaml multiplayer-service
-# Multiplayer Service - Latency SLIs
-websocket_message_latency:
-  p95_threshold: 50ms     # Crítico: > 100ms
-  
-room_join_duration:
-  p95_threshold: 300ms    # Crítico: > 800ms
-  
-game_sync_latency:
-  p95_threshold: 30ms     # Crítico: > 80ms
-```
-
-</CodeGroup>
-
-### 2. Tráfico (Traffic)
-
-<CodeGroup>
-
-```yaml requests-per-second
-# Tráfico - RPS por servicio
-user_service_rps:
-  normal: 50-200 RPS
-  peak: 500-1000 RPS
-  alert_threshold: > 1500 RPS
-
-game_service_rps:
-  normal: 100-400 RPS  
-  peak: 1000-2000 RPS
-  alert_threshold: > 3000 RPS
-
-multiplayer_active_connections:
-  normal: 200-800 connections
-  peak: 2000-4000 connections
-  alert_threshold: > 5000 connections
-```
-
-```yaml business-metrics
-# Métricas de Negocio
-concurrent_games:
-  normal: 50-200 games
-  peak: 500-1000 games
-  alert_threshold: > 1500 games
-
-daily_active_users:
-  target: > 1000 DAU
-  alert_threshold: < 500 DAU
-
-room_utilization:
-  target: 60-80%
-  alert_threshold: > 90%
-```
-
-</CodeGroup>
-
-### 3. Errores (Errors)
-
-<CodeGroup>
-
-```yaml error-rates
-# Error Rate SLIs - Por servicio
-http_error_rate:
-  target: < 0.1% (99.9% success)
-  warning: > 0.5%
-  critical: > 1%
-
-authentication_error_rate:
-  target: < 0.05%
-  warning: > 0.2%
-  critical: > 0.5%
-
-game_load_error_rate:
-  target: < 0.1%
-  warning: > 0.3%
-  critical: > 1%
-```
-
-```yaml redis-errors
-# Redis/Cache Errors
-redis_connection_errors:
-  warning: > 5 errors/min
-  critical: > 20 errors/min
-
-cache_miss_rate:
-  normal: 5-15%
-  warning: > 30%
-  critical: > 50%
-
-session_timeout_rate:
-  warning: > 2%
-  critical: > 5%
-```
-
-</CodeGroup>
-
-### 4. Saturación (Saturation)
-
-<CodeGroup>
-
-```yaml resource-saturation
-# Saturación de Recursos
-cpu_utilization:
-  target: 50-70%
-  warning: > 80%
-  critical: > 90%
-
-memory_utilization:
-  target: 60-80%
-  warning: > 85%
-  critical: > 95%
-
-pod_cpu_throttling:
-  warning: > 5%
-  critical: > 15%
-```
-
-```yaml storage-saturation
-# Almacenamiento y I/O
-disk_utilization:
-  warning: > 80%
-  critical: > 90%
-
-redis_memory_usage:
-  warning: > 70%
-  critical: > 85%
-
-connection_pool_usage:
-  warning: > 80%
-  critical: > 95%
-```
-
-</CodeGroup>
-
-## Dashboards Grafana Recomendados
-
-### 1. Overview Dashboard - Cluster Health
+### 1. Service Overview Dashboard
 
 <Frame>
-```json
-{
-  "dashboard": {
-    "title": "Retro Game Hub - Cluster Overview",
-    "panels": [
-      {
-        "title": "Golden Signals Summary",
-        "targets": [
-          "rate(http_requests_total[5m])",
-          "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
-          "rate(http_requests_total{status=~\"5..\"}[5m])",
-          "avg(rate(container_cpu_usage_seconds_total[5m]))"
-        ]
-      },
-      {
-        "title": "Active Users & Games",
-        "targets": [
-          "active_users_total",
-          "concurrent_games_total",
-          "multiplayer_connections_total"
-        ]
-      },
-      {
-        "title": "Resource Utilization",
-        "targets": [
-          "avg(rate(container_cpu_usage_seconds_total[5m])) * 100",
-          "avg(container_memory_usage_bytes / container_spec_memory_limit_bytes) * 100"
-        ]
-      }
-    ]
-  }
-}
-```
+  <img src="/images/grafana-overview-dashboard.png" alt="Service Overview Dashboard con Golden Signals y SLOs" />
 </Frame>
 
-### 2. Service-Specific Dashboard
+**Panels incluidos:**
+- **Service Health Matrix:** Estado de todos los servicios en grid
+- **Golden Signals:** Latencia, Tráfico, Errores, Saturación por servicio
+- **SLO Burn Rate:** Tendencia de consumo del error budget
+- **Top Endpoints:** Ranking por latencia y volumen de requests
 
-<CodeGroup>
+### 2. Kubernetes Infrastructure Dashboard
 
-```json user-service-dashboard
+<Frame>
+  <img src="/images/grafana-k8s-dashboard.png" alt="Dashboard de infraestructura Kubernetes" />
+</Frame>
+
+**Métricas clave:**
+```promql
+# Node Resource Usage
+100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+
+# Pod Memory Usage by Namespace
+sum(container_memory_usage_bytes{container!="POD"}) by (namespace)
+
+# Persistent Volume Usage
+(kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes) * 100
+```
+
+### 3. Business Metrics Dashboard
+
+<Frame>
+  <img src="/images/grafana-business-dashboard.png" alt="Dashboard de métricas de negocio" />
+</Frame>
+
+**KPIs principales:**
+- **Daily Active Users (DAU):** Usuarios únicos últimas 24h
+- **Game Session Duration:** Tiempo promedio de juego
+- **Revenue per User:** Métricas de monetización
+- **Feature Adoption:** Uso de nuevas funcionalidades
+
+## Logging Estructurado y Parsing
+
+### Formato JSON Estandardizado
+
+```json
 {
-  "title": "User Service - Detailed Metrics",
-  "panels": [
-    {
-      "title": "Login Performance",
-      "targets": [
-        "histogram_quantile(0.95, rate(login_duration_seconds_bucket[5m]))",
-        "rate(login_attempts_total[5m])",
-        "rate(login_failures_total[5m])"
-      ]
-    },
-    {
-      "title": "JWT Operations",
-      "targets": [
-        "histogram_quantile(0.95, rate(jwt_validation_duration_seconds_bucket[5m]))",
-        "rate(jwt_validation_errors_total[5m])"
-      ]
-    },
-    {
-      "title": "Database Connections",
-      "targets": [
-        "postgres_connections_active",
-        "postgres_connections_idle",
-        "rate(postgres_queries_total[5m])"
-      ]
-    }
-  ]
+  "timestamp": "2024-01-15T10:30:45.123Z",
+  "level": "INFO",
+  "service": "user-service",
+  "version": "v1.2.3",
+  "traceId": "a1b2c3d4e5f6g7h8",
+  "spanId": "x1y2z3a4b5c6",
+  "userId": "usr_12345",
+  "endpoint": "/api/users/profile",
+  "method": "GET",
+  "statusCode": 200,
+  "duration": 45.2,
+  "message": "User profile retrieved successfully",
+  "metadata": {
+    "userAgent": "RetroGameHub-iOS/1.5.0",
+    "clientIp": "192.168.1.100",
+    "region": "us-east-1"
+  }
 }
 ```
 
-```json multiplayer-dashboard
-{
-  "title": "Multiplayer Service - Real-time Metrics", 
-  "panels": [
-    {
-      "title": "WebSocket Performance",
-      "targets": [
-        "websocket_connections_active",
-        "histogram_quantile(0.95, rate(websocket_message_duration_seconds_bucket[5m]))",
-        "rate(websocket_errors_total[5m])"
-      ]
-    },
-    {
-      "title": "Game Room Metrics",
-      "targets": [
-        "game_rooms_active",
-        "avg(players_per_room)",
-        "rate(room_join_events_total[5m])"
-      ]
+### Logstash Parsing Configuration
+
+```ruby
+filter {
+  if [kubernetes][container][name] =~ /.*-service$/ {
+    json {
+      source => "message"
+      target => "app"
     }
-  ]
-}
-```
-
-</CodeGroup>
-
-### 3. User Journey Dashboard
-
-```json user-journey-dashboard
-{
-  "title": "User Journey - End-to-End Experience",
-  "panels": [
-    {
-      "title": "User Flow Funnel",
-      "targets": [
-        "rate(page_visits_total{page=\"landing\"}[5m])",
-        "rate(user_registrations_total[5m])", 
-        "rate(game_launches_total[5m])",
-        "rate(multiplayer_joins_total[5m])"
-      ]
-    },
-    {
-      "title": "User Experience Metrics",
-      "targets": [
-        "histogram_quantile(0.95, rate(page_load_duration_seconds_bucket[5m]))",
-        "histogram_quantile(0.95, rate(game_start_duration_seconds_bucket[5m]))",
-        "avg(user_session_duration_seconds)"
-      ]
-    }
-  ]
-}
-```
-
-## Logging Estructurado y Correlation IDs
-
-### Implementación de Structured Logging
-
-<CodeGroup>
-
-```javascript user-service-logging
-// user-service/src/utils/logger.js
-const winston = require('winston');
-const { v4: uuidv4 } = require('uuid');
-
-const logger = winston.createLogger({
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json(),
-    winston.format.printf(info => {
-      return JSON.stringify({
-        timestamp: info.timestamp,
-        level: info.level,
-        service: 'user-service',
-        correlationId: info.correlationId || 'unknown',
-        userId: info.userId,
-        action: info.action,
-        message: info.message,
-        duration: info.duration,
-        error: info.error,
-        metadata: info.metadata
-      });
-    })
-  ),
-  transports: [
-    new winston.transports.Console(),
-    new winston.transports.CloudWatchLogs({
-      logGroupName: '/retrogamehub/user-service',
-      logStreamName: process.env.HOSTNAME || 'local'
-    })
-  ]
-});
-
-// Middleware para correlation ID
-const correlationMiddleware = (req, res, next) => {
-  req.correlationId = req.headers['x-correlation-id'] || uuidv4();
-  res.set('x-correlation-id', req.correlationId);
-  next();
-};
-
-module.exports = { logger, correlationMiddleware };
-```
-
-```javascript game-service-logging  
-// game-service/src/middleware/logging.js
-const { logger } = require('../utils/logger');
-
-const logGameOperation = (operation) => {
-  return (req, res, next) => {
-    const startTime = Date.now();
     
-    logger.info({
-      correlationId: req.correlationId,
-      userId: req.user?.id,
-      action: `${operation}_start`,
-      gameId: req.params.gameId,
-      metadata: {
-        userAgent: req.get('User-Agent'),
-        ip: req.ip
+    date {
+      match => [ "[app][timestamp]", "ISO8601" ]
+    }
+    
+    if [app][traceId] {
+      mutate {
+        add_field => { "trace_correlation" => "%{[app][traceId]}" }
       }
-    });
+    }
+    
+    if [app][level] == "ERROR" {
+      mutate {
+        add_tag => [ "alert_worthy" ]
+      }
+    }
+  }
+}
+```
 
-    res.on('finish', () => {
-      const duration = Date.now() - startTime;
-      
-      logger.info({
-        correlationId: req.correlationId,
-        userId: req.user?.id,
-        action: `${operation}_complete`,
-        gameId: req.params.gameId,
-        duration,
-        statusCode: res.statusCode,
-        metadata: {
-          success: res.statusCode < 400
+### Kibana Search Patterns
+
+```json
+// Buscar errores por traceId
+{
+  "query": {
+    "bool": {
+      "must": [
+        {"term": {"app.traceId": "a1b2c3d4e5f6g7h8"}},
+        {"range": {"@timestamp": {"gte": "now-1h"}}}
+      ]
+    }
+  }
+}
+
+// Top errores por servicio
+{
+  "aggs": {
+    "error_by_service": {
+      "terms": {"field": "app.service"},
+      "aggs": {
+        "error_count": {
+          "filter": {"term": {"app.level": "ERROR"}}
+        }
+      }
+    }
+  }
+}
+```
+
+## Distributed Tracing con Jaeger
+
+### Configuración de Sampling
+
+```yaml
+# jaeger-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jaeger-sampling-config
+data:
+  sampling_strategies.json: |
+    {
+      "service_strategies": [
+        {
+          "service": "user-service",
+          "type": "probabilistic",
+          "param": 0.1
+        },
+        {
+          "service": "game-service", 
+          "type": "ratelimiting",
+          "max_traces_per_second": 100
+        }
+      ],
+      "default_strategy": {
+        "type": "adaptive",
+        "param": 0.05
+      }
+    }
+```
+
+### Instrumentación de Código
+
+<Tabs>
+  <Tab title="Node.js">
+    ```javascript
+    const opentelemetry = require('@opentelemetry/api');
+    const tracer = opentelemetry.trace.getTracer('user-service', '1.0.0');
+
+    async function getUserProfile(userId) {
+      const span = tracer.startSpan('get_user_profile', {
+        attributes: {
+          'user.id': userId,
+          'operation.name': 'database.query'
         }
       });
-    });
+      
+      try {
+        const user = await db.users.findById(userId);
+        span.setAttributes({
+          'user.found': !!user,
+          'user.plan': user?.subscription?.plan || 'free'
+        });
+        return user;
+      } catch (error) {
+        span.recordException(error);
+        span.setStatus({
+          code: opentelemetry.SpanStatusCode.ERROR,
+          message: error.message
+        });
+        throw error;
+      } finally {
+        span.end();
+      }
+    }
+    ```
+  </Tab>
 
-    next();
-  };
-};
+  <Tab title="Go">
+    ```go
+    import (
+        "go.opentelemetry.io/otel"
+        "go.opentelemetry.io/otel/attribute"
+    )
 
-module.exports = { logGameOperation };
+    func GetGameSession(ctx context.Context, sessionID string) (*GameSession, error) {
+        tracer := otel.Tracer("game-service")
+        ctx, span := tracer.Start(ctx, "get_game_session",
+            trace.WithAttributes(
+                attribute.String("session.id", sessionID),
+                attribute.String("operation", "redis.get"),
+            ),
+        )
+        defer span.End()
+
+        session, err := redisClient.Get(ctx, sessionID).Result()
+        if err != nil {
+            span.RecordError(err)
+            span.SetStatus(codes.Error, err.Error())
+            return nil, err
+        }
+
+        span.SetAttributes(
+            attribute.Bool("session.found", session != ""),
+            attribute.String("session.game", parseGameType(session)),
+        )
+
+        return parseSession(session), nil
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Correlación Cross-Service para Debugging
+
+### Ejemplo de Debugging: Latencia Alta en Game Loading
+
+**1. Detectar anomalía en Grafana:**
+```promql
+# Query que detectó el problema
+histogram_quantile(0.95, 
+  rate(http_request_duration_seconds_bucket{
+    endpoint="/api/games/load",
+    service="game-service"
+  }[5m])
+) > 2.0  # SLO violated: >2s response time
 ```
 
-```javascript multiplayer-logging
-// multiplayer-service/src/utils/socketLogger.js
-const { logger } = require('./logger');
+**2. Buscar trazas afectadas en Jaeger:**
+- **Service:** `game-service`
+- **Operation:** `load_game_rom`  
+- **Min Duration:** `2s`
+- **Time Range:** Últimos 15 minutos
 
-class SocketLogger {
-  static logConnection(socket, userId) {
-    logger.info({
-      correlationId: socket.correlationId,
-      userId,
-      action: 'websocket_connection',
-      socketId: socket.id,
-      metadata: {
-        origin: socket.handshake.headers.origin,
-        userAgent: socket.handshake.headers['user-agent']
-      }
-    });
-  }
+<Frame>
+  <img src="/images/jaeger-trace-analysis.png" alt="Análisis de trazas distribuidas en Jaeger" />
+</Frame>
 
-  static logRoomJoin(socket, userId, roomId) {
-    logger.info({
-      correlationId: socket.correlationId,
-      userId,
-      action: 'room_join',
-      roomId,
-      socketId: socket.id,
-      metadata: {
-        timestamp: new Date().toISOString()
-      }
-    });
-  }
+**3. Correlacionar logs por traceId en Kibana:**
+```json
+{
+  "query": {
+    "bool": {
+      "must": [
+        {"term": {"app.traceId": "trace_abc123def456"}},
+        {"range": {"@timestamp": {"gte": "now-15m"}}}
+      ]
+    }
+  },
+  "sort": [{"@timestamp": "asc"}]
+}
+```
 
-  static logGameEvent(socket, userId, event, data) {
-    logger.info({
-      correlationId: socket.correlationId,
-      userId,
-      action: 'game_event',
-      event,
-      socketId: socket.id,
-      metadata: {
-        eventData: data,
-        timestamp: new Date().toISOString()
-      }
-    });
+**4. Identificar root cause:**
+```json
+// Log que reveló el problema
+{
+  "timestamp": "2024-01-15T14:30:22.156Z",
+  "level": "WARN", 
+  "service": "cdn-service",
+  "traceId": "trace_abc123def456",
+  "message": "S3 download timeout exceeded",
+  "metadata": {
+    "bucket": "retro-roms-us-east-1",
+    "key": "nintendo/super-mario-bros.nes",
+    "timeout": "30s",
+    "actual_duration": "45.2s"
   }
 }
-
-module.exports = { SocketLogger };
 ```
 
-</CodeGroup>
+### Unified Correlation Dashboard
 
-## Correlación Logs-Métricas-Traces para Debugging
+<Frame>
+  <img src="/images/unified-correlation-dashboard.png" alt="Dashboard unificado con correlación de logs, métricas y trazas" />
+</Frame>
 
-### Flujo de Debugging Distribuido
+**Variables de correlación:**
+- `$traceId`: ID de traza para filtrar logs y spans relacionados
+- `$service`: Servicio específico para análisis focused  
+- `$timeRange`: Ventana temporal sincronizada entre todas las fuentes
+- `$userId`: Filtro por usuario afectado para debugging personalizado
 
-<Steps>
-  <Step title="1. Identificación del Problema">
-    ```bash
-    # Usuario reporta: "No puedo unirme a partidas multijugador"
-    # Correlation ID del error: corr-123e4567-e89b-12d3-a456-426614174000
-    
-    # Buscar en CloudWatch Logs
-    aws logs filter-log-events \
-      --log-group-name "/retrogamehub/multiplayer-service" \
-      --filter-pattern "corr-123e4567-e89b-12d3-a456-426614174000"
-    ```
-  </Step>
+## Alertas Configuradas y Runbooks
 
-  <Step title="2. Análisis de Métricas Correlacionadas">
-    ```promql
-    # Verificar métricas en el momento del error
-    # Timestamp del error: 2024-01-15T14:30:00Z
-    
-    # Latencia de conexión WebSocket
-    histogram_quantile
-</Steps>
-</Step>
+### AlertManager Rules
+
+```yaml
+# alert-rules.yaml
+groups:
+- name: golden
 ```

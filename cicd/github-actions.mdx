@@ -1,12 +1,12 @@
 ---
 title: 7.2. GitHub Actions
-description: Workflows automatizados de CI/CD con tests end-to-end
+description: Workflows automatizados de CI/CD con tests end-to-end y promoción multi-entorno
 icon: github
 ---
 
 ## Workflows Implementados
 
-RetroGame Cloud utiliza GitHub Actions para automatizar completamente el ciclo de vida del código desde commit hasta producción, incluyendo validación mediante tests end-to-end.
+RetroGame Cloud utiliza GitHub Actions para automatizar completamente el ciclo de vida del código desde commit hasta producción, incluyendo validación mediante tests end-to-end, análisis de calidad y promoción controlada entre ambientes.
 
 <CardGroup cols={3}>
   <Card title="docker-publish-and-update-k8s.yml" icon="docker">
@@ -31,6 +31,30 @@ RetroGame Cloud utiliza GitHub Actions para automatizar completamente el ciclo d
     Validación de flujos completos de usuario
 
     *Todos los repos de servicios*
+  </Card>
+
+  <Card title="multi-env-deploy.yml" icon="layers">
+    **Despliegue multi-entorno**
+
+    Promoción automática dev→staging→prod
+
+    *Con gates de aprobación*
+  </Card>
+
+  <Card title="quality-gate.yml" icon="shield">
+    **Gates de calidad**
+
+    SonarQube, Trivy, tests de cobertura
+
+    *Bloqueo automático si falla*
+  </Card>
+
+  <Card title="rollback.yml" icon="arrow-rotate-left">
+    **Rollback automático**
+
+    Detección de fallos y rollback
+
+    *Monitoreo post-deploy*
   </Card>
 
   <Card title="update-docs-with-claude.yml" icon="robot">
@@ -66,250 +90,374 @@ RetroGame Cloud utiliza GitHub Actions para automatizar completamente el ciclo d
   </Card>
 </CardGroup>
 
-- --
+---
 
-## Workflow Principal: Build & Deploy
+## Pipeline Principal Completo
 
-Este es el workflow que se ejecuta en cada repositorio de servicio (frontend, auth, game-catalog, score, ranking, user).
+Este es el workflow completo que se ejecuta en cada repositorio de servicio con todas las etapas de calidad y seguridad.
 
-### Estructura del Workflow
+### Estructura del Pipeline
+
+<Steps>
+  <Step title="Lint & Format">
+    Validación de código y formato estándar
+  </Step>
+  <Step title="Unit Tests">
+    Tests unitarios con cobertura mínima 80%
+  </Step>
+  <Step title="Build Docker">
+    Construcción de imagen optimizada multi-stage
+  </Step>
+  <Step title="Security Scan">
+    Análisis de vulnerabilidades con Trivy
+  </Step>
+  <Step title="Quality Gate">
+    SonarQube analysis y quality gates
+  </Step>
+  <Step title="Push to ECR">
+    Subida a Amazon Elastic Container Registry
+  </Step>
+  <Step title="Update K8s Manifests">
+    Actualización de manifiestos GitOps
+  </Step>
+  <Step title="ArgoCD Sync">
+    Trigger de sincronización automática
+  </Step>
+</Steps>
+
+### Pipeline Completo Anotado
 
 <CodeGroup>
 
-```yaml Configuración
-name: Compilar, Publicar y Actualizar Kubernetes
+```yaml Configuración Principal
+name: CI/CD Pipeline - Build, Test, Scan & Deploy
 
 on:
   push:
-    branches:
-      - main
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
+    branches: [main, develop]
+    paths-ignore: ['**.md', '.gitignore', 'docs/**']
   pull_request:
-    branches:
-      - main
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
+    branches: [main, develop]
+    paths-ignore: ['**.md', '.gitignore', 'docs/**']
 
 env:
-  REGISTRY_GHCR: ghcr.io
-  REGISTRY_DOCKERHUB: docker.io
-  IMAGE_NAME: retrogamecloud/frontend  # Cambia por servicio
-  K8S_REPO: retrogamecloud/kubernetes
-  K8S_MANIFEST_FILE: 04-frontend.yaml  # Cambia por servicio
-
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: retrogame-${{ github.event.repository.name }}
+  SONAR_PROJECT_KEY: retrogame-${{ github.event.repository.name }}
+  ARGOCD_SERVER: argocd.retrogame.cloud
 ```
 
-```yaml Jobs
+```yaml Jobs - Lint & Test
 jobs:
-  build-and-test:
+  lint-and-format:
+    name: 🔍 Lint & Format
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
-
-      - name: Instalar dependencias
+      
+      - name: Install dependencies
         run: npm ci
-
-      - name: Ejecutar tests unitarios
-        run: npm test
-
-      - name: Ejecutar linting
+      
+      - name: Run ESLint
         run: npm run lint
+      
+      - name: Check Prettier formatting
+        run: npm run format:check
+      
+      - name: TypeScript check
+        run: npm run type-check
 
-  e2e-tests:
+  unit-tests:
+    name: 🧪 Unit Tests
     runs-on: ubuntu-latest
-    needs: build-and-test
+    needs: lint-and-format
     steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Setup cluster K8s efímero
-        uses: helm/kind-action@v1.4.0
-
-      - name: Deploy servicios mock
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run unit tests
+        run: npm run test:coverage
+      
+      - name: Check coverage threshold
         run: |
-          kubectl apply -f k8s/test/
-          kubectl wait --for=condition=ready pod -l app=test-stack
+          COVERAGE=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "❌ Coverage $COVERAGE% is below 80% threshold"
+            exit 1
+          fi
+          echo "✅ Coverage $COVERAGE% meets threshold"
+      
+      - name: Upload coverage to SonarQube
+        uses: sonarqube-quality-gate-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+```
 
-      - name: Ejecutar tests E2E
-        run: npm run test:e2e
-
-  docker-publish:
+```yaml Build & Security
+  build-and-scan:
+    name: 🐳 Build & Security Scan
     runs-on: ubuntu-latest
-    needs: [build-and-test, e2e-tests]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: unit-tests
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tag: ${{ steps.meta.outputs.tags }}
     steps:
-      - name: Build y push Docker image
-        # ... resto de la configuración
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+      
+      - name: Build Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.meta.outputs.tags }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+      
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+```
 
+```yaml Quality Gate & Deploy
+  quality-gate:
+    name: 🛡️ Quality Gate
+    runs-on: ubuntu-latest
+    needs: build-and-scan
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: SonarQube Analysis
+        uses: sonarqube-quality-gate-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          projectKey: ${{ env.SONAR_PROJECT_KEY }}
+          qualityGateWait: true
+      
+      - name: Quality Gate Status
+        run: |
+          if [[ "${{ steps.sonarqube-quality-gate-check.outputs.quality-gate-status }}" == "FAILED" ]]; then
+            echo "❌ SonarQube Quality Gate failed"
+            exit 1
+          fi
+          echo "✅ SonarQube Quality Gate passed"
+
+  update-manifests:
+    name: 📝 Update K8s Manifests
+    runs-on: ubuntu-latest
+    needs: [build-and-scan, quality-gate]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout kubernetes repo
+        uses: actions/checkout@v4
+        with:
+          repository: retrogame-cloud/kubernetes
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: k8s-manifests
+      
+      - name: Update image tag
+        run: |
+          cd k8s-manifests
+          IMAGE_TAG=$(echo "${{ needs.build-and-scan.outputs.image-tag }}" | cut -d':' -f2)
+          
+          # Update development environment first
+          yq eval ".spec.template.spec.containers[0].image = \"${{ secrets.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${IMAGE_TAG}\"" \
+            -i apps/${{ github.event.repository.name }}/overlays/dev/deployment.yaml
+          
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "🚀 Update ${{ github.event.repository.name }} to ${IMAGE_TAG}"
+          git push
+
+  trigger-argocd:
+    name: 🚀 Trigger ArgoCD Sync
+    runs-on: ubuntu-latest
+    needs: update-manifests
+    steps:
+      - name: ArgoCD CLI Login & Sync
+        run: |
+          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+          
+          argocd login ${{ env.ARGOCD_SERVER }} \
+            --username ${{ secrets.ARGOCD_USERNAME }} \
+            --password ${{ secrets.ARGOCD_PASSWORD }} \
+            --insecure
+          
+          argocd app sync retrogame-${{ github.event.repository.name }}-dev
+          argocd app wait retrogame-${{ github.event.repository.name }}-dev --timeout 300
+
+  notify:
+    name: 📱 Notify Results
+    runs-on: ubuntu-latest
+    needs: [trigger-argocd]
+    if: always()
+    steps:
+      - name: Notify Slack Success
+        if: needs.trigger-argocd.result == 'success'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#deployments'
+          message: |
+            ✅ *${{ github.event.repository.name }}* deployed successfully to DEV
+            
+            📦 Image: `${{ needs.build-and-scan.outputs.image-tag }}`
+            🔗 Commit: <${{ github.event.head_commit.url }}|${{ github.sha }}>
+            👤 Author: ${{ github.event.head_commit.author.name }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      
+      - name: Notify Slack Failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#alerts'
+          message: |
+            ❌ *${{ github.event.repository.name }}* deployment failed
+            
+            🔗 Workflow: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>
+            👤 Author: ${{ github.event.head_commit.author.name }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 ```
 
 </CodeGroup>
 
-- --
+---
 
-## Tests End-to-End
+## Pipeline Multi-Entorno
 
-### Herramientas Utilizadas
+Estrategia de promoción controlada entre ambientes con gates de aprobación.
 
-<CardGroup cols={2}>
-  <Card title="Playwright" icon="play">
-    **Tests de interfaz web**
-
-    Automatización de navegador para flujos de usuario completos
-  </Card>
-
-  <Card title="Newman" icon="api">
-    **Tests de API**
-
-    Ejecución de collections de Postman para validar endpoints
-  </Card>
-</CardGroup>
-
-### Escenarios Críticos Implementados
-
-#### E2E-001: Flujo Completo de Jugador
-
-<Steps>
-  <Step title="Registro de usuario">
-    Crear cuenta nueva con email y password válidos
-  </Step>
-  <Step title="Login y JWT">
-    Autenticación exitosa y obtención de token
-  </Step>
-  <Step title="Catálogo de juegos">
-    Listar juegos disponibles desde game-catalog service
-  </Step>
-  <Step title="Cargar juego">
-    Inicializar emulador js-dos con ROM seleccionada
-  </Step>
-  <Step title="Guardar puntuación">
-    Submit de score al servicio correspondiente
-  </Step>
-  <Step title="Verificar ranking">
-    Comprobar aparición en leaderboard
-  </Step>
-</Steps>
-
-#### E2E-002: Flujo de Autenticación OAuth2
-
-<Steps>
-  <Step title="Login con Google">
-    Redirección a OAuth2 provider
-  </Step>
-  <Step title="Callback y JWT">
-    Procesamiento de callback y generación de token
-  </Step>
-  <Step title="Recursos protegidos">
-    Acceso exitoso a endpoints que requieren autenticación
-  </Step>
-</Steps>
-
-### Configuración en CI
-
-Los tests E2E se ejecutan automáticamente en GitHub Actions contra un cluster efímero de Kubernetes:
+### GitFlow Strategy
 
 <CodeGroup>
 
-```yaml Cluster Efímero
-
-- name: Setup cluster K8s
-  uses: helm/kind-action@v1.4.0
-  with:
-    cluster_name: retrogame-e2e
-    config: |
-      kind: Cluster
-      apiVersion: kind.x-k8s.io/v1alpha4
-      nodes:
-      - role: control-plane
-        kubeadmConfigPatches:
-        - |
-          kind: InitConfiguration
-          nodeRegistration:
-            kubeletExtraArgs:
-              node-labels: "ingress-ready=true"
-        extraPortMappings:
-        - containerPort: 80
-          hostPort: 80
-        - containerPort: 443
-          hostPort: 443
-
+```yaml Branching Strategy
+# Configuración de branches y promociones
+branches:
+  develop:    # → DEV environment (automático)
+    - Merge automático tras PR approval
+    - Deploy automático a dev
+    - Tests E2E en ambiente dev
+  
+  release/*:  # → STAGING environment (automático)
+    - Creación manual desde develop
+    - Deploy automático a staging
+    - Tests de regresión completos
+  
+  main:       # → PRODUCTION (manual approval)
+    - Merge desde release branch
+    - Requiere approval de 2 maintainers
+    - Deploy con approval gate
+    - Monitoreo post-deploy automático
 ```
 
-```yaml Servicios Mock
+```yaml Multi-Environment Pipeline
+name: Multi-Environment Deployment
 
-- name: Deploy test stack
-  run: |
-    # Auth service mock
-    kubectl apply -f k8s/test/auth-mock.yaml
+on:
+  push:
+    branches: [develop, 'release/*', main]
 
-    # Database mock (PostgreSQL)
-    kubectl apply -f k8s/test/postgres-test.yaml
+jobs:
+  determine-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      requires-approval: ${{ steps.env.outputs.requires-approval }}
+    steps:
+      - id: env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "requires-approval=false" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "requires-approval=false" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "requires-approval=true" >> $GITHUB_OUTPUT
+          fi
 
-    # Redis mock
-    kubectl apply -f k8s/test/redis-test.yaml
-
-    # Game catalog con ROMs de test
-    kubectl apply -f k8s/test/game-catalog-mock.yaml
-
-    # Esperar a que estén listos
-    kubectl wait --for=condition=ready pod -l app=test-stack --timeout=300s
-
-```
-
-```yaml Ejecución Tests
-
-- name: Ejecutar tests Playwright
-  run: |
-    export TEST_BASE_URL=http://localhost:80
-    export TEST_API_URL=http://localhost:80/api
-    npx playwright test --config=playwright.config.ci.js
-
-- name: Ejecutar tests API Newman
-  run: |
-    newman run postman/RetroGame-E2E.postman_collection.json \
-      --environment postman/test-environment.json \
-      --reporters cli,junit \
-      --reporter-junit-export results/api-tests.xml
-
+  deploy:
+    runs-on: ubuntu-latest
+    needs: determine-environment
+    environment: 
+      name: ${{ needs.determine-environment.outputs.environment }}
+      url: https://${{ needs.determine-environment.outputs.environment }}.retrogame.cloud
+    steps:
+      - name: Deploy to ${{ needs.determine-environment.outputs.environment }}
+        run: |
+          echo "🚀 Deploying to ${{ needs.determine-environment.outputs.environment }}"
+          # Deployment logic here
 ```
 
 </CodeGroup>
 
-### Validaciones Críticas
+### Approval Gates para Producción
 
-<AccordionGroup>
-  <Accordion title="Flujo de Juego Completo">
-    - ✅ Carga correcta del emulador js-dos
-    - ✅ Persistencia de estado de juego
-    - ✅ Captura y envío de puntuación
-    - ✅ Actualización en tiempo real del ranking
-  </Accordion>
+<CodeGroup>
 
-  <Accordion title="Seguridad y Autenticación">
-    - ✅ Validación de tokens JWT
-    - ✅ Expiración y renovación de sesión
-    - ✅ Protección contra CSRF y XSS
-    - ✅ Rate limiting en APIs
-  </Accordion>
-
-  <Accordion title="Performance y Escalabilidad">
-    - ✅ Tiempo de carga < 3 segundos
-    - ✅ Respuesta API < 500ms
-    - ✅ Manejo de 100+ usuarios concurrentes
-    - ✅ Carga de ROMs optimizada
-  </Accordion>
-</AccordionGroup>
-
-<Note>
-Los tests E2E son **bloqueantes** - ningún deployment llegará a producción si fallan las validaciones de flujo completo de usuario.
-</Note>
+```yaml Production Approval
+environment:
+  name: prod
+  protection_rules:
+    - type: required_reviewers
+      reviewers:
+        - retrogame-cloud/maintainers
+        - retrogame-cloud/devops-team
+    - type: wait_timer
+```

@@ -1,499 +1,408 @@
 ---
 title: Procedimientos de Recuperación Ante Desastres
-description: Guía completa de disaster recovery con procedimientos paso a paso, RPO/RTO
-  definidos y simulacros de DR
+description: Guía completa de disaster recovery con procedimientos paso a paso, RPO/RTO definidos, clasificación de servicios por criticidad y simulacros de DR
 icon: shield-halved
 ---
 
 # Procedimientos de Recuperación ante Desastres
 
-Esta guía establece los procedimientos completos de recuperación ante desastres (DR) para la plataforma RetroGameCloud, incluyendo objetivos de tiempo y punto de recuperación, procedimientos detallados y validaciones.
+Esta guía establece los procedimientos completos de recuperación ante desastres (DR) para la plataforma RetroGameCloud, incluyendo clasificación de servicios, objetivos de tiempo y punto de recuperación, procedimientos detallados por escenario y validaciones post-recovery.
 
-## Objetivos de Recuperación
+## Clasificación de Servicios por Criticidad
+
+### Servicios Críticos
+<Card title="Servicios de Misión Crítica" icon="exclamation-triangle" color="red">
+- **Autenticación (Auth Service)**
+- **Base de Datos Principal (PostgreSQL)**
+- **Kong Gateway**
+- **Monitoreo y Alertas**
+</Card>
+
+### Servicios Importantes
+<Card title="Servicios de Alta Prioridad" icon="exclamation" color="orange">
+- **Sistema de Puntuaciones (Scores Service)**
+- **Gestión de Salas**
+- **API Backend Principal**
+- **Redis Cache**
+</Card>
+
+### Servicios Normales
+<Card title="Servicios de Prioridad Estándar" icon="info" color="blue">
+- **CDN y Frontend**
+- **Servicios de Métricas**
+- **Logs Centralizados**
+- **Servicios de Notificaciones**
+</Card>
+
+## Objetivos de Recuperación por Criticidad
 
 ### Definiciones Clave
 
 <Card title="RPO - Recovery Point Objective" icon="clock">
-  **1 hora** - Pérdida máxima de datos aceptable
+  Pérdida máxima de datos aceptable por servicio
 </Card>
 
 <Card title="RTO - Recovery Time Objective" icon="stopwatch">
-  **4 horas** - Tiempo máximo para restaurar servicios
+  Tiempo máximo para restaurar servicios por criticidad
 </Card>
 
-### Matriz de Criticidad
+### Matriz de Criticidad Detallada
 
-| Componente | RPO | RTO | Prioridad |
-|------------|-----|-----|-----------|
-| Base de Datos (PostgreSQL) | 1 hora | 30 min | Crítica |
-| Aplicaciones (EKS) | 1 hora | 2 horas | Alta |
-| Configuración Kong | 1 hora | 1 hora | Alta |
-| CDN/Frontend | 4 horas | 1 hora | Media |
+| Servicio | Criticidad | RPO | RTO | SLA Recovery |
+|----------|------------|-----|-----|--------------|
+| **Autenticación** | Crítico | 1 hora | 30 min | 99.9% |
+| **Base de Datos Principal** | Crítico | 1 hora | 30 min | 99.9% |
+| **Kong Gateway** | Crítico | 1 hora | 45 min | 99.9% |
+| **Monitoreo** | Crítico | 2 horas | 1 hora | 99.5% |
+| **Scores Service** | Importante | 4 horas | 2 horas | 99.0% |
+| **Gestión de Salas** | Importante | 4 horas | 2 horas | 99.0% |
+| **API Backend** | Importante | 4 horas | 1.5 horas | 99.0% |
+| **Redis Cache** | Importante | 8 horas | 1 hora | 98.5% |
+| **CDN/Frontend** | Normal | 8 horas | 3 horas | 98.0% |
+| **Logs** | Normal | 24 horas | 4 horas | 95.0% |
 
-## Arquitectura de Backup
+## Estrategias de Backup Automatizado
+
+### Arquitectura de Respaldo
 
 ```mermaid
 graph TB
-    A[Producción Madrid] --> B[Snapshots RDS]
-    A --> C[Backup S3 Cross-Region]
-    A --> D[Git Repository]
-    A --> E[Terraform State S3]
+    subgraph "Región Primaria (Madrid)"
+        A[Producción] --> B[RDS Snapshots Automatizados]
+        A --> C[EKS Backup Velero]
+        A --> D[S3 Backup Cross-Region]
+        A --> E[Terraform State Backup]
+        A --> F[Kong Config Backup]
+    end
 
-    B --> F[Región DR Frankfurt]
-    C --> F
-    D --> F
-    E --> F
+    subgraph "Región DR (Frankfurt)"
+        G[RDS Cross-Region Replica]
+        H[S3 Replication Target]
+        I[EKS DR Cluster]
+        J[Terraform State Replica]
+    end
 
-    F --> G[RDS Restaurado]
-    F --> H[EKS Cluster]
-    F --> I[Kong Config]
-    F --> J[Aplicaciones]
+    B --> G
+    C --> I
+    D --> H
+    E --> J
+    F --> H
+
+    subgraph "Backup Externos"
+        K[GitLab Repository]
+        L[Backup Offsite]
+    end
+
+    A --> K
+    H --> L
 
     style A fill:#ff9999
-    style F fill:#99ff99
-
+    style G fill:#99ff99
+    style I fill:#99ff99
 ```
 
-## Procedimiento de Disaster Recovery
-
-### Fase 1: Evaluación y Activación
+### Configuración de Backups Automatizados
 
 <Tabs>
-  <Tab title="Evaluación Inicial">
+  <Tab title="RDS Snapshots">
     ```bash
-    # Verificar estado de la región primaria
-    aws ec2 describe-regions --region eu-west-1
-    aws rds describe-db-instances --region eu-west-1
-    aws eks describe-cluster --name retrogame-prod --region eu-west-1
+    # Configuración de snapshots automatizados
+    aws rds modify-db-instance \
+      --db-instance-identifier retrogame-prod \
+      --backup-retention-period 30 \
+      --preferred-backup-window "03:00-04:00" \
+      --preferred-maintenance-window "sun:04:00-sun:05:00"
 
-    # Comprobar último snapshot disponible
+    # Crear snapshot manual antes de cambios críticos
+    aws rds create-db-snapshot \
+      --db-instance-identifier retrogame-prod \
+      --db-snapshot-identifier retrogame-pre-deploy-$(date +%Y%m%d-%H%M%S)
+
+    # Verificar snapshots disponibles
     aws rds describe-db-snapshots \
       --db-instance-identifier retrogame-prod \
-      --snapshot-type automated \
-      --max-items 5
+      --max-items 10
     ```
+  </Tab>
 
+  <Tab title="Velero EKS Backup">
+    ```yaml
+    # velero-backup-schedule.yaml
+    apiVersion: velero.io/v1
+    kind: Schedule
+    metadata:
+      name: retrogame-daily-backup
+    spec:
+      schedule: "0 2 * * *"  # Daily at 2 AM
+      template:
+        includedNamespaces:
+          - retrogame-prod
+          - retrogame-auth
+          - retrogame-scores
+        excludedResources:
+          - pods
+          - events
+        storageLocation: aws-s3-backup
+        ttl: 720h0m0s  # 30 days
+    ```
+  </Tab>
+
+  <Tab title="Cross-Region Replication">
+    ```bash
+    # Configurar replicación cross-region para RDS
+    aws rds create-db-instance-read-replica \
+      --db-instance-identifier retrogame-dr-replica \
+      --source-db-instance-identifier retrogame-prod \
+      --db-instance-class db.t3.medium \
+      --destination-region eu-central-1
+
+    # Configurar replicación S3
+    aws s3api put-bucket-replication \
+      --bucket retrogame-backups-prod \
+      --replication-configuration file://replication-config.json
+    ```
+  </Tab>
+</Tabs>
+
+## Runbooks por Escenario de Desastre
+
+### Escenario 1: Fallo Total de Región AWS
+
+<Tabs>
+  <Tab title="Detección y Evaluación">
+    ```bash
+    #!/bin/bash
+    # dr-region-failure-detection.sh
+
+    echo "=== EVALUACIÓN DE FALLO DE REGIÓN ==="
+    
+    # Verificar conectividad a región primaria
+    PRIMARY_REGION="eu-west-1"
+    DR_REGION="eu-central-1"
+    
+    echo "Verificando región primaria: $PRIMARY_REGION"
+    aws ec2 describe-regions --region $PRIMARY_REGION || {
+        echo "❌ FALLO: Región primaria no accesible"
+        exit 1
+    }
+    
+    # Verificar servicios críticos
+    echo "Verificando RDS..."
+    aws rds describe-db-instances \
+      --db-instance-identifier retrogame-prod \
+      --region $PRIMARY_REGION || echo "❌ RDS no accesible"
+    
+    echo "Verificando EKS..."
+    aws eks describe-cluster \
+      --name retrogame-prod \
+      --region $PRIMARY_REGION || echo "❌ EKS no accesible"
+    
+    echo "Verificando último snapshot disponible..."
+    LATEST_SNAPSHOT=$(aws rds describe-db-snapshots \
+      --db-instance-identifier retrogame-prod \
+      --region $PRIMARY_REGION \
+      --query 'DBSnapshots[0].DBSnapshotIdentifier' \
+      --output text 2>/dev/null)
+    
+    if [ "$LATEST_SNAPSHOT" != "None" ]; then
+        echo "✅ Último snapshot: $LATEST_SNAPSHOT"
+    else
+        echo "⚠️  Verificando snapshots en región DR..."
+    fi
+    ```
   </Tab>
 
   <Tab title="Activación DR">
     ```bash
-    # 1. Declarar incidente DR
-    echo "DR-$(date +%Y%m%d-%H%M%S)" > /tmp/incident_id
+    #!/bin/bash
+    # dr-region-failover.sh
 
-    # 2. Notificar al equipo
-    curl -X POST $SLACK_WEBHOOK \
-      -H 'Content-type: application/json' \
-      --data '{"text":"🚨 DR ACTIVADO - Incidente: '$(cat /tmp/incident_id)'"}'
-
-    # 3. Cambiar a región de DR
-    export AWS_DEFAULT_REGION=eu-central-1
+    echo "=== INICIANDO PROCEDIMIENTO DE DISASTER RECOVERY ==="
+    
+    DR_REGION="eu-central-1"
+    TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+    
+    # 1. Promocionar replica de RDS
+    echo "Promoviendo replica RDS a master..."
+    aws rds promote-read-replica \
+      --db-instance-identifier retrogame-dr-replica \
+      --region $DR_REGION
+    
+    # Esperar hasta que esté disponible
+    echo "Esperando promoción de RDS..."
+    aws rds wait db-instance-available \
+      --db-instance-identifier retrogame-dr-replica \
+      --region $DR_REGION
+    
+    # 2. Desplegar EKS en región DR
+    echo "Desplegando EKS cluster en región DR..."
+    cd terraform/disaster-recovery
+    terraform workspace select dr-frankfurt
+    terraform apply -auto-approve
+    
+    # 3. Restaurar aplicaciones
+    echo "Restaurando aplicaciones desde backup..."
+    velero restore create retrogame-dr-restore-$TIMESTAMP \
+      --from-backup retrogame-daily-backup-latest \
+      --wait
+    
+    # 4. Actualizar DNS
+    echo "Actualizando registros DNS..."
+    aws route53 change-resource-record-sets \
+      --hosted-zone-id Z1D633PJN98FT9 \
+      --change-batch file://dns-failover-batch.json
+    
+    echo "✅ Disaster Recovery completado"
+    echo "🔍 Iniciando validaciones..."
     ```
-
-  </Tab>
-</Tabs>
-
-### Fase 2: Restauración de Base de Datos
-
-<Warning>
-La restauración de RDS es crítica y debe ejecutarse primero
-</Warning>
-
-```bash
-#!/bin/bash
-
-# restore-database.sh
-
-# Obtener el último snapshot automático
-LATEST_SNAPSHOT=$(aws rds describe-db-snapshots \
-  --db-instance-identifier retrogame-prod \
-  --snapshot-type automated \
-  --region eu-west-1 \
-  --query 'DBSnapshots[0].DBSnapshotIdentifier' \
-  --output text)
-
-# Restaurar RDS en región de DR
-aws rds restore-db-instance-from-db-snapshot \
-  --db-instance-identifier retrogame-dr \
-  --db-snapshot-identifier $LATEST_SNAPSHOT \
-  --db-instance-class db.r5.large \
-  --availability-zone eu-central-1a \
-  --region eu-central-1
-
-# Esperar a que esté disponible
-aws rds wait db-instance-available \
-  --db-instance-identifier retrogame-dr \
-  --region eu-central-1
-
-# Obtener endpoint de conexión
-DB_ENDPOINT=$(aws rds describe-db-instances \
-  --db-instance-identifier retrogame-dr \
-  --query 'DBInstances[0].Endpoint.Address' \
-  --output text)
-
-echo "Base de datos restaurada en: $DB_ENDPOINT"
-
-```
-
-### Fase 3: Recreación de Infraestructura EKS
-
-```bash
-#!/bin/bash
-
-# restore-infrastructure.sh
-
-# Clonar repositorio de infraestructura
-git clone https://github.com/retrogame/infrastructure.git
-cd infrastructure/terraform/dr
-
-# Configurar variables para región DR
-cat > terraform.tfvars << EOF
-region = "eu-central-1"
-environment = "dr"
-db_endpoint = "$DB_ENDPOINT"
-cluster_name = "retrogame-dr"
-node_instance_types = ["m5.large"]
-desired_capacity = 3
-max_capacity = 10
-min_capacity = 1
-EOF
-
-# Aplicar infraestructura
-terraform init
-terraform plan -var-file=terraform.tfvars
-terraform apply -var-file=terraform.tfvars -auto-approve
-
-# Configurar kubectl
-aws eks update-kubeconfig --name retrogame-dr --region eu-central-1
-
-```
-
-### Fase 4: Despliegue de Aplicaciones
-
-<Tabs>
-  <Tab title="Kong Gateway">
-    ```bash
-    # Instalar Kong
-    helm repo add kong https://charts.konghq.com
-    helm repo update
-
-    helm install kong kong/kong \
-      --namespace kong-system \
-      --create-namespace \
-      --values kong-dr-values.yaml
-
-    # Restaurar configuración desde S3
-    aws s3 cp s3://retrogame-backups/kong/latest-config.yaml ./kong-config.yaml
-    kubectl apply -f kong-config.yaml
-    ```
-
   </Tab>
 
-  <Tab title="Aplicaciones">
-    ```bash
-    # Clonar repositorio de aplicaciones
-    git clone https://github.com/retrogame/k8s-manifests.git
-    cd k8s-manifests
-
-    # Crear namespaces
-    kubectl apply -f namespaces/
-
-    # Aplicar configuraciones base
-    kubectl apply -f configmaps/
-    kubectl apply -f secrets/
-
-    # Desplegar servicios por orden de dependencia
-    kubectl apply -f auth-service/
-    kubectl apply -f user-service/
-    kubectl apply -f game-catalog-service/
-    kubectl apply -f score-service/
-    kubectl apply -f ranking-service/
-
-    # Verificar despliegues
-    kubectl get pods --all-namespaces
-    ```
-
-  </Tab>
-
-  <Tab title="Frontend">
-    ```bash
-    # Construir y desplegar frontend
-    cd frontend/
-
-    # Actualizar configuración para endpoints DR
-    cat > .env.production << EOF
-    REACT_APP_API_URL=https://api-dr.retrogamecloud.com
-    REACT_APP_CDN_URL=https://cdn-dr.retrogamecloud.com
-    EOF
-
-    # Build y despliegue
-    npm run build
-    aws s3 sync dist/ s3://retrogame-frontend-dr/
-
-    # Invalidar caché CloudFront
-    aws cloudfront create-invalidation \
-      --distribution-id E3QXAMPLE67890 \
-      --paths "/*"
-    ```
-
-  </Tab>
-</Tabs>
-
-### Fase 5: Configuración DNS y Routing
-
-```bash
-#!/bin/bash
-
-# update-dns.sh
-
-# Obtener nuevo load balancer endpoint
-LB_ENDPOINT=$(kubectl get svc kong-kong-proxy -n kong-system \
-  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-
-# Actualizar registros Route53
-aws route53 change-resource-record-sets \
-  --hosted-zone-id Z3M3LMPEXAMPLE \
-  --change-batch '{
-    "Changes": [{
-      "Action": "UPSERT",
-      "ResourceRecordSet": {
-        "Name": "api.retrogamecloud.com",
-        "Type": "CNAME",
-        "TTL": 60,
-        "ResourceRecords": [{"Value": "'$LB_ENDPOINT'"}]
-      }
-    }]
-  }'
-
-echo "DNS actualizado: api.retrogamecloud.com -> $LB_ENDPOINT"
-
-```
-
-## Validación Post-Recovery
-
-### Checklist de Verificación
-
-<Note>
-Ejecutar todas las verificaciones antes de declarar la recuperación completa
-</Note>
-
-#### ✅ Infraestructura Base
-
-- [ ] Cluster EKS operativo
-
-- [ ] Nodos de trabajo disponibles
-
-- [ ] Load balancers funcionando
-
-- [ ] Conectividad de red establecida
-
-#### ✅ Base de Datos
-
-```bash
-
-# Test de conectividad a BD
-kubectl run postgres-test --rm -i --tty --restart=Never \
-  --image=postgres:13 -- psql -h $DB_ENDPOINT -U retrogame_user -d retrogame_db -c "\dt"
-
-# Verificar integridad de datos
-kubectl exec -it auth-service-xxxx -- npm run db:health-check
-
-```
-
-#### ✅ Servicios de Aplicación
-
-```bash
-
-# Health checks de microservicios
-services=("auth-service" "user-service" "game-catalog-service" "score-service" "ranking-service")
-
-for service in "${services[@]}"; do
-  echo "Verificando $service..."
-  kubectl get pods -l app=$service
-  kubectl logs -l app=$service --tail=10
-
-  # Health check endpoint
-  kubectl port-forward svc/$service 8080:80 &
-  curl -f http://localhost:8080/health || echo "❌ $service no responde"
-  pkill -f "port-forward.*$service"
-done
-
-```
-
-#### ✅ API Gateway
-
-```bash
-
-# Verificar Kong
-kubectl get pods -n kong-system
-kubectl get svc -n kong-system
-
-# Test de routing
-curl -H "Host: api.retrogamecloud.com" http://$LB_ENDPOINT/health
-curl -H "Host: api.retrogamecloud.com" http://$LB_ENDPOINT/auth/status
-
-```
-
-#### ✅ Frontend y CDN
-
-```bash
-
-# Verificar distribución CloudFront
-aws cloudfront get-distribution --id E3QXAMPLE67890
-
-# Test de carga del frontend
-curl -I https://retrogamecloud.com
-curl -I https://cdn.retrogamecloud.com/js/main.js
-
-```
-
-### Tests Funcionales
-
-```javascript
-// e2e-dr-tests.js
-const tests = [
-  {
-    name: "Registro de usuario",
-    endpoint: "/auth/register",
-    method: "POST",
-    payload: { email: "test@example.com", password: "test123" }
-  },
-  {
-    name: "Login de usuario",
-    endpoint: "/auth/login",
-    method: "POST",
-    payload: { email: "test@example.com", password: "test123" }
-  },
-  {
-    name: "Listado de juegos",
-    endpoint: "/games",
-    method: "GET"
-  },
-  {
-    name: "Subir puntuación",
-    endpoint: "/scores",
-    method: "POST",
-    payload: { gameId: 1, score: 1000 }
-  }
-];
-
-// Ejecutar tests
-tests.forEach(async (test) => {
-  try {
-    const response = await fetch(`https://api.retrogamecloud.com${test.endpoint}`, {
-      method: test.method,
-      headers: { 'Content-Type': 'application/json' },
-      body: test.payload ? JSON.stringify(test.payload) : undefined
-    });
-
-    console.log(`✅ ${test.name}: ${response.status}`);
-  } catch (error) {
-    console.log(`❌ ${test.name}: ${error.message}`);
-  }
-});
-
-```
-
-## Simulacros de Disaster Recovery
-
-### Calendario de Simulacros
-
-| Tipo | Frecuencia | Duración | Alcance |
-|------|------------|----------|---------|
-| Simulacro Parcial | Mensual | 2 horas | Un servicio |
-| Simulacro Completo | Trimestral | 1 día | Toda la plataforma |
-| Test de Comunicación | Semanal | 30 min | Equipo DR |
-
-### Procedimiento de Simulacro
-
-<Tabs>
-  <Tab title="Planificación">
-    ```yaml
-    # simulacro-plan.yaml
-    simulacro:
-      id: "DR-SIM-2024Q1"
-      fecha: "2024-03-15"
-      tipo: "completo"
-      duracion: "6 horas"
-
-    participantes:
-      - "Equipo DevOps"
-      - "Desarrolladores Backend"
-      - "QA Team"
-      - "Product Owner"
-
-    escenario:
-      descripcion: "Caída completa de región eu-west-1"
-      impacto: "Pérdida total de servicios"
-      tiempo_deteccion: "15 minutos"
-
-    objetivos:
-      - "Restaurar servicios en < 4 horas"
-      - "Pérdida de datos < 1 hora"
-      - "Validar comunicación de equipo"
-    ```
-
-  </Tab>
-
-  <Tab title="Ejecución">
+  <Tab title="Validación Post-Recovery">
     ```bash
     #!/bin/bash
-    # ejecutar-simulacro.sh
+    # dr-validation.sh
 
-    SIMULACRO_ID="DR-SIM-$(date +%Y%m%d)"
-    START_TIME=$(date +%s)
-
-    echo "🔥 INICIANDO SIMULACRO: $SIMULACRO_ID"
-
-    # Simular caída (redirigir tráfico a página de mantenimiento)
-    aws route53 change-resource-record-sets \
-      --hosted-zone-id Z3M3LMPEXAMPLE \
-      --change-batch file://maintenance-mode.json
-
-    # Cronometrar procedimiento DR
-    echo "⏱️  Cronómetro iniciado: $(date)"
-
-    # Ejecutar procedimiento completo
-    ./restore-database.sh
-    ./restore-infrastructure.sh
-    ./update-dns.sh
-
-    # Validaciones
-    ./validate-recovery.sh
-
-    END_TIME=$(date +%s)
-    DURATION=$((END_TIME - START_TIME))
-
-    echo "✅ Simulacro completado en $((DURATION/60)) minutos"
+    echo "=== VALIDACIÓN POST-RECOVERY ==="
+    
+    DR_ENDPOINT="https://retrogame-dr.cloud"
+    
+    # Test de conectividad básica
+    echo "Verificando conectividad web..."
+    curl -f $DR_ENDPOINT/health || {
+        echo "❌ Endpoint web no accesible"
+        exit 1
+    }
+    
+    # Test de autenticación
+    echo "Verificando servicio de autenticación..."
+    curl -f $DR_ENDPOINT/api/auth/health || {
+        echo "❌ Servicio de auth no disponible"
+        exit 1
+    }
+    
+    # Test de base de datos
+    echo "Verificando conexión a BD..."
+    kubectl exec -n retrogame-prod deployment/api -- \
+      pg_isready -h retrogame-dr-replica.cluster.eu-central-1.rds.amazonaws.com || {
+        echo "❌ Base de datos no accesible"
+        exit 1
+    }
+    
+    # Test funcional básico
+    echo "Ejecutando tests funcionales..."
+    npm run test:e2e:critical
+    
+    echo "✅ Validación completada exitosamente"
     ```
-
-  </Tab>
-
-  <Tab title="Evaluación">
-    ```markdown
-    # Informe de Simulacro DR
-
-    ## Resumen Ejecutivo
-    - **Duración Total**: 3h 45min (objetivo: 4h) ✅
-    - **RPO Alcanzado**: 45 minutos (objetivo: 1h) ✅
-    - **Servicios Restaurados**: 5/5 ✅
-
-    ## Métricas
-    - Tiempo detección: 8 minutos
-    - Tiempo activación DR: 15 minutos
-    - Restauración BD: 25 minutos
-    - Despliegue apps: 2h 30min
-    - Validación: 35 minutos
-
-    ## Problemas Identificados
-    1. Demora en restauración Kong (30min extra)
-    2. Falta documentación de rollback parcial
-    3. Mejorar playbook de comunicación
-
-    ## Acciones Correctivas
-    - Automatizar configuración Kong
-    - Crear runbook de rollback
-    - Revisar plan de comunicación
-    ```
-
   </Tab>
 </Tabs>
+
+### Escenario 2: Corrupción de Base de Datos
+
+<Tabs>
+  <Tab title="Detección">
+    ```bash
+    #!/bin/bash
+    # db-corruption-detection.sh
+
+    echo "=== DETECCIÓN DE CORRUPCIÓN DE BD ==="
+    
+    # Verificar integridad de BD
+    kubectl exec -n retrogame-prod deployment/api -- psql -c "
+    SELECT 
+        schemaname, 
+        tablename, 
+        pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size,
+        pg_stat_get_live_tuples(c.oid) as live_tuples,
+        pg_stat_get_dead_tuples(c.oid) as dead_tuples
+    FROM pg_tables t
+    JOIN pg_class c ON c.relname = t.tablename
+    WHERE schemaname = 'public'
+    ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+    "
+    
+    # Verificar logs de errores
+    aws rds describe-db-log-files \
+      --db-instance-identifier retrogame-prod \
+      --filename-contains error
+    
+    # Test de queries críticas
+    kubectl exec -n retrogame-prod deployment/api -- psql -c "
+    SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '1 hour';
+    SELECT COUNT(*) FROM scores WHERE created_at > NOW() - INTERVAL '1 hour';
+    "
+    ```
+  </Tab>
+
+  <Tab title="Recuperación">
+    ```bash
+    #!/bin/bash
+    # db-corruption-recovery.sh
+
+    echo "=== RECUPERACIÓN DE CORRUPCIÓN DE BD ==="
+    
+    RECOVERY_TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+    
+    # 1. Detener aplicaciones para evitar más corrupción
+    echo "Deteniendo aplicaciones..."
+    kubectl scale deployment api --replicas=0 -n retrogame-prod
+    kubectl scale deployment auth-service --replicas=0 -n retrogame-prod
+    
+    # 2. Crear snapshot del estado actual (para forense)
+    echo "Creando snapshot del estado corrupto..."
+    aws rds create-db-snapshot \
+      --db-instance-identifier retrogame-prod \
+      --db-snapshot-identifier corrupted-state-$RECOVERY_TIMESTAMP
+    
+    # 3. Identificar último snapshot válido
+    echo "Identificando último snapshot válido..."
+    VALID_SNAPSHOT=$(aws rds describe-db-snapshots \
+      --db-instance-identifier retrogame-prod \
+      --query 'DBSnapshots[?Status==`available`] | [0].DBSnapshotIdentifier' \
+      --output text)
+    
+    echo "Usando snapshot: $VALID_SNAPSHOT"
+    
+    # 4. Restaurar desde snapshot
+    echo "Restaurando BD desde snapshot..."
+    aws rds restore-db-instance-from-db-snapshot \
+      --db-instance-identifier retrogame-recovered-$RECOVERY_TIMESTAMP \
+      --db-snapshot-identifier $VALID_SNAPSHOT \
+      --db-instance-class db.t3.large
+    
+    # 5. Esperar hasta que esté disponible
+    aws rds wait db-instance-available \
+      --db-instance-identifier retrogame-recovered-$RECOVERY_TIMESTAMP
+    
+    echo "✅ BD restaurada exitosamente"
+    ```
+  </Tab>
+</Tabs>
+
+### Escenario 3: Ataque de Ransomware
+
+<Tabs>
+  <Tab title="Contención">
+    ```bash
+    #!/bin/bash
+    # ransomware-containment.sh
+
+    echo "=== CONTENCIÓN DE RANSOMWARE ==="
+    
+    # 1. Aislamiento inmediato
+    echo "Aislando sistemas comprometidos..."
+    
+    # Revocar tokens de acceso activos
+    kubectl delete secret aws-credentials -n retrogame-prod
+    kubectl delete secret database-credentials -n retrogame-prod
+    
+    # Deshabilitar acceso SSH
+    aws ec2 modify-instance-attribute \
+      --instance-id i-1234567890abcdef0 \
+      --groups sg-emergency-lockdown
+    
+    # Detener servicios no críticos
+    kubectl scale deployment --all --replicas=0 -n retrogame-prod
+</Tab>
+</Tabs>
+```

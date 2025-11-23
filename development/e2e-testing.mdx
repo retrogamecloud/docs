@@ -1,7 +1,6 @@
 ---
 title: 8.2. Tests End-to-End
-description: Estrategia completa de testing E2E para validar flujos críticos de usuario
-  en RetroGameCloud
+description: Estrategia completa de testing E2E para validar flujos críticos de usuario en RetroGameCloud
 icon: play
 ---
 
@@ -13,44 +12,171 @@ Los tests End-to-End (E2E) validan los flujos completos de usuario en RetroGameC
 Los tests E2E son ejecutados automáticamente en cada pull request y deployment, proporcionando confianza en la estabilidad del sistema completo.
 </Note>
 
-## Herramientas Utilizadas
+## Estrategia Global de Testing
+
+### Pirámide de Testing
+
+<Tabs>
+<Tab title="Distribución">
+```
+      🔺 E2E (10%)
+     🔺🔺 Integration (20%)
+   🔺🔺🔺🔺 Unit Tests (70%)
+```
+
+- **70% Tests Unitarios**: Lógica de negocio, funciones puras
+- **20% Tests de Integración**: APIs, base de datos, servicios
+- **10% Tests E2E**: Flujos críticos de usuario
+</Tab>
+
+<Tab title="Cobertura Objetivo">
+```javascript
+// jest.config.js
+module.exports = {
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80
+    },
+    './src/services/': {
+      branches: 90,
+      functions: 90,
+      lines: 90,
+      statements: 90
+    }
+  }
+}
+```
+</Tab>
+</Tabs>
+
+## Stack Tecnológico
+
+<CardGroup cols={3}>
+<Card title="Playwright" icon="browser">
+Tests E2E multiplataforma
+Capturas automáticas
+Paralelización
+</Card>
+
+<Card title="Jest + Supertest" icon="gear">
+Tests unitarios backend
+Tests de API
+Mocking avanzado
+</Card>
+
+<Card title="Cypress" icon="eye">
+Tests E2E interactivos
+Time travel debugging
+Grabación visual
+</Card>
+</CardGroup>
+
+## Herramientas y Configuración
 
 <Tabs>
 <Tab title="Playwright">
-
-* *Playwright** es nuestra herramienta principal para tests de interfaz de usuario:
+**Playwright** es nuestra herramienta principal para tests de interfaz de usuario:
 
 - Tests en múltiples navegadores (Chrome, Firefox, Safari)
-
 - Paralelización automática
-
 - Screenshots y videos en caso de fallos
-
 - API robusta para interacciones complejas
 
-```bash
-npm install @playwright/test
-npx playwright install
+```javascript
+// playwright.config.ts
+import { defineConfig, devices } from '@playwright/test';
 
+export default defineConfig({
+  testDir: './e2e',
+  timeout: 30 * 1000,
+  expect: { timeout: 5000 },
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: [['html'], ['json', { outputFile: 'test-results.json' }]],
+  use: {
+    baseURL: process.env.BASE_URL || 'http://localhost:3000',
+    trace: 'on-first-retry',
+    video: 'retain-on-failure',
+    screenshot: 'only-on-failure',
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
+  ],
+});
 ```
-
 </Tab>
-<Tab title="Newman">
 
-* *Newman** ejecuta nuestras colecciones de Postman para validar APIs:
+<Tab title="Newman/Postman">
+**Newman** ejecuta nuestras colecciones de Postman para validar APIs:
 
 - Validación de contratos de API
-
 - Tests de integración entre servicios
-
 - Verificación de flujos OAuth2
 
 ```bash
-npm install -g newman
-newman run postman-collection.json -e environment.json
+# Instalación
+npm install -g newman newman-reporter-htmlextra
 
+# Ejecución con reporte
+newman run collections/retrogamecloud.postman_collection.json \
+  -e environments/staging.postman_environment.json \
+  --reporters cli,htmlextra \
+  --reporter-htmlextra-export reports/newman-report.html
 ```
 
+```javascript
+// Ejemplo de test en Postman
+pm.test("User registration creates valid JWT", function () {
+    const responseJson = pm.response.json();
+    pm.expect(responseJson).to.have.property('token');
+    pm.expect(responseJson.token).to.match(/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/);
+    pm.globals.set("auth_token", responseJson.token);
+});
+```
+</Tab>
+
+<Tab title="k6 Performance">
+**k6** para tests de carga y performance:
+
+```javascript
+// load-test.js
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+
+export let options = {
+  vus: 10, // 10 virtual users
+  duration: '30s',
+  thresholds: {
+    http_req_duration: ['p(95)<500'], // 95% bajo 500ms
+    http_req_failed: ['rate<0.1'], // Error rate bajo 10%
+  },
+};
+
+export default function() {
+  const response = http.get('https://api.retrogamecloud.com/health');
+  check(response, {
+    'status is 200': (r) => r.status === 200,
+    'response time < 500ms': (r) => r.timings.duration < 500,
+  });
+  sleep(1);
+}
+```
 </Tab>
 </Tabs>
 
@@ -62,420 +188,284 @@ newman run postman-collection.json -e environment.json
 Este test valida el ciclo completo desde el registro hasta la aparición en el ranking.
 </Card>
 
-#### Pasos del Test
-
-1. **Registro de Usuario Nuevo**
-   ```javascript
-   await page.goto('/register');
-   await page.fill('[data-testid="username"]', 'testuser');
-   await page.fill('[data-testid="email"]', 'test@example.com');
-   await page.fill('[data-testid="password"]', 'SecurePass123!');
-   await page.click('[data-testid="register-button"]');
-   ```
-
-2. **Login y Obtención de JWT**
-   ```javascript
-   await page.goto('/login');
-   await page.fill('[data-testid="email"]', 'test@example.com');
-   await page.fill('[data-testid="password"]', 'SecurePass123!');
-   await page.click('[data-testid="login-button"]');
-
-   // Verificar token en localStorage
-   const token = await page.evaluate(() => localStorage.getItem('jwt'));
-   expect(token).toBeTruthy();
-   ```
-
-3. **Listar Catálogo de Juegos**
-   ```javascript
-   await page.goto('/games');
-   await expect(page.locator('[data-testid="game-card"]')).toHaveCountGreaterThan(0);
-   ```
-
-4. **Cargar Juego con JS-DOS**
-   ```javascript
-   await page.click('[data-testid="game-card"]:first-child');
-   await page.waitForSelector('[data-testid="js-dos-canvas"]');
-   await expect(page.locator('[data-testid="game-loaded"]')).toBeVisible();
-   ```
-
-5. **Guardar Puntuación**
-   ```javascript
-   // Simular finalización de juego
-   await page.evaluate(() => {
-     window.submitScore(1500);
-   });
-   await expect(page.locator('[data-testid="score-saved"]')).toBeVisible();
-   ```
-
-6. **Verificar Aparición en Ranking**
-   ```javascript
-   await page.goto('/ranking');
-   await expect(page.locator('[data-testid="user-score"]')).toContainText('1500');
-   ```
-
-### E2E-002: Flujo de Autenticación OAuth2
-
-<Warning>
-Este test requiere configuración especial de Google OAuth2 para entornos de testing.
-</Warning>
-
-#### Configuración OAuth2 para Tests
-
-<Tabs>
-<Tab title="Google OAuth2">
+#### Configuración de Datos de Prueba
 
 ```javascript
-// playwright.config.js
-module.exports = {
-  use: {
-    baseURL: process.env.TEST_BASE_URL || 'http://localhost:3000',
-    extraHTTPHeaders: {
-      'X-Test-OAuth': 'enabled'
+// fixtures/user-data.js
+export const testUsers = {
+  newPlayer: {
+    username: `testuser_${Date.now()}`,
+    email: `test_${Date.now()}@example.com`,
+    password: 'SecurePass123!',
+    profile: {
+      preferredGenre: 'platformer',
+      region: 'EU'
     }
   },
-  projects: [
-    {
-      name: 'oauth-tests',
-      use: {
-        ...devices['Desktop Chrome'],
-        storageState: 'tests/auth-state.json'
-      }
-    }
-  ]
+  premiumPlayer: {
+    username: 'premium_user',
+    email: 'premium@example.com',
+    password: 'Premium123!',
+    subscription: 'premium'
+  }
 };
 
+export const testGames = {
+  marioBros: {
+    id: 'mario-bros-1985',
+    title: 'Super Mario Bros',
+    platform: 'nes',
+    category: 'platformer'
+  }
+};
 ```
 
-</Tab>
-<Tab title="Mock OAuth Response">
+#### Pasos del Test
 
+<Tabs>
+<Tab title="1. Registro">
 ```javascript
-// Mock de respuesta OAuth2 para tests
-await page.route('**/auth/google/callback*', route => {
-  route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({
-      token: 'mock-jwt-token',
-      user: {
-        id: 'test-user-id',
-        email: 'test@example.com',
-        name: 'Test User'
-      }
-    })
-  });
+// e2e/user-journey.spec.ts
+import { test, expect } from '@playwright/test';
+import { testUsers } from '../fixtures/user-data';
+
+test('Complete player journey', async ({ page, context }) => {
+  // Setup: Clear any existing data
+  await context.clearCookies();
+  
+  // 1. Register new user
+  await page.goto('/register');
+  
+  await page.fill('[data-testid="username"]', testUsers.newPlayer.username);
+  await page.fill('[data-testid="email"]', testUsers.newPlayer.email);
+  await page.fill('[data-testid="password"]', testUsers.newPlayer.password);
+  await page.selectOption('[data-testid="region"]', testUsers.newPlayer.profile.region);
+  
+  await page.click('[data-testid="register-button"]');
+  
+  // Verify registration success
+  await expect(page.locator('[data-testid="welcome-message"]')).toBeVisible();
+  await expect(page.locator('[data-testid="user-profile"]')).toContainText(testUsers.newPlayer.username);
 });
-
 ```
+</Tab>
 
+<Tab title="2. Login y JWT">
+```javascript
+test('Login and JWT validation', async ({ page }) => {
+  await page.goto('/login');
+  
+  await page.fill('[data-testid="email"]', testUsers.newPlayer.email);
+  await page.fill('[data-testid="password"]', testUsers.newPlayer.password);
+  await page.click('[data-testid="login-button"]');
+  
+  // Wait for redirect to dashboard
+  await page.waitForURL('/dashboard');
+  
+  // Verify JWT token in localStorage
+  const token = await page.evaluate(() => localStorage.getItem('auth_token'));
+  expect(token).toBeTruthy();
+  
+  // Verify token structure (JWT format)
+  expect(token).toMatch(/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/);
+  
+  // Verify authenticated state
+  await expect(page.locator('[data-testid="user-menu"]')).toBeVisible();
+});
+```
+</Tab>
+
+<Tab title="3. Gameplay">
+```javascript
+test('Game launch and score submission', async ({ page }) => {
+  // Navigate to game library
+  await page.goto('/games');
+  
+  // Search and select game
+  await page.fill('[data-testid="game-search"]', 'Super Mario Bros');
+  await page.click(`[data-testid="game-card-${testGames.marioBros.id}"]`);
+  
+  // Launch game
+  await page.click('[data-testid="play-button"]');
+  
+  // Wait for game to load
+  await expect(page.locator('[data-testid="game-canvas"]')).toBeVisible();
+  await page.waitForTimeout(2000); // Game loading time
+  
+  // Simulate gameplay (mock score)
+  await page.evaluate(() => {
+    // Mock game completion
+    window.gameEngine.submitScore(15500, { level: 3, lives: 2 });
+  });
+  
+  // Verify score submission
+  await expect(page.locator('[data-testid="score-popup"]')).toBeVisible();
+  await expect(page.locator('[data-testid="final-score"]')).toContainText('15,500');
+});
+```
+</Tab>
+
+<Tab title="4. Ranking">
+```javascript
+test('Score appears in ranking', async ({ page }) => {
+  // Navigate to leaderboards
+  await page.goto('/leaderboards');
+  
+  // Filter by game
+  await page.selectOption('[data-testid="game-filter"]', testGames.marioBros.id);
+  
+  // Wait for leaderboard to update
+  await page.waitForResponse('**/api/leaderboards/**');
+  
+  // Verify user appears in ranking
+  const userRankingEntry = page.locator(`[data-testid="ranking-entry-${testUsers.newPlayer.username}"]`);
+  await expect(userRankingEntry).toBeVisible();
+  await expect(userRankingEntry.locator('[data-testid="score"]')).toContainText('15,500');
+  
+  // Verify ranking position
+  const position = await userRankingEntry.locator('[data-testid="position"]').textContent();
+  expect(parseInt(position)).toBeGreaterThan(0);
+});
+```
 </Tab>
 </Tabs>
 
-#### Pasos del Flujo OAuth2
+### E2E-002: Flujo de Suscripción Premium
 
-1. **Inicio de Sesión con Google**
-   ```javascript
-   await page.goto('/login');
-   await page.click('[data-testid="google-login"]');
-
-   // Manejar popup de OAuth2
-   const [popup] = await Promise.all([
-     page.waitForEvent('popup'),
-     page.click('[data-testid="google-login"]')
-   ]);
-   ```
-
-2. **Callback y Generación de JWT**
-   ```javascript
-   await popup.waitForURL('**/auth/google/callback*');
-   await popup.close();
-
-   // Verificar redirección y token
-   await expect(page).toHaveURL('/dashboard');
-   const token = await page.evaluate(() => localStorage.getItem('jwt'));
-   expect(token).toMatch(/^eyJ/); // JWT format
-   ```
-
-3. **Acceso a Recursos Protegidos**
-   ```javascript
-   await page.goto('/profile');
-   await expect(page.locator('[data-testid="user-name"]')).toBeVisible();
-   await expect(page.locator('[data-testid="user-email"]')).toContainText('test@example.com');
-   ```
-
-## Ejecución en CI/CD
-
-Los tests E2E se ejecutan automáticamente en GitHub Actions utilizando un cluster efímero de Kubernetes con servicios mock.
-
-```mermaid
-graph LR
-    A[GitHub Actions] --> B[Setup K8s Cluster]
-    B --> C[Deploy Mock Services]
-    C --> D[Run Playwright Tests]
-    D --> E[Run Newman Tests]
-    E --> F[Generate Reports]
-    F --> G[Cleanup Cluster]
-
-    style A fill:#2188ff
-    style F fill:#28a745
-    style G fill:#6f42c1
-
-```
-
-### Configuración de GitHub Actions
-
-```yaml
-name: E2E Tests
-on:
-  pull_request:
-    branches: [main, develop]
-
-jobs:
-  e2e-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Setup Kubernetes
-        uses: helm/kind-action@v1.4.0
-        with:
-          cluster_name: retrogame-test
-
-      - name: Deploy Test Environment
-        run: |
-          kubectl apply -f k8s/test/
-          kubectl wait --for=condition=ready pod -l app=test-backend --timeout=300s
-
-      - name: Install Dependencies
-        run: |
-          npm ci
-          npx playwright install --with-deps
-
-      - name: Run Playwright Tests
-        run: |
-          npx playwright test
-        env:
-          TEST_BASE_URL: http://localhost:3000
-
-      - name: Run Newman Tests
-        run: |
-          newman run tests/postman/api-tests.json \
-            -e tests/postman/test-environment.json \
-            --reporters cli,junit \
-            --reporter-junit-export newman-results.xml
-
-      - name: Upload Test Results
-        uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: test-results
-          path: |
-            test-results/
-            newman-results.xml
-
-```
-
-## Arquitectura de Testing
-
-```mermaid
-graph TB
-    subgraph "Test Environment"
-        A[Playwright Test Runner] --> B[React Frontend]
-        B --> C[Kong Gateway Mock]
-        C --> D[Auth Service Mock]
-        C --> E[Game Catalog Mock]
-        C --> F[Score Service Mock]
-        C --> G[Ranking Service Mock]
-
-        D --> H[(PostgreSQL Test DB)]
-        F --> H
-        G --> I[(Redis Test Cache)]
-    end
-
-    subgraph "Validaciones"
-        A --> J{Status Codes}
-        A --> K{UI Elements}
-        A --> L{Data Persistence}
-    end
-
-    J -->|200 OK| M[✅ Test Pass]
-    J -->|4xx/5xx| N[❌ Test Fail]
-    K -->|Element Found| M
-    K -->|Element Missing| N
-    L -->|Data Correct| M
-    L -->|Data Invalid| N
-
-    style M fill:#28a745
-    style N fill:#dc3545
-
-```
-
-## Escenarios de Testing Avanzados
-
-### E2E-003: Flujo de Recuperación de Fallos
-
-<Card title="Resilencia del Sistema" icon="shield-check">
-Valida que el sistema se recupere correctamente de fallos temporales de servicios.
+<Card title="Premium Upgrade" icon="star">
+Valida la actualización a premium y acceso a contenido exclusivo.
 </Card>
 
 ```javascript
-test('should handle service failures gracefully', async ({ page }) => {
-  // Simular fallo del servicio de puntuaciones
-  await page.route('**/api/scores*', route => {
-    route.abort('failed');
-  });
-
-  await page.goto('/games/pac-man');
-  await page.evaluate(() => window.submitScore(2000));
-
-  // Verificar mensaje de error amigable
-  await expect(page.locator('[data-testid="error-message"]'))
-    .toContainText('Error temporal. Reintentando...');
-
-  // Restaurar servicio y verificar retry
-  await page.unroute('**/api/scores*');
-  await page.waitForSelector('[data-testid="score-saved"]');
+test('Premium subscription flow', async ({ page }) => {
+  // Login as regular user
+  await loginAsUser(page, testUsers.newPlayer);
+  
+  // Navigate to premium page
+  await page.goto('/premium');
+  
+  // Select premium plan
+  await page.click('[data-testid="premium-plan-monthly"]');
+  
+  // Fill payment information (using test card)
+  await page.fill('[data-testid="card-number"]', '4242424242424242');
+  await page.fill('[data-testid="card-expiry"]', '12/25');
+  await page.fill('[data-testid="card-cvc"]', '123');
+  
+  // Submit payment
+  await page.click('[data-testid="subscribe-button"]');
+  
+  // Wait for payment processing
+  await page.waitForURL('/premium/success');
+  
+  // Verify premium status
+  await expect(page.locator('[data-testid="premium-badge"]')).toBeVisible();
+  
+  // Test premium feature access
+  await page.goto('/games/premium');
+  await expect(page.locator('[data-testid="premium-games"]')).toBeVisible();
+  
+  // Verify no paywall
+  await expect(page.locator('[data-testid="paywall"]')).not.toBeVisible();
 });
-
 ```
 
-### E2E-004: Tests de Performance
+## Estrategias de Testing
 
+### Mocking y Datos de Prueba
+
+<Tabs>
+<Tab title="API Mocking">
 ```javascript
-test('should load games catalog within performance budget', async ({ page }) => {
-  const startTime = Date.now();
+// utils/api-mocks.ts
+import { Page } from '@playwright/test';
 
-  await page.goto('/games');
-  await page.waitForSelector('[data-testid="game-card"]');
-
-  const loadTime = Date.now() - startTime;
-  expect(loadTime).toBeLessThan(3000); // 3 segundos máximo
-
-  // Verificar Core Web Vitals
-  const metrics = await page.evaluate(() => {
-    return new Promise(resolve => {
-      new PerformanceObserver(list => {
-        resolve(list.getEntries());
-      }).observe({ entryTypes: ['largest-contentful-paint'] });
-    });
-  });
-
-  expect(metrics[0].startTime).toBeLessThan(2500); // LCP < 2.5s
-});
-
-```
-
-## Informes y Monitorización
-
-### Integración con Allure Reports
-
-```javascript
-// playwright.config.js
-module.exports = {
-  reporter: [
-    ['allure-playwright'],
-    ['html', { outputFolder: 'playwright-report' }]
-  ],
-  use: {
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure'
-  }
-};
-
-```
-
-### Métricas de Testing
-
-<Note>
-Las métricas de testing se envían automáticamente a Grafana para monitorización continua.
-</Note>
-
-- **Tiempo de ejecución de tests**: < 15 minutos
-
-- **Tasa de éxito**: > 95%
-
-- **Cobertura de flujos críticos**: 100%
-
-- **Tiempo de feedback**: < 5 minutos después del commit
-
-## Mantenimiento y Mejores Prácticas
-
-### Datos de Prueba
-
-```javascript
-// fixtures/test-data.js
-export const TEST_USERS = {
-  newUser: {
-    username: 'e2e-test-user',
-    email: 'e2e-test@retrogamecloud.com',
-    password: 'TestPassword123!'
-  },
-  existingUser: {
-    email: 'existing@retrogamecloud.com',
-    password: 'ExistingUserPass123!'
-  }
-};
-
-export const TEST_GAMES = {
-  pacman: {
-    id: 'pac-man-1980',
-    name: 'Pac-Man',
-    expectedLoadTime: 5000
-  }
-};
-
-```
-
-### Limpieza de Datos
-
-```javascript
-// hooks/cleanup.js
-export async function cleanupTestData() {
-  const response = await fetch('/api/test/cleanup', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.TEST_ADMIN_TOKEN}`,
-      'Content-Type': 'application/json'
+export async function mockExternalAPIs(page: Page) {
+  // Mock payment gateway
+  await page.route('**/api/payments/**', async (route) => {
+    if (route.request().method() === 'POST') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          transactionId: 'test_tx_123',
+          status: 'completed'
+        })
+      });
     }
   });
+  
+  // Mock game analytics
+  await page.route('**/api/analytics/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ received: true })
+    });
+  });
+}
+```
+</Tab>
 
-  if (!response.ok) {
-    throw new Error('Failed to cleanup test data');
-  }
+<Tab title="Database Fixtures">
+```javascript
+// fixtures/database-setup.ts
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+export async function setupTestDatabase() {
+  // Clean existing test data
+  await prisma.score.deleteMany({ where: { user: { email: { contains: 'test' } } } });
+  await prisma.user.deleteMany({ where: { email: { contains: 'test' } } });
+  
+  // Create test games
+  await prisma.game.createMany({
+    data: [
+      {
+        id: 'mario-bros-1985',
+        title: 'Super Mario Bros',
+        platform: 'nes',
+        category: 'platformer',
+        available: true
+      },
+      {
+        id: 'tetris-1984',
+        title: 'Tetris',
+        platform: 'gameboy',
+        category: 'puzzle',
+        available: true,
+        premiumOnly: true
+      }
+    ],
+    skipDuplicates: true
+  });
 }
 
+export async function teardownTestDatabase() {
+  await prisma.score.deleteMany({ where: { user: { email: { contains: 'test' } } } });
+  await prisma.user.deleteMany({ where: { email: { contains: 'test' } } });
+}
 ```
+</Tab>
+</Tabs>
 
-<Warning>
-Ejecuta siempre la limpieza de datos de prueba después de cada ejecución de tests para evitar interferencias entre tests.
-</Warning>
-
-## Resolución de Problemas Comunes
-
-### Timeouts en JS-DOS
+### Tests de Contrato
 
 ```javascript
-// Aumentar timeout para carga de juegos retro
-test.setTimeout(60000);
+// contract-tests/user-service.pact.js
+import { Pact } from '@pact-foundation/pact';
+import { like, eachLike } from '@pact-foundation/pact/dsl';
 
-await page.waitForSelector('[data-testid="js-dos-canvas"]', {
-  timeout: 30000
+const provider = new Pact({
+  consumer: 'web-frontend',
+  provider: 'user-service',
+  port: 1234,
+  log: path.resolve(process.cwd(), 'logs', 'pact.log'),
+  dir: path.resolve(process.cwd(), 'pacts'),
+  logLevel: 'INFO',
 });
 
+describe
 ```
-
-### Flakiness en Tests OAuth2
-
-```javascript
-// Usar retry automático para tests OAuth2
-test.describe.configure({ retries: 2 });
-
-// Esperar a elementos específicos en lugar de timeouts fijos
-await expect(page.locator('[data-testid="oauth-success"]')).toBeVisible({
-  timeout: 10000
-});
-
-```
-
-Los tests End-to-End son fundamentales para mantener la confianza en RetroGameCloud. Esta estrategia asegura que todos los flujos críticos funcionen correctamente en cada deployment.

@@ -17,38 +17,108 @@ Una plataforma cloud-native para jugar juegos clásicos de DOS usando el emulado
   Comienza con Retro Game Hub en minutos.
 </Card>
 
-## Visión General de la Arquitectura
+## Navegación Principal
 
-Aprende sobre nuestra arquitectura de microservicios cloud-native.
+Explora las diferentes secciones de la documentación para obtener información detallada sobre cada componente del sistema.
 
 <Columns cols={2}>
   <Card
     title="Infraestructura"
     icon="server"
-    href="/infrastructure/overview"
+    href="/infrastructure/"
   >
-    AWS EKS, Terraform e infraestructura cloud.
+    Arquitectura cloud-native, AWS EKS, Terraform y configuración de infraestructura.
   </Card>
   <Card
-    title="Microservicios"
-    icon="cubes"
+    title="Desarrollo"
+    icon="code"
+    href="/development/"
+  >
+    Guías de desarrollo, configuración local, contribuciones y flujos de trabajo.
+  </Card>
+  <Card
+    title="Resolución de Problemas"
+    icon="wrench"
+    href="/troubleshooting/"
+  >
+    Guía completa para resolver problemas comunes y debugging del sistema.
+  </Card>
+  <Card
+    title="Frontend"
+    icon="window"
+    href="/frontend/"
+  >
+    Integración con js-dos, componentes de UI y experiencia de usuario.
+  </Card>
+</Columns>
+
+## Servicios y APIs
+
+Accede a la documentación completa de microservicios y referencias de API.
+
+<Columns cols={2}>
+  <Card
+    title="Servicio de Autenticación"
+    icon="shield"
     href="/services/auth-service"
   >
-    Servicios de autenticación, juegos, puntuaciones, rankings y usuarios.
+    Autenticación JWT, gestión de usuarios y seguridad.
+  </Card>
+  <Card
+    title="Servicio de Juegos"
+    icon="gamepad"
+    href="/services/game-service"
+  >
+    Gestión de ROMs, emulación y configuración de juegos.
+  </Card>
+  <Card
+    title="Servicio de Puntuaciones"
+    icon="trophy"
+    href="/services/score-service"
+  >
+    Seguimiento de puntuaciones y estadísticas de jugadores.
+  </Card>
+  <Card
+    title="Servicio de Rankings"
+    icon="ranking-star"
+    href="/services/ranking-service"
+  >
+    Tablas de clasificación globales y rankings en tiempo real.
+  </Card>
+</Columns>
+
+## Referencia Técnica
+
+Documentación técnica detallada para desarrolladores e integradores.
+
+<Columns cols={2}>
+  <Card
+    title="Referencia API"
+    icon="terminal"
+    href="/api-reference/"
+  >
+    Documentación completa de endpoints REST y ejemplos de uso.
   </Card>
   <Card
     title="Monitoreo"
     icon="chart-line"
     href="/infrastructure/monitoring"
   >
-    Prometheus, Grafana e integración con GitHub OAuth.
+    Prometheus, Grafana, métricas y observabilidad del sistema.
   </Card>
   <Card
-    title="Referencia API"
-    icon="terminal"
-    href="/api-reference/auth/login"
+    title="Base de Datos"
+    icon="database"
+    href="/infrastructure/database"
   >
-    Documentación completa de la API REST.
+    Esquemas PostgreSQL, migraciones y configuración de datos.
+  </Card>
+  <Card
+    title="Despliegue"
+    icon="upload"
+    href="/infrastructure/deployment"
+  >
+    CI/CD, pipelines de GitHub Actions y estrategias de despliegue.
   </Card>
 </Columns>
 
@@ -60,21 +130,21 @@ Aprende sobre nuestra arquitectura de microservicios cloud-native.
     icon="gamepad"
     href="/frontend/jsdos-integration"
   >
-    Juega juegos clásicos de DOS directamente en tu navegador.
+    Juega juegos clásicos de DOS directamente en tu navegador con emulación precisa.
   </Card>
   <Card
-    title="Autenticación de Usuarios"
+    title="Autenticación Segura"
     icon="shield"
     href="/services/auth-service"
   >
-    Autenticación basada en JWT con backend PostgreSQL.
+    Sistema robusto de autenticación con JWT y backend PostgreSQL.
   </Card>
   <Card
     title="Seguimiento de Puntuaciones"
     icon="trophy"
     href="/services/score-service"
   >
-    Registra y envía puntuaciones de juegos con rankings en tiempo real.
+    Registra y sincroniza puntuaciones de juegos con persistencia confiable.
   </Card>
   <Card
     title="Rankings Globales"
@@ -85,27 +155,11 @@ Aprende sobre nuestra arquitectura de microservicios cloud-native.
   </Card>
 </Columns>
 
-## Stack Tecnológico
+## Tecnologías Utilizadas
 
-- **Orquestación**: Kubernetes (AWS EKS)
-
-- **Infraestructura como Código**: Terraform
-
-- **Gateway API**: Kong
-
-- **Bases de Datos**: PostgreSQL, Redis
-
-- **Monitoreo**: Prometheus, Grafana, AlertManager
-
-- **CDN**: CloudFront + S3
-
-- **Autenticación**: JWT + GitHub OAuth (monitoreo)
-
-<Card
-  title="Ver en GitHub"
-  icon="github"
-  href="https://github.com/retrogamecloud"
->
-  Explora el código fuente y contribuye.
-</Card>
-
+- **Frontend**: React, js-dos, interfaz web moderna
+- **Backend**: Node.js, microservicios REST
+- **Base de Datos**: PostgreSQL, Redis para caché
+- **Infraestructura**: AWS EKS, Kubernetes, Terraform
+- **Monitoreo**: Prometheus, Grafana, alertas automatizadas
+- **DevOps**: GitHub Actions, Docker, CI/CD automatizado

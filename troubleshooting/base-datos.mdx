@@ -1,7 +1,8 @@
 ---
-title: "8.5. Resolución de Problemas"
-description: "Guía completa para diagnosticar y resolver problemas comunes en RetroGameCloud, organizada por categorías de infraestructura y servicios"
-icon: "wrench"
+title: 8.5. Resolución de Problemas
+description: Guía completa para diagnosticar y resolver problemas comunes en RetroGameCloud,
+  organizada por categorías de infraestructura y servicios
+icon: wrench
 ---
 
 # 8.5. Resolución de Problemas
@@ -16,34 +17,46 @@ Antes de comenzar cualquier diagnóstico, asegúrate de tener acceso a kubectl c
 
 ### CrashLoopBackOff
 
-**Síntomas:**
+* *Síntomas:**
+
 - Pods reiniciándose constantemente
+
 - Estado `CrashLoopBackOff` en `kubectl get pods`
+
 - Aplicación no disponible
 
-**Diagnóstico:**
+* *Diagnóstico:**
 
 <Tabs>
 <Tab title="Verificar Estado">
+
 ```bash
 kubectl get pods -n retrogame
 kubectl describe pod <pod-name> -n retrogame
+
 ```
+
 </Tab>
 <Tab title="Revisar Logs">
+
 ```bash
 kubectl logs <pod-name> -n retrogame --previous
 kubectl logs <pod-name> -n retrogame -f
+
 ```
+
 </Tab>
 <Tab title="Eventos del Cluster">
+
 ```bash
 kubectl get events -n retrogame --sort-by=.metadata.creationTimestamp
+
 ```
+
 </Tab>
 </Tabs>
 
-**Soluciones paso a paso:**
+* *Soluciones paso a paso:**
 
 1. **Revisar configuración de variables de entorno**
    ```bash
@@ -77,24 +90,31 @@ kubectl get events -n retrogame --sort-by=.metadata.creationTimestamp
      periodSeconds: 10
    ```
 
-**Prevención:**
+* *Prevención:**
+
 - Implementar health checks apropiados
+
 - Configurar recursos basados en monitoreo real
+
 - Usar init containers para dependencias
 
 ### ImagePullBackOff
 
-**Síntomas:**
+* *Síntomas:**
+
 - Pods en estado `ImagePullBackOff`
+
 - Error "Failed to pull image" en eventos
 
-**Diagnóstico:**
+* *Diagnóstico:**
+
 ```bash
 kubectl describe pod <pod-name> -n retrogame
 docker login <registry-url>  # Verificar acceso al registry
+
 ```
 
-**Soluciones:**
+* *Soluciones:**
 
 1. **Verificar nombre de imagen y tag**
    ```bash
@@ -116,18 +136,23 @@ docker login <registry-url>  # Verificar acceso al registry
 
 ### OOMKilled (Out of Memory)
 
-**Síntomas:**
+* *Síntomas:**
+
 - Pods terminándose inesperadamente
+
 - Exit code 137 en logs
+
 - Alto uso de memoria en métricas
 
-**Diagnóstico:**
+* *Diagnóstico:**
+
 ```bash
 kubectl top pods -n retrogame
 kubectl describe pod <pod-name> -n retrogame | grep -A 5 "Last State"
+
 ```
 
-**Soluciones:**
+* *Soluciones:**
 
 1. **Aumentar límites de memoria**
    ```yaml
@@ -160,18 +185,22 @@ kubectl describe pod <pod-name> -n retrogame | grep -A 5 "Last State"
 
 ### Pods en Estado Pending
 
-**Síntomas:**
+* *Síntomas:**
+
 - Pods no programándose en nodos
+
 - Estado `Pending` persistente
 
-**Diagnóstico:**
+* *Diagnóstico:**
+
 ```bash
 kubectl describe pod <pod-name> -n retrogame
 kubectl get nodes
 kubectl describe node <node-name>
+
 ```
 
-**Soluciones:**
+* *Soluciones:**
 
 1. **Verificar recursos disponibles en nodos**
    ```bash
@@ -196,35 +225,47 @@ kubectl describe node <node-name>
 
 ### Servicio de Autenticación
 
-**Síntomas específicos:**
+* *Síntomas específicos:**
+
 - Error 401/403 en login
+
 - Tokens JWT inválidos
+
 - Problemas de OAuth2 con Kong
 
-**Diagnóstico:**
+* *Diagnóstico:**
 
 <Tabs>
 <Tab title="Verificar Servicio">
+
 ```bash
 kubectl logs deployment/auth-service -n retrogame
 curl -k https://api.retrogame.cloud/auth/health
+
 ```
+
 </Tab>
 <Tab title="Verificar Kong">
+
 ```bash
 kubectl logs deployment/kong-gateway -n kong
 curl -i http://kong-admin:8001/services/auth-service
+
 ```
+
 </Tab>
 <Tab title="Base de Datos">
+
 ```bash
 kubectl exec -it deployment/auth-service -n retrogame -- \
   psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "SELECT COUNT(*) FROM users;"
+
 ```
+
 </Tab>
 </Tabs>
 
-**Soluciones:**
+* *Soluciones:**
 
 1. **Regenerar secretos OAuth2**
    ```bash
@@ -243,18 +284,23 @@ kubectl exec -it deployment/auth-service -n retrogame -- \
 
 ### Servicio de Puntuaciones
 
-**Síntomas específicos:**
+* *Síntomas específicos:**
+
 - Puntuaciones no guardándose
+
 - Rankings desactualizados
+
 - Timeouts en escritura
 
-**Diagnóstico:**
+* *Diagnóstico:**
+
 ```bash
 kubectl logs deployment/score-service -n retrogame --tail=100
 kubectl exec -it deployment/redis -n retrogame -- redis-cli ping
+
 ```
 
-**Soluciones:**
+* *Soluciones:**
 
 1. **Verificar conexión a Redis**
    ```bash
@@ -270,33 +316,45 @@ kubectl exec -it deployment/redis -n retrogame -- redis-cli ping
 
 ### Servicio de Catálogo
 
-**Síntomas específicos:**
+* *Síntomas específicos:**
+
 - Juegos no cargando
+
 - Imágenes no mostrándose
+
 - S3 upload fallando
 
-**Diagnóstico:**
+* *Diagnóstico:**
 
 <Tabs>
 <Tab title="Logs del Servicio">
+
 ```bash
 kubectl logs deployment/catalog-service -n retrogame
+
 ```
+
 </Tab>
 <Tab title="Verificar S3">
+
 ```bash
 aws s3 ls s3://retrogame-assets/games/
 aws s3api head-bucket --bucket retrogame-assets
+
 ```
+
 </Tab>
 <Tab title="CloudFront">
+
 ```bash
 curl -I https://cdn.retrogame.cloud/games/pacman.zip
+
 ```
+
 </Tab>
 </Tabs>
 
-**Soluciones:**
+* *Soluciones:**
 
 1. **Verificar IAM roles para S3**
    ```bash
@@ -312,36 +370,48 @@ curl -I https://cdn.retrogame.cloud/games/pacman.zip
 
 ### PostgreSQL RDS
 
-**Síntomas:**
+* *Síntomas:**
+
 - Connection timeout
+
 - Too many connections
+
 - Slow queries
 
-**Diagnóstico:**
+* *Diagnóstico:**
 
 <Tabs>
 <Tab title="Verificar Conectividad">
+
 ```bash
 kubectl run pg-test --rm -it --restart=Never \
   --image=postgres:13 -- \
   psql -h $RDS_ENDPOINT -U $DB_USER -d retrogame
+
 ```
+
 </Tab>
 <Tab title="Monitoring RDS">
+
 ```bash
 aws rds describe-db-instances \
   --db-instance-identifier retrogame-db \
   --query 'DBInstances[0].DBInstanceStatus'
+
 ```
+
 </Tab>
 <Tab title="Connection Pool">
+
 ```bash
 kubectl logs deployment/auth-service -n retrogame | grep "connection pool"
+
 ```
+
 </Tab>
 </Tabs>
 
-**Soluciones:**
+* *Soluciones:**
 
 1. **Ajustar connection pool**
    ```yaml
@@ -362,26 +432,31 @@ kubectl logs deployment/auth-service -n retrogame | grep "connection pool"
 
 3. **Optimizar queries lentas**
    ```sql
-   SELECT query, mean_time, calls 
-   FROM pg_stat_statements 
-   ORDER BY mean_time DESC 
+   SELECT query, mean_time, calls
+   FROM pg_stat_statements
+   ORDER BY mean_time DESC
    LIMIT 10;
    ```
 
 ### Redis
 
-**Síntomas:**
+* *Síntomas:**
+
 - Cache miss alto
+
 - Redis OOM
+
 - Conexiones rechazadas
 
-**Diagnóstico:**
+* *Diagnóstico:**
+
 ```bash
 kubectl exec -it deployment/redis -n retrogame -- redis-cli info memory
 kubectl exec -it deployment/redis -n retrogame -- redis-cli info clients
+
 ```
 
-**Soluciones:**
+* *Soluciones:**
 
 1. **Configurar maxmemory policy**
    ```bash
@@ -408,33 +483,45 @@ kubectl exec -it deployment/redis -n retrogame -- redis-cli info clients
 
 ### DNS Resolution
 
-**Síntomas:**
+* *Síntomas:**
+
 - Name resolution failed
+
 - Service discovery fallando
+
 - Timeouts intermitentes
 
-**Diagnóstico:**
+* *Diagnóstico:**
 
 <Tabs>
 <Tab title="DNS Lookup">
+
 ```bash
 kubectl run dns-test --rm -it --restart=Never \
   --image=busybox -- nslookup auth-service.retrogame.svc.cluster.local
+
 ```
+
 </Tab>
 <Tab title="CoreDNS Logs">
+
 ```bash
 kubectl logs -n kube-system -l k8s-app=kube-dns
+
 ```
+
 </Tab>
 <Tab title="Service Endpoints">
+
 ```bash
 kubectl get endpoints -n retrogame
+
 ```
+
 </Tab>
 </Tabs>
 
-**Soluciones:**
+* *Soluciones:**
 
 1. **Verificar CoreDNS**
    ```bash
@@ -450,18 +537,23 @@ kubectl get endpoints -n retrogame
 
 ### SSL/TLS Issues
 
-**Síntomas:**
+* *Síntomas:**
+
 - Certificate errors
+
 - HTTPS redirect loops
+
 - SSL handshake failures
 
-**Diagnóstico:**
+* *Diagnóstico:**
+
 ```bash
 openssl s_client -connect api.retrogame.cloud:443
 curl -vI https://api.retrogame.cloud/health
+
 ```
 
-**Soluciones:**
+* *Soluciones:**
 
 1. **Verificar certificados**
    ```bash
@@ -477,34 +569,46 @@ curl -vI https://api.retrogame.cloud/health
 
 ### Kong Gateway Issues
 
-**Síntomas:**
+* *Síntomas:**
+
 - 502/503 errors
+
 - Rate limiting incorrecto
+
 - Routing problems
 
-**Diagnóstico:**
+* *Diagnóstico:**
 
 <Tabs>
 <Tab title="Kong Status">
+
 ```bash
 kubectl logs deployment/kong-gateway -n kong
 curl -i http://kong-admin:8001/status
+
 ```
+
 </Tab>
 <Tab title="Services Config">
+
 ```bash
 curl -s http://kong-admin:8001/services | jq
 curl -s http://kong-admin:8001/routes | jq
+
 ```
+
 </Tab>
 <Tab title="Plugins">
+
 ```bash
 curl -s http://kong-admin:8001/plugins | jq
+
 ```
+
 </Tab>
 </Tabs>
 
-**Soluciones:**
+* *Soluciones:**
 
 1. **Reiniciar Kong con configuración**
    ```bash
@@ -518,19 +622,24 @@ curl -s http://kong-admin:8001/plugins | jq
 
 ### Network Timeouts
 
-**Síntomas:**
+* *Síntomas:**
+
 - Request timeouts
+
 - Connection refused
+
 - Load balancer issues
 
-**Diagnóstico:**
+* *Diagnóstico:**
+
 ```bash
 kubectl get svc -n retrogame
 kubectl describe svc auth-service -n retrogame
 telnet auth-service.retrogame.svc.cluster.local 8080
+
 ```
 
-**Soluciones:**
+* *Soluciones:**
 
 1. **Ajustar timeouts en servicios**
    ```yaml
@@ -555,6 +664,7 @@ Siempre realiza una copia de seguridad antes de aplicar cambios críticos en pro
 Para un diagnóstico inicial rápido, ejecuta estos comandos:
 
 ```bash
+
 # Estado general del cluster
 kubectl get pods --all-namespaces | grep -v Running
 
@@ -571,6 +681,7 @@ kubectl get ingress -n retrogame
 
 # Verificar conectividad externa
 curl -f https://api.retrogame.cloud/health || echo "API no disponible"
+
 ```
 
 Este enfoque sistemático te permitirá identificar y resolver rápidamente la mayoría de problemas en RetroGameCloud. Recuerda documentar las soluciones aplic

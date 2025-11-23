@@ -1,6 +1,7 @@
 ---
 title: 5.1. Autenticación OAuth2 con GitHub
-description: Protección de herramientas de monitoreo con OAuth2-Proxy y GitHub usando Authorization Code Grant con PKCE
+description: Protección de herramientas de monitoreo con OAuth2-Proxy y GitHub usando
+  Authorization Code Grant con PKCE
 icon: lock
 ---
 
@@ -43,7 +44,7 @@ sequenceDiagram
     Note over U,M: 1. Inicio del proceso de autenticación
 
     U->>F: Click "Login" en https://grafana.retrogamehub.com
-    
+
     Note over F: 2. Generación PKCE
     F->>F: code_verifier = random(128 chars)
     F->>F: code_challenge = SHA256(code_verifier)
@@ -123,7 +124,7 @@ sequenceDiagram
     U->>N: GET /api/alerts
     N->>F: auth-url: /oauth2/auth
     F->>F: access_token EXPIRADO
-    
+
     F->>G: POST /login/oauth/access_token
     Note right of F: grant_type=refresh_token<br/>&refresh_token=REFRESH_TOKEN<br/>&client_id=CLIENT_ID
 
@@ -139,10 +140,11 @@ sequenceDiagram
     F->>G: POST /applications/CLIENT_ID/token
     Note right of F: access_token=ACCESS_TOKEN
     G-->>F: 200 OK (token revocado)
-    
+
     F->>F: Elimina tokens de session
     F->>F: Elimina cookies de auth
     F-->>U: 302 Redirect → Login page
+
 ```
 
 ### Detalles de Implementación PKCE
@@ -153,6 +155,7 @@ sequenceDiagram
     # Genera string aleatorio de 128 caracteres
     code_verifier=$(openssl rand -base64 96 | tr -d "=+/" | cut -c1-128)
     ```
+
   </Card>
 
   <Card title="Code Challenge" icon="lock">
@@ -160,6 +163,7 @@ sequenceDiagram
     # SHA256 del verifier, codificado en base64url
     code_challenge=$(echo -n $code_verifier | sha256sum | cut -d' ' -f1 | xxd -r -p | base64 | tr -d "=" | tr '/+' '_-')
     ```
+
   </Card>
 </CardGroup>
 
@@ -177,32 +181,33 @@ data:
   oauth2_proxy.cfg: |
     provider = "github"
     github_org = "retrogamecloud"
-    
+
     # PKCE Configuration
     code_challenge_method = "S256"
     force_code_challenge_method = true
-    
+
     # GitHub OAuth App
     client_id = "your-github-app-client-id"
-    
+
     # Security
     cookie_secure = true
     cookie_httponly = true
     cookie_samesite = "lax"
     cookie_expire = "8h"
-    
+
     # Token refresh
     refresh_token = true
-    
+
     # Scopes necesarios
     scope = "user:email read:org"
-    
+
     # URLs
     redirect_url = "https://grafana.retrogamehub.com/oauth2/callback"
-    
+
     # Session storage
     session_store_type = "redis"
     redis_connection_url = "redis://redis-service:6379"
+
 ```
 
 ### Ingress con Annotations de Auth
@@ -217,7 +222,7 @@ metadata:
     nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.monitoring.svc.cluster.local:4180/oauth2/auth"
     nginx.ingress.kubernetes.io/auth-signin: "http://oauth2-proxy.monitoring.svc.cluster.local:4180/oauth2/start"
     nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Access-Token"
-    
+
     # Security headers
     nginx.ingress.kubernetes.io/configuration-snippet: |
       auth_request_set $auth_user $upstream_http_x_auth_request_user;
@@ -236,6 +241,7 @@ spec:
             name: grafana-service
             port:
               number: 3000
+
 ```
 
 ## Seguridad y Mejores Prácticas
@@ -261,6 +267,7 @@ spec:
 ### Manejo de Tokens
 
 ```yaml
+
 # Token Storage en Redis
 apiVersion: v1
 kind: Secret
@@ -271,10 +278,11 @@ data:
   # Configuración de expiración
   access-token-ttl: "28800"  # 8 horas
   refresh-token-ttl: "2592000"  # 30 días
-  
+
   # Rotation policy
   token-rotation-enabled: "true"
   refresh-threshold: "900"  # 15 minutos antes de expirar
+
 ```
 
 ### Revocación y Logout
@@ -287,11 +295,12 @@ graph TD
     D --> E[Limpia session storage]
     E --> F[Elimina auth cookies]
     F --> G[Redirect a página de login]
-    
+
     H[Token Expirado] --> I[Intenta refresh automático]
     I --> J{Refresh exitoso?}
     J -->|Sí| K[Continúa con nuevo token]
     J -->|No| L[Fuerza re-autenticación]
+
 ```
 
 Este flujo OAuth2 con PKCE proporciona una capa robusta de seguridad para el acceso a las herramientas de monitoreo, asegurando que solo miembros autorizados de la organización puedan acceder a información sensible del sistema.

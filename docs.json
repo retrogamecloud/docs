@@ -78,7 +78,7 @@
             "description": "Configuración del entorno de desarrollo local, variables de entorno, testing end-to-end y resolución de problemas"
           },
           {
-            "group": "4. Frontend",
+            "group": "4. Frontend y Componentes",
             "icon": "browser",
             "pages": [
               "frontend/overview",
@@ -87,7 +87,7 @@
             "description": "Arquitectura React, estructura de componentes e integración del emulador js-dos para la ejecución de juegos retro"
           },
           {
-            "group": "5. Microservicios",
+            "group": "5. Microservicios Backend",
             "icon": "server",
             "pages": [
               "services/auth-service",
@@ -99,7 +99,7 @@
             "description": "Documentación técnica de los microservicios: autenticación, gestión de usuarios, catálogo de juegos, puntuaciones y rankings"
           },
           {
-            "group": "6. Seguridad",
+            "group": "6. Seguridad y Autenticación",
             "icon": "shield",
             "pages": [
               "infrastructure/oauth2-authentication"
@@ -123,7 +123,7 @@
             "description": "Infraestructura en AWS: clúster EKS, redes VPC, CDN CloudFront, DNS Route53, certificados SSL, bases de datos y monitorización"
           },
           {
-            "group": "8. Despliegue y GitOps",
+            "group": "8. CI/CD y Despliegue",
             "icon": "gears",
             "pages": [
               "cicd/overview",
@@ -178,27 +178,20 @@
             "description": "Listado de juegos disponibles, búsqueda con filtros y consulta de detalles de cada juego"
           },
           {
-            "group": "5. Puntuaciones",
+            "group": "5. Puntuaciones y Rankings",
             "icon": "trophy",
             "pages": [
               "api-reference/score-service",
               "api-reference/scores/submit",
-              "api-reference/scores/get"
-            ],
-            "description": "Envío de puntuaciones de partidas, consulta de histórico personal y validación de resultados"
-          },
-          {
-            "group": "6. Rankings",
-            "icon": "ranking-star",
-            "pages": [
+              "api-reference/scores/get",
               "api-reference/ranking-service",
               "api-reference/rankings/global",
               "api-reference/rankings/by-game"
             ],
-            "description": "Tablas de clasificación globales, rankings por juego y estadísticas de jugadores"
+            "description": "Envío y consulta de puntuaciones, tablas de clasificación globales, rankings por juego y estadísticas de jugadores"
           },
           {
-            "group": "7. Frontend y UI",
+            "group": "6. Frontend",
             "icon": "window",
             "pages": [
               "api-reference/frontend"
@@ -206,7 +199,7 @@
             "description": "Especificaciones de la aplicación frontend, componentes React y gestión de estado"
           },
           {
-            "group": "8. Infraestructura como Código",
+            "group": "7. Infraestructura como Código",
             "icon": "cube",
             "pages": [
               "api-reference/infrastructure-docs",

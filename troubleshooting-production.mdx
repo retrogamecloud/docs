@@ -20,6 +20,7 @@ Un pod en estado `CrashLoopBackOff` indica que el contenedor se reinicia continu
 #### Diagnóstico
 
 ```bash
+
 # Verificar el estado de los pods
 kubectl get pods -n retrogame-cloud
 
@@ -28,6 +29,7 @@ kubectl logs <pod-name> -n retrogame-cloud --previous
 
 # Describir el pod para ver eventos
 kubectl describe pod <pod-name> -n retrogame-cloud
+
 ```
 
 #### Causas Comunes y Soluciones
@@ -35,9 +37,10 @@ kubectl describe pod <pod-name> -n retrogame-cloud
 <Tabs>
 <Tab title="Secrets Faltantes">
 
-**Síntoma**: Error `secret "database-credentials" not found`
+* *Síntoma**: Error `secret "database-credentials" not found`
 
 ```bash
+
 # Verificar secrets existentes
 kubectl get secrets -n retrogame-cloud
 
@@ -46,14 +49,16 @@ kubectl create secret generic database-credentials \
   --from-literal=username=postgres \
   --from-literal=password=<password> \
   -n retrogame-cloud
+
 ```
 
 </Tab>
 <Tab title="Health Checks Fallando">
 
-**Síntoma**: Liveness/Readiness probes failing
+* *Síntoma**: Liveness/Readiness probes failing
 
 ```yaml
+
 # Ajustar los health checks en el deployment
 livenessProbe:
   httpGet:
@@ -62,19 +67,22 @@ livenessProbe:
   initialDelaySeconds: 60  # Aumentar delay
   timeoutSeconds: 10       # Aumentar timeout
   failureThreshold: 5      # Más intentos antes de fallar
+
 ```
 
 </Tab>
 <Tab title="Variables de Entorno">
 
-**Síntoma**: Aplicación no puede conectar a servicios externos
+* *Síntoma**: Aplicación no puede conectar a servicios externos
 
 ```bash
+
 # Verificar variables de entorno del pod
 kubectl exec <pod-name> -n retrogame-cloud -- env | grep -E "(DATABASE|REDIS|API)"
 
 # Verificar ConfigMap
 kubectl get configmap app-config -n retrogame-cloud -o yaml
+
 ```
 
 </Tab>
@@ -89,16 +97,19 @@ kubectl get configmap app-config -n retrogame-cloud -o yaml
 #### Diagnóstico
 
 ```bash
+
 # Verificar límites de recursos
 kubectl describe pod <pod-name> -n retrogame-cloud | grep -A5 -B5 "Limits\|Requests"
 
 # Ver eventos relacionados con memoria
 kubectl get events -n retrogame-cloud --field-selector reason=OOMKilling
+
 ```
 
 #### Soluciones
 
 ```yaml
+
 # Aumentar límites de memoria en el deployment
 resources:
   requests:
@@ -107,17 +118,19 @@ resources:
   limits:
     memory: "1Gi"    # Aumentar límite
     cpu: "500m"
+
 ```
 
 ## Troubleshooting de Redis
 
 ### Problema: Rankings Desactualizados
 
-**Síntomas**: Los rankings muestran datos antiguos incluso después de nuevos scores.
+* *Síntomas**: Los rankings muestran datos antiguos incluso después de nuevos scores.
 
 #### Diagnóstico
 
 ```bash
+
 # Conectar a Redis y verificar datos
 kubectl exec -it redis-0 -n retrogame-cloud -- redis-cli
 
@@ -129,6 +142,7 @@ TTL game:tetris:weekly
 
 # Verificar estadísticas de memoria
 INFO memory
+
 ```
 
 #### Causas y Soluciones
@@ -136,9 +150,10 @@ INFO memory
 <Tabs>
 <Tab title="Cache Eviction">
 
-**Síntoma**: Keys de rankings siendo eliminadas prematuramente
+* *Síntoma**: Keys de rankings siendo eliminadas prematuramente
 
 ```bash
+
 # Verificar política de eviction
 redis-cli CONFIG GET maxmemory-policy
 
@@ -147,21 +162,26 @@ redis-cli CONFIG SET maxmemory-policy allkeys-lru
 
 # Verificar memoria disponible
 redis-cli INFO memory | grep used_memory
+
 ```
 
-**Solución permanente**:
+* *Solución permanente**:
+
 ```yaml
+
 # En redis.conf o ConfigMap
 maxmemory 2gb
 maxmemory-policy volatile-ttl  # Mejor para rankings con TTL
+
 ```
 
 </Tab>
 <Tab title="Conexiones Máximas">
 
-**Síntoma**: Error `ERR max number of clients reached`
+* *Síntoma**: Error `ERR max number of clients reached`
 
 ```bash
+
 # Verificar conexiones actuales
 redis-cli INFO clients
 
@@ -170,22 +190,27 @@ redis-cli CONFIG GET maxclients
 
 # Aumentar límite temporalmente
 redis-cli CONFIG SET maxclients 1000
+
 ```
 
-**Solución permanente**:
+* *Solución permanente**:
+
 ```yaml
+
 # En deployment de Redis
 args:
   - --maxclients
   - "2000"
+
 ```
 
 </Tab>
 <Tab title="Persistence Issues">
 
-**Síntoma**: Rankings se pierden después de reinicio de Redis
+* *Síntoma**: Rankings se pierden después de reinicio de Redis
 
 ```bash
+
 # Verificar último guardado RDB
 redis-cli LASTSAVE
 
@@ -194,15 +219,19 @@ redis-cli BGSAVE
 
 # Verificar configuración AOF
 redis-cli CONFIG GET appendonly
+
 ```
 
-**Configuración recomendada**:
+* *Configuración recomendada**:
+
 ```yaml
+
 # Para rankings críticos, habilitar AOF
 appendonly yes
 appendfsync everysec
 save 900 1    # RDB backup cada 15min si hay cambios
 save 300 10   # RDB backup cada 5min si hay 10+ cambios
+
 ```
 
 </Tab>
@@ -213,11 +242,13 @@ save 300 10   # RDB backup cada 5min si hay 10+ cambios
 #### Diagnóstico del Tipo de Instalación
 
 ```bash
+
 # Verificar si es cluster
 redis-cli CLUSTER INFO
 
 # Si es standalone
 redis-cli INFO replication
+
 ```
 
 #### Problemas Específicos de Cluster
@@ -227,10 +258,13 @@ En modo cluster, comandos que operan múltiples keys pueden fallar si las keys e
 </Warning>
 
 ```bash
+
 # Error común: CROSSSLOT Keys in request don't hash to the same slot
+
 # Solución: Usar hash tags para rankings del mismo juego
 ZADD {game:tetris}:weekly 1500 player1
 ZADD {game:tetris}:monthly 1500 player1
+
 ```
 
 ### Problema: Latencia Alta en Redis
@@ -238,6 +272,7 @@ ZADD {game:tetris}:monthly 1500 player1
 #### Diagnóstico
 
 ```bash
+
 # Medir latencia
 redis-cli --latency -h redis-service -p 6379
 
@@ -246,6 +281,7 @@ redis-cli --latency-history -h redis-service -p 6379
 
 # Verificar slow log
 redis-cli SLOWLOG GET 10
+
 ```
 
 #### Soluciones
@@ -254,24 +290,29 @@ redis-cli SLOWLOG GET 10
 <Tab title="Comandos Lentos">
 
 ```bash
+
 # Optimizar comandos de rankings
+
 # En lugar de ZREVRANGE con scores grandes:
 ZREVRANGE game:tetris:weekly 0 99 WITHSCORES
 
 # Usar paginación para rankings grandes:
 ZREVRANGEBYSCORE game:tetris:weekly +inf -inf LIMIT 0 100
+
 ```
 
 </Tab>
 <Tab title="Configuración de Red">
 
 ```yaml
+
 # Ajustar timeouts en la aplicación
 redis:
   timeout: 5s
   pool:
     max-idle: 10
     max-active: 100
+
 ```
 
 </Tab>
@@ -281,29 +322,33 @@ redis:
 
 ### Conexiones Agotadas
 
-**Síntoma**: Error `too many connections`
+* *Síntoma**: Error `too many connections`
 
 #### Diagnóstico
 
 ```sql
--- Verificar conexiones actuales
+
+- - Verificar conexiones actuales
 SELECT count(*) FROM pg_stat_activity;
 
--- Ver consultas activas
-SELECT query, state, query_start 
-FROM pg_stat_activity 
+- - Ver consultas activas
+SELECT query, state, query_start
+FROM pg_stat_activity
 WHERE state = 'active';
+
 ```
 
 #### Soluciones
 
 ```yaml
+
 # Ajustar pool de conexiones en la aplicación
 database:
   pool:
     max: 20          # Reducir máximo
     min: 5           # Mínimo de conexiones
     idle_timeout: 10m # Timeout para conexiones idle
+
 ```
 
 ### Consultas Lentas
@@ -311,28 +356,32 @@ database:
 #### Diagnóstico
 
 ```sql
--- Habilitar log de consultas lentas
+
+- - Habilitar log de consultas lentas
 SET log_min_duration_statement = 1000; -- 1 segundo
 
--- Ver consultas más lentas
+- - Ver consultas más lentas
 SELECT query, calls, total_time, mean_time
 FROM pg_stat_statements
 ORDER BY total_time DESC
 LIMIT 10;
+
 ```
 
 #### Optimización
 
 ```sql
--- Crear índices para rankings
-CREATE INDEX CONCURRENTLY idx_scores_game_score 
-ON scores(game_id, score DESC) 
+
+- - Crear índices para rankings
+CREATE INDEX CONCURRENTLY idx_scores_game_score
+ON scores(game_id, score DESC)
 WHERE created_at > NOW() - INTERVAL '7 days';
 
--- Índice para leaderboards semanales
-CREATE INDEX CONCURRENTLY idx_scores_weekly 
-ON scores(game_id, user_id, created_at) 
+- - Índice para leaderboards semanales
+CREATE INDEX CONCURRENTLY idx_scores_weekly
+ON scores(game_id, user_id, created_at)
 WHERE created_at > NOW() - INTERVAL '7 days';
+
 ```
 
 ## Monitoreo y Alertas
@@ -340,7 +389,9 @@ WHERE created_at > NOW() - INTERVAL '7 days';
 ### Métricas Críticas
 
 ```yaml
+
 # Prometheus alerts para Redis
+
 - alert: RedisDown
   expr: redis_up == 0
   for: 1m
@@ -364,11 +415,13 @@ WHERE created_at > NOW() - INTERVAL '7 days';
     severity: warning
   annotations:
     summary: "Rankings haven't been updated in 5+ minutes"
+
 ```
 
 ### Logs Importantes
 
 ```bash
+
 # Logs de aplicación relacionados con rankings
 kubectl logs -n retrogame-cloud deployment/ranking-service | grep -E "(ERROR|WARN|ranking)"
 
@@ -377,6 +430,7 @@ kubectl logs -n retrogame-cloud statefulset/redis | grep -E "(WARNING|ERROR)"
 
 # Verificar eventos de Kubernetes
 kubectl get events -n retrogame-cloud --sort-by='.lastTimestamp' | tail -20
+
 ```
 
 ## Procedimientos de Emergencia
@@ -386,6 +440,7 @@ kubectl get events -n retrogame-cloud --sort-by='.lastTimestamp' | tail -20
 En caso de pérdida total de datos de rankings:
 
 ```bash
+
 # 1. Verificar backups de Redis disponibles
 kubectl get volumesnapshots -n retrogame-cloud
 
@@ -394,16 +449,19 @@ kubectl exec -it deployment/ranking-service -- npm run rebuild-rankings
 
 # 3. Verificar integridad
 redis-cli ZCARD game:tetris:weekly  # Debe devolver > 0
+
 ```
 
 ### Rollback de Emergencia
 
 ```bash
+
 # Rollback rápido de deployment
 kubectl rollout undo deployment/ranking-service -n retrogame-cloud
 
 # Verificar estado después del rollback
 kubectl rollout status deployment/ranking-service -n retrogame-cloud
+
 ```
 
 <Tip>

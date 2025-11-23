@@ -1,7 +1,7 @@
 ---
-title: "6.10. Resolución de Problemas"
-description: "Guía completa para diagnosticar y resolver problemas comunes en RetroGameCloud"
-icon: "wrench"
+title: 6.10. Resolución de Problemas
+description: Guía completa para diagnosticar y resolver problemas comunes en RetroGameCloud
+icon: wrench
 ---
 
 # 6.10. Resolución de Problemas
@@ -12,19 +12,52 @@ Esta guía proporciona soluciones estructuradas para los problemas más comunes 
 Para cada problema, sigue el proceso: **Síntomas** → **Diagnóstico** → **Solución** → **Prevención**
 </Note>
 
-## Problemas de Kubernetes
+## Navegación Rápida
 
-### CrashLoopBackOff
+Selecciona la categoría que mejor describa tu problema:
+
+<CardGroup cols={2}>
+  <Card title="Problemas de Kubernetes" icon="dharmachakra" href="/troubleshooting/kubernetes">
+    Pods en CrashLoopBackOff, servicios no disponibles, problemas de red y recursos
+  </Card>
+  
+  <Card title="Problemas de Base de Datos" icon="database" href="/troubleshooting/database">
+    Conexiones fallidas, consultas lentas, migraciones y backups
+  </Card>
+  
+  <Card title="Problemas de Autenticación" icon="shield-check" href="/troubleshooting/auth">
+    JWT tokens, OAuth, permisos y acceso de usuarios
+  </Card>
+  
+  <Card title="Problemas de Performance" icon="gauge-high" href="/troubleshooting/performance">
+    Latencia alta, uso excesivo de recursos y optimización
+  </Card>
+  
+  <Card title="Problemas de Storage" icon="hard-drive" href="/troubleshooting/storage">
+    Subida de archivos, almacenamiento de ROMs y configuración S3
+  </Card>
+  
+  <Card title="Problemas de Red" icon="network-wired" href="/troubleshooting/network">
+    Conectividad, DNS, load balancers y proxies
+  </Card>
+</CardGroup>
+
+## Problemas Más Comunes
+
+### CrashLoopBackOff en Kubernetes
 
 <Tabs>
 <Tab title="Síntomas">
+
 **Indicadores del problema:**
+
 - Pods reiniciándose constantemente
 - Estado `CrashLoopBackOff` en `kubectl get pods`
 - Logs mostrando errores de arranque
 - Aplicación no disponible
 </Tab>
 <Tab title="Diagnóstico">
+
 ```bash
 # Ver estado de pods
 kubectl get pods -n retrogame
@@ -38,9 +71,12 @@ kubectl describe pod <pod-name> -n retrogame
 # Revisar configuración del deployment
 kubectl describe deployment <deployment-name> -n retrogame
 ```
+
 </Tab>
 <Tab title="Solución">
+
 **Paso 1: Identificar la causa raíz**
+
 ```bash
 # Revisar logs detallados
 kubectl logs <pod-name> -c <container-name> --previous -n retrogame
@@ -50,12 +86,14 @@ kubectl get deployment <deployment-name> -o yaml -n retrogame
 ```
 
 **Paso 2: Soluciones comunes**
+
 - **Error de configuración**: Verificar ConfigMaps y Secrets
 - **Dependencias no disponibles**: Comprobar conectividad a BD/Redis
 - **Recursos insuficientes**: Ajustar límites de memoria/CPU
 - **Imagen incorrecta**: Verificar tag de imagen
 
 **Paso 3: Aplicar corrección**
+
 ```bash
 # Actualizar deployment
 kubectl patch deployment <deployment-name> -n retrogame -p '{"spec":{"template":{"spec":{"containers":[{"name":"<container-name>","image":"<new-image>"}]}}}}'
@@ -63,440 +101,197 @@ kubectl patch deployment <deployment-name> -n retrogame -p '{"spec":{"template":
 # O editar directamente
 kubectl edit deployment <deployment-name> -n retrogame
 ```
+
 </Tab>
 <Tab title="Prevención">
-- Implementar health checks adecuados
-- Configurar readiness y liveness probes
-- Usar init containers para dependencias
-- Validar configuración en staging
-- Monitoreo continuo con alertas
+
+- Implementar health checks apropiados
+- Configurar resource limits adecuados
+- Usar imagePullPolicy: Always para tags latest
+- Validar ConfigMaps antes del deploy
+- Monitorear logs de aplicación continuamente
 </Tab>
 </Tabs>
 
-### ImagePullBackOff
+### Problemas de Conexión a Base de Datos
 
 <Tabs>
 <Tab title="Síntomas">
-- Pods en estado `ImagePullBackOff` o `ErrImagePull`
-- Eventos de error al descargar imagen
-- Contenedor no inicia
+
+**Indicadores del problema:**
+
+- Error "connection refused" o timeout
+- Aplicación no puede conectar a PostgreSQL
+- Queries fallando intermitentemente
+- Logs mostrando errores de conexión
 </Tab>
 <Tab title="Diagnóstico">
+
 ```bash
-# Ver eventos del pod
-kubectl describe pod <pod-name> -n retrogame
+# Verificar estado del pod de PostgreSQL
+kubectl get pods -n retrogame | grep postgres
 
-# Verificar imagen especificada
-kubectl get deployment <deployment-name> -o yaml -n retrogame | grep image
+# Revisar logs de PostgreSQL
+kubectl logs postgres-deployment-xxx -n retrogame
 
-# Comprobar pull policy
-kubectl get deployment <deployment-name> -o yaml -n retrogame | grep imagePullPolicy
+# Probar conectividad desde la aplicación
+kubectl exec -it api-deployment-xxx -n retrogame -- psql -h postgres-service -U retrogame -d retrogame
 ```
+
 </Tab>
 <Tab title="Solución">
-**Verificar imagen existe:**
-```bash
-# Para ECR
-aws ecr describe-images --repository-name retrogame-auth --image-ids imageTag=<tag>
 
-# Listar tags disponibles
-aws ecr list-images --repository-name retrogame-auth
+**Verificar configuración de red:**
+
+```bash
+# Verificar servicios
+kubectl get services -n retrogame
+
+# Revisar endpoints
+kubectl get endpoints postgres-service -n retrogame
+
+# Verificar variables de entorno de la app
+kubectl describe deployment api-deployment -n retrogame
 ```
 
-**Verificar permisos:**
-```bash
-# Comprobar secret para registry
-kubectl get secrets -n retrogame | grep regcred
+**Soluciones comunes:**
 
-# Recrear secret si es necesario
-kubectl create secret docker-registry regcred \
-  --docker-server=<your-registry-server> \
-  --docker-username=<your-name> \
-  --docker-password=<your-pword> \
-  --docker-email=<your-email> \
-  -n retrogame
-```
-
-**Actualizar deployment:**
-```bash
-kubectl patch deployment <deployment-name> -n retrogame -p '{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"regcred"}]}}}}'
-```
+- Verificar que el service name sea correcto
+- Comprobar credenciales en secrets
+- Reiniciar pods de PostgreSQL si es necesario
+- Verificar network policies
 </Tab>
 <Tab title="Prevención">
-- Validar existencia de imágenes en CI/CD
-- Configurar image pull secrets automáticamente
-- Usar tags específicos, no `latest`
-- Implementar registry mirrors para disponibilidad
+
+- Implementar connection pooling
+- Configurar health checks para PostgreSQL
+- Monitorear métricas de conexiones
+- Usar DNS names en lugar de IPs
+- Configurar retry logic en la aplicación
 </Tab>
 </Tabs>
 
-### OOMKilled (Out of Memory)
+### Problemas de Autenticación JWT
 
 <Tabs>
 <Tab title="Síntomas">
-- Pods terminando abruptamente
-- Exit code 137 en los contenedores
-- Estado `OOMKilled` en eventos
-- Rendimiento degradado antes del fallo
+
+**Indicadores del problema:**
+
+- Tokens expirados prematuramente
+- Error 401 Unauthorized
+- JWT malformed o invalid signature
+- Usuario no puede acceder tras login
 </Tab>
 <Tab title="Diagnóstico">
+
 ```bash
-# Ver uso de memoria actual
+# Revisar configuración JWT en la aplicación
+kubectl get configmap jwt-config -n retrogame -o yaml
+
+# Verificar secrets JWT
+kubectl get secret jwt-secret -n retrogame -o yaml
+
+# Revisar logs de autenticación
+kubectl logs api-deployment-xxx -n retrogame | grep -i jwt
+```
+
+</Tab>
+<Tab title="Solución">
+
+**Verificar configuración JWT:**
+
+```yaml
+# Ejemplo de ConfigMap corregido
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jwt-config
+data:
+  JWT_EXPIRATION: "24h"
+  JWT_REFRESH_EXPIRATION: "7d"
+  JWT_ALGORITHM: "HS256"
+```
+
+**Pasos de corrección:**
+
+1. Verificar que JWT_SECRET esté configurado
+2. Comprobar algoritmo de firma
+3. Validar tiempo de expiración
+4. Reiniciar pods de la API
+</Tab>
+<Tab title="Prevención">
+
+- Usar secrets seguros para JWT_SECRET
+- Implementar refresh token rotation
+- Monitorear tasas de tokens expirados
+- Configurar logout apropiado
+- Implementar blacklist de tokens
+</Tab>
+</Tabs>
+
+## Herramientas de Diagnóstico
+
+### Scripts de Diagnóstico Rápido
+
+```bash
+#!/bin/bash
+# health-check.sh - Diagnóstico general del cluster
+
+echo "=== RetroGameCloud Health Check ==="
+
+# Verificar pods
+echo "1. Estado de Pods:"
+kubectl get pods -n retrogame
+
+# Verificar servicios
+echo -e "\n2. Estado de Servicios:"
+kubectl get services -n retrogame
+
+# Verificar ingress
+echo -e "\n3. Estado de Ingress:"
+kubectl get ingress -n retrogame
+
+# Verificar recursos
+echo -e "\n4. Uso de Recursos:"
 kubectl top pods -n retrogame
-
-# Revisar límites configurados
-kubectl describe pod <pod-name> -n retrogame | grep -A 5 -B 5 memory
-
-# Verificar métricas históricas
-kubectl get --raw /apis/metrics.k8s.io/v1beta1/namespaces/retrogame/pods/<pod-name>
-```
-</Tab>
-<Tab title="Solución">
-**Ajustar límites de memoria:**
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: auth-service
-spec:
-  template:
-    spec:
-      containers:
-      - name: auth
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "250m"
-          limits:
-            memory: "512Mi"  # Incrementar según necesidades
-            cpu: "500m"
 ```
 
-**Aplicar cambios:**
+### Logs Centralizados
+
+Para diagnóstico avanzado, usa los logs centralizados:
+
 ```bash
-kubectl apply -f deployment.yaml -n retrogame
+# Ver logs de todos los pods de la API
+kubectl logs -l app=api -n retrogame --tail=100
 
-# O patch directo
-kubectl patch deployment auth-service -n retrogame -p '{"spec":{"template":{"spec":{"containers":[{"name":"auth","resources":{"limits":{"memory":"1Gi"}}}]}}}}'
-```
-</Tab>
-<Tab title="Prevención">
-- Monitoreo continuo de uso de memoria
-- Alertas cuando uso supere 80% del límite
-- Load testing para determinar límites óptimos
-- Implementar memory profiling en aplicaciones
-</Tab>
-</Tabs>
+# Seguir logs en tiempo real
+kubectl logs -f deployment/api-deployment -n retrogame
 
-## Problemas de Servicios
-
-### Servicio de Autenticación No Responde
-
-<Tabs>
-<Tab title="Síntomas">
-- Errores 503/504 en login
-- Timeouts en `/auth/login`
-- Usuarios no pueden autenticarse
-- Frontend muestra "Error de conexión"
-</Tab>
-<Tab title="Diagnóstico">
-```bash
-# Verificar estado del servicio
-kubectl get pods -l app=auth-service -n retrogame
-
-# Comprobar logs
-kubectl logs -l app=auth-service -n retrogame --tail=100
-
-# Verificar endpoints
-kubectl get endpoints auth-service -n retrogame
-
-# Test de conectividad
-kubectl exec -it <test-pod> -n retrogame -- curl http://auth-service:8080/health
-```
-</Tab>
-<Tab title="Solución">
-**Paso 1: Verificar conectividad a base de datos**
-```bash
-# Desde pod del servicio auth
-kubectl exec -it <auth-pod> -n retrogame -- \
-  psql -h <rds-endpoint> -U postgres -d retrogame_auth -c "SELECT 1;"
+# Filtrar errores
+kubectl logs deployment/api-deployment -n retrogame | grep -i error
 ```
 
-**Paso 2: Revisar configuración OAuth2**
-```bash
-# Verificar variables de entorno
-kubectl exec <auth-pod> -n retrogame -- env | grep OAUTH
+## Contacto y Escalación
 
-# Comprobar secrets
-kubectl get secret oauth-credentials -o yaml -n retrogame
-```
+<Warning>
+Si los problemas persisten después de seguir esta guía, documenta los siguientes datos antes de escalar:
 
-**Paso 3: Reiniciar servicio si es necesario**
-```bash
-kubectl rollout restart deployment auth-service -n retrogame
-kubectl rollout status deployment auth-service -n retrogame
-```
-</Tab>
-<Tab title="Prevención">
-- Configurar health checks en Kong
-- Implementar circuit breaker
-- Monitoreo de métricas de autenticación
-- Alertas por alta latencia en login
-</Tab>
-</Tabs>
+1. **Síntomas exactos** y cuándo comenzaron
+2. **Logs relevantes** (últimas 100 líneas)
+3. **Configuración actual** (deployment YAML)
+4. **Pasos ya intentados** y sus resultados
+5. **Impacto en usuarios** y urgencia
+</Warning>
 
-### Servicio de Scores con Alta Latencia
+### Canales de Escalación
 
-<Tabs>
-<Tab title="Síntomas">
-- Respuestas lentas en `/api/scores`
-- Timeouts en operaciones de escritura
-- CPU alta en pods de score-service
-- Quejas de usuarios sobre lentitud
-</Tab>
-<Tab title="Diagnóstico">
-```bash
-# Verificar uso de recursos
-kubectl top pods -l app=score-service -n retrogame
+- **Incidentes Críticos**: Contactar al equipo de DevOps inmediatamente
+- **Problemas Menores**: Crear ticket en el sistema de tracking
+- **Consultas Técnicas**: Canal #technical-support en Slack
 
-# Analizar logs de performance
-kubectl logs -l app=score-service -n retrogame | grep -E "(slow|timeout|error)"
+---
 
-# Verificar métricas de Redis
-kubectl exec -it <redis-pod> -n retrogame -- redis-cli --latency-history
-
-# Comprobar conexiones a BD
-kubectl exec <score-pod> -n retrogame -- netstat -an | grep 5432
-```
-</Tab>
-<Tab title="Solución">
-**Optimización de Redis:**
-```bash
-# Verificar configuración de Redis
-kubectl exec -it <redis-pod> -n retrogame -- redis-cli CONFIG GET "*"
-
-# Limpiar keys expiradas si es necesario
-kubectl exec -it <redis-pod> -n retrogame -- redis-cli FLUSHDB
-```
-
-**Ajustar pool de conexiones:**
-```yaml
-# En ConfigMap del score-service
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: score-service-config
-data:
-  database.yaml: |
-    database:
-      max_connections: 20
-      connection_timeout: 30s
-      idle_timeout: 300s
-```
-
-**Escalar servicio horizontalmente:**
-```bash
-kubectl scale deployment score-service --replicas=3 -n retrogame
-```
-</Tab>
-<Tab title="Prevención">
-- Implementar caching agresivo para scores
-- Configurar índices optimizados en PostgreSQL
-- Monitoreo de latencia P95/P99
-- Auto-scaling basado en CPU/memoria
-</Tab>
-</Tabs>
-
-## Problemas de Base de Datos
-
-### RDS con Conexiones Agotadas
-
-<Tabs>
-<Tab title="Síntomas">
-- Error "too many connections" en logs
-- Nuevas conexiones fallan
-- Servicios no pueden acceder a BD
-- Timeouts en queries
-</Tab>
-<Tab title="Diagnóstico">
-```bash
-# Verificar conexiones activas desde RDS
-aws rds describe-db-instances --db-instance-identifier retrogame-prod
-
-# Desde PostgreSQL directamente
-kubectl run -it --rm debug --image=postgres:13 --restart=Never -n retrogame -- \
-  psql -h <rds-endpoint> -U postgres -c "SELECT count(*) FROM pg_stat_activity;"
-
-# Ver conexiones por aplicación
-psql -h <rds-endpoint> -U postgres -c \
-  "SELECT application_name, count(*) FROM pg_stat_activity GROUP BY application_name;"
-```
-</Tab>
-<Tab title="Solución">
-**Paso 1: Identificar conexiones problem áticas**
-```sql
--- Ver conexiones idle
-SELECT pid, application_name, state, query_start 
-FROM pg_stat_activity 
-WHERE state = 'idle' AND query_start < NOW() - INTERVAL '1 hour';
-
--- Terminar conexiones idle largas
-SELECT pg_terminate_backend(pid) 
-FROM pg_stat_activity 
-WHERE state = 'idle' AND query_start < NOW() - INTERVAL '2 hours';
-```
-
-**Paso 2: Ajustar pools de conexión**
-```yaml
-# ConfigMap para servicios
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: database-config
-data:
-  database.yaml: |
-    database:
-      max_open_conns: 10
-      max_idle_conns: 5
-      conn_max_lifetime: "300s"
-      conn_max_idle_time: "60s"
-```
-
-**Paso 3: Implementar connection pooling**
-```yaml
-# Desplegar PgBouncer
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: pgbouncer
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: pgbouncer
-  template:
-    spec:
-      containers:
-      - name: pgbouncer
-        image: pgbouncer/pgbouncer:latest
-        env:
-        - name: DATABASES_HOST
-          value: "<rds-endpoint>"
-        - name: POOL_MODE
-          value: "transaction"
-```
-</Tab>
-<Tab title="Prevención">
-- Monitoreo de conexiones activas
-- Alertas cuando uso supere 80%
-- Configuración óptima de connection pools
-- Review periódico de queries lentas
-</Tab>
-</Tabs>
-
-### Redis con Memoria Llena
-
-<Tabs>
-<Tab title="Síntomas">
-- Error "OOM command not allowed"
-- Escrituras a Redis fallan
-- Cache hit rate bajo
-- Eviction de keys importantes
-</Tab>
-<Tab title="Diagnóstico">
-```bash
-# Verificar uso de memoria
-kubectl exec -it <redis-pod> -n retrogame -- redis-cli INFO memory
-
-# Ver keys más grandes
-kubectl exec -it <redis-pod> -n retrogame -- redis-cli --bigkeys
-
-# Verificar configuración
-kubectl exec -it <redis-pod> -n retrogame -- redis-cli CONFIG GET maxmemory*
-```
-</Tab>
-<Tab title="Solución">
-**Limpeza inmediata:**
-```bash
-# Limpiar keys expiradas manualmente
-kubectl exec -it <redis-pod> -n retrogame -- redis-cli FLUSHDB
-
-# O limpiar keys específicas
-kubectl exec -it <redis-pod> -n retrogame -- redis-cli DEL "pattern:*"
-```
-
-**Ajustar configuración:**
-```yaml
-# ConfigMap para Redis
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: redis-config
-data:
-  redis.conf: |
-    maxmemory 2gb
-    maxmemory-policy allkeys-lru
-    save 900 1
-    save 300 10
-```
-
-**Escalar verticalmente:**
-```yaml
-# Aumentar recursos de Redis
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: redis
-spec:
-  template:
-    spec:
-      containers:
-      - name: redis
-        resources:
-          requests:
-            memory: "1Gi"
-          limits:
-            memory: "4Gi"
-```
-</Tab>
-<Tab title="Prevención">
-- Configurar TTL en todas las keys
-- Implementar limpieza automática
-- Monitoreo de uso de memoria Redis
-- Alertas por alto uso de memoria
-</Tab>
-</Tabs>
-
-## Problemas de Red y Conectividad
-
-### DNS Interno No Funciona
-
-<Tabs>
-<Tab title="Síntomas">
-- Servicios no pueden comunicarse entre sí
-- Error "Name resolution failed"
-- Timeouts en llamadas internas
-- Logs con errores de DNS
-</Tab>
-<Tab title="Diagnóstico">
-```bash
-# Verificar DNS desde un pod
-kubectl exec -it <pod-name> -n retrogame -- nslookup auth-service
-
-# Comprobar CoreDNS
-kubectl get pods -n kube-system -l k8s-app=kube-dns
-
-# Ver configuración de DNS
-kubectl get configmap coredns -n kube-system -o yaml
-
-# Test de conectividad
-kubectl exec -it <pod-name> -n retrogame -- dig auth-service.retrogame.svc.cluster.local
-```
-</Tab>
-<Tab title="Solución">
-**Reiniciar CoreDNS:**
-```bash
-kubectl
-</Tab>
-</Tabs>
-```
+<Info>
+Este documento se actualiza continuamente basándose en los problemas más frecuentes reportados. Contribuye con nuevos casos y soluciones cuando encuentres problemas únicos.
+</Info>

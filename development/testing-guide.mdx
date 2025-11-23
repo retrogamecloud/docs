@@ -1,7 +1,6 @@
 ---
 title: Testing y QA
-description: 'Estrategia completa de testing para RetroGameCloud: unitarios, integración,
-  E2E y proceso de QA'
+description: 'Estrategia completa de testing para RetroGameCloud: unitarios, integración, E2E y proceso de QA'
 icon: flask-vial
 ---
 
@@ -15,22 +14,58 @@ RetroGameCloud implementa una estrategia de testing integral que abarca desde pr
 
 ```mermaid
 graph TD
-    A[Tests E2E - Playwright] --> B[Tests Integración - Supertest]
-    B --> C[Tests Unitarios - Jest]
+    A[Tests E2E - 10% - Cypress] --> B[Tests Integración - 20% - Supertest]
+    B --> C[Tests Unitarios - 70% - Jest]
     C --> D[Tests de Carga - k6]
+    D --> E[Tests de Contrato - Pact]
 
     style A fill:#ff6b6b
     style B fill:#4ecdc4
     style C fill:#45b7d1
     style D fill:#96ceb4
+    style E fill:#feca57
+```
 
+### Distribución de Tests
+
+| Tipo | Porcentaje | Propósito | Framework |
+|------|------------|-----------|-----------|
+| **Unitarios** | 70% | Lógica de negocio aislada | Jest |
+| **Integración** | 20% | Interacción entre componentes | Supertest |
+| **E2E** | 10% | Flujos críticos del usuario | Cypress |
+| **Carga** | - | Rendimiento bajo estrés | k6 |
+| **Contrato** | - | API consistency | Pact |
+
+## Cobertura de Código
+
+### Objetivos de Cobertura
+
+<Card title="Cobertura Mínima Requerida" icon="target">
+- **Lógica de Negocio**: 85% mínimo
+- **Servicios**: 80% mínimo
+- **Controllers**: 75% mínimo
+- **Utilities**: 90% mínimo
+- **Global**: 80% mínimo
+</Card>
+
+### Exclusiones de Cobertura
+
+```javascript
+// jest.config.js - Archivos excluidos
+collectCoverageFrom: [
+  'src/**/*.{ts,js}',
+  '!src/**/*.d.ts',
+  '!src/types/**',
+  '!src/config/**',
+  '!src/migrations/**',
+  '!src/seeds/**',
+  '!src/**/*.interface.ts'
+]
 ```
 
 ## Tests Unitarios
 
 ### Configuración con Jest
-
-Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage superior al 80%**.
 
 <Tabs>
   <Tab title="package.json">
@@ -40,7 +75,9 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
         "test": "jest",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
-        "test:ci": "jest --coverage --watchAll=false"
+        "test:ci": "jest --coverage --watchAll=false",
+        "test:unit": "jest --testPathPattern=unit",
+        "test:integration": "jest --testPathPattern=integration"
       },
       "jest": {
         "testEnvironment": "node",
@@ -55,12 +92,17 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
             "functions": 80,
             "lines": 80,
             "statements": 80
+          },
+          "src/services/": {
+            "statements": 85
+          },
+          "src/utils/": {
+            "statements": 90
           }
         }
       }
     }
     ```
-
   </Tab>
 
   <Tab title="jest.config.js">
@@ -69,431 +111,392 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
       preset: 'ts-jest',
       testEnvironment: 'node',
       roots: ['<rootDir>/src'],
-      testMatch: ['**/__tests__/**/*.test.(ts|js)'],
+      testMatch: [
+        '**/__tests__/**/*.test.(ts|js)',
+        '**/?(*.)(spec|test).(ts|js)'
+      ],
       collectCoverageFrom: [
         'src/**/*.{ts,js}',
         '!src/**/*.d.ts',
         '!src/types/**',
         '!src/config/**'
       ],
-      setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts']
+      setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts'],
+      testTimeout: 10000,
+      maxWorkers: '50%'
     };
     ```
-
   </Tab>
 </Tabs>
 
 ### Ejemplo de Test Unitario
 
 ```javascript
-// src/services/__tests__/authService.test.ts
+// src/services/__tests__/authService.unit.test.ts
 import { AuthService } from '../authService';
 import { UserRepository } from '../../repositories/userRepository';
-import { JWTService } from '../jwtService';
+import { JwtService } from '../jwtService';
+import { BcryptService } from '../bcryptService';
+
+jest.mock('../../repositories/userRepository');
+jest.mock('../jwtService');
+jest.mock('../bcryptService');
 
 describe('AuthService', () => {
   let authService: AuthService;
   let mockUserRepository: jest.Mocked<UserRepository>;
-  let mockJWTService: jest.Mocked<JWTService>;
+  let mockJwtService: jest.Mocked<JwtService>;
+  let mockBcryptService: jest.Mocked<BcryptService>;
 
   beforeEach(() => {
-    mockUserRepository = createMockUserRepository();
-    mockJWTService = createMockJWTService();
-    authService = new AuthService(mockUserRepository, mockJWTService);
+    mockUserRepository = new UserRepository() as jest.Mocked<UserRepository>;
+    mockJwtService = new JwtService() as jest.Mocked<JwtService>;
+    mockBcryptService = new BcryptService() as jest.Mocked<BcryptService>;
+    
+    authService = new AuthService(
+      mockUserRepository,
+      mockJwtService,
+      mockBcryptService
+    );
   });
 
-  describe('authenticateUser', () => {
-    it('should return JWT token for valid credentials', async () => {
-      // Given
-      const credentials = { email: 'test@example.com', password: 'password123' };
-      const mockUser = { id: '1', email: 'test@example.com', hashedPassword: 'hashed' };
+  describe('login', () => {
+    it('should return token for valid credentials', async () => {
+      // Arrange
+      const email = 'test@example.com';
+      const password = 'password123';
+      const user = { id: 1, email, hashedPassword: 'hashed123' };
+      
+      mockUserRepository.findByEmail.mockResolvedValue(user);
+      mockBcryptService.compare.mockResolvedValue(true);
+      mockJwtService.generateToken.mockReturnValue('jwt-token');
 
-      mockUserRepository.findByEmail.mockResolvedValue(mockUser);
-      mockJWTService.generateToken.mockReturnValue('jwt-token');
+      // Act
+      const result = await authService.login(email, password);
 
-      // When
-      const result = await authService.authenticateUser(credentials);
+      // Assert
+      expect(result).toEqual({
+        token: 'jwt-token',
+        user: { id: 1, email }
+      });
+      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(email);
+      expect(mockBcryptService.compare).toHaveBeenCalledWith(password, 'hashed123');
+    });
 
-      // Then
-      expect(result.token).toBe('jwt-token');
-      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('test@example.com');
+    it('should throw error for invalid credentials', async () => {
+      // Arrange
+      mockUserRepository.findByEmail.mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(authService.login('invalid@email.com', 'wrong'))
+        .rejects.toThrow('Invalid credentials');
     });
   });
 });
-
 ```
 
 ## Tests de Integración
 
 ### Configuración con Supertest
 
-Los tests de integración validan la interacción entre componentes y endpoints de API.
-
 ```javascript
-// src/integration/__tests__/auth.integration.test.ts
+// src/test/__tests__/auth.integration.test.ts
 import request from 'supertest';
 import { app } from '../../app';
-import { setupTestDatabase, teardownTestDatabase } from '../helpers/database';
+import { DatabaseService } from '../../services/databaseService';
+import { testFixtures } from '../fixtures';
 
-describe('Authentication Integration', () => {
+describe('Auth Integration Tests', () => {
+  let dbService: DatabaseService;
+
   beforeAll(async () => {
-    await setupTestDatabase();
+    dbService = new DatabaseService();
+    await dbService.connect(process.env.TEST_DATABASE_URL);
+  });
+
+  beforeEach(async () => {
+    await dbService.clearDatabase();
+    await testFixtures.createUsers();
   });
 
   afterAll(async () => {
-    await teardownTestDatabase();
+    await dbService.disconnect();
   });
 
   describe('POST /api/auth/login', () => {
-    it('should authenticate user and return JWT', async () => {
-      // Given
-      const userData = {
-        email: 'player@retrogame.com',
-        password: 'SecurePass123!'
-      };
-
-      // When
+    it('should login user with valid credentials', async () => {
       const response = await request(app)
         .post('/api/auth/login')
-        .send(userData)
+        .send({
+          email: 'test@example.com',
+          password: 'password123'
+        })
         .expect(200);
 
-      // Then
       expect(response.body).toHaveProperty('token');
-      expect(response.body).toHaveProperty('user');
-      expect(response.body.user.email).toBe(userData.email);
+      expect(response.body.user).toHaveProperty('email', 'test@example.com');
+    });
+
+    it('should return 401 for invalid credentials', async () => {
+      await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: 'invalid@example.com',
+          password: 'wrongpassword'
+        })
+        .expect(401);
     });
   });
 });
-
 ```
 
-# Tests End-to-End
+## Estrategia de Mocking
 
-## Herramientas
-
-### Playwright para Tests de Interfaz
-
-Playwright nos permite ejecutar tests E2E en múltiples navegadores con alta confiabilidad.
-
-### Newman para Tests de API
-
-Newman ejecuta collections de Postman para validar la API de forma automatizada.
+### Niveles de Mocking
 
 <Tabs>
-  <Tab title="playwright.config.ts">
-    ```typescript
-    import { defineConfig, devices } from '@playwright/test';
+  <Tab title="Dependencias Externas">
+    ```javascript
+    // src/test/mocks/externalAPIs.ts
+    export const mockS3Service = {
+      uploadFile: jest.fn().mockResolvedValue({
+        url: 'https://mock-s3.com/file.rom',
+        key: 'mock-key'
+      }),
+      deleteFile: jest.fn().mockResolvedValue(true),
+      getSignedUrl: jest.fn().mockReturnValue('signed-url')
+    };
 
-    export default defineConfig({
-      testDir: './e2e',
-      fullyParallel: true,
-      forbidOnly: !!process.env.CI,
-      retries: process.env.CI ? 2 : 0,
-      workers: process.env.CI ? 1 : undefined,
-      reporter: 'html',
-      use: {
-        baseURL: 'http://localhost:3000',
-        trace: 'on-first-retry',
-      },
-      projects: [
-        {
-          name: 'chromium',
-          use: { ...devices['Desktop Chrome'] },
-        },
-        {
-          name: 'firefox',
-          use: { ...devices['Desktop Firefox'] },
-        },
-      ],
-      webServer: {
-        command: 'npm run dev',
-        url: 'http://localhost:3000',
-        reuseExistingServer: !process.env.CI,
-      },
-    });
+    export const mockRedisService = {
+      get: jest.fn(),
+      set: jest.fn(),
+      del: jest.fn(),
+      exists: jest.fn()
+    };
+
+    export const mockEmailService = {
+      sendWelcomeEmail: jest.fn().mockResolvedValue(true),
+      sendPasswordReset: jest.fn().mockResolvedValue(true)
+    };
     ```
-
   </Tab>
 
-  <Tab title="newman-config.json">
-    ```json
-    {
-      "collection": "./postman/RetroGameCloud-API.json",
-      "environment": "./postman/environments/test.json",
-      "reporters": ["cli", "junit"],
-      "reporter": {
-        "junit": {
-          "export": "./test-results/newman-results.xml"
-        }
-      },
-      "bail": true,
-      "color": "on"
-    }
-    ```
+  <Tab title="Base de Datos">
+    ```javascript
+    // src/test/mocks/database.ts
+    import { DatabaseService } from '../../services/databaseService';
 
+    export const mockDatabase = {
+      users: new Map(),
+      games: new Map(),
+      sessions: new Map(),
+      
+      // Simular operaciones CRUD
+      async findUser(id: string) {
+        return this.users.get(id);
+      },
+      
+      async createUser(userData: any) {
+        const id = Math.random().toString();
+        const user = { id, ...userData, createdAt: new Date() };
+        this.users.set(id, user);
+        return user;
+      },
+      
+      async clear() {
+        this.users.clear();
+        this.games.clear();
+        this.sessions.clear();
+      }
+    };
+    ```
+  </Tab>
+
+  <Tab title="Servicios">
+    ```javascript
+    // src/test/mocks/services.ts
+    export const createMockService = <T>(methods: (keyof T)[]) => {
+      const mock = {} as jest.Mocked<T>;
+      
+      methods.forEach(method => {
+        mock[method] = jest.fn() as any;
+      });
+      
+      return mock;
+    };
+
+    // Uso
+    const mockGameService = createMockService<GameService>([
+      'findById',
+      'create',
+      'update',
+      'delete',
+      'findByUser'
+    ]);
+    ```
   </Tab>
 </Tabs>
 
-## Escenarios Críticos
+## Fixtures y Datos de Prueba
 
-### E2E-001: Flujo Completo de Jugador
+### Sistema de Fixtures
 
-<Callout type="info">
+```javascript
+// src/test/fixtures/index.ts
+import { User, Game, Console } from '../../types';
 
-* *Test crítico para validar la experiencia completa del usuario**
-</Callout>
+export class TestFixtures {
+  // Usuarios de prueba
+  static users = {
+    admin: {
+      id: 'admin-1',
+      email: 'admin@retrogamecloud.com',
+      username: 'admin',
+      role: 'ADMIN',
+      password: 'hashed-password'
+    } as User,
+    
+    regularUser: {
+      id: 'user-1',
+      email: 'user@example.com',
+      username: 'gamer1',
+      role: 'USER',
+      password: 'hashed-password'
+    } as User
+  };
 
-```typescript
-// e2e/complete-player-flow.spec.ts
-import { test, expect } from '@playwright/test';
+  // Juegos de prueba
+  static games = {
+    tetris: {
+      id: 'game-1',
+      title: 'Tetris',
+      console: 'GAMEBOY',
+      romFile: 'tetris.gb',
+      coverImage: 'tetris-cover.jpg',
+      userId: 'user-1'
+    } as Game,
+    
+    mario: {
+      id: 'game-2',
+      title: 'Super Mario Bros',
+      console: 'NES',
+      romFile: 'mario.nes',
+      coverImage: 'mario-cover.jpg',
+      userId: 'user-1'
+    } as Game
+  };
 
-test('E2E-001: Complete Player Journey', async ({ page }) => {
-  // 1. Registro de usuario nuevo
-  await page.goto('/register');
-  await page.fill('[data-testid="email"]', 'newplayer@test.com');
-  await page.fill('[data-testid="password"]', 'SecurePass123!');
-  await page.fill('[data-testid="username"]', 'RetroGamer2024');
-  await page.click('[data-testid="register-button"]');
+  // Métodos de creación
+  static async createUsers(db: any) {
+    const users = Object.values(this.users);
+    return Promise.all(users.map(user => db.users.create(user)));
+  }
 
-  await expect(page.locator('[data-testid="success-message"]')).toBeVisible();
+  static async createGames(db: any) {
+    const games = Object.values(this.games);
+    return Promise.all(games.map(game => db.games.create(game)));
+  }
 
-  // 2. Login y obtención de JWT
-  await page.goto('/login');
-  await page.fill('[data-testid="email"]', 'newplayer@test.com');
-  await page.fill('[data-testid="password"]', 'SecurePass123!');
-  await page.click('[data-testid="login-button"]');
-
-  await expect(page.locator('[data-testid="user-menu"]')).toBeVisible();
-
-  // 3. Listar catálogo de juegos
-  await page.goto('/games');
-  await expect(page.locator('[data-testid="games-grid"]')).toBeVisible();
-
-  const gameCount = await page.locator('[data-testid="game-card"]').count();
-  expect(gameCount).toBeGreaterThan(0);
-
-  // 4. Cargar juego con js-dos
-  await page.click('[data-testid="game-card"]:first-child');
-  await expect(page.locator('[data-testid="dosbox-canvas"]')).toBeVisible();
-
-  // Wait for game to load
-  await page.waitForSelector('[data-testid="game-loaded"]', { timeout: 30000 });
-
-  // 5. Guardar puntuación
-  await page.click('[data-testid="submit-score"]');
-  await page.fill('[data-testid="score-input"]', '15000');
-  await page.click('[data-testid="save-score-button"]');
-
-  await expect(page.locator('[data-testid="score-saved"]')).toBeVisible();
-
-  // 6. Verificar aparición en ranking
-  await page.goto('/leaderboard');
-  const playerScore = page.locator(`[data-testid="score-entry-RetroGamer2024"]`);
-  await expect(playerScore).toBeVisible();
-  await expect(playerScore.locator('[data-testid="score"]')).toContainText('15000');
-});
-
+  static async seedDatabase(db: any) {
+    await this.createUsers(db);
+    await this.createGames(db);
+  }
+}
 ```
 
-### E2E-002: Flujo de Autenticación OAuth2
+## Tests End-to-End
 
-```typescript
-// e2e/oauth-authentication.spec.ts
-import { test, expect } from '@playwright/test';
+### Configuración con Cypress
 
-test('E2E-002: OAuth2 Authentication Flow', async ({ page, context }) => {
-  // 1. Inicio de sesión con Google
-  await page.goto('/login');
+<Tabs>
+  <Tab title="cypress.config.js">
+    ```javascript
+    const { defineConfig } = require('cypress');
 
-  // Mock Google OAuth for testing
-  await context.route('**/auth/google', route => {
-    route.fulfill({
-      status: 302,
-      headers: {
-        'Location': '/auth/google/callback?code=mock_auth_code&state=mock_state'
+    module.exports = defineConfig({
+      e2e: {
+        baseUrl: 'http://localhost:3000',
+        supportFile: 'cypress/support/e2e.js',
+        specPattern: 'cypress/e2e/**/*.cy.{js,ts}',
+        videosFolder: 'cypress/videos',
+        screenshotsFolder: 'cypress/screenshots',
+        video: true,
+        screenshot: true,
+        viewportWidth: 1280,
+        viewportHeight: 720,
+        defaultCommandTimeout: 10000,
+        setupNodeEvents(on, config) {
+          // Plugins y tareas personalizadas
+          on('task', {
+            seedDatabase() {
+              return require('./cypress/tasks/database').seedTestData();
+            },
+            clearDatabase() {
+              return require('./cypress/tasks/database').clearTestData();
+            }
+          });
+        }
       }
     });
-  });
-
-  await page.click('[data-testid="google-login-button"]');
-
-  // 2. Callback y generación de JWT
-  await expect(page).toHaveURL(/.*\/dashboard/);
-
-  // Verify JWT token is stored
-  const token = await page.evaluate(() => localStorage.getItem('auth_token'));
-  expect(token).toBeTruthy();
-
-  // 3. Acceso a recursos protegidos
-  await page.goto('/profile');
-  await expect(page.locator('[data-testid="user-profile"]')).toBeVisible();
-
-  // Verify API calls include JWT
-  const [request] = await Promise.all([
-    page.waitForRequest('**/api/user/profile'),
-    page.reload()
-  ]);
-
-  expect(request.headers().authorization).toContain('Bearer');
-});
-
-```
-
-### E2E-003: Validación de Rendimiento de Juegos
-
-```typescript
-// e2e/game-performance.spec.ts
-import { test, expect } from '@playwright/test';
-
-test('E2E-003: Game Performance Validation', async ({ page }) => {
-  await page.goto('/games/pac-man');
-
-  // Start performance monitoring
-  await page.coverage.startJSCoverage();
-  const startTime = Date.now();
-
-  // Wait for game initialization
-  await page.waitForSelector('[data-testid="dosbox-canvas"]');
-  await page.waitForSelector('[data-testid="game-loaded"]', { timeout: 15000 });
-
-  const loadTime = Date.now() - startTime;
-
-  // Verify game loads within acceptable time
-  expect(loadTime).toBeLessThan(10000); // 10 seconds max
-
-  // Check memory usage
-  const metrics = await page.evaluate(() => {
-    return {
-      memory: (performance as any).memory?.usedJSHeapSize || 0,
-      timing: performance.timing.loadEventEnd - performance.timing.navigationStart
-    };
-  });
-
-  expect(metrics.memory).toBeLessThan(100 * 1024 * 1024); // Less than 100MB
-});
-
-```
-
-## Ejecución en CI
-
-Los tests E2E se ejecutan en GitHub Actions contra un cluster efímero de Kubernetes con servicios mock.
-
-<Tabs>
-  <Tab title="github-actions-e2e.yml">
-    ```yaml
-    name: E2E Tests
-
-    on:
-      pull_request:
-        branches: [main, develop]
-      push:
-        branches: [main]
-
-    jobs:
-      e2e-tests:
-        runs-on: ubuntu-latest
-
-        services:
-          redis:
-            image: redis:7
-            options: >-
-              --health-cmd "redis-cli ping"
-              --health-interval 10s
-              --health-timeout 5s
-              --health-retries 5
-
-          postgres:
-            image: postgres:15
-            env:
-              POSTGRES_PASSWORD: postgres
-              POSTGRES_DB: retrogame_test
-            options: >-
-              --health-cmd pg_isready
-              --health-interval 10s
-              --health-timeout 5s
-              --health-retries 5
-
-        steps:
-          - uses: actions/checkout@v4
-
-          - name: Setup Node.js
-            uses: actions/setup-node@v4
-            with:
-              node-version: '18'
-              cache: 'npm'
-
-          - name: Install dependencies
-            run: npm ci
-
-          - name: Setup test database
-            run: |
-              npm run db:migrate:test
-              npm run db:seed:test
-            env:
-              DATABASE_URL: postgresql://postgres:postgres@localhost:5432/retrogame_test
-
-          - name: Install Playwright
-            run: npx playwright install --with-deps
-
-          - name: Start application
-            run: |
-              npm run build
-              npm start &
-              sleep 10
-            env:
-              NODE_ENV: test
-              DATABASE_URL: postgresql://postgres:postgres@localhost:5432/retrogame_test
-              REDIS_URL: redis://localhost:6379
-
-          - name: Run E2E tests
-            run: npx playwright test
-
-          - name: Run API tests with Newman
-            run: npx newman run ./postman/RetroGameCloud-API.json -e ./postman/environments/ci.json
-
-          - name: Upload test results
-            uses: actions/upload-artifact@v4
-            if: always()
-            with:
-              name: e2e-results
-              path: |
-                playwright-report/
-                test-results/
-                newman-results.xml
     ```
-
   </Tab>
 
-  <Tab title="docker-compose.test.yml">
-    ```yaml
-    version: '3.8'
+  <Tab title="Ejemplo E2E">
+    ```javascript
+    // cypress/e2e/game-upload.cy.js
+    describe('Game Upload Flow', () => {
+      beforeEach(() => {
+        cy.task('clearDatabase');
+        cy.task('seedDatabase');
+        cy.login('user@example.com', 'password123');
+      });
 
-    services:
-      app-test:
-        build:
-          context: .
-          dockerfile: Dockerfile.test
-        ports:
-          - "3000:3000"
-        environment:
-          - NODE_ENV=test
-          - DATABASE_URL=postgresql://postgres:postgres@db-test:5432/retrogame_test
-          - REDIS_URL=redis://redis-test:6379
-        depends_on:
-          - db-test
-          - redis-test
-        volumes:
-          - ./test-results:/app/test-results
-
-      db-test:
-        image: postgres:15
-        environment:
-          POSTGRES_DB: retrogame_test
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - "5432:5432"
+      it('should upload and play a game', () => {
+        // Navegar a upload
+        cy.visit('/games/upload');
+        
+        // Subir ROM
+        cy.get('[data-cy=file-input]')
+          .selectFile('cypress/fixtures/tetris.gb');
+        
+        // Completar metadatos
+        cy.get('[data-cy=game-title]')
+          .type('Tetris Test');
+        
+        cy.get('[data-cy=console-select]')
+          .select('GAMEBOY');
+        
+        // Subir juego
+        cy.get('[data-cy=upload-btn]').click();
+        
+        // Verificar redirección
+        cy.url().should('include', '/games/');
+        
+        // Verificar que el juego aparece
+        cy.get('[data-cy=game-title]')
+          .should('contain', 'Tetris Test');
+        
+        // Iniciar juego
+        cy.get('[data-cy=play-btn]').click();
+        
+        // Verificar que el emulador carga
+        cy.get('[data-cy=emulator-canvas]')
+          .should('be.visible');
+        
+        // Verificar controles
+        cy.get('[data-cy=game-controls]')
+          .should('be.visible');
+      });
+    });
     ```
-
   </Tab>
 </Tabs>
+
+## Tests de Contrato con Pact
+
+### Consumer Tests
+
+```javascript
+// src/test/contract/gameAPI.consumer.test.js
+import { Pact } from '@pact-foundation/p
+```
