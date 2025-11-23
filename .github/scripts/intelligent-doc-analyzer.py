@@ -197,9 +197,9 @@ Responde en JSON puro (sin markdown, sin bloques ```):
       "files_to_create": ["path/to/new/file.mdx"],
       "files_to_modify": ["path/to/existing/file.mdx"],
       "files_to_delete": ["path/to/obsolete/file.mdx"],
-      "proposed_content": "Contenido propuesto EN ESPAÑOL (si aplica, máximo 500 chars)",
-      "mermaid_diagram": "diagram content con labels EN ESPAÑOL (si aplica)",
-      "rationale": "Por qué es importante esta mejora EN ESPAÑOL"
+      "proposed_content": "",
+      "mermaid_diagram": "",
+      "rationale": "Por qué es importante EN ESPAÑOL (máx 100 chars)"
     }}
   ],
   ],
@@ -235,21 +235,20 @@ Responde en JSON puro (sin markdown, sin bloques ```):
 
 **REGLAS CRÍTICAS PARA JSON VÁLIDO (OBLIGATORIO):**
 
-⚠️ LONGITUD MÁXIMA ESTRICTA (Claude, NO EXCEDAS ESTOS LÍMITES):
-- analysis_summary: MÁXIMO 150 caracteres, UNA LÍNEA
-- title: MÁXIMO 80 caracteres
-- description: MÁXIMO 200 caracteres, SÉ CONCISO
-- proposed_content: MÁXIMO 250 caracteres O DÉJALO VACÍO ""
-- mermaid_diagram: MÁXIMO 400 caracteres O DÉJALO VACÍO ""
-- rationale: MÁXIMO 150 caracteres
+⚠️ LONGITUD MÁXIMA ESTRICTA:
+- analysis_summary: MÁXIMO 150 caracteres
+- title: MÁXIMO 70 caracteres
+- description: MÁXIMO 180 caracteres
+- proposed_content: DEJAR VACÍO "" (no incluir contenido)
+- mermaid_diagram: DEJAR VACÍO "" (no incluir diagramas)
+- rationale: MÁXIMO 100 caracteres
 
-🚨 FORMATO JSON:
-1. TODOS los strings en UNA SOLA LÍNEA (sin saltos de línea literales)
-2. Escapa comillas: \" 
-3. NO uses bloques de código dentro del JSON
-4. Si algo es largo, RESUME radicalmente o usa ""
-5. Prefiere arrays cortos (máx 10-12 mejoras)
-6. MENOS mejoras, MÁS calidad
+🚨 FORMATO JSON CRÍTICO:
+1. NO incluyas bloques de código en proposed_content
+2. NO incluyas saltos de línea (\n) en ningún string
+3. proposed_content y mermaid_diagram: usa "" vacío
+4. Si algo es largo, RESUME o usa ""
+5. Máximo 8-10 mejoras totales
 
 🎯 PRIORIDAD ABSOLUTA: CONSOLIDACIÓN PRIMERO
 Cuando detectes duplicación:
@@ -321,8 +320,27 @@ def analyze_with_claude(client, docs_content, architecture, docs_structure, anal
             json_text = json_text[json_start:json_end].strip()
             print(f"✅ JSON extraído de bloque genérico, longitud: {len(json_text)} caracteres")
         
-        # Ya no necesitamos buscar llaves si ya extrajimos del markdown
-        # El JSON debería estar completo
+        # NUEVO: Limpieza agresiva del JSON antes de parsear
+        print("🧹 Limpiando JSON...")
+        
+        # Eliminar saltos de línea dentro de strings (causa principal del problema)
+        # Buscar patrones como "text\n  more text" y reemplazar por "text more text"
+        import re
+        
+        # Paso 1: Encontrar todos los strings y limpiarlos
+        def clean_json_string(match):
+            content = match.group(1)
+            # Reemplazar saltos de línea y múltiples espacios por un solo espacio
+            cleaned = re.sub(r'\s+', ' ', content)
+            # Limitar longitud si es muy largo
+            if len(cleaned) > 300:
+                cleaned = cleaned[:297] + "..."
+            return f'"{cleaned}"'
+        
+        # Limpiar strings entre comillas que contengan saltos de línea
+        json_text = re.sub(r'"([^"]*(?:\n[^"]*)*)"', clean_json_string, json_text)
+        
+        print(f"✅ JSON limpiado, longitud final: {len(json_text)} caracteres")
         
         # Intentar parsear
         try:
