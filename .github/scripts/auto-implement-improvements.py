@@ -44,18 +44,32 @@ class ImprovementImplementer:
             priority = imp.get('priority', '')
             
             # Solo implementar automáticamente:
-            # - High priority
-            # - Categorías: new_section, diagrams, content
+            # - High o medium priority
+            # - Categorías implementables: new_section, diagrams, content, navigation, code_examples
+            # - Excluir: structure (requiere eliminación/movimiento), formatting (cosmetico)
             # - Con archivos específicos a crear
             
-            if priority != 'high':
+            if priority not in ['high', 'medium']:
                 continue
             
-            if category not in ['new_section', 'diagrams', 'content']:
+            # Categorías que SÍ se pueden auto-implementar (crear/modificar contenido)
+            implementable_categories = ['new_section', 'diagrams', 'content', 'navigation', 'code_examples', 'technical']
+            
+            # Categorías que NO se pueden auto-implementar (requieren decisiones o eliminaciones)
+            non_implementable_categories = ['structure', 'formatting', 'organization']
+            
+            if category in non_implementable_categories:
+                continue
+            
+            if category not in implementable_categories:
                 continue
             
             files_to_create = imp.get('files_to_create', [])
-            if not files_to_create:
+            files_to_modify = imp.get('files_to_modify', [])
+            proposed_content = imp.get('proposed_content', '')
+            
+            # Debe tener archivos a crear O archivos a modificar con contenido propuesto
+            if not files_to_create and not (files_to_modify and proposed_content):
                 continue
             
             implementable.append(imp)
@@ -215,6 +229,18 @@ Plataforma de juegos retro con:
         # Filtrar implementables
         implementable = self.filter_implementable_improvements(improvements)
         print(f"⚡ Mejoras implementables automáticamente: {len(implementable)}")
+        
+        # Debug: mostrar por qué algunas no son implementables
+        non_implementable = [imp for imp in improvements if imp not in implementable]
+        if non_implementable:
+            print(f"\n⚠️  Mejoras NO implementables ({len(non_implementable)}):")
+            for imp in non_implementable[:5]:  # Mostrar solo primeras 5
+                title = imp.get('title', 'Sin título')[:60]
+                category = imp.get('category', 'N/A')
+                priority = imp.get('priority', 'N/A')
+                has_files = bool(imp.get('files_to_create') or imp.get('files_to_modify'))
+                print(f"  - {title}... [cat:{category}, pri:{priority}, files:{has_files}]")
+            print("")
         
         if not implementable:
             print("ℹ️  No hay mejoras de alta prioridad para implementar automáticamente")

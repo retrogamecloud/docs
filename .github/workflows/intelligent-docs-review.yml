@@ -162,7 +162,7 @@ jobs:
           python .github/scripts/auto-implement-improvements.py \
             --docs-path . \
             --repos-path .analysis-repos \
-            --max-improvements 5 \
+            --max-improvements 10 \
             --report AUTO_IMPLEMENTED_REPORT.md
           
           if [ -f "AUTO_IMPLEMENTED_REPORT.md" ]; then
