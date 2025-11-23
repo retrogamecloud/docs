@@ -54,8 +54,9 @@ def analyze_structure_with_claude(client, current_structure):
 - **Agrupación semántica**: Relacionar conceptos similares
 - **Jerarquía clara**: Máximo 3 niveles de profundidad
 - **Nomenclatura consistente**: Usar números para orden jerárquico cuando sea apropiado
-- **Numeración consecutiva**: Los grupos DEBEN numerarse 1, 2, 3, 4, 5... sin saltos (NO uses 7.1, 7.2 o 8.2)
-- **Sin subnumeración en grupos**: Los grupos son de nivel único (ej: "7. CI/CD y Despliegue" NO "7.1 GitHub Actions")
+- **Numeración de grupos consecutiva**: Los NOMBRES de grupos deben numerarse 1, 2, 3, 4, 5... sin saltos
+- **NO subnumerar nombres de grupos**: Los nombres de grupos son "1. Nombre", "2. Nombre" (NUNCA "7.1 Subgrupo" o "8.2 Otro")
+- **Páginas sin numeración**: Los arrays de pages no llevan números en sus nombres, solo rutas de archivo
 - **Eliminar redundancias**: Consolidar páginas duplicadas
 
 ## Formato de Respuesta:
@@ -96,9 +97,10 @@ Responde SOLO con JSON puro (sin markdown, sin bloques ```):
 }}
 
 RECUERDA:
-- Usa números para indicar jerarquía/orden lógico en los nombres de grupos (ej: "1. Inicio", "2. Arquitectura")
-- Los números de grupos DEBEN ser consecutivos: 1, 2, 3, 4, 5, 6, 7, 8, 9... (SIN subnumeración como 7.1 o 8.2)
-- Las páginas dentro de un grupo NO se numeran, solo el grupo tiene número
+- Los GRUPOS (group) se numeran: "1. Nombre", "2. Otro", "3. Más" (números consecutivos 1, 2, 3...)
+- Los nombres de GRUPOS NO llevan subnumeración: NUNCA uses "7.1 Subgrupo" o "8.2 Otro" como nombre de grupo
+- Las PÁGINAS (pages) NO se numeran en sus nombres, solo son rutas: ["page1", "page2", "page3"]
+- Si hay 7 grupos, deben numerarse del 1 al 7. Si añades uno nuevo, será el 8
 - TODO en español de España
 - Responde SOLO JSON sin markdown
 - Mantén los nombres de archivos (pages) tal cual están, solo reorganiza grupos y orden
@@ -173,13 +175,19 @@ def apply_reorganization(docs_data, proposed_structure):
     # Renumerar grupos automáticamente para asegurar consecutividad
     import re
     for tab in new_navigation.get('tabs', []):
-        for idx, group in enumerate(tab.get('groups', []), start=1):
+        for group_idx, group in enumerate(tab.get('groups', []), start=1):
             group_name = group.get('group', '')
-            # Eliminar numeración existente (ej: "7.1 ", "8.2 ", "10. ")
-            clean_name = re.sub(r'^\d+(\.\d+)?\.\s*', '', group_name)
-            # Aplicar numeración consecutiva correcta
-            group['group'] = f"{idx}. {clean_name}"
-            print(f"  📝 Renumerado: {group_name} → {group['group']}")
+            # Eliminar numeración existente del GRUPO (ej: "7. ", "8. ", "10. ")
+            # IMPORTANTE: Solo eliminar numeración de nivel 1 (X.), NO subnumeración de páginas (X.Y)
+            clean_name = re.sub(r'^\d+\.\s+', '', group_name)
+            # Aplicar numeración consecutiva correcta al grupo
+            group['group'] = f"{group_idx}. {clean_name}"
+            print(f"  📝 Grupo renumerado: '{group_name}' → '{group['group']}'")
+            
+            # Renumerar frontmatters de páginas dentro del grupo
+            pages = group.get('pages', [])
+            for page_idx, page_path in enumerate(pages, start=1):
+                update_page_frontmatter(page_path, group_idx, page_idx)
     
     # Mantener global anchors si existen
     if 'navigation' in docs_data and 'global' in docs_data['navigation']:
@@ -187,8 +195,74 @@ def apply_reorganization(docs_data, proposed_structure):
     
     new_docs['navigation'] = new_navigation
     
-    print("✅ Reorganización aplicada con numeración consecutiva")
+    print("✅ Reorganización aplicada con numeración consecutiva de grupos")
     return new_docs
+
+def update_page_frontmatter(page_path, group_number, page_number):
+    """Actualiza el frontmatter de una página con numeración correcta"""
+    import re
+    from pathlib import Path
+    
+    # Construir ruta al archivo MDX
+    docs_root = Path(__file__).parent.parent.parent
+    mdx_file = docs_root / "docs" / f"{page_path}.mdx"
+    
+    if not mdx_file.exists():
+        # Intentar en raíz si no está en docs/
+        mdx_file = docs_root / f"{page_path}.mdx"
+    
+    if not mdx_file.exists():
+        print(f"    ⚠️  Archivo no encontrado: {page_path}.mdx")
+        return
+    
+    try:
+        with open(mdx_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Buscar frontmatter
+        frontmatter_match = re.match(r'^---\n(.*?)\n---\n', content, re.DOTALL)
+        if not frontmatter_match:
+            print(f"    ⚠️  Sin frontmatter: {page_path}.mdx")
+            return
+        
+        frontmatter = frontmatter_match.group(1)
+        
+        # Actualizar title con numeración correcta
+        expected_number = f"{group_number}.{page_number}"
+        
+        # Buscar si ya tiene numeración en el título
+        title_match = re.search(r'^title:\s*["\'](.+?)["\']', frontmatter, re.MULTILINE)
+        if title_match:
+            current_title = title_match.group(1)
+            # Eliminar numeración existente (X.Y. al inicio)
+            clean_title = re.sub(r'^\d+\.\d+\.\s*', '', current_title)
+            new_title = f"{expected_number}. {clean_title}"
+            
+            # Reemplazar en frontmatter
+            new_frontmatter = re.sub(
+                r'^title:\s*["\'].+?["\']',
+                f'title: "{new_title}"',
+                frontmatter,
+                flags=re.MULTILINE
+            )
+            
+            # Asegurar que tiene icono
+            if 'icon:' not in new_frontmatter:
+                # Añadir icono genérico si no tiene
+                new_frontmatter += '\nicon: "file-lines"'
+                print(f"    ✨ Añadido icono a: {page_path}.mdx")
+            
+            # Reconstruir contenido
+            new_content = f"---\n{new_frontmatter}\n---\n" + content[frontmatter_match.end():]
+            
+            # Solo escribir si cambió
+            if new_content != content:
+                with open(mdx_file, 'w', encoding='utf-8') as f:
+                    f.write(new_content)
+                print(f"    ✅ Actualizado: {page_path}.mdx → {new_title}")
+        
+    except Exception as e:
+        print(f"    ❌ Error actualizando {page_path}.mdx: {e}")
 
 def generate_changelog(changes_summary, rationale):
     """Genera un changelog de los cambios estructurales"""
