@@ -197,6 +197,13 @@ jobs:
           if [ -f "STRUCTURE_CHANGELOG.md" ]; then
             echo "✅ Estructura reorganizada - STRUCTURE_CHANGELOG.md generado"
           fi
+      
+      - name: Fix MDX Syntax Errors
+        run: |
+          echo "🔧 Corrigiendo errores de sintaxis MDX..."
+          python .github/scripts/fix-mdx-syntax.py
+          
+          echo "✅ Sintaxis MDX verificada y corregida"
           
       - name: Create improvement proposals
         run: |
