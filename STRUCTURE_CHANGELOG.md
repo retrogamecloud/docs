@@ -1,15 +1,15 @@
 # 📋 Reorganización de Estructura de Documentación
 
-**Fecha**: 2025-11-23 13:48:02  
+**Fecha**: 2025-11-23 14:01:54  
 **Generado por**: Claude Sonnet 4.5
 
 ## 📊 Resumen de Cambios
 
-La estructura actual está bien organizada y sigue un flujo lógico coherente de lo general a lo específico. Se mantiene prácticamente igual porque ya cumple con los principios de buena arquitectura de información: comienza con introducción y primeros pasos, continúa con arquitectura y componentes técnicos, y termina con configuración y operaciones. La separación entre 'Documentación' y 'Referencia API' es clara y apropiada.
+Se ha reorganizado la estructura moviendo 'Aplicación Frontend' antes de 'Microservicios' para seguir el flujo usuario→servicios. En la Referencia API, se ha separado la infraestructura técnica en dos grupos lógicos: uno para configuración de infraestructura (Kong, Kubernetes) y otro para especificaciones técnicas generales (backend, frontend). Se mantiene la numeración consecutiva del 1 al 8 en Documentación y del 1 al 7 en Referencia API.
 
 ## 🎯 Justificación
 
-La estructura actual ya está optimizada porque: (1) Sigue un orden pedagógico natural desde conceptos básicos hasta avanzados, (2) Agrupa componentes relacionados de forma coherente (microservicios juntos, infraestructura junta), (3) Mantiene una numeración consecutiva clara del 1 al 8 en Documentación y del 1 al 6 en Referencia API, (4) La separación entre documentación narrativa y referencia API es estándar en la industria, (5) No hay redundancias significativas que requieran consolidación, (6) Los nombres de grupos son descriptivos y están correctamente en español de España.
+La reorganización sigue el principio de 'viaje del usuario': comienza con lo que ve (Frontend) antes de profundizar en los servicios backend. En la Referencia API, separar la configuración de infraestructura de las especificaciones técnicas generales mejora la navegabilidad, ya que un desarrollador que busca configurar Kong o Kubernetes tiene necesidades diferentes a quien busca especificaciones de código. Esta estructura facilita encontrar información según el rol (DevOps vs Desarrollador) y mantiene una progresión lógica de lo externo a lo interno en ambas pestañas.
 
 ---
 

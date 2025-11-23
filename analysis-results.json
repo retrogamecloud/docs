@@ -1,197 +1,25 @@
 {
-  "analysis_summary": "Documentación bien estructurada pero con gaps críticos: falta arquitectura de datos (esquemas DB), guías de monitorización operativa, documentación de seguridad, disaster recovery y estrategias de testing. Necesita consolidación de archivos duplicados y diagramas técnicos detallados.",
+  "analysis_summary": "La documentación está bien estructurada pero presenta gaps críticos: faltan diagramas de arquitectura detallados, documentación de base de datos y esquemas, guías de seguridad, métricas de monitorización y procesos de backup/recuperación. La organización es buena pero requiere consolidación y mayor profundidad técnica.",
   "overall_score": 6.8,
   "improvements": [
     {
       "priority": "high",
       "category": "content",
-      "title": "Documentar Esquemas de Base de Datos y Modelo de Datos",
-      "description": "Falta completamente la documentación de los esquemas de base de datos PostgreSQL para cada servicio. Es crítico documentar las tablas, relaciones, índices y constraints para entender la persistencia de datos.",
+      "title": "Documentación completa de esquemas de base de datos",
+      "description": "Falta documentación crítica de los esquemas de base de datos para cada servicio. No hay información sobre tablas, relaciones, índices ni constraints. Esto es fundamental para desarrollo y mantenimiento.",
       "files_to_create": [
-        "architecture/data-model.mdx",
-        "services/database-schemas.mdx"
-      ],
-      "files_to_modify": [],
-      "files_to_delete": [],
-      "proposed_content": "# Modelo de Datos\n\n## Esquema Auth Service\n- Tabla users: id, username, email, password_hash, created_at\n- Índices únicos en username y email\n\n## Esquema Score Service\n- Tabla scores: id, user_id, game_id, score, achieved_at\n- FK a users y games\n\n## Esquema Game Catalog\n- Tabla games: id, name, slug, description, jsdos_url, thumbnail_url",
-      "mermaid_diagram": "erDiagram\n    USERS ||--o{ SCORES : submits\n    USERS {\n        int id PK\n        string username UK\n        string email UK\n        string password_hash\n        timestamp created_at\n    }\n    GAMES ||--o{ SCORES : has\n    GAMES {\n        int id PK\n        string name\n        string slug UK\n        text description\n        string jsdos_url\n        string thumbnail_url\n    }\n    SCORES {\n        int id PK\n        int user_id FK\n        int game_id FK\n        int score\n        timestamp achieved_at\n    }\n    RANKINGS ||--|| GAMES : aggregates\n    RANKINGS {\n        int game_id FK\n        json top_scores\n        timestamp updated_at\n    }",
-      "rationale": "Los desarrolladores necesitan entender el modelo de datos para contribuir efectivamente. Sin esta documentación es imposible entender las relaciones entre servicios y diseñar migraciones."
-    },
-    {
-      "priority": "high",
-      "category": "new_section",
-      "title": "Crear Sección de Seguridad y Compliance",
-      "description": "No existe documentación sobre prácticas de seguridad, gestión de secretos, políticas de acceso IAM, cifrado de datos en tránsito/reposo, cumplimiento GDPR o auditoría de seguridad.",
-      "files_to_create": [
-        "security/overview.mdx",
-        "security/secrets-management.mdx",
-        "security/iam-policies.mdx",
-        "security/data-protection.mdx",
-        "security/security-checklist.mdx"
+        "database/schemas.mdx",
+        "database/migrations.mdx",
+        "database/relationships.mdx"
       ],
       "files_to_modify": [
-        "index.mdx"
+        "services/auth-service.mdx",
+        "services/user-service.mdx",
+        "services/score-service.mdx",
+        "services/game-catalog.mdx"
       ],
       "files_to_delete": [],
-      "proposed_content": "# Seguridad\n\n## Gestión de Secretos\n- AWS Secrets Manager para credenciales DB\n- Variables de entorno encriptadas en K8s Secrets\n- Rotación automática cada 90 días\n\n## IAM\n- Roles de servicio con permisos mínimos\n- IRSA (IAM Roles for Service Accounts)\n\n## Cifrado\n- TLS 1.3 en tránsito\n- RDS con cifrado en reposo\n- Tokens JWT firmados con RS256",
-      "mermaid_diagram": "graph TD\n    A[Usuario] -->|HTTPS TLS 1.3| B[CloudFront]\n    B --> C[ALB con SSL]\n    C --> D[OAuth2 Proxy]\n    D --> E[Kong Gateway]\n    E -->|mTLS| F[Microservicios]\n    F -->|Cifrado en tránsito| G[RDS PostgreSQL]\n    G -->|Cifrado en reposo AES-256| H[EBS Volumes]\n    I[Secrets Manager] -.->|Inyección segura| F\n    J[IAM Roles IRSA] -.->|Autenticación| F",
-      "rationale": "La seguridad es fundamental en producción. Sin esta documentación, el equipo no puede auditar, cumplir normativas ni responder a incidentes de seguridad de forma efectiva."
-    },
-    {
-      "priority": "high",
-      "category": "content",
-      "title": "Documentar Estrategia de Monitorización y Observabilidad",
-      "description": "Existe infrastructure/monitoring.mdx pero está vacío o incompleto. Falta documentar métricas clave, alertas, dashboards, logging centralizado y tracing distribuido.",
-      "files_to_create": [
-        "operations/monitoring-guide.mdx",
-        "operations/alerting.mdx",
-        "operations/logging.mdx",
-        "operations/dashboards.mdx"
-      ],
-      "files_to_modify": [
-        "infrastructure/monitoring.mdx"
-      ],
-      "files_to_delete": [],
-      "proposed_content": "# Monitorización\n\n## Stack\n- Prometheus para métricas\n- Grafana para dashboards\n- Loki para logs\n- Jaeger para tracing\n\n## Métricas Clave\n- Latencia p95 de APIs < 200ms\n- Tasa de error < 1%\n- Disponibilidad > 99.9%\n- Uso de CPU/Memoria por pod\n\n## Alertas Críticas\n- Error rate > 5% durante 5min\n- Pod crashlooping\n- Base de datos inaccesible",
-      "mermaid_diagram": "graph LR\n    A[Microservicios] -->|Métricas| B[Prometheus]\n    A -->|Logs| C[Loki]\n    A -->|Traces| D[Jaeger]\n    B --> E[Grafana]\n    C --> E\n    D --> E\n    B -->|Evalúa reglas| F[Alertmanager]\n    F -->|Notifica| G[Slack/PagerDuty]\n    E -->|Dashboards| H[Operadores]\n    subgraph Observabilidad\n        B\n        C\n        D\n        E\n    end",
-      "rationale": "Sin monitorización efectiva es imposible mantener SLAs, diagnosticar problemas en producción o tomar decisiones basadas en datos. Es un gap operativo crítico."
-    },
-    {
-      "priority": "high",
-      "category": "diagrams",
-      "title": "Crear Diagrama de Flujo Completo de Datos",
-      "description": "Falta un diagrama que muestre el flujo end-to-end desde que un usuario hace login hasta que juega y guarda un score, incluyendo todos los servicios, bases de datos y cachés involucrados.",
-      "files_to_create": [],
-      "files_to_modify": [
-        "sequence-diagrams.mdx"
-      ],
-      "files_to_delete": [],
-      "proposed_content": "",
-      "mermaid_diagram": "sequenceDiagram\n    actor Usuario\n    participant CF as CloudFront\n    participant ALB as Load Balancer\n    participant OAuth as OAuth2 Proxy\n    participant Kong as Kong Gateway\n    participant Auth as Auth Service\n    participant Catalog as Catalog Service\n    participant Score as Score Service\n    participant Rank as Ranking Service\n    participant DB as PostgreSQL\n    participant Cache as Redis\n\n    Usuario->>CF: GET /\n    CF->>ALB: Forward request\n    ALB->>OAuth: Check authentication\n    OAuth->>Usuario: Redirect to GitHub\n    Usuario->>OAuth: Login con GitHub\n    OAuth->>Kong: Forward con token\n    Kong->>Auth: POST /auth/verify\n    Auth->>DB: Validar usuario\n    DB-->>Auth: Usuario válido\n    Auth-->>Kong: JWT token\n    Kong-->>Usuario: Set cookie + redirect\n    \n    Usuario->>CF: GET /games\n    CF->>Kong: Request con JWT\n    Kong->>Catalog: GET /api/games\n    Catalog->>Cache: Check cache\n    Cache-->>Catalog: Cache miss\n    Catalog->>DB: SELECT games\n    DB-->>Catalog: Lista de juegos\n    Catalog->>Cache: Store in cache\n    Catalog-->>Usuario: JSON games\n    \n    Usuario->>CF: Play game + submit score\n    CF->>Kong: POST /api/scores\n    Kong->>Auth: Verify JWT\n    Auth-->>Kong: Valid\n    Kong->>Score: POST score data\n    Score->>DB: INSERT/UPDATE score\n    DB-->>Score: Success\n    Score->>Rank: Notify new score\n    Rank->>DB: UPDATE rankings\n    Rank-->>Score: Updated\n    Score-->>Usuario: Score saved",
-      "rationale": "Un diagrama de flujo completo ayuda a nuevos desarrolladores a entender rápidamente cómo interactúan todos los componentes del sistema en escenarios reales."
-    },
-    {
-      "priority": "high",
-      "category": "new_section",
-      "title": "Crear Documentación de Disaster Recovery y Backup",
-      "description": "No existe documentación sobre estrategias de backup, restauración de datos, RTO/RPO, procedimientos de failover o planes de continuidad de negocio.",
-      "files_to_create": [
-        "operations/disaster-recovery.mdx",
-        "operations/backup-restore.mdx",
-        "operations/incident-response.mdx"
-      ],
-      "files_to_modify": [],
-      "files_to_delete": [],
-      "proposed_content": "# Disaster Recovery\n\n## Objetivos\n- RTO (Recovery Time Objective): 4 horas\n- RPO (Recovery Point Objective): 1 hora\n\n## Backups\n- RDS: Snapshots automáticos diarios, retención 7 días\n- Configuración K8s: Velero backup diario a S3\n- Código: Git como fuente de verdad\n\n## Procedimientos de Restauración\n1. Identificar scope del desastre\n2. Activar equipo de respuesta\n3. Restaurar desde snapshot más reciente\n4. Verificar integridad de datos\n5. Redireccionar tráfico",
-      "mermaid_diagram": "graph TD\n    A[Desastre Detectado] --> B{Tipo de fallo}\n    B -->|Fallo DB| C[Restaurar RDS Snapshot]\n    B -->|Fallo K8s| D[Restaurar con Velero]\n    B -->|Fallo Región AWS| E[Failover a región secundaria]\n    C --> F[Verificar integridad]\n    D --> F\n    E --> F\n    F --> G{Datos consistentes?}\n    G -->|Sí| H[Redireccionar tráfico]\n    G -->|No| I[Restaurar snapshot anterior]\n    I --> F\n    H --> J[Monitorizar]\n    J --> K[Postmortem]",
-      "rationale": "En producción es inevitable tener incidentes. Sin un plan documentado de DR, el tiempo de recuperación será mucho mayor y puede haber pérdida de datos críticos."
-    },
-    {
-      "priority": "medium",
-      "category": "content",
-      "title": "Documentar Estrategia de Testing y QA",
-      "description": "No hay documentación sobre pruebas unitarias, de integración, e2e, cobertura de código, estrategias de testing o pipelines de QA.",
-      "files_to_create": [
-        "development/testing-strategy.mdx",
-        "development/unit-tests.mdx",
-        "development/integration-tests.mdx",
-        "development/e2e-tests.mdx"
-      ],
-      "files_to_modify": [],
-      "files_to_delete": [],
-      "proposed_content": "# Estrategia de Testing\n\n## Pirámide de Tests\n- Unit Tests: 70% cobertura mínima\n- Integration Tests: APIs y DB\n- E2E Tests: Flujos críticos de usuario\n\n## Herramientas\n- Jest para unit tests en Node.js\n- Supertest para API testing\n- Playwright para E2E\n\n## CI/CD\n- Tests ejecutados en cada PR\n- Bloqueo de merge si tests fallan\n- Cobertura reportada en SonarQube",
-      "mermaid_diagram": "graph TD\n    A[Commit Code] --> B[GitHub Actions]\n    B --> C[Lint + Format]\n    C --> D{Lint OK?}\n    D -->|No| E[Fail Pipeline]\n    D -->|Sí| F[Unit Tests]\n    F --> G{Coverage > 70%?}\n    G -->|No| E\n    G -->|Sí| H[Build Docker Image]\n    H --> I[Integration Tests]\n    I --> J{Tests Pass?}\n    J -->|No| E\n    J -->|Sí| K[Push to Registry]\n    K --> L[Deploy to Staging]\n    L --> M[E2E Tests]\n    M --> N{E2E Pass?}\n    N -->|No| E\n    N -->|Sí| O[Ready for Production]",
-      "rationale": "La calidad del código debe ser verificable y automatizada. Sin estrategia de testing clara, aumenta el riesgo de bugs en producción y disminuye la confianza en deployments."
-    },
-    {
-      "priority": "medium",
-      "category": "structure",
-      "title": "Consolidar Documentación Duplicada de Desarrollo",
-      "description": "Existen desarrollo-local.mdx y development.mdx con contenido potencialmente duplicado o inconsistente. Deben consolidarse en una estructura clara.",
-      "files_to_create": [],
-      "files_to_modify": [
-        "desarrollo-local.mdx"
-      ],
-      "files_to_delete": [
-        "development.mdx"
-      ],
-      "proposed_content": "",
-      "mermaid_diagram": "",
-      "rationale": "La duplicación de documentación causa confusión y divergencia de contenido. Es mejor tener una sola fuente de verdad para desarrollo local."
-    },
-    {
-      "priority": "medium",
-      "category": "content",
-      "title": "Documentar API Gateway Kong en Detalle",
-      "description": "Existe api-reference/kong.mdx y api-reference/kong-config.mdx pero falta documentación sobre configuración de rate limiting, CORS, autenticación, plugins personalizados y troubleshooting de Kong.",
-      "files_to_create": [
-        "infrastructure/kong-advanced.mdx",
-        "infrastructure/kong-plugins.mdx"
-      ],
-      "files_to_modify": [
-        "api-reference/kong.mdx"
-      ],
-      "files_to_delete": [],
-      "proposed_content": "# Configuración Avanzada de Kong\n\n## Rate Limiting\n- 100 req/min por IP anónima\n- 1000 req/min por usuario autenticado\n- 10 req/min en /auth/register\n\n## CORS\n- Origen permitido: retrogamehub.com\n- Métodos: GET, POST, PUT, DELETE\n- Headers: Authorization, Content-Type\n\n## Plugins Activos\n- jwt: Validación de tokens\n- rate-limiting: Control de tráfico\n- cors: Cross-origin\n- prometheus: Métricas",
-      "mermaid_diagram": "graph LR\n    A[Request] --> B[Kong Gateway]\n    B --> C{Plugin: CORS}\n    C --> D{Plugin: Rate Limit}\n    D --> E{Plugin: JWT Auth}\n    E --> F{Plugin: Request Transform}\n    F --> G[Upstream Service]\n    G --> H{Plugin: Response Transform}\n    H --> I{Plugin: Prometheus}\n    I --> J[Response]\n    \n    K[Prometheus] -.->|Scrape metrics| I\n    L[Admin API] -.->|Configuración| B",
-      "rationale": "Kong es el punto de entrada crítico del sistema. Documentar su configuración avanzada es esencial para troubleshooting, optimización y seguridad."
-    },
-    {
-      "priority": "medium",
-      "category": "diagrams",
-      "title": "Crear Diagrama de Arquitectura de Red AWS",
-      "description": "Falta un diagrama detallado que muestre VPCs, subnets, security groups, NACLs, route tables y flujo de tráfico en la infraestructura AWS.",
-      "files_to_create": [],
-      "files_to_modify": [
-        "infrastructure/networking.mdx"
-      ],
-      "files_to_delete": [],
-      "proposed_content": "",
-      "mermaid_diagram": "graph TB\n    subgraph Internet\n        A[Usuarios]\n    end\n    \n    subgraph AWS Region eu-west-1\n        subgraph VPC 10.0.0.0/16\n            B[Internet Gateway]\n            \n            subgraph AZ-1a\n                C[Public Subnet 10.0.1.0/24]\n                D[Private Subnet 10.0.10.0/24]\n                E[ALB Node]\n                F[EKS Worker Nodes]\n                G[RDS Primary]\n            end\n            \n            subgraph AZ-1b\n                H[Public Subnet 10.0.2.0/24]\n                I[Private Subnet 10.0.20.0/24]\n                J[ALB Node]\n                K[EKS Worker Nodes]\n                L[RDS Standby]\n            end\n            \n            M[NAT Gateway]\n            N[Route53]\n        end\n        \n        O[CloudFront]\n        P[S3 Bucket Assets]\n    end\n    \n    A -->|HTTPS| O\n    O -->|HTTPS| B\n    B --> C\n    B --> H\n    C --> E\n    H --> J\n    E --> D\n    J --> I\n    D --> F\n    I --> K\n    F --> G\n    K --> L\n    D --> M\n    I --> M\n    M --> B\n    N -.->|DNS| O",
-      "rationale": "Entender la topología de red es crucial para troubleshooting de conectividad, optimización de latencia y configuración de seguridad a nivel de red."
-    },
-    {
-      "priority": "medium",
-      "category": "content",
-      "title": "Documentar Procedimientos de Escalado y Auto-scaling",
-      "description": "Falta documentación sobre HPA (Horizontal Pod Autoscaler), métricas de escalado, límites de recursos, estrategias de escalado de RDS y dimensionamiento de nodos EKS.",
-      "files_to_create": [
-        "operations/scaling.mdx",
-        "operations/capacity-planning.mdx"
-      ],
-      "files_to_modify": [],
-      "files_to_delete": [],
-      "proposed_content": "# Estrategias de Escalado\n\n## Kubernetes HPA\n- Auth Service: 2-10 replicas, target CPU 70%\n- Catalog Service: 2-5 replicas, target CPU 60%\n- Score Service: 3-15 replicas, target CPU 80%\n\n## Cluster Autoscaler\n- Nodos EKS: 3-20 instancias t3.medium\n- Scale up cuando pending pods > 30s\n- Scale down cuando node utilization < 50%\n\n## RDS Scaling\n- Read replicas para queries pesadas\n- Vertical scaling en ventana de mantenimiento",
-      "mermaid_diagram": "graph TD\n    A[Metrics Server] -->|CPU/Memory| B[HPA Controller]\n    B -->|Decide scaling| C{Current vs Target}\n    C -->|CPU > 70%| D[Scale Up Pods]\n    C -->|CPU < 30%| E[Scale Down Pods]\n    D --> F[Request más recursos]\n    F --> G{Nodos disponibles?}\n    G -->|No| H[Cluster Autoscaler]\n    H --> I[Provisionar nodo nuevo]\n    I --> J[Pending pods scheduled]\n    G -->|Sí| J\n    E --> K[Liberar recursos]\n    K --> L[Consolidar pods]\n    L --> M[Cluster Autoscaler]\n    M --> N[Terminar nodos infrautilizados]",
-      "rationale": "El escalado eficiente es clave para mantener performance bajo carga variable y optimizar costos. Sin documentación clara, el sistema puede estar sobre o sub-provisionado."
-    },
-    {
-      "priority": "medium",
-      "category": "new_section",
-      "title": "Crear Guía de Performance y Optimización",
-      "description": "No existe documentación sobre benchmarks, optimización de queries, caché strategies, CDN optimization o best practices de performance.",
-      "files_to_create": [
-        "operations/performance.mdx",
-        "operations/caching-strategy.mdx",
-        "operations/cdn-optimization.mdx"
-      ],
-      "files_to_modify": [],
-      "files_to_delete": [],
-      "proposed_content": "# Optimización de Performance\n\n## Benchmarks Objetivo\n- Time to First Byte (TTFB): < 200ms\n- Carga inicial página: < 2s\n- API response time p95: < 300ms\n\n## Estrategias de Caché\n- Redis para session data (TTL 24h)\n- CloudFront para assets estáticos (TTL 7d)\n- API Gateway cache para catálogo (TTL 5min)\n\n## Optimizaciones DB\n- Índices en user_id, game_id\n- Connection pooling: max 20 conexiones\n- Query timeout: 5s",
-      "mermaid_diagram": "graph LR\n    A[Usuario] -->|1. Request| B[CloudFront]\n    B -->|Cache HIT| A\n    B -->|Cache MISS| C[ALB]\n    C --> D[Kong]\n    D -->|2. Check Redis| E[Redis Cache]\n    E -->|Cache HIT| D\n    E -->|Cache MISS| F[Microservicio]\n    F -->|3. Query| G[PostgreSQL]\n    G -->|Índices optimizados| F\n    F -->|4. Store| E\n    F --> D\n    D --> C\n    C --> B\n    B -->|5. Cache| B\n    B --> A",
-      "rationale": "La performance es un factor crítico de experiencia de usuario. Documentar estrategias de optimización permite mantener latencias bajas y reducir costos de infraestructura."
-    },
-    {
-      "priority": "low",
-      "category": "quality",
-      "title": "Estandarizar Formato de Frontmatter en Todos los MDX",
-      "description": "Los archivos MDX tienen formatos inconsistentes en el frontmatter. Algunos usan 'icon', otros no, las descripciones varían en longitud. Debe haber un estándar documentado.",
-      "files_to_create": [
-        "contributing/documentation-style-guide.mdx"
-      ],
-      "files_to_modify": [],
-      "files_to_delete": [],
-      "proposed_content": "# Guía de Estilo de Documentación\n\n## Formato Frontmatter"
+      "proposed_content": "## Esquemas de Base de Datos\n\n### Tabla: users"
     }
   ]
 }
