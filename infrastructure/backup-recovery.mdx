@@ -1,39 +1,33 @@
 ---
-title: Estrategia de Respaldo y Recuperación Ante Desastres
+title: "4.1 Estrategia de Respaldo y Recuperación Ante Desastres"
 description: Documentación completa sobre backups, disaster recovery, RPO/RTO y procedimientos
   de restauración para RetroGameCloud
 icon: shield-check
 ---
 
-# Estrategia de Respaldo y Recuperación ante Desastres
+# 4.1 Estrategia de Respaldo y Recuperación ante Desastres
 
 <Note>
 Esta documentación cubre la estrategia completa de backup y disaster recovery (DR) para la plataforma RetroGameCloud, incluyendo objetivos de recuperación, procedimientos automatizados y runbooks de emergencia.
 </Note>
 
-## Objetivos de Recuperación
+## 4.1.1 Objetivos de Recuperación
 
 ### RPO (Recovery Point Objective)
 
 - **Base de Datos Principal**: 1 hora máximo
-
 - **Archivos de Juegos (S3)**: 24 horas máximo
-
 - **Configuraciones de Kubernetes**: 1 hora máximo
-
 - **Configuración Kong Gateway**: 1 hora máximo
 
 ### RTO (Recovery Time Objective)
 
 - **Servicios Críticos**: 4 horas máximo
-
 - **Base de Datos**: 2 horas máximo
-
 - **Frontend y CDN**: 30 minutos máximo
-
 - **API Gateway**: 1 hora máximo
 
-## Configuración de Backups Automatizados
+## 4.1.2 Configuración de Backups Automatizados
 
 ### Base de Datos RDS PostgreSQL
 
@@ -76,449 +70,455 @@ resource "aws_lambda_function" "db_snapshot" {
   role         = aws_iam_role.lambda_snapshot_role.arn
   handler      = "index.handler"
   runtime      = "python3.9"
-}
-
-resource "aws_cloudwatch_event_rule" "snapshot_schedule" {
-  name                = "db-snapshot-schedule"
-  description         = "Trigger for manual DB snapshots"
-  schedule_expression = "cron(0 */6 * * ? *)"
-}
-
-```
-
-</Tab>
-<Tab title="Backup S3 Kong Config">
-
-```hcl
-resource "aws_s3_bucket" "kong_config_backup" {
-  bucket = "retrogamecloud-kong-config-backup"
-
-  versioning {
-    enabled = true
-  }
-
-  lifecycle_configuration {
-    rule {
-      enabled = true
-      id      = "kong_config_retention"
-
-      expiration {
-        days = 90
-      }
-
-      noncurrent_version_expiration {
-        days = 30
-      }
-    }
-  }
-}
-
-# Lambda para backup automático de Kong
-resource "aws_lambda_function" "kong_backup" {
-  filename      = "kong_backup.zip"
-  function_name = "retrogamecloud-kong-backup"
-  role         = aws_iam_role.lambda_backup_role.arn
-  handler      = "kong_backup.handler"
-  runtime      = "python3.9"
+  timeout      = 300
 
   environment {
     variables = {
-      KONG_ADMIN_URL = "http://kong-admin.retrogamecloud.local:8001"
-      S3_BUCKET      = aws_s3_bucket.kong_config_backup.bucket
+      DB_INSTANCE_ID = aws_db_instance.retrogamecloud_db.id
     }
   }
 }
 
-```
-
-</Tab>
-</Tabs>
-
-## Procedimientos de Disaster Recovery
-
-### Procedimiento Paso a Paso de Restauración
-
-<Steps>
-<Step title="1. Crear Nueva Base de Datos desde Snapshot">
-
-```bash
-
-# Listar snapshots disponibles
-aws rds describe-db-snapshots \
-  --db-instance-identifier retrogamecloud-prod \
-  --snapshot-type automated
-
-# Restaurar desde el último snapshot
-aws rds restore-db-instance-from-db-snapshot \
-  --db-instance-identifier retrogamecloud-dr-$(date +%Y%m%d) \
-  --db-snapshot-identifier rds:retrogamecloud-prod-$(date +%Y-%m-%d-06-00) \
-  --db-instance-class db.r5.large \
-  --multi-az \
-  --storage-encrypted
-
-```
-
-</Step>
-
-<Step title="2. Recrear Infraestructura en Región Alternativa">
-
-```bash
-
-# Configurar región de DR
-export AWS_DEFAULT_REGION=us-east-1
-export TF_VAR_environment=disaster-recovery
-
-# Aplicar configuración de Terraform
-cd infrastructure/terraform
-terraform workspace select dr || terraform workspace new dr
-terraform init
-terraform plan -var="database_endpoint=retrogamecloud-dr.cluster-xxx.us-east-1.rds.amazonaws.com"
-terraform apply -auto-approve
-
-```
-
-</Step>
-
-<Step title="3. Recrear Cluster EKS">
-
-```bash
-
-# Obtener credenciales del nuevo cluster
-aws eks update-kubeconfig --region us-east-1 --name retrogamecloud-dr
-
-# Aplicar manifiestos desde Git
-kubectl apply -f k8s/namespaces/
-kubectl apply -f k8s/configs/
-kubectl apply -f k8s/deployments/
-kubectl apply -f k8s/services/
-
-```
-
-</Step>
-
-<Step title="4. Restaurar Configuración Kong">
-
-```bash
-
-# Descargar último backup de Kong desde S3
-aws s3 cp s3://retrogamecloud-kong-config-backup/latest/kong-config.json ./
-
-# Restaurar configuración
-curl -X POST http://kong-admin:8001/config \
-  -F config=@kong-config.json
-
-# Verificar configuración
-curl -X GET http://kong-admin:8001/services
-curl -X GET http://kong-admin:8001/routes
-
-```
-
-</Step>
-
-<Step title="5. Actualizar Registros DNS">
-
-```bash
-
-# Obtener nueva dirección del Load Balancer
-NEW_LB=$(kubectl get svc kong-proxy -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-
-# Actualizar Route53 (usando CLI o Terraform)
-aws route53 change-resource-record-sets \
-  --hosted-zone-id Z123456789 \
-  --change-batch file://dns-update.json
-
-```
-
-DNS Update JSON:
-
-```json
-{
-  "Changes": [{
-    "Action": "UPSERT",
-    "ResourceRecordSet": {
-      "Name": "api.retrogamecloud.com",
-      "Type": "CNAME",
-      "TTL": 300,
-      "ResourceRecords": [{"Value": "${NEW_LB}"}]
-    }
-  }]
+# EventBridge para programar snapshots
+resource "aws_cloudwatch_event_rule" "daily_snapshot" {
+  name                = "daily-db-snapshot"
+  description         = "Trigger daily database snapshots"
+  schedule_expression = "cron(0 6 * * ? *)"
 }
 
-```
-
-</Step>
-
-<Step title="6. Verificar Health Checks">
-
-```bash
-
-# Health check de la API
-curl -f https://api.retrogamecloud.com/health
-
-# Health check de la base de datos
-kubectl exec -it $(kubectl get pods -l app=backend -o jsonpath='{.items[0].metadata.name}') -- \
-  psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "SELECT version();"
-
-# Health check de Kong
-curl -f http://kong-admin:8001/status
-
-```
-
-</Step>
-</Steps>
-
-## Checklist de Validación Post-Recovery
-
-### Validación de Servicios
-
-<Tabs>
-<Tab title="Base de Datos">
-
-- [ ] Conexión a la base de datos establecida
-
-- [ ] Integridad de datos verificada
-
-- [ ] Usuarios y permisos restaurados
-
-- [ ] Backups automáticos reconfigurados
-
-- [ ] Monitoreo y alertas activos
-
-```bash
-
-# Script de validación de BD
-#!/bin/bash
-echo "Validando conexión a BD..."
-kubectl exec -it postgres-client -- psql -h $NEW_DB_HOST -c "SELECT count(*) FROM users;"
-
-echo "Verificando integridad..."
-kubectl exec -it postgres-client -- psql -h $NEW_DB_HOST -c "SELECT pg_database_size(current_database());"
-
-echo "Validando backups automáticos..."
-aws rds describe-db-instances --db-instance-identifier retrogamecloud-dr --query 'DBInstances[0].BackupRetentionPeriod'
-
+resource "aws_cloudwatch_event_target" "lambda_target" {
+  rule      = aws_cloudwatch_event_rule.daily_snapshot.name
+  target_id = "TriggerLambdaFunction"
+  arn       = aws_lambda_function.db_snapshot.arn
+}
 ```
 
 </Tab>
+<Tab title="Script Lambda Snapshot">
 
-<Tab title="Aplicaciones">
+```python
+import boto3
+import json
+from datetime import datetime, timezone
 
-- [ ] Todos los pods en estado Running
-
-- [ ] Health checks respondiendo
-
-- [ ] APIs funcionales
-
-- [ ] Autenticación funcionando
-
-- [ ] Logs siendo generados correctamente
-
-```bash
-
-# Validación de aplicaciones
-kubectl get pods --all-namespaces | grep -v Running
-curl -f https://api.retrogamecloud.com/api/v1/games | jq .
-curl -f https://retrogamecloud.com | grep -q "RetroGameCloud"
-
-```
-
-</Tab>
-
-<Tab title="Kong Gateway">
-
-- [ ] Kong Admin API accesible
-
-- [ ] Todas las rutas configuradas
-
-- [ ] Plugins funcionando
-
-- [ ] Rate limiting activo
-
-- [ ] SSL/TLS configurado
-
-```bash
-
-# Validación Kong
-curl -s http://kong-admin:8001/status | jq .database.reachable
-curl -s http://kong-admin:8001/services | jq '.data | length'
-curl -s http://kong-admin:8001/routes | jq '.data | length'
-curl -I https://api.retrogamecloud.com | grep -q "HTTP/2 200"
-
+def lambda_handler(event, context):
+    rds = boto3.client('rds')
+    
+    db_instance_id = os.environ['DB_INSTANCE_ID']
+    timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d-%H-%M-%S')
+    snapshot_id = f"{db_instance_id}-manual-{timestamp}"
+    
+    try:
+        response = rds.create_db_snapshot(
+            DBSnapshotIdentifier=snapshot_id,
+            DBInstanceIdentifier=db_instance_id,
+            Tags=[
+                {
+                    'Key': 'Type',
+                    'Value': 'Manual'
+                },
+                {
+                    'Key': 'CreatedBy',
+                    'Value': 'Lambda'
+                },
+                {
+                    'Key': 'Environment',
+                    'Value': 'production'
+                }
+            ]
+        )
+        
+        return {
+            'statusCode': 200,
+            'body': json.dumps({
+                'message': f'Snapshot {snapshot_id} created successfully',
+                'snapshot_arn': response['DBSnapshot']['DBSnapshotArn']
+            })
+        }
+    except Exception as e:
+        print(f"Error creating snapshot: {str(e)}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': str(e)})
+        }
 ```
 
 </Tab>
 </Tabs>
 
-### Checklist de Validación Completa
-
-<Note>
-
-* *Tiempo estimado de validación**: 30-45 minutos
-</Note>
-
-1. **Infraestructura Base** (10 min)
-   - [ ] EKS cluster operativo
-   - [ ] Nodos de trabajo disponibles
-   - [ ] Load balancers configurados
-   - [ ] Certificados SSL válidos
-
-2. **Base de Datos** (10 min)
-   - [ ] RDS instance en estado available
-   - [ ] Conexiones desde aplicaciones
-   - [ ] Datos críticos verificados
-   - [ ] Performance baseline establecida
-
-3. **Aplicaciones** (15 min)
-   - [ ] Frontend accesible
-   - [ ] API respondiendo
-   - [ ] Autenticación funcionando
-   - [ ] Funciones críticas validadas
-
-4. **Monitoreo** (10 min)
-   - [ ] Métricas fluyendo a CloudWatch
-   - [ ] Alertas configuradas
-   - [ ] Dashboards operativos
-   - [ ] Logs centralizados
-
-## Calendario de Simulacros de DR
-
-### Simulacros Trimestrales
+### Almacenamiento S3 - Cross-Region Replication
 
 <Tabs>
-<Tab title="Q1 - Enero">
+<Tab title="Configuración Terraform">
 
-* *Simulacro Completo de Región**
+```hcl
+# Bucket principal
+resource "aws_s3_bucket" "game_assets" {
+  bucket = "retrogamecloud-assets-prod"
+}
 
-- **Fecha**: Segundo sábado de enero
+# Bucket de respaldo en región secundaria
+resource "aws_s3_bucket" "game_assets_backup" {
+  bucket   = "retrogamecloud-assets-backup"
+  provider = aws.backup_region
+}
 
-- **Duración**: 4-6 horas
+# Configuración de versionado
+resource "aws_s3_bucket_versioning" "game_assets_versioning" {
+  bucket = aws_s3_bucket.game_assets.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
 
-- **Alcance**: Failover completo a región secundaria
+# Replicación cross-region
+resource "aws_s3_bucket_replication_configuration" "replication" {
+  role   = aws_iam_role.replication.arn
+  bucket = aws_s3_bucket.game_assets.id
 
-- **Participantes**: DevOps, Backend, QA
+  rule {
+    id     = "ReplicateAll"
+    status = "Enabled"
 
-* *Objetivos**:
+    destination {
+      bucket        = aws_s3_bucket.game_assets_backup.arn
+      storage_class = "STANDARD_IA"
+      
+      encryption_configuration {
+        replica_kms_key_id = aws_kms_key.backup_region_key.arn
+      }
+    }
+  }
 
-- Validar RTO/RPO reales
+  depends_on = [aws_s3_bucket_versioning.game_assets_versioning]
+}
 
-- Probar procedimientos completos
+# Lifecycle policies para optimización de costos
+resource "aws_s3_bucket_lifecycle_configuration" "lifecycle" {
+  bucket = aws_s3_bucket.game_assets.id
 
-- Actualizar documentación
+  rule {
+    id     = "game_assets_lifecycle"
+    status = "Enabled"
 
-</Tab>
+    noncurrent_version_transition {
+      noncurrent_days = 30
+      storage_class   = "STANDARD_IA"
+    }
 
-<Tab title="Q2 - Abril">
+    noncurrent_version_transition {
+      noncurrent_days = 90
+      storage_class   = "GLACIER"
+    }
 
-* *Simulacro de Base de Datos**
-
-- **Fecha**: Segundo sábado de abril
-
-- **Duración**: 2-3 horas
-
-- **Alcance**: Solo restauración de BD
-
-- **Participantes**: DevOps, Backend
-
-* *Objetivos**:
-
-- Validar snapshots automáticos
-
-- Probar restauración point-in-time
-
-- Verificar integridad de datos
-
-</Tab>
-
-<Tab title="Q3 - Julio">
-
-* *Simulacro de Aplicaciones**
-
-- **Fecha**: Segundo sábado de julio
-
-- **Duración**: 3-4 horas
-
-- **Alcance**: Recreación de cluster y apps
-
-- **Participantes**: DevOps, Backend, Frontend
-
-* *Objetivos**:
-
-- Validar manifiestos K8s
-
-- Probar configuración Kong
-
-- Verificar funcionalidad end-to-end
-
-</Tab>
-
-<Tab title="Q4 - Octubre">
-
-* *Simulacro de Chaos Engineering**
-
-- **Fecha**: Segundo sábado de octubre
-
-- **Duración**: 6-8 horas
-
-- **Alcance**: Fallos aleatorios múltiples
-
-- **Participantes**: Todo el equipo
-
-* *Objetivos**:
-
-- Probar resistencia del sistema
-
-- Validar alertas y respuesta
-
-- Mejorar procedimientos de escalación
+    noncurrent_version_expiration {
+      noncurrent_days = 365
+    }
+  }
+}
+```
 
 </Tab>
 </Tabs>
 
-### Métricas de Simulacros
+### Backups de Kubernetes con Velero
+
+<Tabs>
+<Tab title="Configuración Helm">
 
 ```yaml
+# values-velero.yaml
+velero:
+  configuration:
+    provider: aws
+    backupStorageLocation:
+      bucket: retrogamecloud-velero-backups
+      config:
+        region: us-east-1
+        s3ForcePathStyle: false
+    volumeSnapshotLocation:
+      config:
+        region: us-east-1
+    
+  credentials:
+    useSecret: true
+    existingSecret: velero-credentials
 
-# Métricas a rastrear en cada simulacro
-metrics:
-  rpo_achieved: "tiempo hasta último backup válido"
-  rto_achieved: "tiempo total de restauración"
-  data_loss: "cantidad de datos perdidos"
-  false_positives: "alertas incorrectas"
-  procedure_gaps: "pasos faltantes en documentación"
+  schedules:
+    daily:
+      disabled: false
+      schedule: "0 2 * * *"
+      template:
+        ttl: "720h"  # 30 días
+        includedNamespaces:
+        - retrogamecloud
+        - kong
+        - monitoring
+        storageLocation: default
+        volumeSnapshotLocations:
+        - default
+    
+    weekly:
+      disabled: false
+      schedule: "0 3 * * 0"  # Domingos
+      template:
+        ttl: "2160h"  # 90 días
+        includedNamespaces:
+        - retrogamecloud
+        - kong
+        - monitoring
 
-
-# Dashboard de seguimiento
-simulacro_dashboard:
-  - rto_trend: "tendencia de tiempo de recuperación"
-  - success_rate: "tasa de éxito de simulacros"
-  - team_readiness: "preparación del equipo"
-
+  deployRestic: true
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
 ```
 
-## Contactos de Emergencia
+</Tab>
+<Tab title="Script de Instalación">
 
-### Escalación de Incidentes
+```bash
+#!/bin/bash
+# install-velero.sh
 
-1. **Nivel 1 - DevOps On-Call**
-   - Slack: `@devops-oncall`
-   - Teléfono: +1-XXX-XXX-XXXX
+set -e
 
-2. **Nivel 2 - Lead DevOps**
-   - Email: devops-lead@retrogamecloud.com
-   - Teléfono: +1-XXX-XXX-XXXX
+NAMESPACE="velero"
+BUCKET_NAME="retrogamecloud-velero-backups"
+REGION="us-east-1"
 
-3. **Nivel 3 - CTO**
-   - Email: cto@retrogamecloud.com
-   - Teléfono: +1-XXX-XXX-XXXX
+echo "Installing Velero for Kubernetes backup..."
 
-### Vendors y Soporte
+# Crear namespace
+kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
 
-- **AWS Support**: Caso de Enterprise Support
+# Crear bucket S3 si no existe
+aws s3api create-bucket \
+  --bucket $BUCKET_NAME \
+  --region $REGION \
+  --create-bucket-configuration LocationConstraint=$REGION
 
-- **Kong Support**: Portal de soporte técnico
+# Crear política IAM para Velero
+cat > velero-policy.json << EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeVolumes",
+                "ec2:DescribeSnapshots",
+                "ec2:CreateTags",
+                "ec2:CreateVolume",
+                "ec2:CreateSnapshot",
+                "ec2:DeleteSnapshot"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:DeleteObject",
+                "s3:PutObject",
+                "s3:AbortMultipartUpload",
+                "s3:ListMultipartUploadParts"
+            ],
+            "Resource": [
+                "arn:aws:s3:::$BUCKET_NAME/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::$BUCKET_NAME"
+            ]
+        }
+    ]
+}
+EOF
 
-- **Datadog**: Soporte 24/7 via chat
+# Aplicar política
+aws iam create-policy \
+  --policy-name VeleroBackupPolicy \
+  --policy-document file://velero-policy.json
 
-<Warning>
-Mantén esta documentación actualizada después de cada simulacro y cambio de infraestructura. Los procedimientos desactualizados pueden ser peores que no tener procedimientos.
-</Warning>
+# Instalar Velero usando Helm
+helm repo add vmware-tanzu https://vmware-tanzu.github.io/helm-charts/
+helm repo update
+
+helm upgrade --install velero vmware-tanzu/velero \
+  --namespace $NAMESPACE \
+  --values values-velero.yaml \
+  --wait
+
+echo "Velero installed successfully!"
+```
+
+</Tab>
+</Tabs>
+
+## 4.1.3 Procedimientos de Recuperación
+
+### Recuperación de Base de Datos
+
+<Tabs>
+<Tab title="Desde Snapshot Automático">
+
+```bash
+#!/bin/bash
+# restore-db-from-snapshot.sh
+
+set -e
+
+DB_INSTANCE_ID="retrogamecloud-prod"
+SNAPSHOT_ID="$1"
+NEW_INSTANCE_ID="retrogamecloud-restored-$(date +%Y%m%d-%H%M%S)"
+
+if [ -z "$SNAPSHOT_ID" ]; then
+  echo "Usage: $0 <snapshot-id>"
+  echo "Available snapshots:"
+  aws rds describe-db-snapshots \
+    --db-instance-identifier $DB_INSTANCE_ID \
+    --query 'DBSnapshots[*].[DBSnapshotIdentifier,SnapshotCreateTime]' \
+    --output table
+  exit 1
+fi
+
+echo "Restoring database from snapshot: $SNAPSHOT_ID"
+
+# Restaurar desde snapshot
+aws rds restore-db-instance-from-db-snapshot \
+  --db-instance-identifier $NEW_INSTANCE_ID \
+  --db-snapshot-identifier $SNAPSHOT_ID \
+  --db-instance-class db.t3.medium \
+  --multi-az \
+  --storage-encrypted \
+  --vpc-security-group-ids sg-xxxxxxxxx \
+  --db-subnet-group-name retrogamecloud-db-subnet-group
+
+echo "Waiting for database to be available..."
+aws rds wait db-instance-available --db-instance-identifier $NEW_INSTANCE_ID
+
+# Obtener endpoint de la nueva instancia
+NEW_ENDPOINT=$(aws rds describe-db-instances \
+  --db-instance-identifier $NEW_INSTANCE_ID \
+  --query 'DBInstances[0].Endpoint.Address' \
+  --output text)
+
+echo "Database restored successfully!"
+echo "New endpoint: $NEW_ENDPOINT"
+echo "Update your application configuration to use the new endpoint."
+```
+
+</Tab>
+<Tab title="Point-in-Time Recovery">
+
+```bash
+#!/bin/bash
+# point-in-time-restore.sh
+
+set -e
+
+DB_INSTANCE_ID="retrogamecloud-prod"
+RESTORE_TIME="$1"
+NEW_INSTANCE_ID="retrogamecloud-pitr-$(date +%Y%m%d-%H%M%S)"
+
+if [ -z "$RESTORE_TIME" ]; then
+  echo "Usage: $0 <restore-time-utc>"
+  echo "Format: YYYY-MM-DDTHH:MM:SSZ"
+  echo "Example: 2024-01-15T10:30:00Z"
+  exit 1
+fi
+
+echo "Performing point-in-time restore to: $RESTORE_TIME"
+
+# Verificar que el tiempo esté dentro del período de retención
+LATEST_RESTORE_TIME=$(aws rds describe-db-instances \
+  --db-instance-identifier $DB_INSTANCE_ID \
+  --query 'DBInstances[0].LatestRestorableTime' \
+  --output text)
+
+echo "Latest restorable time: $LATEST_RESTORE_TIME"
+
+# Restaurar a punto específico en el tiempo
+aws rds restore-db-instance-to-point-in-time \
+  --source-db-instance-identifier $DB_INSTANCE_ID \
+  --target-db-instance-identifier $NEW_INSTANCE_ID \
+  --restore-time $RESTORE_TIME \
+  --db-instance-class db.t3.medium \
+  --multi-az \
+  --vpc-security-group-ids sg-xxxxxxxxx \
+  --db-subnet-group-name retrogamecloud-db-subnet-group
+
+echo "Point-in-time restore initiated. Instance ID: $NEW_INSTANCE_ID"
+```
+
+</Tab>
+</Tabs>
+
+### Recuperación de Aplicaciones Kubernetes
+
+<Tabs>
+<Tab title="Restauración con Velero">
+
+```bash
+#!/bin/bash
+# restore-k8s-backup.sh
+
+set -e
+
+BACKUP_NAME="$1"
+NAMESPACE="retrogamecloud"
+
+if [ -z "$BACKUP_NAME" ]; then
+  echo "Usage: $0 <backup-name>"
+  echo "Available backups:"
+  velero backup get
+  exit 1
+fi
+
+echo "Restoring Kubernetes backup: $BACKUP_NAME"
+
+# Crear restore desde backup
+velero restore create \
+  --from-backup $BACKUP_NAME \
+  --restore-volumes=true \
+  --wait
+
+# Verificar estado del restore
+RESTORE_NAME=$(velero restore get --selector velero.io/backup-name=$BACKUP_NAME -o name | head -n1)
+
+echo "Restore created: $RESTORE_NAME"
+echo "Checking restore status..."
+
+velero restore describe $RESTORE_NAME
+
+# Verificar pods después del restore
+echo "Checking pod status in namespace $NAMESPACE..."
+kubectl get pods -n $NAMESPACE
+```
+
+</Tab>
+<Tab title="Restauración Selectiva">
+
+```bash
+#!/bin/bash
+# selective-restore.sh
+
+set -e
+
+BACKUP_NAME="$1"
+RESOURCE_TYPE="$2"
+RESOURCE
+</Tab>
+</Tabs>
+```

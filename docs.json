@@ -87,7 +87,7 @@
             "description": "Arquitectura React, estructura de componentes e integración del emulador js-dos para la ejecución de juegos retro"
           },
           {
-            "group": "5. Microservicios Backend",
+            "group": "5. Backend y Microservicios",
             "icon": "server",
             "pages": [
               "services/auth-service",
@@ -99,7 +99,7 @@
             "description": "Documentación técnica de los microservicios: autenticación, gestión de usuarios, catálogo de juegos, puntuaciones y rankings"
           },
           {
-            "group": "6. Seguridad",
+            "group": "6. Seguridad y Autenticación",
             "icon": "shield",
             "pages": [
               "infrastructure/oauth2-authentication"
@@ -107,7 +107,7 @@
             "description": "Implementación de OAuth2 con GitHub y Google, gestión de tokens JWT y políticas de seguridad de la aplicación"
           },
           {
-            "group": "7. Infraestructura Cloud",
+            "group": "7. Infraestructura en AWS",
             "icon": "cloud",
             "pages": [
               "infrastructure/overview",
@@ -123,7 +123,7 @@
             "description": "Infraestructura completa en AWS: clúster EKS, redes VPC, bases de datos RDS, Redis, CDN CloudFront, Route53, SSL y herramientas de monitorización"
           },
           {
-            "group": "8. Despliegue Continuo",
+            "group": "8. CI/CD y Despliegue",
             "icon": "rocket",
             "pages": [
               "cicd/overview",
@@ -159,7 +159,7 @@
             "description": "Endpoints de autenticación: inicio de sesión con OAuth2, registro de usuarios y verificación de tokens JWT"
           },
           {
-            "group": "3. Usuarios",
+            "group": "3. Gestión de Usuarios",
             "icon": "users",
             "pages": [
               "api-reference/user-service"
@@ -177,27 +177,20 @@
             "description": "API del catálogo: listado de juegos disponibles, búsqueda con filtros avanzados y consulta de detalles de cada juego"
           },
           {
-            "group": "5. Puntuaciones",
-            "icon": "star",
+            "group": "5. Puntuaciones y Rankings",
+            "icon": "trophy",
             "pages": [
               "api-reference/score-service",
               "api-reference/scores/submit",
-              "api-reference/scores/get"
-            ],
-            "description": "API de puntuaciones: envío y consulta de resultados de partidas individuales de los jugadores"
-          },
-          {
-            "group": "6. Rankings",
-            "icon": "trophy",
-            "pages": [
+              "api-reference/scores/get",
               "api-reference/ranking-service",
               "api-reference/rankings/global",
               "api-reference/rankings/by-game"
             ],
-            "description": "API de clasificaciones: tablas de clasificación globales y rankings específicos por juego"
+            "description": "API de puntuaciones y clasificaciones: envío y consulta de resultados, tablas de clasificación globales y rankings por juego"
           },
           {
-            "group": "7. Especificaciones Técnicas",
+            "group": "6. Especificaciones Técnicas",
             "icon": "code",
             "pages": [
               "api-reference/frontend",

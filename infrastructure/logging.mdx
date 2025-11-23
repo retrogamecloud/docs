@@ -1,15 +1,15 @@
 ---
-title: Monitorización y Observabilidad
+title: 4.6 Monitorización y Observabilidad
 description: 'Documentación completa del stack de observabilidad de RetroGameCloud:
   métricas, alertas, dashboards, logs y distributed tracing'
 icon: chart-line
 ---
 
-# Monitorización y Observabilidad
+# 4.6 Monitorización y Observabilidad
 
 Esta documentación detalla el stack completo de observabilidad de RetroGameCloud, incluyendo Golden Signals, umbrales críticos, dashboards recomendados y correlación de logs-métricas-traces para debugging efectivo.
 
-## Arquitectura de Observabilidad
+## 4.6.1 Arquitectura de Observabilidad
 
 <Note>
 Nuestro stack de observabilidad combina herramientas de AWS con soluciones open-source para proporcionar visibilidad completa de la plataforma usando los principios de Golden Signals y distributed tracing.
@@ -42,7 +42,7 @@ graph TB
 
 ```
 
-## Stack de Tecnologías
+## 4.6.2 Stack de Tecnologías
 
 <Tabs>
   <Tab title="Métricas">
@@ -66,479 +66,430 @@ graph TB
   <Tab title="Tracing">
     - **Jaeger**: Distributed tracing
     - **OpenTelemetry**: Instrumentación estándar
-    - **Correlation IDs**: Trazabilidad cross-service
+    - **Correlation IDs**: Seguimiento cross-service
+    - **Span Context**: Propagación de contexto
   </Tab>
 </Tabs>
 
-## Golden Signals por Servicio
+## 4.6.3 Golden Signals
 
-### Servicio de Autenticación
+### 4.6.3.1 Latency (Latencia)
 
-<Card title="auth-service" icon="shield">
+<Card title="Definición y Umbrales" icon="clock">
+Tiempo que toma procesar una request, distinguiendo entre requests exitosos y fallidos.
 
-* *Golden Signals:**
-
-* *Latencia:**
-
-- `auth_request_duration_seconds`: Histograma de latencia de requests
-
-- `auth_token_generation_duration_seconds`: Tiempo de generación de tokens
-
-- `auth_db_query_duration_seconds`: Latencia de consultas a base de datos
-
-* *Tráfico:**
-
-- `auth_requests_per_second`: Rate de requests por segundo
-
-- `auth_login_attempts_total`: Total de intentos de login
-
-- `auth_token_validations_total`: Validaciones de token
-
-* *Errores:**
-
-- `auth_error_rate`: Porcentaje de errores (4xx/5xx)
-
-- `auth_failed_logins_total`: Logins fallidos
-
-- `auth_invalid_tokens_total`: Tokens inválidos
-
-* *Saturación:**
-
-- `auth_active_connections`: Conexiones activas
-
-- `auth_cpu_usage_percent`: Uso de CPU
-
-- `auth_memory_usage_percent`: Uso de memoria
-
-* *Umbrales Críticos:**
-
-- Latencia p95 > 500ms
-
-- Error rate > 1%
-
-- CPU usage > 80%
-
-- Failed login rate > 5%
-
+**Umbrales críticos:**
+- P50 < 200ms (requests normales)
+- P95 < 500ms (experiencia de usuario)
+- P99 < 1s (casos extremos)
 </Card>
 
-### Servicio de Juegos
+```yaml
+# Configuración Prometheus
+- alert: HighLatency
+  expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 0.5
+  for: 2m
+  labels:
+    severity: warning
+  annotations:
+    summary: "High latency detected on {{ $labels.service }}"
+    description: "95th percentile latency is {{ $value }}s"
+```
 
-<Card title="game-service" icon="gamepad">
+### 4.6.3.2 Traffic (Tráfico)
 
-* *Golden Signals:**
+<Card title="Medición de Demanda" icon="activity">
+Medida de la demanda en el sistema, típicamente requests por segundo.
 
-* *Latencia:**
-
-- `game_session_start_duration_seconds`: Tiempo de inicio de sesión
-
-- `game_save_duration_seconds`: Tiempo de guardado
-
-- `game_load_duration_seconds`: Tiempo de carga de ROMs
-
-* *Tráfico:**
-
-- `game_sessions_active`: Sesiones activas concurrentes
-
-- `game_requests_per_second`: Rate de requests
-
-- `game_rom_downloads_total`: Descargas de ROMs
-
-* *Errores:**
-
-- `game_session_failures_total`: Fallos al iniciar sesión
-
-- `game_save_errors_total`: Errores de guardado
-
-- `game_emulation_crashes_total`: Crashes del emulador
-
-* *Saturación:**
-
-- `game_emulator_instances`: Instancias de emulador activas
-
-- `game_storage_usage_percent`: Uso de almacenamiento
-
-- `game_network_bandwidth_usage`: Uso de ancho de banda
-
-* *Umbrales Críticos:**
-
-- Session start time p95 > 3s
-
-- Save failure rate > 0.5%
-
-- Active sessions > 1000
-
-- Emulation crashes > 0.1%
-
+**Métricas clave:**
+- RPS por endpoint
+- Distribución por método HTTP
+- Patrones de uso por hora/día
 </Card>
 
-### Servicio de Usuarios
+```prometheus
+# Queries importantes
+rate(http_requests_total[5m])
+sum(rate(http_requests_total[5m])) by (method, endpoint)
+increase(http_requests_total[1h])
+```
 
-<Card title="user-service" icon="users">
+### 4.6.3.3 Errors (Errores)
 
-* *Golden Signals:**
+<Card title="Tasa de Fallos" icon="alert-triangle">
+Tasa de requests que fallan, expresada como fracción de todas las requests.
 
-* *Latencia:**
-
-- `user_profile_query_duration_seconds`: Consultas de perfil
-
-- `user_settings_update_duration_seconds`: Actualizaciones de configuración
-
-* *Tráfico:**
-
-- `user_profile_requests_per_second`: Requests de perfil
-
-- `user_active_sessions`: Sesiones de usuario activas
-
-* *Errores:**
-
-- `user_profile_not_found_total`: Perfiles no encontrados
-
-- `user_update_failures_total`: Fallos de actualización
-
-* *Saturación:**
-
-- `user_db_connections`: Conexiones a DB
-
-- `user_cache_hit_rate`: Tasa de aciertos de caché
-
-* *Umbrales Críticos:**
-
-- Profile query p95 > 200ms
-
-- Update failure rate > 0.5%
-
-- Cache hit rate < 90%
-
+**Categorías:**
+- HTTP 4xx (errores de cliente)
+- HTTP 5xx (errores de servidor)
+- Timeouts y circuit breaker trips
 </Card>
 
-## Dashboards Grafana Recomendados
+```yaml
+- alert: HighErrorRate
+  expr: |
+    (
+      sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+      /
+      sum(rate(http_requests_total[5m])) by (service)
+    ) > 0.01
+  for: 2m
+  labels:
+    severity: critical
+  annotations:
+    summary: "High error rate on {{ $labels.service }}"
+    description: "Error rate is {{ $value | humanizePercentage }}"
+```
 
-### Dashboard de Overview del Cluster
+### 4.6.3.4 Saturation (Saturación)
 
-<Accordion>
-  <AccordionItem title="Métricas Incluidas">
-    ```yaml
-    panels:
-      - cluster_cpu_usage_percent
-      - cluster_memory_usage_percent
-      - cluster_network_io
-      - cluster_disk_io
-      - kubernetes_pods_running
-      - kubernetes_nodes_ready
-      - overall_request_rate
-      - overall_error_rate
-      - overall_latency_p95
+<Card title="Utilización de Recursos" icon="cpu">
+Medida de la "plenitud" del servicio. Recursos más limitados como memoria, I/O, conexiones.
 
-    alerts:
-      - Cluster CPU > 75%
-      - Cluster Memory > 80%
-      - Nodes Not Ready > 0
-      - Overall Error Rate > 2%
-    ```
+**Recursos monitoreados:**
+- CPU utilization
+- Memory usage
+- Database connections
+- Queue depth
+</Card>
 
-  </AccordionItem>
-</Accordion>
+## 4.6.4 Configuración de Logs Estructurados
 
-### Dashboard por Servicio
-
-<Accordion>
-  <AccordionItem title="Template Variables">
-    ```yaml
-    variables:
-      - service: [auth-service, game-service, user-service]
-      - environment: [production, staging, development]
-      - time_range: [5m, 15m, 1h, 6h, 24h]
-
-    panels:
-      - Request Rate (por servicio)
-      - Error Rate (por servicio)
-      - Latency Distribution (P50, P95, P99)
-      - Active Connections
-      - Resource Usage (CPU, Memory)
-      - Top Errors (últimas 24h)
-    ```
-
-  </AccordionItem>
-</Accordion>
-
-### Dashboard de Business Metrics
-
-<Accordion>
-  <AccordionItem title="KPIs de Negocio">
-    ```yaml
-    panels:
-      - Daily Active Users (DAU)
-      - Game Sessions per Hour
-      - User Retention Rate
-      - Popular Games Ranking
-      - Revenue Metrics
-      - Geographic Distribution
-      - Device/Browser Stats
-      - User Journey Funnel
-    ```
-
-  </AccordionItem>
-</Accordion>
-
-## Structured Logging con Correlation IDs
-
-### Formato de Log Estándar
+### 4.6.4.1 Formato Estándar
 
 ```json
 {
   "timestamp": "2024-01-15T10:30:00.123Z",
   "level": "INFO",
-  "service": "auth-service",
-  "correlation_id": "req-abc123-def456",
-  "trace_id": "trace-789xyz",
-  "span_id": "span-456def",
-  "user_id": "user-12345",
-  "session_id": "sess-67890",
-  "message": "User login successful",
-  "context": {
-    "endpoint": "/api/v1/auth/login",
-    "method": "POST",
-    "ip": "192.168.1.100",
-    "user_agent": "Mozilla/5.0...",
-    "duration_ms": 245
-  },
+  "service": "user-service",
+  "version": "1.2.3",
+  "correlation_id": "abc123-def456-ghi789",
+  "trace_id": "xyz789-uvw456-rst123",
+  "span_id": "span123",
+  "user_id": "user_456",
+  "endpoint": "/api/users/profile",
+  "method": "GET",
+  "status_code": 200,
+  "duration_ms": 145,
+  "message": "User profile retrieved successfully",
   "metadata": {
-    "version": "1.2.3",
-    "environment": "production",
-    "pod": "auth-service-7d8f9g-h2j3k"
+    "cache_hit": true,
+    "db_queries": 2
   }
 }
-
 ```
 
-### Correlation ID Strategy
-
-<Tabs>
-  <Tab title="Generación">
-    ```javascript
-    // Generación de Correlation ID
-    const correlationId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-    // Headers HTTP
-    const headers = {
-      'X-Correlation-ID': correlationId,
-      'X-Request-ID': correlationId,
-      'X-Trace-ID': traceId
-    };
-    ```
-
-  </Tab>
-  <Tab title="Propagación">
-    ```javascript
-    // Middleware para propagar correlation IDs
-    app.use((req, res, next) => {
-      req.correlationId = req.headers['x-correlation-id'] || generateCorrelationId();
-      res.setHeader('X-Correlation-ID', req.correlationId);
-
-      // Añadir a contexto de logging
-      req.logContext = {
-        correlationId: req.correlationId,
-        service: 'auth-service',
-        endpoint: req.path,
-        method: req.method
-      };
-
-      next();
-    });
-    ```
-
-  </Tab>
-  <Tab title="Consulta">
-    ```bash
-    # CloudWatch Insights query
-    fields @timestamp, level, message, context
-    | filter correlation_id = "req-abc123-def456"
-    | sort @timestamp desc
-    | limit 100
-    ```
-
-  </Tab>
-</Tabs>
-
-## Correlación para Debugging
-
-### Flujo de Debugging de Errores
-
-<Steps>
-  <Step title="Identificar el Error">
-    1. Alerta recibida por Grafana/CloudWatch
-    2. Identificar correlation_id del error
-    3. Obtener trace_id asociado
-  </Step>
-  <Step title="Análisis de Logs">
-    ```bash
-    # Buscar todos los logs relacionados
-    aws logs start-query \
-      --log-group-name "/aws/eks/retrogame/auth-service" \
-      --start-time 1705312200 \
-      --end-time 1705315800 \
-      --query-string 'fields @timestamp, @message | filter correlation_id = "req-abc123-def456"'
-    ```
-
-  </Step>
-  <Step title="Análisis de Métricas">
-    ```promql
-    # Métricas durante el período del error
-    increase(auth_error_rate[5m]) # Incremento de errores
-    histogram_quantile(0.95, auth_request_duration_seconds) # Latencia
-    auth_active_connections # Carga del sistema
-    ```
-
-  </Step>
-  <Step title="Análisis de Traces">
-    - Abrir Jaeger UI
-    - Buscar por trace_id
-    - Analizar spans y dependencias
-    - Identificar el servicio que falló
-  </Step>
-</Steps>
-
-### Queries de Debugging Comunes
-
-<CodeGroup>
-  <CodeBlock title="Error Rate por Endpoint" language="promql">
-    ```promql
-    # Error rate por endpoint en los últimos 5 minutos
-    rate(http_requests_total{status=~"5.."}[5m]) /
-    rate(http_requests_total[5m]) * 100
-    ```
-
-  </CodeBlock>
-  <CodeBlock title="Slow Queries" language="sql">
-    ```sql
-    -- CloudWatch Insights: Queries lentas
-    fields @timestamp, duration_ms, endpoint, correlation_id
-    | filter duration_ms > 1000
-    | sort @timestamp desc
-    | limit 20
-    ```
-
-  </CodeBlock>
-  <CodeBlock title="Error Correlation" language="sql">
-    ```sql
-    -- Correlación de errores por usuario
-    fields @timestamp, user_id, message, correlation_id
-    | filter level = "ERROR"
-    | stats count() by user_id
-    | sort count() desc
-    ```
-
-  </CodeBlock>
-</CodeGroup>
-
-## Retention Policies
-
-### Configuración de Retención
-
-<Card title="Políticas de Retención" icon="clock">
-
-* *Logs:**
-
-- Production: 30 días
-
-- Staging: 14 días
-
-- Development: 7 días
-
-- Critical Errors: 90 días (exportados a S3)
-
-* *Métricas:**
-
-- High Resolution (1s): 3 horas
-
-- Standard (1m): 90 días
-
-- Aggregated (1h): 1 año
-
-- Business KPIs: 3 años
-
-* *Traces:**
-
-- Production: 7 días
-
-- Staging: 3 días
-
-- Sample Rate: 10% (100% para errores)
-
-* *Configuración CloudWatch:**
-
-```bash
-
-# Configurar retención de logs
-aws logs put-retention-policy \
-  --log-group-name "/aws/eks/retrogame/auth-service" \
-  --retention-in-days 30
-
-# Configurar exportación a S3 para archivado
-aws logs create-export-task \
-  --log-group-name "/aws/eks/retrogame/auth-service" \
-  --from 1704067200 \
-  --to 1704153600 \
-  --destination "retrogame-logs-archive"
-
-```
-
-</Card>
-
-## Alerting Strategy
-
-### Niveles de Severidad
-
-<Tabs>
-  <Tab title="Critical (P0)">
-    - Service Down (> 50% error rate)
-    - Database Unavailable
-    - Authentication System Down
-    - Payment Processing Failed
-
-    **Escalación:** Inmediata PagerDuty
-  </Tab>
-  <Tab title="High (P1)">
-    - High Error Rate (> 5%)
-    - High Latency (p95 > 2s)
-    - Resource Exhaustion (> 90%)
-
-    **Escalación:** Slack + Email
-  </Tab>
-  <Tab title="Medium (P2)">
-    - Moderate Error Rate (> 1%)
-    - Elevated Latency (p95 > 1s)
-    - Resource Warning (> 80%)
-
-    **Escalación:** Slack
-  </Tab>
-  <Tab title="Low (P3)">
-    - Performance Degradation
-    - Capacity Planning Warnings
-    - Non-Critical Failures
-
-    **Escalación:** Email daily digest
-  </Tab>
-</Tabs>
-
-### Configuración de Alertas
+### 4.6.4.2 Configuración Fluent Bit
 
 ```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+data:
+  fluent-bit.conf: |
+    [INPUT]
+        Name tail
+        Path /var/log/containers/*.log
+        Parser docker
+        Tag kube.*
+        Refresh_Interval 5
+        Mem_Buf_Limit 50MB
+        Skip_Long_Lines On
+        Skip_Empty_Lines On
 
-# Grafana Alert Rules
-groups:
-  - name: auth-service-alerts
-    rules:
-      - alert: AuthServiceHighErrorRate
-        expr: rate(http_requests_total{service="auth-service",status=~"5.."}[5m]) > 0.01
-        for: 2m
-        labels:
-          severity: critical
-          service: auth-service
-        annotations:
-          summary: "High error rate in auth service"
-          description: "Error rate is {{ $value }}% for the last 5 minutes"
-          correlation_query: 'fields @timestamp, @message | filter service = "auth-service" and level = "
+    [FILTER]
+        Name kubernetes
+        Match kube.*
+        Keep_Log Off
+        Annotations On
+        Labels On
 
+    [FILTER]
+        Name parser
+        Match kube.*
+        Key_Name log
+        Parser json
+        Reserve_Data On
+
+    [OUTPUT]
+        Name cloudwatch_logs
+        Match kube.*
+        region us-east-1
+        log_group_name /aws/eks/retrogame/application
+        log_stream_prefix application-
+        auto_create_group true
+```
+
+## 4.6.5 Dashboards Esenciales
+
+### 4.6.5.1 Dashboard de Golden Signals
+
+```json
+{
+  "dashboard": {
+    "title": "RetroGameCloud - Golden Signals",
+    "panels": [
+      {
+        "title": "Request Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total[5m]))",
+            "legendFormat": "RPS"
+          }
+        ]
+      },
+      {
+        "title": "Latency Distribution",
+        "type": "heatmap",
+        "targets": [
+          {
+            "expr": "rate(http_request_duration_seconds_bucket[5m])",
+            "legendFormat": "{{le}}"
+          }
+        ]
+      },
+      {
+        "title": "Error Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m]))",
+            "legendFormat": "Error Rate"
+          }
+        ]
+      },
+      {
+        "title": "Saturation",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "avg(rate(container_cpu_usage_seconds_total[5m]))",
+            "legendFormat": "CPU"
+          },
+          {
+            "expr": "avg(container_memory_usage_bytes / container_spec_memory_limit_bytes)",
+            "legendFormat": "Memory"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 4.6.5.2 Dashboard de Business Metrics
+
+<Tabs>
+  <Tab title="Gaming Metrics">
+    ```prometheus
+    # Sesiones activas de juego
+    gaming_active_sessions_total
+
+    # Latencia de input lag
+    histogram_quantile(0.95, rate(gaming_input_latency_seconds_bucket[5m]))
+
+    # Calidad de stream
+    avg(gaming_stream_quality_score) by (game_type)
+
+    # Desconexiones por problemas de red
+    rate(gaming_disconnections_total{reason="network"}[5m])
+    ```
+  </Tab>
+  <Tab title="User Experience">
+    ```prometheus
+    # Tiempo de carga de juegos
+    histogram_quantile(0.95, rate(game_loading_duration_seconds_bucket[5m]))
+
+    # Satisfacción del usuario
+    avg(user_rating_score) by (game_id)
+
+    # Abandono de sesiones
+    rate(session_abandonments_total[5m])
+
+    # Uso de features premium
+    rate(premium_feature_usage_total[1h]) by (feature)
+    ```
+  </Tab>
+  <Tab title="Infrastructure">
+    ```prometheus
+    # Utilización GPU
+    avg(gpu_utilization_percent) by (instance)
+
+    # Throughput de red
+    rate(node_network_transmit_bytes_total[5m])
+
+    # Storage IOPS
+    rate(aws_ebs_volume_read_ops[5m]) + rate(aws_ebs_volume_write_ops[5m])
+
+    # Costo por hora
+    aws_billing_estimated_charges by (service)
+    ```
+  </Tab>
+</Tabs>
+
+## 4.6.6 Distributed Tracing
+
+### 4.6.6.1 Configuración Jaeger
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger-all-in-one
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      containers:
+      - name: jaeger
+        image: jaegertracing/all-in-one:1.41
+        env:
+        - name: COLLECTOR_OTLP_ENABLED
+          value: "true"
+        - name: SPAN_STORAGE_TYPE
+          value: elasticsearch
+        - name: ES_SERVER_URLS
+          value: "https://elasticsearch.monitoring.svc.cluster.local:9200"
+        ports:
+        - containerPort: 16686
+          name: ui
+        - containerPort: 14250
+          name: grpc
+        - containerPort: 4317
+          name: otlp-grpc
+        - containerPort: 4318
+          name: otlp-http
+```
+
+### 4.6.6.2 Instrumentación OpenTelemetry
+
+<Tabs>
+  <Tab title="Node.js">
+    ```javascript
+    const { NodeSDK } = require('@opentelemetry/sdk-node');
+    const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
+    const { JaegerExporter } = require('@opentelemetry/exporter-jaeger');
+
+    const jaegerExporter = new JaegerExporter({
+      endpoint: 'http://jaeger-collector:14268/api/traces',
+    });
+
+    const sdk = new NodeSDK({
+      traceExporter: jaegerExporter,
+      instrumentations: [getNodeAutoInstrumentations()],
+      serviceName: 'user-service',
+      serviceVersion: '1.0.0',
+    });
+
+    sdk.start();
+
+    // Instrumentación manual
+    const { trace } = require('@opentelemetry/api');
+
+    async function processUserData(userId) {
+      const tracer = trace.getTracer('user-service');
+      
+      return tracer.startActiveSpan('process-user-data', async (span) => {
+        try {
+          span.setAttributes({
+            'user.id': userId,
+            'operation.type': 'data-processing'
+          });
+
+          const userData = await fetchUserFromDB(userId);
+          span.addEvent('user-data-fetched', { 
+            'user.type': userData.type 
+          });
+
+          const processed = await processData(userData);
+          span.setStatus({ code: SpanStatusCode.OK });
+          
+          return processed;
+        } catch (error) {
+          span.recordException(error);
+          span.setStatus({ 
+            code: SpanStatusCode.ERROR, 
+            message: error.message 
+          });
+          throw error;
+        } finally {
+          span.end();
+        }
+      });
+    }
+    ```
+  </Tab>
+  <Tab title="Go">
+    ```go
+    package main
+
+    import (
+        "context"
+        "log"
+        
+        "go.opentelemetry.io/otel"
+        "go.opentelemetry.io/otel/attribute"
+        "go.opentelemetry.io/otel/exporters/jaeger"
+        "go.opentelemetry.io/otel/sdk/resource"
+        "go.opentelemetry.io/otel/sdk/trace"
+        semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+    )
+
+    func initTracer() {
+        exp, err := jaeger.New(jaeger.WithCollectorEndpoint(
+            jaeger.WithEndpoint("http://jaeger-collector:14268/api/traces"),
+        ))
+        if err != nil {
+            log.Fatal(err)
+        }
+
+        tp := trace.NewTracerProvider(
+            trace.WithBatcher(exp),
+            trace.WithResource(resource.NewWithAttributes(
+                semconv.SchemaURL,
+                semconv.ServiceNameKey.String("gaming-service"),
+                semconv.ServiceVersionKey.String("1.0.0"),
+            )),
+        )
+        
+        otel.SetTracerProvider(tp)
+    }
+
+    func processGameSession(ctx context.Context, sessionID string) error {
+        tracer := otel.Tracer("gaming-service")
+        
+        ctx, span := tracer.Start(ctx, "process-game-session")
+        defer span.End()
+        
+        span.SetAttributes(
+            attribute.String("session.id", sessionID),
+            attribute.String("operation.type", "game-processing"),
+        )
+        
+        // Procesar lógica de juego
+        if err := startGameEngine(ctx, sessionID); err != nil {
+            span.RecordError(err)
+            return err
+        }
+        
+        span.AddEvent("game-engine-started")
+        return nil
+    }
+    ```
+  </Tab>
+  <Tab title="Python">
+    ```python
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpan
+</Tab>
+</Tabs>
 ```

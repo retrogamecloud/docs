@@ -1,15 +1,15 @@
 ---
-title: Seguridad y Gestión de Secretos
+title: 4. Seguridad y Gestión de Secretos
 description: Guía completa para la gestión segura de secretos, políticas de seguridad,
   OWASP Top 10 y mejores prácticas en RetroGameCloud
 icon: shield-check
 ---
 
-# Seguridad y Gestión de Secretos
+# 4. Seguridad y Gestión de Secretos
 
 Esta guía detalla las políticas de seguridad, gestión de secretos, implementación de OWASP Top 10 y mejores prácticas implementadas en RetroGameCloud para garantizar la protección de datos y sistemas.
 
-## Arquitectura de Seguridad
+## 4.1. Arquitectura de Seguridad
 
 ```mermaid
 graph TB
@@ -88,451 +88,449 @@ graph TB
     SCORE --> REDIS
     RANK --> REDIS
 
+    IAM -.-> AUTH
+    COGNITO -.-> AUTH
+    
     GAME --> S3
-    AUTH --> COGNITO
-    ALL --> IAM
-
-    style ATTACKER fill:#ff6b6b
-    style WAF fill:#51cf66
-    style SM fill:#ffd43b
-    style IAM fill:#339af0
-
+    USER --> S3
 ```
 
-## OWASP Top 10 - Implementación de Mitigaciones
+## 4.2. Gestión de Secretos
 
-### A01:2021 – Broken Access Control
+### 4.2.1. AWS Secrets Manager
 
-<Warning>
-El control de acceso roto es la vulnerabilidad #1 según OWASP. Implementamos múltiples capas de protección.
-</Warning>
+Configuración para secretos críticos como credenciales de base de datos y claves de API:
 
-#### Implementación de Controles
-
-```typescript
-// middleware/rbac.ts
-import { Request, Response, NextFunction } from 'express';
-import { JwtService } from '../services/jwt.service';
-import { UserRole } from '../types/user.types';
-
-export class RBACMiddleware {
-  constructor(private jwtService: JwtService) {}
-
-  // Control de acceso basado en roles
-  requireRole(allowedRoles: UserRole[]) {
-    return async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        const token = this.extractToken(req);
-        const payload = await this.jwtService.verify(token);
-
-        // Verificar rol de usuario
-        if (!allowedRoles.includes(payload.role)) {
-          return res.status(403).json({
-            error: 'INSUFFICIENT_PERMISSIONS',
-            message: 'Access denied'
-          });
-        }
-
-        // Verificar propiedad de recursos
-        if (req.params.userId && payload.sub !== req.params.userId) {
-          const hasAdminRole = payload.role === UserRole.ADMIN;
-          if (!hasAdminRole) {
-            return res.status(403).json({
-              error: 'RESOURCE_ACCESS_DENIED',
-              message: 'Cannot access other user resources'
-            });
-          }
-        }
-
-        req.user = payload;
-        next();
-      } catch (error) {
-        res.status(401).json({
-          error: 'INVALID_TOKEN',
-          message: 'Authentication failed'
-        });
-      }
-    };
+```yaml
+# terraform/secrets.tf
+resource "aws_secretsmanager_secret" "database_credentials" {
+  name        = "retrogame/database/credentials"
+  description = "Database credentials for RetroGameCloud"
+  
+  replica {
+    region = "us-west-2"
   }
-
-  private extractToken(req: Request): string {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      throw new Error('No token provided');
-    }
-    return authHeader.substring(7);
+  
+  tags = {
+    Environment = var.environment
+    Service     = "database"
   }
 }
 
+resource "aws_secretsmanager_secret_version" "database_credentials" {
+  secret_id = aws_secretsmanager_secret.database_credentials.id
+  secret_string = jsonencode({
+    username = var.db_username
+    password = var.db_password
+  })
+}
 ```
 
-#### Políticas de Acceso a Recursos
+### 4.2.2. Parameter Store
+
+Para configuraciones no sensibles y parámetros de aplicación:
 
 ```yaml
+# terraform/parameter-store.tf
+resource "aws_ssm_parameter" "api_config" {
+  name  = "/retrogame/api/config"
+  type  = "StringList"
+  value = "production,us-east-1,443"
+  
+  tags = {
+    Environment = var.environment
+  }
+}
 
-# k8s/rbac-policies.yml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  namespace: retrogame-prod
-  name: service-account-role
-rules:
-
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["get", "list"]
-  resourceNames: ["db-credentials", "jwt-secrets"]
-
-- apiGroups: [""]
-  resources: ["configmaps"]
-  verbs: ["get", "list"]
-
-- --
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: service-account-binding
-  namespace: retrogame-prod
-subjects:
-
-- kind: ServiceAccount
-  name: retrogame-service-account
-  namespace: retrogame-prod
-roleRef:
-  kind: Role
-  name: service-account-role
-  apiGroup: rbac.authorization.k8s.io
-
+resource "aws_ssm_parameter" "jwt_config" {
+  name  = "/retrogame/auth/jwt-expiry"
+  type  = "String"
+  value = "24h"
+}
 ```
 
-### A02:2021 – Cryptographic Failures
+### 4.2.3. Implementación en Kubernetes
 
-#### Implementación de Cifrado
+```yaml
+# k8s/secrets/secret-provider-class.yaml
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: retrogame-secrets
+  namespace: retrogame
+spec:
+  provider: aws
+  parameters:
+    objects: |
+      - objectName: "retrogame/database/credentials"
+        objectType: "secretsmanager"
+        jmesPath:
+          - path: "username"
+            objectAlias: "db-username"
+          - path: "password"
+            objectAlias: "db-password"
+      - objectName: "/retrogame/api/jwt-secret"
+        objectType: "ssmparameter"
+  secretObjects:
+  - secretName: database-secret
+    type: Opaque
+    data:
+    - objectName: "db-username"
+      key: username
+    - objectName: "db-password"
+      key: password
+```
+
+## 4.3. OWASP Top 10 - Implementación
+
+### 4.3.1. A01 - Broken Access Control
 
 ```typescript
-// services/encryption.service.ts
-import { createCipher, createDecipher, randomBytes, scrypt } from 'crypto';
-import { promisify } from 'util';
+// src/auth/guards/permission.guard.ts
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 
+@Injectable()
+export class PermissionGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const requiredPermissions = this.reflector.getAllAndOverride<string[]>('permissions', [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    if (!requiredPermissions) {
+      return true;
+    }
+
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
+
+    const hasPermission = requiredPermissions.some(permission => 
+      user.permissions?.includes(permission)
+    );
+
+    if (!hasPermission) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
+
+    return true;
+  }
+}
+
+// Uso en controlador
+@Controller('admin')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+export class AdminController {
+  @Get('users')
+  @Permissions('admin:users:read')
+  async getUsers() {
+    // Lógica del endpoint
+  }
+}
+```
+
+### 4.3.2. A02 - Cryptographic Failures
+
+```typescript
+// src/common/utils/encryption.service.ts
+import { Injectable } from '@nestjs/common';
+import * as crypto from 'crypto';
+import * as bcrypt from 'bcryptjs';
+
+@Injectable()
 export class EncryptionService {
   private readonly algorithm = 'aes-256-gcm';
   private readonly keyLength = 32;
 
-  async encryptSensitiveData(data: string, password: string): Promise<string> {
-    const salt = randomBytes(16);
-    const iv = randomBytes(16);
+  async hashPassword(password: string): Promise<string> {
+    const saltRounds = 12;
+    return bcrypt.hash(password, saltRounds);
+  }
 
-    // Derivar clave usando scrypt
-    const key = await promisify(scrypt)(password, salt, this.keyLength) as Buffer;
+  async verifyPassword(password: string, hash: string): Promise<boolean> {
+    return bcrypt.compare(password, hash);
+  }
 
-    const cipher = createCipher(this.algorithm, key);
-    cipher.setAAD(salt); // Datos adicionales autenticados
-
+  encryptSensitiveData(data: string, key: Buffer): {
+    encrypted: string;
+    iv: string;
+    authTag: string;
+  } {
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipher(this.algorithm, key);
+    
     let encrypted = cipher.update(data, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-
+    
     const authTag = cipher.getAuthTag();
 
-    // Combinar salt, iv, authTag y datos cifrados
-    return salt.toString('hex') + ':' +
-           iv.toString('hex') + ':' +
-           authTag.toString('hex') + ':' +
-           encrypted;
+    return {
+      encrypted,
+      iv: iv.toString('hex'),
+      authTag: authTag.toString('hex')
+    };
   }
+}
+```
 
-  // Validación de contraseñas seguras
-  validatePasswordStrength(password: string): boolean {
-    const minLength = 12;
-    const hasUpperCase = /[A-Z]/.test(password);
-    const hasLowerCase = /[a-z]/.test(password);
-    const hasNumbers = /\d/.test(password);
-    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+### 4.3.3. A03 - Injection
 
-    return password.length >= minLength &&
-           hasUpperCase &&
-           hasLowerCase &&
-           hasNumbers &&
-           hasSpecialChar;
+```typescript
+// src/common/pipes/sql-injection-prevention.pipe.ts
+import { Injectable, PipeTransform, BadRequestException } from '@nestjs/common';
+
+@Injectable()
+export class SqlInjectionPreventionPipe implements PipeTransform {
+  private readonly sqlInjectionPatterns = [
+    /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE)\b)/gi,
+    /(UNION|OR|AND)\s+\d+\s*=\s*\d+/gi,
+    /[';--]/g,
+    /\/\*.*\*\//g
+  ];
+
+  transform(value: any) {
+    if (typeof value === 'string') {
+      for (const pattern of this.sqlInjectionPatterns) {
+        if (pattern.test(value)) {
+          throw new BadRequestException('Invalid input detected');
+        }
+      }
+    }
+
+    if (typeof value === 'object') {
+      Object.keys(value).forEach(key => {
+        value[key] = this.transform(value[key]);
+      });
+    }
+
+    return value;
   }
 }
 
-```
-
-### A03:2021 – Injection
-
-#### Prevención de Inyección SQL
-
-```typescript
-// repositories/user.repository.ts
-import { Pool } from 'pg';
-import { User, CreateUserDto } from '../types/user.types';
-
+// Uso con TypeORM Repository Pattern
+@Injectable()
 export class UserRepository {
-  constructor(private db: Pool) {}
+  constructor(
+    @InjectRepository(User)
+    private userRepository: Repository<User>
+  ) {}
 
-  // Uso de consultas parametrizadas
-  async findById(id: string): Promise<User | null> {
-    const query = `
-      SELECT id, email, username, role, created_at, updated_at
-      FROM users
-      WHERE id = $1 AND deleted_at IS NULL
-    `;
-
-    const result = await this.db.query(query, [id]);
-    return result.rows[0] || null;
+  async findUserByEmail(email: string): Promise<User> {
+    // Uso de parámetros preparados para prevenir SQL injection
+    return this.userRepository.findOne({
+      where: { email },
+      select: ['id', 'email', 'username', 'createdAt']
+    });
   }
 
-  async create(userData: CreateUserDto): Promise<User> {
-    const query = `
-      INSERT INTO users (id, email, username, password_hash, role)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, email, username, role, created_at
-    `;
-
-    const values = [
-      userData.id,
-      userData.email,
-      userData.username,
-      userData.passwordHash,
-      userData.role
-    ];
-
-    const result = await this.db.query(query, values);
-    return result.rows[0];
+  async updateUserScore(userId: number, score: number): Promise<void> {
+    // Query builder con parámetros seguros
+    await this.userRepository
+      .createQueryBuilder()
+      .update(User)
+      .set({ currentScore: () => `current_score + :score` })
+      .where('id = :userId')
+      .setParameters({ score, userId })
+      .execute();
   }
+}
+```
 
-  // Validación y sanitización de entrada
-  async searchUsers(searchTerm: string, limit: number = 10): Promise<User[]> {
-    // Sanitizar entrada
-    const sanitizedTerm = searchTerm.replace(/[%_]/g, '\\$&');
+### 4.3.4. A04 - Insecure Design
 
-    const query = `
-      SELECT id, email, username, role
-      FROM users
-      WHERE (username ILIKE $1 OR email ILIKE $1)
-        AND deleted_at IS NULL
-      LIMIT $2
-    `;
+```typescript
+// src/common/decorators/rate-limit.decorator.ts
+import { SetMetadata } from '@nestjs/common';
 
-    const result = await this.db.query(query, [`%${sanitizedTerm}%`, limit]);
-    return result.rows;
+export const RateLimit = (requests: number, windowMs: number) =>
+  SetMetadata('rateLimit', { requests, windowMs });
+
+// src/auth/guards/rate-limit.guard.ts
+import { Injectable, CanActivate, ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { RedisService } from '../redis/redis.service';
+
+@Injectable()
+export class RateLimitGuard implements CanActivate {
+  constructor(
+    private reflector: Reflector,
+    private redisService: RedisService
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const rateLimitConfig = this.reflector.get<{requests: number, windowMs: number}>('rateLimit', context.getHandler());
+    
+    if (!rateLimitConfig) {
+      return true;
+    }
+
+    const request = context.switchToHttp().getRequest();
+    const clientIp = request.ip;
+    const key = `rate_limit:${clientIp}:${context.getHandler().name}`;
+
+    const current = await this.redisService.incr(key);
+    
+    if (current === 1) {
+      await this.redisService.expire(key, Math.ceil(rateLimitConfig.windowMs / 1000));
+    }
+
+    if (current > rateLimitConfig.requests) {
+      throw new HttpException('Too Many Requests', HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    return true;
   }
 }
 
+// Uso en controlador
+@Controller('auth')
+export class AuthController {
+  @Post('login')
+  @RateLimit(5, 60000) // 5 intentos por minuto
+  @UseGuards(RateLimitGuard)
+  async login(@Body() loginDto: LoginDto) {
+    return this.authService.login(loginDto);
+  }
+}
 ```
 
-### A04:2021 – Insecure Design
-
-#### Implementación de Rate Limiting
-
-```typescript
-// middleware/rate-limiting.ts
-import rateLimit from 'express-rate-limit';
-import RedisStore from 'rate-limit-redis';
-import Redis from 'ioredis';
-
-const redis = new Redis(process.env.REDIS_URL);
-
-export const createRateLimit = (options: {
-  windowMs: number;
-  max: number;
-  message: string;
-  skipSuccessfulRequests?: boolean;
-}) => {
-  return rateLimit({
-    store: new RedisStore({
-      sendCommand: (...args: string[]) => redis.call(...args),
-    }),
-    windowMs: options.windowMs,
-    max: options.max,
-    message: {
-      error: 'RATE_LIMIT_EXCEEDED',
-      message: options.message,
-    },
-    skipSuccessfulRequests: options.skipSuccessfulRequests || false,
-    standardHeaders: true,
-    legacyHeaders: false,
-  });
-};
-
-// Rate limits específicos por endpoint
-export const authRateLimit = createRateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // 5 intentos de login por IP
-  message: 'Too many authentication attempts',
-  skipSuccessfulRequests: true,
-});
-
-export const apiRateLimit = createRateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // 100 requests por IP
-  message: 'Too many API requests',
-});
-
-```
-
-### A05:2021 – Security Misconfiguration
-
-#### Configuración Segura de Headers
-
-```typescript
-// middleware/security-headers.ts
-import helmet from 'helmet';
-import { Application } from 'express';
-
-export const configureSecurityHeaders = (app: Application) => {
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:", "https:"],
-        scriptSrc: ["'self'"],
-        objectSrc: ["'none'"],
-        upgradeInsecureRequests: [],
-      },
-    },
-    hsts: {
-      maxAge: 31536000,
-      includeSubDomains: true,
-      preload: true
-    },
-    noSniff: true,
-    frameguard: { action: 'deny' },
-    xssFilter: true,
-  }));
-
-  // Headers adicionales de seguridad
-  app.use((req, res, next) => {
-    res.setHeader('X-API-Version', '1.0');
-    res.setHeader('Cache-Control', 'no-store');
-    res.removeHeader('X-Powered-By');
-    next();
-  });
-};
-
-```
-
-### A06:2021 – Vulnerable and Outdated Components
-
-#### Monitoreo de Vulnerabilidades
+### 4.3.5. A05 - Security Misconfiguration
 
 ```yaml
+# k8s/network-policies/deny-all-default.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-default
+  namespace: retrogame
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+# k8s/network-policies/allow-api-traffic.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-traffic
+  namespace: retrogame
+spec:
+  podSelector:
+    matchLabels:
+      app: retrogame-api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 3000
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+```
 
+### 4.3.6. A06 - Vulnerable Components
+
+```json
+// package.json - Audit y actualización automática
+{
+  "scripts": {
+    "audit": "npm audit --audit-level=moderate",
+    "audit:fix": "npm audit fix",
+    "security:check": "npm run audit && npm run test:security"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "snyk": "^1.1200.0"
+  }
+}
+```
+
+```yaml
 # .github/workflows/security-scan.yml
-name: Security Vulnerability Scan
+name: Security Scan
 on:
-  schedule:
-    - cron: '0 2 * * *' # Diario a las 2 AM
   push:
-    branches: [main]
+    branches: [ main, develop ]
   pull_request:
+    branches: [ main ]
 
 jobs:
-  vulnerability-scan:
+  security-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run npm audit
-        run: npm audit --audit-level high
-
-      - name: Run Snyk test
-        run: |
-          npm install -g snyk
-          snyk auth ${{ secrets.SNYK_TOKEN }}
-          snyk test --severity-threshold=high
-
-      - name: Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-
-      - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: 'trivy-results.sarif'
-
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run npm audit
+      run: npm audit --audit-level=high
+      
+    - name: Run Snyk security scan
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high
+        
+    - name: Container Security Scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'retrogame:${{ github.sha }}'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
 ```
 
-## Gestión de Secretos
+## 4.4. Políticas de Seguridad IAM
 
-### AWS Secrets Manager
+### 4.4.1. Principio de Menor Privilegio
 
-<Note>
-AWS Secrets Manager se utiliza para almacenar secretos críticos como credenciales de base de datos, claves JWT y tokens OAuth2.
-</Note>
-
-#### Configuración de Secretos
-
-```yaml
-
-# secrets-manager-setup.yml
-apiVersion: external-secrets.io/v1beta1
-kind: SecretStore
-metadata:
-  name: aws-secrets-store
-  namespace: retrogame-prod
-spec:
-  provider:
-    aws:
-      service: SecretsManager
-      region: us-east-1
-      auth:
-        secretRef:
-          accessKeyID:
-            name: aws-credentials
-            key: access-key-id
-          secretAccessKey:
-            name: aws-credentials
-            key: secret-access-key
-
-- --
-apiVersion: external-secrets.io/v1beta1
-kind: ExternalSecret
-metadata:
-  name: database-credentials
-  namespace: retrogame-prod
-spec:
-  refreshInterval: 1h
-  secretStoreRef:
-    name: aws-secrets-store
-    kind: SecretStore
-  target:
-    name: db-credentials
-    creationPolicy: Owner
-  data:
-  - secretKey: username
-    remoteRef:
-      key: retrogame/database/credentials
-      property: username
-  - secretKey: password
-    remoteRef:
-      key: retrogame/database/credentials
-      property: password
-  - secretKey: host
-    remoteRef:
-      key: retrogame/database/credentials
-      property: host
-
-```
-
-#### Rotación Automática de Secretos
-
-```typescript
-// services/secret-rotation.service.ts
-import { SecretsManagerClient, UpdateSecretCommand } from '@aws-sdk
-
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "RetroGameAPIRole",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue",
+        "ssm:GetParameter",
+        "ssm:GetParameters"
+      ],
+      "Resource": [
+        "arn:aws:secretsmanager:*:*:secret:retrogame/*",
+        "arn:aws:ssm:*:*:parameter/retrogame/*"
+      ]
+    },
+    {
+      "Sid": "S3GameAssetsAccess",
+      "Effect": "Allow",
+      "Action": [
 ```

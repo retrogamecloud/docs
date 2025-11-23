@@ -12,494 +12,301 @@ Esta guía proporciona soluciones estructuradas para los problemas más comunes 
 Para cada problema, sigue el proceso: **Síntomas** → **Diagnóstico** → **Solución** → **Prevención**
 </Note>
 
+## Metodología de Resolución de Problemas
+
+### Proceso Estructurado
+
+<Steps>
+<Step title="Identificación">
+**Recopila información inicial:**
+- ¿Cuándo comenzó el problema?
+- ¿Qué cambios se realizaron recientemente?
+- ¿El problema es intermitente o constante?
+- ¿Afecta a todos los usuarios o solo a algunos?
+</Step>
+
+<Step title="Diagnóstico">
+**Examina los logs y métricas:**
+- Revisa logs de aplicación y sistema
+- Verifica métricas de rendimiento
+- Comprueba el estado de los servicios
+- Analiza la conectividad de red
+</Step>
+
+<Step title="Solución">
+**Aplica la corrección apropiada:**
+- Implementa la solución paso a paso
+- Documenta los cambios realizados
+- Verifica que el problema se resolvió
+- Monitorea para asegurar estabilidad
+</Step>
+
+<Step title="Prevención">
+**Implementa medidas preventivas:**
+- Actualiza documentación
+- Mejora monitoreo y alertas
+- Aplica mejores prácticas
+- Planifica capacitación del equipo
+</Step>
+</Steps>
+
+## Herramientas de Diagnóstico
+
+### Comandos Esenciales
+
+<CodeGroup>
+```bash Kubernetes
+# Estado general del cluster
+kubectl get pods -A
+kubectl get services -A
+kubectl get nodes
+
+# Logs detallados
+kubectl logs -f <pod-name> -n <namespace>
+kubectl describe pod <pod-name> -n <namespace>
+
+# Eventos del cluster
+kubectl get events --sort-by=.metadata.creationTimestamp
+```
+
+```bash Aplicación
+# Logs de la aplicación
+docker logs <container-id> --tail 100 -f
+
+# Estado de servicios
+systemctl status <service-name>
+
+# Conectividad de red
+ping <hostname>
+telnet <hostname> <port>
+nslookup <domain>
+```
+
+```bash Base de Datos
+# Conexión PostgreSQL
+psql -h <host> -U <user> -d <database>
+
+# Estado de conexiones
+SELECT * FROM pg_stat_activity;
+
+# Verificar locks
+SELECT * FROM pg_locks;
+```
+</CodeGroup>
+
 ## Índice de Problemas por Categoría
 
 <CardGroup cols={2}>
-<Card title="Kubernetes" icon="dharmachakra" href="#problemas-de-kubernetes">
+<Card title="Kubernetes" icon="dharmachakra" href="/troubleshooting/kubernetes">
 Pods, servicios, deployments y configuraciones
 </Card>
-<Card title="Base de Datos" icon="database" href="#problemas-de-base-de-datos">
+<Card title="Base de Datos" icon="database" href="/troubleshooting/database">
 PostgreSQL, conexiones y migraciones
 </Card>
-<Card title="Autenticación" icon="lock" href="#problemas-de-autenticacion">
+<Card title="Autenticación" icon="lock" href="/troubleshooting/authentication">
 JWT, OAuth, permisos y sesiones
 </Card>
-<Card title="API y Backend" icon="server" href="#problemas-de-api-y-backend">
+<Card title="API y Backend" icon="server" href="/troubleshooting/api-backend">
 Endpoints, rendimiento y conectividad
 </Card>
-<Card title="Frontend" icon="window" href="#problemas-de-frontend">
+<Card title="Frontend" icon="window" href="/troubleshooting/frontend">
 Interfaz, carga y experiencia de usuario
 </Card>
-<Card title="Almacenamiento" icon="hard-drive" href="#problemas-de-almacenamiento">
+<Card title="Almacenamiento" icon="hard-drive" href="/troubleshooting/storage">
 MinIO, volúmenes y archivos
 </Card>
-<Card title="Red y Conectividad" icon="network-wired" href="#problemas-de-red-y-conectividad">
+<Card title="Red y Conectividad" icon="network-wired" href="/troubleshooting/network">
 DNS, ingress, certificados SSL
 </Card>
-<Card title="Rendimiento" icon="gauge-high" href="#problemas-de-rendimiento">
+<Card title="Rendimiento" icon="gauge-high" href="/troubleshooting/performance">
 Latencia, memoria y optimización
 </Card>
 </CardGroup>
 
-## Problemas de Kubernetes
+## Problemas Críticos Comunes
 
-### CrashLoopBackOff
+### Aplicación No Disponible
 
-<Tabs>
-<Tab title="Síntomas">
-**Indicadores del problema:**
-
-- Pods reiniciándose constantemente
-- Estado `CrashLoopBackOff` en `kubectl get pods`
-- Logs mostrando errores de arranque
-- Aplicación no disponible
-</Tab>
-<Tab title="Diagnóstico">
+<Accordion title="Diagnóstico Rápido">
+<Steps>
+<Step title="Verificar Pods">
 ```bash
-# Ver estado de pods
 kubectl get pods -n retrogame
-
-# Revisar logs del contenedor
-kubectl logs <pod-name> -n retrogame --previous
-
-# Describir el pod para eventos
-kubectl describe pod <pod-name> -n retrogame
-
-# Revisar configuración del deployment
-kubectl describe deployment <deployment-name> -n retrogame
+kubectl describe pod <failing-pod> -n retrogame
 ```
-</Tab>
-<Tab title="Solución">
-**Paso 1: Identificar la causa raíz**
+</Step>
 
+<Step title="Revisar Servicios">
 ```bash
-# Revisar logs detallados
-kubectl logs <pod-name> -c <container-name> --previous -n retrogame
-
-# Verificar variables de entorno
-kubectl get deployment <deployment-name> -o yaml -n retrogame
-```
-
-**Paso 2: Soluciones comunes**
-
-- **Error de configuración**: Verificar ConfigMaps y Secrets
-- **Dependencias no disponibles**: Comprobar conectividad a BD/Redis
-- **Recursos insuficientes**: Ajustar límites de memoria/CPU
-- **Imagen incorrecta**: Verificar tag de imagen
-
-**Paso 3: Aplicar corrección**
-
-```bash
-# Actualizar deployment
-kubectl patch deployment <deployment-name> -n retrogame -p '{"spec":{"template":{"spec":{"containers":[{"name":"<container-name>","image":"<new-image>"}]}}}}'
-
-# O editar directamente
-kubectl edit deployment <deployment-name> -n retrogame
-```
-</Tab>
-<Tab title="Prevención">
-- Implementar health checks adecuados
-- Usar init containers para dependencias
-- Configurar resource limits apropiados
-- Validar configuraciones en staging
-</Tab>
-</Tabs>
-
-### Servicio No Accesible
-
-<Tabs>
-<Tab title="Síntomas">
-- Error 503 Service Unavailable
-- Timeout de conexión
-- DNS resolution failed
-- Servicio no responde
-</Tab>
-<Tab title="Diagnóstico">
-```bash
-# Verificar estado del servicio
-kubectl get svc -n retrogame
-
-# Revisar endpoints
-kubectl get endpoints -n retrogame
-
-# Verificar pods backend
-kubectl get pods -l app=<service-name> -n retrogame
-
-# Probar conectividad interna
-kubectl exec -it <test-pod> -n retrogame -- curl http://<service-name>:<port>
-```
-</Tab>
-<Tab title="Solución">
-```bash
-# Verificar selector del servicio
-kubectl describe svc <service-name> -n retrogame
-
-# Comprobar labels de pods
-kubectl get pods --show-labels -n retrogame
-
-# Recrear servicio si es necesario
-kubectl delete svc <service-name> -n retrogame
-kubectl apply -f service.yaml
-```
-</Tab>
-<Tab title="Prevención">
-- Verificar consistencia de labels y selectors
-- Implementar readiness probes
-- Monitorear endpoints activos
-</Tab>
-</Tabs>
-
-### Problemas de Ingress
-
-<Tabs>
-<Tab title="Síntomas">
-- Error 404 en el dominio
-- Certificado SSL inválido
-- Redirección incorrecta
-- Timeout en requests externos
-</Tab>
-<Tab title="Diagnóstico">
-```bash
-# Verificar ingress
+kubectl get services -n retrogame
 kubectl get ingress -n retrogame
-
-# Revisar configuración
-kubectl describe ingress <ingress-name> -n retrogame
-
-# Verificar certificados
-kubectl get certificates -n retrogame
-
-# Logs del ingress controller
-kubectl logs -n ingress-nginx deployment/nginx-ingress-controller
 ```
-</Tab>
-<Tab title="Solución">
+</Step>
+
+<Step title="Comprobar Logs">
 ```bash
-# Verificar anotaciones del ingress
-kubectl get ingress <ingress-name> -o yaml -n retrogame
-
-# Renovar certificado SSL
-kubectl delete certificate <cert-name> -n retrogame
-# Cert-manager lo recreará automáticamente
-
-# Verificar DNS
-nslookup <domain-name>
+kubectl logs -f deployment/retrogame-backend -n retrogame
+kubectl logs -f deployment/retrogame-frontend -n retrogame
 ```
-</Tab>
-<Tab title="Prevención">
-- Configurar cert-manager correctamente
-- Validar DNS antes del deploy
-- Usar staging certificates para pruebas
-</Tab>
-</Tabs>
+</Step>
 
-## Problemas de Base de Datos
-
-### Conexión Rechazada
-
-<Tabs>
-<Tab title="Síntomas">
-- Error: "Connection refused" en logs
-- Aplicación no puede conectar a PostgreSQL
-- Timeout en consultas
-- Pool de conexiones agotado
-</Tab>
-<Tab title="Diagnóstico">
+<Step title="Verificar Conectividad">
 ```bash
-# Verificar estado del pod de PostgreSQL
+# Test interno del cluster
+kubectl run test-pod --image=busybox -it --rm -- /bin/sh
+nslookup retrogame-backend.retrogame.svc.cluster.local
+
+# Test externo
+curl -I https://your-domain.com
+```
+</Step>
+</Steps>
+</Accordion>
+
+### Base de Datos Inaccesible
+
+<Accordion title="Pasos de Resolución">
+<Steps>
+<Step title="Estado del Pod PostgreSQL">
+```bash
 kubectl get pods -l app=postgresql -n retrogame
-
-# Revisar logs de PostgreSQL
-kubectl logs <postgresql-pod> -n retrogame
-
-# Probar conectividad
-kubectl exec -it <app-pod> -n retrogame -- nc -zv postgresql-service 5432
-
-# Verificar secretos
-kubectl get secret postgresql-secret -o yaml -n retrogame
+kubectl logs postgresql-0 -n retrogame
 ```
-</Tab>
-<Tab title="Solución">
+</Step>
+
+<Step title="Verificar Configuración">
 ```bash
-# Reiniciar PostgreSQL si está colgado
-kubectl delete pod <postgresql-pod> -n retrogame
-
-# Verificar configuración de red
-kubectl describe svc postgresql-service -n retrogame
-
-# Revisar variables de conexión
-kubectl get deployment <app-deployment> -o yaml | grep -A 10 env
+kubectl get configmap postgres-config -n retrogame -o yaml
+kubectl get secret postgres-secret -n retrogame -o yaml
 ```
-</Tab>
-<Tab title="Prevención">
-- Configurar connection pooling adecuado
-- Monitorear métricas de base de datos
-- Implementar circuit breakers
-- Usar readiness probes para PostgreSQL
-</Tab>
-</Tabs>
+</Step>
 
-### Migraciones Fallidas
-
-<Tabs>
-<Tab title="Síntomas">
-- Error en startup de aplicación
-- Tablas faltantes o incorrectas
-- Datos corruptos después de migración
-- Logs de error de schema
-</Tab>
-<Tab title="Diagnóstico">
+<Step title="Test de Conectividad">
 ```bash
-# Verificar logs de migración
-kubectl logs <app-pod> -n retrogame | grep migration
-
-# Conectar a PostgreSQL
-kubectl exec -it <postgresql-pod> -n retrogame -- psql -U postgres
-
-# Verificar estado de migraciones
-\dt migrations
-SELECT * FROM schema_migrations;
+# Desde pod de aplicación
+kubectl exec -it deployment/retrogame-backend -n retrogame -- \
+  psql -h postgresql -U retrogame -d retrogame_db -c "SELECT 1;"
 ```
-</Tab>
-<Tab title="Solución">
+</Step>
+
+<Step title="Revisar Recursos">
 ```bash
-# Ejecutar migraciones manualmente
-kubectl exec -it <app-pod> -n retrogame -- npm run migrate
-
-# Rollback si es necesario
-kubectl exec -it <app-pod> -n retrogame -- npm run migrate:rollback
-
-# Verificar integridad de datos
-kubectl exec -it <postgresql-pod> -n retrogame -- pg_dump -U postgres retrogame > backup.sql
-```
-</Tab>
-<Tab title="Prevención">
-- Siempre hacer backup antes de migraciones
-- Probar migraciones en staging
-- Implementar migraciones idempotentes
-- Usar init containers para migraciones
-</Tab>
-</Tabs>
-
-## Problemas de Autenticación
-
-### JWT Token Inválido
-
-<Tabs>
-<Tab title="Síntomas">
-- Error 401 Unauthorized
-- "Token expired" en logs
-- Usuario deslogueado constantemente
-- Error de verificación de firma
-</Tab>
-<Tab title="Diagnóstico">
-```bash
-# Verificar secreto JWT
-kubectl get secret jwt-secret -o yaml -n retrogame
-
-# Revisar logs de autenticación
-kubectl logs <auth-service-pod> -n retrogame | grep jwt
-
-# Verificar tiempo de sistema
-kubectl exec -it <auth-pod> -n retrogame -- date
-```
-</Tab>
-<Tab title="Solución">
-```bash
-# Regenerar secreto JWT
-kubectl create secret generic jwt-secret --from-literal=secret=$(openssl rand -base64 32) -n retrogame
-
-# Sincronizar tiempo si es necesario
-kubectl exec -it <pod> -n retrogame -- ntpdate -s time.nist.gov
-
-# Reiniciar servicios de auth
-kubectl rollout restart deployment auth-service -n retrogame
-```
-</Tab>
-<Tab title="Prevención">
-- Configurar NTP en nodos
-- Usar refresh tokens
-- Monitorear expiración de tokens
-- Implementar rotación de secretos
-</Tab>
-</Tabs>
-
-### OAuth Fallos
-
-<Tabs>
-<Tab title="Síntomas">
-- Redirección fallida después de login
-- Error "invalid_client" 
-- Callback URL no reconocida
-- Permisos insuficientes
-</Tab>
-<Tab title="Diagnóstico">
-```bash
-# Verificar configuración OAuth
-kubectl get configmap oauth-config -o yaml -n retrogame
-
-# Revisar URLs de callback
-kubectl describe ingress auth-ingress -n retrogame
-
-# Verificar secretos OAuth
-kubectl get secret oauth-credentials -n retrogame
-```
-</Tab>
-<Tab title="Solución">
-```bash
-# Actualizar URLs en proveedor OAuth
-# Verificar configuración de ingress
-kubectl patch ingress auth-ingress -n retrogame --patch='{"spec":{"rules":[{"host":"auth.retrogame.local"}]}}'
-
-# Actualizar credenciales
-kubectl patch secret oauth-credentials -n retrogame --patch='{"data":{"client_secret":"<new-base64-secret>"}}'
-```
-</Tab>
-<Tab title="Prevención">
-- Documentar configuración OAuth
-- Usar variables de entorno para URLs
-- Validar configuración en múltiples entornos
-</Tab>
-</Tabs>
-
-## Problemas de API y Backend
-
-### API No Responde
-
-<Tabs>
-<Tab title="Síntomas">
-- Timeout en requests HTTP
-- Error 502 Bad Gateway
-- Respuestas lentas o colgadas
-- CPU/memoria alta en pods
-</Tab>
-<Tab title="Diagnóstico">
-```bash
-# Verificar estado de pods API
-kubectl get pods -l app=api -n retrogame
-
-# Revisar métricas de recursos
 kubectl top pods -n retrogame
-
-# Verificar logs por errores
-kubectl logs <api-pod> -n retrogame --tail=100
-
-# Probar endpoint directamente
-kubectl exec -it <test-pod> -n retrogame -- curl -v http://api-service/health
+kubectl describe pvc postgres-pvc -n retrogame
 ```
-</Tab>
-<Tab title="Solución">
+</Step>
+</Steps>
+</Accordion>
+
+### Errores de Autenticación
+
+<Accordion title="Solución Paso a Paso">
+<Steps>
+<Step title="Verificar JWT">
+- Comprobar expiración de tokens
+- Validar configuración de secretos
+- Revisar algoritmos de firma
+</Step>
+
+<Step title="OAuth Issues">
+- Verificar configuración de providers
+- Comprobar URLs de callback
+- Validar client_id y client_secret
+</Step>
+
+<Step title="Permisos y Roles">
+- Revisar asignación de roles
+- Verificar políticas de acceso
+- Comprobar middleware de autorización
+</Step>
+</Steps>
+</Accordion>
+
+## Escalado de Problemas
+
+### Matriz de Severidad
+
+| Severidad | Descripción | Tiempo de Respuesta | Escalado |
+|-----------|-------------|-------------------|----------|
+| **Crítica** | Aplicación completamente inaccesible | 15 minutos | Inmediato al lead técnico |
+| **Alta** | Funcionalidad principal afectada | 1 hora | Al equipo senior |
+| **Media** | Funcionalidad secundaria afectada | 4 horas | Al equipo de desarrollo |
+| **Baja** | Problemas cosméticos o menores | 24 horas | Backlog normal |
+
+### Contactos de Emergencia
+
+<Warning>
+En caso de problemas críticos en producción, contacta inmediatamente:
+- **Lead Técnico**: [contacto]
+- **DevOps**: [contacto]
+- **On-Call**: [contacto de guardia]
+</Warning>
+
+## Logs y Monitoreo
+
+### Ubicaciones de Logs
+
+<CodeGroup>
+```bash Kubernetes
+# Logs de aplicación
+kubectl logs -f deployment/retrogame-backend -n retrogame
+kubectl logs -f deployment/retrogame-frontend -n retrogame
+
+# Logs de sistema
+kubectl logs -f daemonset/fluentd -n kube-system
+```
+
+```bash Sistema
+# Logs del sistema
+tail -f /var/log/syslog
+journalctl -f -u docker
+
+# Logs de aplicación (si deployado con Docker)
+docker logs -f retrogame_backend
+docker logs -f retrogame_frontend
+```
+</CodeGroup>
+
+### Métricas Importantes
+
+- **CPU y Memoria**: Uso de recursos por pod
+- **Red**: Latencia y throughput
+- **Base de Datos**: Conexiones activas y queries lentas
+- **Almacenamiento**: Uso de disco y I/O
+- **Aplicación**: Rate de errores y tiempo de respuesta
+
+## Recursos Adicionales
+
+### Documentación de Referencia
+
+<CardGroup cols={2}>
+<Card title="Logs Centralizados" href="/monitoring/logging">
+Acceso y análisis de logs del sistema
+</Card>
+<Card title="Métricas y Alertas" href="/monitoring/metrics">
+Dashboards y configuración de alertas
+</Card>
+<Card title="Procedimientos de Emergencia" href="/operations/emergency">
+Guías para situaciones críticas
+</Card>
+<Card title="Contactos de Soporte" href="/operations/support">
+Información de contacto y escalado
+</Card>
+</CardGroup>
+
+### Scripts de Utilidad
+
+Mantén estos scripts a mano para diagnósticos rápidos:
+
 ```bash
-# Escalar horizontalmente si es necesario
-kubectl scale deployment api --replicas=3 -n retrogame
-
-# Reiniciar pods problemáticos
-kubectl delete pod <problematic-pod> -n retrogame
-
-# Ajustar recursos si es necesario
-kubectl patch deployment api -n retrogame --patch='{"spec":{"template":{"spec":{"containers":[{"name":"api","resources":{"limits":{"memory":"512Mi"}}}]}}}}'
+# health-check.sh - Verificación rápida del sistema
+#!/bin/bash
+echo "=== RetroGameCloud Health Check ==="
+kubectl get pods -n retrogame
+kubectl get services -n retrogame
+curl -s -o /dev/null -w "%{http_code}" https://your-domain.com/health
 ```
-</Tab>
-<Tab title="Prevención">
-- Configurar auto-scaling (HPA)
-- Implementar circuit breakers
-- Monitorear métricas de rendimiento
-- Usar load balancing
-</Tab>
-</Tabs>
 
-### Errores de Validación
-
-<Tabs>
-<Tab title="Síntomas">
-- Error 400 Bad Request
-- Mensajes de validación inconsistentes
-- Datos corruptos en base de datos
-- Frontend no maneja errores
-</Tab>
-<Tab title="Diagnóstico">
-```bash
-# Revisar logs de validación
-kubectl logs <api-pod> -n retrogame | grep validation
-
-# Verificar schema de API
-kubectl exec -it <api-pod> -n retrogame -- cat /app/schema/validation.json
-
-# Probar con datos de prueba
-curl -X POST http://api.retrogame.local/games -d '{"invalid":"data"}' -H "Content-Type: application/json"
-```
-</Tab>
-<Tab title="Solución">
-- Actualizar esquemas de validación
-- Sincronizar validación frontend/backend
-- Implementar sanitización de datos
-- Mejorar mensajes de error
-</Tab>
-<Tab title="Prevención">
-- Usar OpenAPI/Swagger para documentación
-- Implementar tests de validación
-- Validar en múltiples capas
-</Tab>
-</Tabs>
-
-## Problemas de Frontend
-
-### Aplicación No Carga
-
-<Tabs>
-<Tab title="Síntomas">
-- Pantalla en blanco
-- Error de JavaScript en consola
-- Recursos 404 Not Found
-- Tiempo de carga muy lento
-</Tab>
-<Tab title="Diagnóstico">
-```bash
-# Verificar pods de frontend
-kubectl get pods -l app=frontend -n retrogame
-
-# Revisar logs del servidor web
-kubectl logs <frontend-pod> -n retrogame
-
-# Verificar configuración de nginx
-kubectl exec -it <frontend-pod> -n retrogame -- cat /etc/nginx/conf.d/default.conf
-
-# Probar desde navegador
-# Abrir Developer Tools → Network → Recargar página
-```
-</Tab>
-<Tab title="Solución">
-```bash
-# Reiniciar frontend
-kubectl rollout restart deployment frontend -n retrogame
-
-# Verificar build de frontend
-kubectl describe pod <frontend-pod> -n retrogame
-
-# Comprobar variables de entorno
-kubectl get deployment frontend -o yaml -n retrogame | grep -A 10 env
-```
-</Tab>
-<Tab title="Prevención">
-- Implementar health checks para frontend
-- Usar CDN para recursos estáticos
-- Implementar lazy loading
-- Optimizar bundle size
-</Tab>
-</Tabs>
-
-### Problemas de Estado/Router
-
-<Tabs>
-<Tab title="Síntomas">
-- Navegación no funciona
-- Estado se pierde al recargar
-- Rutas 404 en refresh
-- Historial del navegador inconsistente
-</Tab>
-<Tab title="Diagnóstico">
-```javascript
-// Verificar
-</Tab>
-</Tabs>
-```
+<Note>
+**Recuerda**: La documentación de cada problema específico se encuentra en las páginas dedicadas de cada categoría. Esta página sirve como punto de entrada y referencia general.
+</Note>
