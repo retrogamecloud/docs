@@ -1,15 +1,15 @@
 # 📋 Reorganización de Estructura de Documentación
 
-**Fecha**: 2025-11-23 15:01:42  
+**Fecha**: 2025-11-23 15:30:14  
 **Generado por**: Claude Sonnet 4.5
 
 ## 📊 Resumen de Cambios
 
-Se ha reorganizado la estructura para seguir un flujo más lógico y natural: primero conceptos generales (Inicio, Arquitectura), luego aspectos de implementación (Desarrollo, Frontend, Backend), después aspectos transversales (Seguridad, Infraestructura) y finalmente operaciones (Despliegue). Se han simplificado los nombres de grupos eliminando palabras redundantes. En la sección de Referencia API se cambió 'Catálogo de Juegos' por simplemente 'Juegos' y 'Gateway y Enrutamiento' por 'Gateway' para mayor concisión. La numeración es consecutiva del 1 al 8 en ambos tabs.
+Se ha reorganizado la estructura completa con criterios de flujo lógico de aprendizaje. En Documentación: movido 'Desarrollo Local' al final (grupo 8) ya que es más útil después de entender la arquitectura. En Referencia API: creado grupo 'Visión General' al inicio, reorganizados todos los servicios poniendo primero la especificación completa y luego los endpoints individuales, y movido 'Frontend' al final. Se han renumerado todos los grupos consecutivamente del 1 al 8 en Documentación y del 1 al 9 en Referencia API.
 
 ## 🎯 Justificación
 
-Esta organización mejora la experiencia del usuario siguiendo el principio de 'aprende antes de hacer': primero se presenta qué es el sistema (Inicio), luego cómo está construido (Arquitectura), después cómo trabajar con él (Desarrollo, Frontend, Backend), seguido de aspectos críticos de producción (Seguridad, Infraestructura) y finalmente cómo desplegarlo (Despliegue). Los nombres de grupos son más concisos y directos, eliminando palabras innecesarias ('Aplicación' en Frontend, 'Microservicios' en Backend, 'Cloud' en Infraestructura, 'Continuo' en Despliegue, 'de' en Catálogo de Juegos). La estructura mantiene la misma profundidad pero con un orden más intuitivo que refleja el viaje del desarrollador desde el aprendizaje inicial hasta el despliegue en producción.
+La nueva organización sigue el principio pedagógico de ir de lo general a lo específico. En Documentación, el usuario primero entiende qué es el proyecto (Inicio), luego su arquitectura general, después los componentes (Frontend/Backend), seguridad, infraestructura, despliegue y finalmente cómo desarrollar localmente. En Referencia API, se comienza con una visión general del backend completo, seguido de cada servicio con su especificación completa primero y endpoints específicos después, lo que facilita la consulta. Se eliminan redundancias al consolidar páginas relacionadas bajo el mismo grupo y se mejora la navegabilidad con nombres más descriptivos.
 
 ---
 

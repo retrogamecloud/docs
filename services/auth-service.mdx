@@ -6,7 +6,7 @@ icon: lock
 
 ## Descripción
 
-El servicio de autenticación maneja el registro, login y validación de usuarios mediante JSON Web Tokens (JWT). Es el punto de entrada para todos los usuarios de la plataforma.
+El servicio de autenticación maneja el registro, login y validación de usuarios mediante JSON Web Tokens (JWT). Es el punto de entrada para todos los usuarios de la plataforma y el guardián de seguridad que protege el acceso a los demás microservicios.
 
 <CardGroup cols={3}>
   <Card title="Registro" icon="user-plus">
@@ -32,8 +32,34 @@ graph TD
     D --> E[Services<br/>hashPass/genToken/validate]
     E --> F[Repositories<br/>create/findUser/update]
     F --> G[PostgreSQL<br/>Table: users]
-
 ```
+
+## Configuración del Servicio
+
+<AccordionGroup>
+  <Accordion title="Variables de Entorno">
+    ```env
+    PORT=3001
+    DATABASE_URL=postgresql://user:password@postgres:5432/auth_db
+    JWT_SECRET=your-super-secret-jwt-key
+    JWT_EXPIRES_IN=24h
+    BCRYPT_SALT_ROUNDS=10
+    NODE_ENV=production
+    ```
+  </Accordion>
+
+  <Accordion title="Dockerfile">
+    ```dockerfile
+    FROM node:20-alpine
+    WORKDIR /app
+    COPY package*.json ./
+    RUN npm ci --only=production
+    COPY . .
+    EXPOSE 3001
+    CMD ["npm", "start"]
+    ```
+  </Accordion>
+</AccordionGroup>
 
 ## Tecnologías
 
@@ -45,561 +71,163 @@ graph TD
 | **bcrypt** | ^5.1 | Hash de contraseñas (salt rounds: 10) |
 | **pg** | ^8.11 | Cliente PostgreSQL |
 | **Jest** | ^29.7 | Testing framework |
+| **Helmet** | ^7.1 | Seguridad HTTP headers |
 
-## Endpoints
-
-### POST /auth/register
-
-Crea una nueva cuenta de usuario.
-
-<CodeGroup>
-
-```bash cURL
-curl -X POST http://api.retrogamecloud.com/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "player1",
-    "password": "SecurePass123!",
-    "email": "player1@example.com",
-    "display_name": "Player One"
-  }'
-
-```
-
-```javascript JavaScript
-const response = await fetch('http://api.retrogamecloud.com/auth/register', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    username: 'player1',
-    password: 'SecurePass123!',
-    email: 'player1@example.com',
-    display_name: 'Player One'
-  })
-});
-const data = await response.json();
-
-```
-
-```python Python
-import requests
-
-response = requests.post(
-    'http://api.retrogamecloud.com/auth/register',
-    json={
-        'username': 'player1',
-        'password': 'SecurePass123!',
-        'email': 'player1@example.com',
-        'display_name': 'Player One'
-    }
-)
-data = response.json()
-
-```
-
-</CodeGroup>
-
-* *Response 201 Created:**
-
-```json
-{
-  "message": "Usuario registrado exitosamente",
-  "user": {
-    "id": 123,
-    "username": "player1",
-    "email": "player1@example.com",
-    "display_name": "Player One",
-    "avatar_url": null,
-    "created_at": "2025-11-19T10:30:00.000Z"
-  },
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-
-```
-
-* *Error 409 Conflict:**
-
-```json
-{
-  "error": "El usuario ya existe"
-}
-
-```
-
-* *Validaciones:**
-
-- Username: 3-30 caracteres, alfanumérico + guiones bajos
-
-- Password: Mínimo 8 caracteres
-
-- Email: Formato válido (opcional)
-
-- Display name: Máximo 50 caracteres
-
-* *Proceso interno:**
-1. Validar formato de datos
-2. Verificar que username no exista
-3. Hash de contraseña con bcrypt (10 rounds)
-4. Insertar usuario en PostgreSQL
-5. Generar JWT token (válido 24h)
-6. Retornar usuario y token
-
-### POST /auth/login
-
-Autentica un usuario existente.
-
-<CodeGroup>
-
-```bash cURL
-curl -X POST http://api.retrogamecloud.com/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "player1",
-    "password": "SecurePass123!"
-  }'
-
-```
-
-```javascript JavaScript
-const response = await fetch('http://api.retrogamecloud.com/auth/login', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    username: 'player1',
-    password: 'SecurePass123!'
-  })
-});
-const data = await response.json();
-
-```
-
-```python Python
-import requests
-
-response = requests.post(
-    'http://api.retrogamecloud.com/auth/login',
-    json={
-        'username': 'player1',
-        'password': 'SecurePass123!'
-    }
-)
-data = response.json()
-
-```
-
-</CodeGroup>
-
-* *Response 200 OK:**
-
-```json
-{
-  "message": "Login exitoso",
-  "user": {
-    "id": 123,
-    "username": "player1",
-    "email": "player1@example.com",
-    "display_name": "Player One",
-    "avatar_url": null
-  },
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-
-```
-
-* *Error 401 Unauthorized:**
-
-```json
-{
-  "error": "Credenciales inválidas"
-}
-
-```
-
-* *Proceso interno:**
-1. Buscar usuario por username
-2. Verificar que el usuario esté activo (`is_active = true`)
-3. Comparar contraseña con bcrypt.compare()
-4. Generar nuevo JWT token
-5. Retornar usuario y token
-
-* *Seguridad:**
-
-- ✅ Contraseñas hasheadas con bcrypt
-
-- ✅ No se retorna password_hash en respuesta
-
-- ✅ Mensaje genérico si usuario no existe (evita enumeration)
-
-### GET /auth/verify
-
-Valida un token JWT y retorna información del usuario.
-
-<CodeGroup>
-
-```bash cURL
-curl -X GET http://api.retrogamecloud.com/auth/verify \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-
-```
-
-```javascript JavaScript
-const response = await fetch('http://api.retrogamecloud.com/auth/verify', {
-  headers: {
-    'Authorization': `Bearer ${token}`
-  }
-});
-const data = await response.json();
-
-```
-
-```python Python
-import requests
-
-headers = {'Authorization': f'Bearer {token}'}
-response = requests.get(
-    'http://api.retrogamecloud.com/auth/verify',
-    headers=headers
-)
-data = response.json()
-
-```
-
-</CodeGroup>
-
-* *Response 200 OK:**
-
-```json
-{
-  "valid": true,
-  "user": {
-    "id": 123,
-    "username": "player1",
-    "email": "player1@example.com",
-    "display_name": "Player One",
-    "avatar_url": null
-  }
-}
-
-```
-
-* *Error 401 Unauthorized:**
-
-```json
-{
-  "error": "Token inválido o expirado"
-}
-
-```
-
-* *Uso típico:**
-
-- Frontend verifica si el usuario sigue autenticado al cargar la app
-
-- Otros servicios validan tokens antes de operaciones sensibles
-
-## Middleware: authMiddleware
-
-Middleware reutilizable para proteger rutas que requieren autenticación.
-
-```javascript
-// Uso en otros servicios
-import { authMiddleware } from './middleware/authMiddleware.js';
-
-// Proteger una ruta
-app.post('/scores', authMiddleware, async (req, res) => {
-  // req.user contiene: { userId, username }
-  const { userId } = req.user;
-  // ... lógica del endpoint
-});
-
-```
-
-* *Comportamiento:**
-1. Lee el header `Authorization: Bearer <token>`
-2. Verifica el token con `jwt.verify(token, SECRET_KEY)`
-3. Si válido: adjunta `req.user` y llama a `next()`
-4. Si inválido: retorna 401 Unauthorized
-
-## Esquema de Base de Datos
+## Modelo de Datos
 
 ### Tabla: users
 
 ```sql
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
-  username VARCHAR(30) UNIQUE NOT NULL,
-  email VARCHAR(100) UNIQUE NOT NULL,
+  username VARCHAR(50) UNIQUE NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  display_name VARCHAR(100),
   password_hash VARCHAR(255) NOT NULL,
-  display_name VARCHAR(50),
-  avatar_url TEXT,
-  bio TEXT,
   is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  last_login TIMESTAMP
 );
 
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_active ON users(is_active);
-
 ```
 
-* *Campos:**
+## Endpoints
 
-- `id`: Identificador único autoincrementable
+El servicio de autenticación expone los siguientes endpoints principales:
 
-- `username`: Nombre de usuario único (3-30 caracteres)
+<CardGroup cols={2}>
+  <Card title="POST /auth/register" icon="user-plus" href="/api-reference/auth-service/register">
+    Registro de nuevos usuarios con validación de datos
+  </Card>
 
-- `email`: Email único (formato válido)
+  <Card title="POST /auth/login" icon="right-to-bracket" href="/api-reference/auth-service/login">
+    Autenticación y generación de tokens JWT
+  </Card>
 
-- `password_hash`: Contraseña hasheada con bcrypt
+  <Card title="GET /auth/verify" icon="shield-check" href="/api-reference/auth-service/verify">
+    Validación de tokens y información del usuario
+  </Card>
 
-- `display_name`: Nombre visible en la UI
+  <Card title="POST /auth/refresh" icon="arrow-rotate-right" href="/api-reference/auth-service/refresh">
+    Renovación de tokens expirados
+  </Card>
 
-- `avatar_url`: URL de imagen de perfil (opcional)
+  <Card title="POST /auth/logout" icon="right-from-bracket" href="/api-reference/auth-service/logout">
+    Invalidación de tokens (logout seguro)
+  </Card>
 
-- `bio`: Biografía corta (opcional)
+  <Card title="GET /auth/health" icon="heart-pulse" href="/api-reference/auth-service/health">
+    Health check del servicio
+  </Card>
+</CardGroup>
 
-- `is_active`: Soft delete (false = cuenta desactivada)
+<Note>
+  Para detalles completos de cada endpoint, incluyendo parámetros, respuestas y ejemplos de código, consulta la [referencia completa de la API](/api-reference/auth-service).
+</Note>
 
-- `created_at`: Timestamp de registro
+## Flujos de Autenticación
 
-- `updated_at`: Timestamp de última actualización
+### Flujo de Registro
 
-## Variables de Entorno
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as Auth Service
+    participant DB as PostgreSQL
 
-```bash
-
-# Puerto del servicio
-PORT=3001
-
-# Secret para firmar JWT (CAMBIAR EN PRODUCCIÓN)
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-
-# URL de PostgreSQL
-DATABASE_URL=postgresql://postgres:password@postgres:5432/retrogamedb
-
-# Entorno
-NODE_ENV=production
-
-# Configuración JWT
-JWT_EXPIRATION=24h
-
-# Logs
-LOG_LEVEL=info
-
+    C->>A: POST /auth/register
+    A->>A: Validate input data
+    A->>DB: Check if username/email exists
+    DB-->>A: User existence result
+    A->>A: Hash password (bcrypt)
+    A->>DB: INSERT new user
+    DB-->>A: User created successfully
+    A->>A: Generate JWT token
+    A-->>C: 201 Created + JWT token
 ```
 
-<Warning>
+### Flujo de Login
 
-* *JWT_SECRET** debe ser una cadena aleatoria de al menos 32 caracteres en producción. Genera uno con:
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as Auth Service
+    participant DB as PostgreSQL
 
-```bash
-openssl rand -base64 32
-
+    C->>A: POST /auth/login
+    A->>DB: SELECT user by username
+    DB-->>A: User data
+    A->>A: Compare password (bcrypt)
+    A->>A: Generate JWT token
+    A->>DB: UPDATE last_login
+    A-->>C: 200 OK + JWT token
 ```
-
-</Warning>
-
-## Despliegue en Kubernetes
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: auth-service
-  namespace: retrogame
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: auth-service
-  template:
-    metadata:
-      labels:
-        app: auth-service
-    spec:
-      containers:
-      - name: auth-service
-        image: retrogamehub/auth-service:latest
-        ports:
-        - containerPort: 3001
-        env:
-        - name: PORT
-          value: "3001"
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: auth-service-secrets
-              key: JWT_SECRET
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: auth-service-secrets
-              key: DATABASE_URL
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 200m
-            memory: 256Mi
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 3001
-          initialDelaySeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 3001
-          initialDelaySeconds: 5
-
-```
-
-## Tests
-
-### Ejecutar Tests
-
-```bash
-
-# Instalar dependencias
-npm install
-
-# Ejecutar tests
-npm test
-
-# Coverage
-npm run test:coverage
-
-```
-
-### Ejemplo de Test
-
-```javascript
-describe('Auth Service', () => {
-  describe('POST /auth/register', () => {
-    it('debe registrar un nuevo usuario', async () => {
-      const res = await request(app)
-        .post('/auth/register')
-        .send({
-          username: 'testuser',
-          password: 'TestPass123!',
-          email: 'test@example.com'
-        });
-
-      expect(res.status).toBe(201);
-      expect(res.body).toHaveProperty('token');
-      expect(res.body.user.username).toBe('testuser');
-    });
-
-    it('debe rechazar username duplicado', async () => {
-      await createTestUser('duplicate');
-
-      const res = await request(app)
-        .post('/auth/register')
-        .send({
-          username: 'duplicate',
-          password: 'Pass123!'
-        });
-
-      expect(res.status).toBe(409);
-      expect(res.body.error).toContain('ya existe');
-    });
-  });
-});
-
-```
-
-* *Cobertura esperada:** > 80%
 
 ## Seguridad
 
-### Best Practices Implementadas
+<Warning>
+  **Consideraciones de Seguridad Críticas:**
+  - Todas las contraseñas se hashean con bcrypt (salt rounds: 10)
+  - Los tokens JWT incluyen expiración obligatoria (24h)
+  - Validación estricta de inputs para prevenir inyección SQL
+  - Rate limiting implementado para prevenir ataques de fuerza bruta
+</Warning>
 
-<AccordionGroup>
-  <Accordion title="✅ Password Hashing con bcrypt">
-    - Salt rounds: 10
-    - Hash asíncrono para no bloquear event loop
-    - Nunca retornar password_hash en respuestas
-  </Accordion>
+### Middleware de Protección
 
-  <Accordion title="✅ JWT con expiración">
-    - Tokens válidos por 24 horas
-    - Firmados con HS256
-    - Payload mínimo: `{ userId, username }`
-  </Accordion>
+```javascript
+// Ejemplo de uso del middleware de autenticación
+const authMiddleware = require('./middleware/auth');
 
-  <Accordion title="✅ Validación de entrada">
-    - Sanitización de strings
-    - Validación de formatos (email, username)
-    - Protección contra SQL injection (prepared statements)
-  </Accordion>
+// Proteger rutas que requieren autenticación
+app.use('/games', authMiddleware.verifyToken);
+app.use('/save-states', authMiddleware.verifyToken);
+```
 
-  <Accordion title="✅ Rate Limiting">
-    - Limitar intentos de login (5 por minuto)
-    - Protección contra brute force
-    - Implementado en Kong API Gateway
-  </Accordion>
-</AccordionGroup>
+## Métricas y Monitoreo
 
-## Troubleshooting
+| Métrica | Descripción | Umbral de Alerta |
+|---------|-------------|------------------|
+| **Response Time** | Tiempo promedio de respuesta | > 500ms |
+| **Success Rate** | % de requests exitosos | < 95% |
+| **Active Users** | Usuarios con sesión válida | - |
+| **Failed Logins** | Intentos fallidos por minuto | > 100/min |
 
-<AccordionGroup>
-  <Accordion title="Error: JWT_SECRET not configured">
-    **Causa:** Variable de entorno JWT_SECRET no está definida
+## Testing
 
-    **Solución:**
-    ```bash
-    export JWT_SECRET=$(openssl rand -base64 32)
+El servicio incluye pruebas exhaustivas:
 
-    # O en Kubernetes
-    kubectl create secret generic auth-service-secrets \
-      --from-literal=JWT_SECRET=$(openssl rand -base64 32)
-    ```
+- **Unit Tests**: Lógica de negocio y utilidades
+- **Integration Tests**: Endpoints y base de datos
+- **Security Tests**: Validación de tokens y ataques comunes
 
-  </Accordion>
+```bash
+# Ejecutar tests
+npm test                    # Todos los tests
+npm run test:unit          # Solo unit tests
+npm run test:integration   # Solo integration tests
+npm run test:coverage      # Con coverage report
+```
 
-  <Accordion title="Error: Cannot connect to database">
-    **Causa:** PostgreSQL no accesible o DATABASE_URL incorrecta
-
-    **Solución:**
-    ```bash
-    kubectl get pods -n retrogame | grep postgres
-
-    kubectl run pg-test --image=postgres:15 --rm -it -- \
-      psql postgresql://postgres:password@postgres:5432/retrogamedb
-    ```
-
-  </Accordion>
-
-  <Accordion title="Token inválido en otros servicios">
-    **Causa:** JWT_SECRET diferente entre servicios
-
-    **Solución:** Todos los servicios deben usar el mismo JWT_SECRET
-    ```bash
-    kubectl get secret auth-service-secrets -o yaml
-    ```
-
-  </Accordion>
-</AccordionGroup>
-
-## Próximos Pasos
+## Enlaces Relacionados
 
 <CardGroup cols={2}>
-  <Card title="Game Catalog Service" icon="gamepad" href="/services/game-catalog">
-    Servicio de catálogo de juegos
+  <Card title="API Reference" icon="code" href="/api-reference/auth-service">
+    Documentación técnica completa de endpoints
   </Card>
 
-  <Card title="Score Service" icon="trophy" href="/services/score-service">
-    Gestión de puntuaciones
+  <Card title="Overview de Servicios" icon="sitemap" href="/services/overview">
+    Comparativa de todos los microservicios
   </Card>
 
-  <Card title="API Reference" icon="book" href="/api-reference/auth/login">
-    Referencia completa de la API
+  <Card title="Kong Gateway" icon="route" href="/infrastructure/api-gateway">
+    Configuración de rutas y seguridad
   </Card>
 
-  <Card title="Deployment Guide" icon="rocket" href="/deployment">
-    Guía de despliegue
+  <Card title="Base de Datos" icon="database" href="/infrastructure/databases">
+    Esquemas y configuración de PostgreSQL
   </Card>
 </CardGroup>

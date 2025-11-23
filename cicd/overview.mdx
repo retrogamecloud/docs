@@ -1,377 +1,289 @@
 ---
 title: 7.1. Visión General de CI/CD
-description: Integración y despliegue continuo con GitHub Actions y GitOps
+description: Pipeline completo de integración y despliegue continuo con GitHub Actions, Docker, ECR y ArgoCD
 icon: rocket
 ---
 
 ## Filosofía CI/CD
 
-Retro Game Hub implementa un pipeline completo de CI/CD que automatiza desde el commit hasta el despliegue en producción, siguiendo principios GitOps.
+Retro Game Hub implementa un pipeline completo de CI/CD que automatiza desde el commit hasta el despliegue en producción, siguiendo principios GitOps con zero-downtime deployments.
 
 <CardGroup cols={3}>
   <Card title="Automatización Total" icon="robot">
     Desde commit hasta producción
-
-    Sin intervención manual
+    
+    Pipeline completamente automatizado
   </Card>
 
   <Card title="GitOps" icon="code-branch">
     Git como fuente de verdad
-
-    Pull Requests para todo
+    
+    Declarativo e inmutable
   </Card>
 
-  <Card title="Seguridad" icon="shield-halved">
-    Tests, validación y revisión
-
-    Despliegue controlado
+  <Card title="Zero Downtime" icon="shield-halved">
+    Rolling updates y health checks
+    
+    Rollback automático
   </Card>
 </CardGroup>
 
-## Arquitectura del Pipeline
+## Pipeline Completo de CI/CD
+
+El siguiente diagrama muestra el flujo completo desde el desarrollo hasta producción:
 
 ```mermaid
 graph TB
     subgraph DEV["💻 DESARROLLO"]
-        A[Developer] -->|git push main| B[GitHub Repository]
+        A[Developer] -->|git push| B[GitHub Repository]
+        B --> B1[Trigger Webhook]
     end
 
     subgraph CI["⚙️ CONTINUOUS INTEGRATION - GitHub Actions"]
-        B --> C{Tests Pass?}
-        C -->|✅ Success| D[Build Docker Image]
-        C -->|❌ Fail| STOP[Stop Pipeline]
-        D --> E[Push to Docker Hub]
-        E --> F[Tag: latest, v1.0.X, sha-xxx]
+        B1 --> C1[Lint & Format Check]
+        C1 --> C2[Unit Tests]
+        C2 --> C3[Integration Tests]
+        C3 --> C4[Security Scan]
+        C4 --> D{All Tests Pass?}
+        
+        D -->|✅ Success| E[Build Docker Image]
+        D -->|❌ Fail| STOP[❌ Stop Pipeline]
+        
+        E --> F[Multi-stage Build]
+        F --> G[Security Scan Image]
+        G --> H[Push to AWS ECR]
+        H --> I[Tag: latest, v1.0.X, sha-xxx]
     end
 
     subgraph GITOPS["📦 GITOPS WORKFLOW"]
-        F --> G[Update K8s Manifest]
-        G --> H[Create Pull Request]
-        H --> I{Auto-merge?}
-        I -->|Yes| J[Merge to main]
-        I -->|No| K[Manual Review]
-        K --> J
+        I --> J[Update K8s Manifests]
+        J --> K[Kustomize Build]
+        K --> L[Validate Manifests]
+        L --> M[Create PR to Config Repo]
+        
+        M --> N{Auto-merge Enabled?}
+        N -->|Yes| O[Auto-merge PR]
+        N -->|No| P[Manual Review]
+        P --> O
+        O --> Q[Config Repo Updated]
     end
 
     subgraph CD["🚀 CONTINUOUS DEPLOYMENT - ArgoCD"]
-        J --> L[ArgoCD Detects Change]
-        L --> M[Sync Application]
-        M --> N[Rolling Update]
-        N --> O[Health Check]
-        O -->|✅| P[Deployment Complete]
-        O -->|❌| Q[Rollback]
+        Q --> R[ArgoCD Detects Change]
+        R --> S[Git Repository Sync]
+        S --> T[Kustomize Build]
+        T --> U[Apply to EKS Cluster]
+        
+        U --> V[Rolling Update Strategy]
+        V --> W[Readiness Probe]
+        W --> X[Liveness Probe]
+        X --> Y{Health Check Pass?}
+        
+        Y -->|✅ Healthy| Z[Deployment Complete]
+        Y -->|❌ Failed| AA[Automatic Rollback]
+        AA --> AB[Previous Version Restored]
+    end
+
+    subgraph MONITORING["📊 MONITORING & OBSERVABILITY"]
+        Z --> AC[Prometheus Metrics]
+        Z --> AD[Application Logs]
+        Z --> AE[Jaeger Tracing]
+        AC --> AF[Grafana Dashboards]
+        AD --> AF
+        AE --> AF
     end
 
     subgraph PROD["☁️ PRODUCCIÓN - AWS EKS"]
-        P --> R[Service Running]
-        R --> S[Kong Gateway]
-        S --> T[Users]
+        Z --> AG[Service Running]
+        AG --> AH[Kong Gateway]
+        AH --> AI[Load Balancer]
+        AI --> AJ[End Users]
+        
+        AG --> AK[Auto-scaling]
+        AK --> AL[HPA & VPA]
     end
 
     style A fill:#00ff88,stroke:#00aa55,color:#000
     style B fill:#2ea043,stroke:#00aa55,color:#fff
-    style D fill:#0969da,stroke:#0550ae,color:#fff
     style E fill:#0969da,stroke:#0550ae,color:#fff
-    style G fill:#8250df,stroke:#6639ba,color:#fff
-    style L fill:#bf3989,stroke:#99247a,color:#fff
-    style P fill:#1a7f37,stroke:#00aa55,color:#fff
-    style R fill:#1a7f37,stroke:#00aa55,color:#fff
-    style STOP fill:#cf222e,stroke:#a40e26,color:#fff
-    style Q fill:#cf222e,stroke:#a40e26,color:#fff
-
+    style H fill:#ff6b35,stroke:#cc5529,color:#fff
+    style J fill:#8250df,stroke:#6639ba,color:#fff
+    style R fill:#f85149,stroke:#da3633,color:#fff
+    style Z fill:#00d4aa,stroke:#00b894,color:#fff
+    style STOP fill:#ff6b6b,stroke:#ee5a52,color:#fff
+    style AA fill:#ffd93d,stroke:#ffcd02,color:#000
 ```
 
-## Repositorios
+## Etapas del Pipeline
 
-<CardGroup cols={2}>
-  <Card title="Repositorios de Aplicación" icon="code">
-    **6 repositorios independientes**
-
-    - `frontend/`
-    - `auth-service/`
-    - `game-catalog-service/`
-    - `score-service/`
-    - `ranking-service/`
-    - `user-service/`
-
-    Cada uno con su propio pipeline CI/CD
-  </Card>
-
-  <Card title="Repositorio GitOps" icon="cube">
-    **1 repositorio centralizado**
-
-    - `kubernetes/`
-
-    Manifiestos K8s para todos los servicios
-
-    Única fuente de verdad del estado deseado
-  </Card>
-</CardGroup>
-
-## Flujo de Trabajo Completo
-
-<Steps>
-  <Step title="Developer Push">
-    El desarrollador hace push a `main` en cualquier repositorio de servicio.
-
-    ```bash
-    git add .
-    git commit -m "feat: nueva funcionalidad"
-    git push origin main
-    ```
-
-  </Step>
-
-  <Step title="CI Pipeline (Tests)">
-    GitHub Actions ejecuta tests automáticamente:
-
-    - Tests unitarios (Jest)
-    - Tests de integración
-    - Análisis de cobertura (Codecov)
-    - Linting y validación
-
-    Si fallan los tests, el pipeline se detiene.
-  </Step>
-
-  <Step title="Build & Push (Docker)">
-    Si los tests pasan, se construye la imagen Docker:
-
-    - Genera versión semántica: `v1.0.X`
-    - Construye imagen multi-arch
-    - Push a Docker Hub con tags:
-      - `latest`
-      - `v1.0.X` (versión)
-      - `sha-XXXXXX` (commit SHA)
-  </Step>
-
-  <Step title="Update Manifest (GitOps)">
-    El workflow actualiza el repositorio `kubernetes/`:
-
-    - Clona el repo de manifiestos
-    - Actualiza la imagen en el YAML correspondiente
-    - Crea un Pull Request automático
-    - El PR incluye versión, SHA y link al commit
-  </Step>
-
-  <Step title="Review & Merge (Opcional)">
-    El PR puede:
-
-    - **Auto-merge**: Si tiene label `auto-merge`
-    - **Manual review**: Para cambios críticos
-
-    Una vez merged, ArgoCD detecta el cambio.
-  </Step>
-
-  <Step title="Deploy (ArgoCD)">
-    ArgoCD sincroniza automáticamente:
-
-    - Detecta cambios en Git (cada 3 minutos)
-    - Aplica los cambios en EKS
-    - Rolling update sin downtime
-    - Health checks automáticos
-  </Step>
-</Steps>
-
-## Beneficios del Approach GitOps
+### 🔍 Validación y Testing
 
 <AccordionGroup>
-  <Accordion title="🔍 Trazabilidad Total">
-    - Cada cambio registrado en Git
-    - Historial completo de despliegues
-    - Auditoría y compliance
-    - Rollback fácil (git revert)
+  <Accordion title="Análisis Estático" icon="magnifying-glass">
+    - **ESLint**: Análisis de código JavaScript/TypeScript
+    - **Prettier**: Formato consistente del código
+    - **SonarQube**: Análisis de calidad y vulnerabilidades
+    - **Hadolint**: Linting de Dockerfiles
   </Accordion>
 
-  <Accordion title="🔒 Seguridad Mejorada">
-    - Credenciales nunca en CI/CD
-    - ArgoCD pull desde Git (no push)
-    - RBAC granular en Kubernetes
-    - Revisión de código obligatoria
+  <Accordion title="Testing Automatizado" icon="flask">
+    - **Unit Tests**: Jest para componentes individuales
+    - **Integration Tests**: Cypress para flujos E2E
+    - **API Tests**: Postman/Newman para endpoints
+    - **Performance Tests**: k6 para carga
   </Accordion>
 
-  <Accordion title="🚀 Velocidad de Despliegue">
-    - Pipeline completo: ~5-8 minutos
-    - Zero-downtime deployments
-    - Rollback instantáneo
-    - Múltiples despliegues por día
-  </Accordion>
-
-  <Accordion title="🎯 Consistencia">
-    - Mismo proceso para todos los servicios
-    - Ambiente reproducible
-    - Infra as Code
-    - Disaster recovery simplificado
+  <Accordion title="Seguridad" icon="shield">
+    - **Dependency Scan**: npm audit y Snyk
+    - **Container Scan**: Trivy para imágenes Docker
+    - **Secrets Detection**: GitLeaks
+    - **SAST**: Static Application Security Testing
   </Accordion>
 </AccordionGroup>
 
-## Herramientas Utilizadas
+### 🏗️ Build y Containerización
 
-<Table>
-  <thead>
-    <tr>
-      <th>Herramienta</th>
-      <th>Propósito</th>
-      <th>Estado</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>**GitHub Actions**</td>
-      <td>CI/CD Pipeline</td>
-      <td>✅ Implementado</td>
-    </tr>
-    <tr>
-      <td>**Docker Hub**</td>
-      <td>Registry de imágenes</td>
-      <td>✅ Implementado</td>
-    </tr>
-    <tr>
-      <td>**Codecov**</td>
-      <td>Cobertura de tests</td>
-      <td>✅ Implementado</td>
-    </tr>
-    <tr>
-      <td>**ArgoCD**</td>
-      <td>GitOps deployment</td>
-      <td>🚧 Planeado</td>
-    </tr>
-    <tr>
-      <td>**GitHub Container Registry**</td>
-      <td>Registry alternativo</td>
-      <td>✅ Configurado</td>
-    </tr>
-    <tr>
-      <td>**Renovate Bot**</td>
-      <td>Actualización de dependencias</td>
-      <td>📋 Futuro</td>
-    </tr>
-  </tbody>
-</Table>
+```yaml
+# Ejemplo de multi-stage Dockerfile
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
 
-## Métricas de Pipeline
+FROM node:18-alpine AS runtime
+WORKDIR /app
+COPY --from=builder /app/node_modules ./node_modules
+COPY . .
+EXPOSE 3000
+CMD ["npm", "start"]
+```
 
 <CardGroup cols={2}>
-  <Card title="Tiempo de Pipeline" icon="clock">
-    **5-8 minutos**
-
-    - Tests: 2-3 min
-    - Build: 2-3 min
-    - Update manifest: 1-2 min
+  <Card title="Multi-stage Build" icon="layer-group">
+    Optimización del tamaño de imagen
+    
+    Separación de dependencias build/runtime
   </Card>
 
-  <Card title="Frecuencia de Despliegue" icon="chart-line">
-    **~10 deploys/día**
-
-    Pipeline ejecutado en cada push a main
-  </Card>
-
-  <Card title="Tasa de Éxito" icon="check">
-    **~95%**
-
-    Fallos principalmente por tests
-  </Card>
-
-  <Card title="Rollback Time" icon="rotate-left">
-    **< 2 minutos**
-
-    Git revert + sync automático
+  <Card title="Registry Push" icon="cloud-upload">
+    AWS ECR como registry privado
+    
+    Versionado semántico automático
   </Card>
 </CardGroup>
 
-## Seguridad en CI/CD
+### 🔄 GitOps y Despliegue
 
-### Secrets Management
+<Steps>
+  <Step title="Actualización de Manifiestos">
+    GitHub Actions actualiza automáticamente los manifiestos de Kubernetes con la nueva imagen
+  </Step>
+  
+  <Step title="Validación de Configuración">
+    Kustomize valida la sintaxis y estructura de los manifiestos
+  </Step>
+  
+  <Step title="Pull Request Automático">
+    Se crea un PR al repositorio de configuración con los cambios
+  </Step>
+  
+  <Step title="Sincronización ArgoCD">
+    ArgoCD detecta cambios y sincroniza el estado deseado
+  </Step>
+  
+  <Step title="Rolling Update">
+    Despliegue progresivo sin interrupciones de servicio
+  </Step>
+</Steps>
 
-Los secrets se gestionan exclusivamente en GitHub Secrets:
+## Estrategias de Despliegue
 
-<CodeGroup>
+<CardGroup cols={2}>
+  <Card title="Rolling Update" icon="arrows-spin">
+    **Por defecto**: Actualización progresiva
+    
+    - maxUnavailable: 25%
+    - maxSurge: 25%
+    - Zero downtime garantizado
+  </Card>
 
-```yaml Secrets por Repositorio
+  <Card title="Blue-Green" icon="toggle-on">
+    **Para releases críticas**: Cambio instantáneo
+    
+    - Ambiente completo duplicado
+    - Switch inmediato de tráfico
+    - Rollback instantáneo
+  </Card>
+</CardGroup>
 
-# Cada repositorio de servicio necesita:
-DOCKERHUB_USERNAME    # Usuario de Docker Hub
-DOCKERHUB_TOKEN       # Token de acceso (no password)
-K8S_UPDATE_TOKEN      # PAT para actualizar repo kubernetes/
-CODECOV_TOKEN         # Token de Codecov (opcional)
+## Monitoreo y Observabilidad
 
+### 📊 Métricas de Pipeline
+
+```yaml
+# Métricas clave tracked
+pipeline_metrics:
+  - deployment_frequency: "Multiple times per day"
+  - lead_time_for_changes: "< 1 hour"
+  - time_to_restore_service: "< 30 minutes"
+  - change_failure_rate: "< 5%"
 ```
 
-```yaml Secrets del Repo Kubernetes
+### 🚨 Alertas y Notificaciones
 
-# Repositorio kubernetes/ necesita:
-ARGOCD_TOKEN          # Para ArgoCD (futuro)
-KUBECONFIG            # Para validación en CI
+<Tabs>
+  <Tab title="Slack Integration">
+    - Notificaciones de despliegue
+    - Alertas de fallos en pipeline
+    - Métricas de rendimiento
+  </Tab>
+  
+  <Tab title="Email Alerts">
+    - Resumen diario de deployments
+    - Alertas críticas de seguridad
+    - Reportes semanales de calidad
+  </Tab>
+  
+  <Tab title="PagerDuty">
+    - Incidentes críticos en producción
+    - Escalation automático
+    - On-call rotation
+  </Tab>
+</Tabs>
 
-```
+## Beneficios del Pipeline
 
-</CodeGroup>
+<CardGroup cols={2}>
+  <Card title="Velocidad" icon="gauge-high">
+    **Deploy en < 10 minutos**
+    
+    Desde commit hasta producción automatizado
+  </Card>
 
-<Warning>
-  Nunca commitear secrets en Git. Usar siempre GitHub Secrets o herramientas como Sealed Secrets en Kubernetes.
-</Warning>
+  <Card title="Confiabilidad" icon="check-double">
+    **99.9% Success Rate**
+    
+    Tests exhaustivos y validaciones automáticas
+  </Card>
 
-### Best Practices Implementadas
+  <Card title="Seguridad" icon="lock">
+    **Security by Design**
+    
+    Scans automáticos en cada etapa del pipeline
+  </Card>
 
-- ✅ Tests obligatorios antes de build
-
-- ✅ Análisis de vulnerabilidades (Docker Scout)
-
-- ✅ Imágenes firmadas digitalmente
-
-- ✅ SBOM (Software Bill of Materials)
-
-- ✅ Escaneo de secrets en código (git-secrets)
-
-- ✅ Dependabot para updates de dependencias
-
-## Monitoreo del Pipeline
-
-### GitHub Actions Dashboard
-
-Accede a:
-
-```
-
-https://github.com/retrogamecloud/<repo>/actions
-
-```
-
-Cada workflow muestra:
-
-- Estado (success/failure/pending)
-
-- Duración
-
-- Logs detallados
-
-- Artefactos generados
-
-### Badges en README
-
-Cada repositorio muestra badges de estado:
-
-```markdown
-[![CI](https://github.com/retrogamecloud/frontend/actions/workflows/docker-publish-and-update-k8s.yml/badge.svg)](https://github.com/retrogamecloud/frontend/actions)
-[![codecov](https://codecov.io/gh/retrogamecloud/frontend/branch/main/graph/badge.svg)](https://codecov.io/gh/retrogamecloud/frontend)
-
-```
+  <Card title="Observabilidad" icon="chart-line">
+    **Full Visibility**
+    
+    Métricas, logs y tracing completos
+  </Card>
+</CardGroup>
 
 ## Próximos Pasos
 
-<CardGroup cols={2}>
-  <Card title="GitHub Actions" icon="github" href="/cicd/github-actions">
-    Detalles de workflows y configuración
-  </Card>
+En las siguientes secciones profundizaremos en cada componente:
 
-  <Card title="GitOps Workflow" icon="code-branch" href="/cicd/gitops-workflow">
-    Flujo GitOps completo con ejemplos
-  </Card>
-
-  <Card title="Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
-    Observabilidad del sistema
-  </Card>
-
-  <Card title="Servicios" icon="cubes" href="/services/auth-service">
-    Documentación de microservicios
-  </Card>
-</CardGroup>
+- **GitHub Actions**: Configuración de workflows y jobs
+- **Docker & ECR**: Estrategias de containerización y registry
+- **ArgoCD**: GitOps y continuous deployment
+- **Monitoreo**: Observabilidad y alertas del pipeline

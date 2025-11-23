@@ -1,6 +1,6 @@
 ---
 title: 6.3. Networking y Seguridad
-description: Arquitectura de red VPC, subnets y security groups
+description: Arquitectura de red VPC, subnets, security groups y topología de red
 icon: network-wired
 ---
 
@@ -30,6 +30,92 @@ Retro Game Hub utiliza una VPC dedicada con subnets públicas y privadas distrib
   </Card>
 </CardGroup>
 
+## Topología de Red
+
+<Frame>
+```mermaid
+graph TB
+    subgraph "Internet"
+        IGW[Internet Gateway]
+    end
+    
+    subgraph "VPC: 10.0.0.0/16"
+        subgraph "Public Tier"
+            direction TB
+            ALB[Application Load Balancer]
+            NAT1[NAT Gateway AZ-A]
+            NAT2[NAT Gateway AZ-B]
+            NAT3[NAT Gateway AZ-C]
+            
+            subgraph "Public Subnets"
+                PUB1[Public 1<br/>10.0.1.0/24<br/>AZ-A]
+                PUB2[Public 2<br/>10.0.2.0/24<br/>AZ-B]
+                PUB3[Public 3<br/>10.0.3.0/24<br/>AZ-C]
+            end
+        end
+        
+        subgraph "Application Tier"
+            subgraph "Private Subnets"
+                PRIV1[Private 1<br/>10.0.11.0/24<br/>AZ-A]
+                PRIV2[Private 2<br/>10.0.12.0/24<br/>AZ-B]
+                PRIV3[Private 3<br/>10.0.13.0/24<br/>AZ-C]
+            end
+            
+            subgraph "EKS Nodes"
+                NODE1[Node Group AZ-A]
+                NODE2[Node Group AZ-B]
+                NODE3[Node Group AZ-C]
+            end
+        end
+        
+        subgraph "Database Tier"
+            subgraph "DB Subnets"
+                DB1[DB Subnet 1<br/>10.0.21.0/24<br/>AZ-A]
+                DB2[DB Subnet 2<br/>10.0.22.0/24<br/>AZ-B]
+            end
+            
+            RDS_PRIMARY[(RDS Primary<br/>AZ-A)]
+            RDS_STANDBY[(RDS Standby<br/>AZ-B)]
+            REDIS[(ElastiCache<br/>Redis)]
+        end
+    end
+    
+    IGW --> ALB
+    ALB --> NODE1
+    ALB --> NODE2
+    ALB --> NODE3
+    
+    NAT1 --> IGW
+    NAT2 --> IGW
+    NAT3 --> IGW
+    
+    NODE1 --> NAT1
+    NODE2 --> NAT2
+    NODE3 --> NAT3
+    
+    NODE1 --> RDS_PRIMARY
+    NODE2 --> RDS_PRIMARY
+    NODE3 --> RDS_PRIMARY
+    
+    NODE1 --> REDIS
+    NODE2 --> REDIS
+    NODE3 --> REDIS
+    
+    RDS_PRIMARY <--> RDS_STANDBY
+    
+    PUB1 --> NAT1
+    PUB2 --> NAT2
+    PUB3 --> NAT3
+    
+    PRIV1 --> NODE1
+    PRIV2 --> NODE2
+    PRIV3 --> NODE3
+    
+    DB1 --> RDS_PRIMARY
+    DB2 --> RDS_STANDBY
+```
+</Frame>
+
 ## Diseño de Subnets
 
 ### Subnets Públicas
@@ -56,23 +142,20 @@ Tienen acceso directo a Internet vía Internet Gateway.
       <td>**Public 2**</td>
       <td>10.0.2.0/24</td>
       <td>eu-west-1b</td>
-      <td>ALB</td>
+      <td>ALB, NAT Gateway</td>
     </tr>
     <tr>
       <td>**Public 3**</td>
       <td>10.0.3.0/24</td>
       <td>eu-west-1c</td>
-      <td>ALB</td>
+      <td>ALB, NAT Gateway</td>
     </tr>
   </tbody>
 </Table>
 
-* *Recursos en subnets públicas:**
-
+**Recursos en subnets públicas:**
 - Application Load Balancer (ALB)
-
-- NAT Gateway
-
+- NAT Gateway (uno por AZ)
 - Bastion Host (opcional)
 
 ### Subnets Privadas
@@ -93,13 +176,13 @@ Sin acceso directo a Internet - salen a través del NAT Gateway.
       <td>**Private 1**</td>
       <td>10.0.11.0/24</td>
       <td>eu-west-1a</td>
-      <td>EKS nodes, RDS primary</td>
+      <td>EKS nodes</td>
     </tr>
     <tr>
       <td>**Private 2**</td>
       <td>10.0.12.0/24</td>
       <td>eu-west-1b</td>
-      <td>EKS nodes, RDS standby</td>
+      <td>EKS nodes</td>
     </tr>
     <tr>
       <td>**Private 3**</td>
@@ -110,659 +193,305 @@ Sin acceso directo a Internet - salen a través del NAT Gateway.
   </tbody>
 </Table>
 
-* *Recursos en subnets privadas:**
+### Subnets de Base de Datos
 
-- Nodos de EKS
-
-- Pods de Kubernetes
-
-- RDS PostgreSQL
-
-- ElastiCache Redis
-
-## Configuración de Terraform
-
-<CodeGroup>
-
-```hcl vpc.tf
-module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"
-
-  name = "${var.cluster_name}-vpc"
-  cidr = "10.0.0.0/16"
-
-  azs             = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
-  private_subnets = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
-  public_subnets  = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
-
-  # NAT Gateway
-  enable_nat_gateway = true
-  single_nat_gateway = true  # Dev: 1 NAT, Prod: 1 por AZ
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-
-  # Tags para EKS
-  public_subnet_tags = {
-    "kubernetes.io/role/elb"                    = "1"
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-  }
-
-  private_subnet_tags = {
-    "kubernetes.io/role/internal-elb"           = "1"
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-  }
-
-  tags = {
-    Name        = "${var.cluster_name}-vpc"
-    Environment = var.environment
-    ManagedBy   = "terraform"
-  }
-}
-
-# Internet Gateway (creado automáticamente por el módulo)
-
-# Elastic IP para NAT Gateway
-resource "aws_eip" "nat" {
-  count  = 1
-  domain = "vpc"
-
-  tags = {
-    Name = "${var.cluster_name}-nat-eip"
-  }
-
-  depends_on = [module.vpc.igw_id]
-}
-
-```
-
-```hcl route_tables.tf
-
-# Tabla de rutas para subnets públicas (automática)
-
-# Ruta: 0.0.0.0/0 → Internet Gateway
-
-# Tabla de rutas para subnets privadas (automática)
-
-# Ruta: 0.0.0.0/0 → NAT Gateway
-
-# Ver rutas
-data "aws_route_table" "public" {
-  subnet_id = module.vpc.public_subnets[0]
-}
-
-data "aws_route_table" "private" {
-  subnet_id = module.vpc.private_subnets[0]
-}
-
-```
-
-</CodeGroup>
+<Table>
+  <thead>
+    <tr>
+      <th>Subnet</th>
+      <th>CIDR</th>
+      <th>AZ</th>
+      <th>Uso</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**DB 1**</td>
+      <td>10.0.21.0/24</td>
+      <td>eu-west-1a</td>
+      <td>RDS primary, ElastiCache</td>
+    </tr>
+    <tr>
+      <td>**DB 2**</td>
+      <td>10.0.22.0/24</td>
+      <td>eu-west-1b</td>
+      <td>RDS standby</td>
+    </tr>
+  </tbody>
+</Table>
 
 ## Flujo de Tráfico
 
-<Steps>
-  <Step title="Usuario → ALB">
-    **Puerto**: 443 (HTTPS)
+### Tráfico Entrante
 
-    ```
+<Frame>
+```mermaid
+sequenceDiagram
+    participant U as Usuario
+    participant CF as CloudFront
+    participant ALB as Load Balancer
+    participant EKS as EKS Pods
+    participant RDS as Base de Datos
+    
+    U->>CF: 1. Solicitud HTTPS
+    CF->>ALB: 2. Reenvío a ALB (público)
+    ALB->>EKS: 3. Balanceo a pods (privado)
+    EKS->>RDS: 4. Query DB (privado)
+    RDS->>EKS: 5. Respuesta
+    EKS->>ALB: 6. Respuesta HTTP
+    ALB->>CF: 7. Respuesta
+    CF->>U: 8. Respuesta al usuario
+```
+</Frame>
 
-    Usuario (Internet)
-      → Route53 (DNS)
-      → ALB (Subnet Pública)
-    ```
+### Tráfico Saliente
 
-
-    - SSL/TLS termina en el ALB
-    - ACM certificate automático
-  </Step>
-
-  <Step title="ALB → Pods">
-    **Puerto**: Variable (3001-3005, 8000)
-
-    ```
-
-    ALB (Subnet Pública)
-      → EKS Pods (Subnet Privada)
-      → Servicios ClusterIP
-    ```
-
-
-    - Enrutamiento basado en path
-    - Health checks cada 30s
-  </Step>
-
-  <Step title="Pods → RDS/Redis">
-    **Puerto**: 5432 (PostgreSQL), 6379 (Redis)
-
-    ```
-
-    Pods (Subnet Privada)
-      → RDS/Redis (Subnet Privada)
-    ```
-
-
-    - Comunicación interna en VPC
-    - Sin salida a Internet
-  </Step>
-
-  <Step title="Pods → Internet">
-    **Puerto**: 443 (HTTPS saliente)
-
-    ```
-
-    Pods (Subnet Privada)
-      → NAT Gateway (Subnet Pública)
-      → Internet Gateway
-      → Internet
-    ```
-
-
-    - Para pull de imágenes Docker
-    - Llamadas a APIs externas
-  </Step>
-</Steps>
+<Frame>
+```mermaid
+sequenceDiagram
+    participant EKS as EKS Pods
+    participant NAT as NAT Gateway
+    participant IGW as Internet Gateway
+    participant EXT as Servicios Externos
+    
+    EKS->>NAT: 1. Solicitud saliente
+    NAT->>IGW: 2. Traducción NAT
+    IGW->>EXT: 3. Hacia Internet
+    EXT->>IGW: 4. Respuesta
+    IGW->>NAT: 5. Retorno
+    NAT->>EKS: 6. Respuesta al pod
+```
+</Frame>
 
 ## Security Groups
 
 ### ALB Security Group
 
-Permite tráfico HTTPS desde Internet.
+<Accordion title="alb-security-group">
+```yaml
+Inbound Rules:
+  - Port: 80
+    Protocol: HTTP
+    Source: 0.0.0.0/0
+    Description: "HTTP from anywhere"
+  
+  - Port: 443
+    Protocol: HTTPS
+    Source: 0.0.0.0/0
+    Description: "HTTPS from anywhere"
 
-```hcl
-resource "aws_security_group" "alb" {
-  name        = "${var.cluster_name}-alb-sg"
-  description = "Security group for ALB"
-  vpc_id      = module.vpc.vpc_id
-
-  # HTTP (redirige a HTTPS)
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "HTTP from Internet"
-  }
-
-  # HTTPS
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "HTTPS from Internet"
-  }
-
-  # Salida a EKS nodes
-  egress {
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    security_groups = [aws_security_group.node_group.id]
-    description     = "All traffic to EKS nodes"
-  }
-
-  tags = {
-    Name = "${var.cluster_name}-alb-sg"
-  }
-}
-
+Outbound Rules:
+  - Port: 8080
+    Protocol: HTTP
+    Destination: eks-nodes-sg
+    Description: "To EKS nodes"
 ```
+</Accordion>
 
-### EKS Node Security Group
+### EKS Nodes Security Group
 
-Permite tráfico desde ALB y entre nodos.
+<Accordion title="eks-nodes-security-group">
+```yaml
+Inbound Rules:
+  - Port: 8080
+    Protocol: HTTP
+    Source: alb-security-group
+    Description: "From ALB"
+  
+  - Port: 443
+    Protocol: HTTPS
+    Source: eks-control-plane-sg
+    Description: "From EKS control plane"
+  
+  - Ports: 1025-65535
+    Protocol: TCP
+    Source: self
+    Description: "Inter-node communication"
 
-```hcl
-resource "aws_security_group" "node_group" {
-  name        = "${var.cluster_name}-node-sg"
-  description = "Security group for EKS nodes"
-  vpc_id      = module.vpc.vpc_id
-
-  # Desde ALB
-  ingress {
-    from_port       = 0
-    to_port         = 65535
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
-    description     = "All TCP from ALB"
-  }
-
-  # Entre nodos (comunicación de pods)
-  ingress {
-    from_port = 0
-    to_port   = 65535
-    protocol  = "-1"
-    self      = true
-    description = "All traffic between nodes"
-  }
-
-  # Desde cluster (control plane)
-  ingress {
-    from_port       = 443
-    to_port         = 443
-    protocol        = "tcp"
-    security_groups = [module.eks.cluster_security_group_id]
-    description     = "HTTPS from EKS control plane"
-  }
-
-  # Salida a Internet (via NAT)
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "All traffic to Internet"
-  }
-
-  tags = {
-    Name = "${var.cluster_name}-node-sg"
-  }
-}
-
+Outbound Rules:
+  - Port: 443
+    Protocol: HTTPS
+    Destination: 0.0.0.0/0
+    Description: "HTTPS to anywhere"
+  
+  - Port: 5432
+    Protocol: TCP
+    Destination: rds-security-group
+    Description: "To PostgreSQL"
+  
+  - Port: 6379
+    Protocol: TCP
+    Destination: redis-security-group
+    Description: "To Redis"
 ```
+</Accordion>
 
 ### RDS Security Group
 
-Solo accesible desde pods de EKS.
+<Accordion title="rds-security-group">
+```yaml
+Inbound Rules:
+  - Port: 5432
+    Protocol: TCP
+    Source: eks-nodes-sg
+    Description: "From EKS nodes"
 
-```hcl
-resource "aws_security_group" "rds" {
-  name        = "${var.cluster_name}-rds-sg"
-  description = "Security group for RDS"
-  vpc_id      = module.vpc.vpc_id
-
-  # PostgreSQL desde nodos EKS
-  ingress {
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.node_group.id]
-    description     = "PostgreSQL from EKS nodes"
-  }
-
-  # Sin salida (base de datos no necesita Internet)
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "${var.cluster_name}-rds-sg"
-  }
-}
-
+Outbound Rules:
+  - None (managed by AWS)
 ```
+</Accordion>
 
 ### Redis Security Group
 
-Solo accesible desde pods de EKS.
+<Accordion title="redis-security-group">
+```yaml
+Inbound Rules:
+  - Port: 6379
+    Protocol: TCP
+    Source: eks-nodes-sg
+    Description: "From EKS nodes"
 
-```hcl
-resource "aws_security_group" "redis" {
-  name        = "${var.cluster_name}-redis-sg"
-  description = "Security group for Redis"
-  vpc_id      = module.vpc.vpc_id
-
-  # Redis desde nodos EKS
-  ingress {
-    from_port       = 6379
-    to_port         = 6379
-    protocol        = "tcp"
-    security_groups = [aws_security_group.node_group.id]
-    description     = "Redis from EKS nodes"
-  }
-
-  tags = {
-    Name = "${var.cluster_name}-redis-sg"
-  }
-}
-
+Outbound Rules:
+  - None (managed by AWS)
 ```
+</Accordion>
 
 ## Network ACLs
 
-Por defecto, usamos NACLs permisivas (allow all) y confiamos en Security Groups para control granular.
-
-```hcl
-
-# NACL por defecto permite todo el tráfico
-
-# Security Groups proporcionan control stateful
-
-```
-
-<Warning>
-  En producción crítica, considera NACLs restrictivas como capa adicional de defensa en profundidad.
-</Warning>
-
-## VPC Endpoints
-
-Para reducir costos de NAT Gateway y mejorar seguridad, usar VPC Endpoints para servicios AWS.
-
-<CodeGroup>
-
-```hcl vpc_endpoints.tf
-
-# S3 Gateway Endpoint (gratis)
-resource "aws_vpc_endpoint" "s3" {
-  vpc_id       = module.vpc.vpc_id
-  service_name = "com.amazonaws.eu-west-1.s3"
-
-  route_table_ids = concat(
-    module.vpc.private_route_table_ids,
-    module.vpc.public_route_table_ids
-  )
-
-  tags = {
-    Name = "${var.cluster_name}-s3-endpoint"
-  }
-}
-
-# ECR API Endpoint (interface)
-resource "aws_vpc_endpoint" "ecr_api" {
-  vpc_id              = module.vpc.vpc_id
-  service_name        = "com.amazonaws.eu-west-1.ecr.api"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = module.vpc.private_subnets
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-  private_dns_enabled = true
-
-  tags = {
-    Name = "${var.cluster_name}-ecr-api-endpoint"
-  }
-}
-
-# ECR Docker Endpoint (interface)
-resource "aws_vpc_endpoint" "ecr_dkr" {
-  vpc_id              = module.vpc.vpc_id
-  service_name        = "com.amazonaws.eu-west-1.ecr.dkr"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = module.vpc.private_subnets
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-  private_dns_enabled = true
-
-  tags = {
-    Name = "${var.cluster_name}-ecr-dkr-endpoint"
-  }
-}
-
-# Security Group para VPC Endpoints
-resource "aws_security_group" "vpc_endpoints" {
-  name        = "${var.cluster_name}-vpc-endpoints-sg"
-  description = "Security group for VPC endpoints"
-  vpc_id      = module.vpc.vpc_id
-
-  ingress {
-    from_port       = 443
-    to_port         = 443
-    protocol        = "tcp"
-    security_groups = [aws_security_group.node_group.id]
-    description     = "HTTPS from EKS nodes"
-  }
-
-  tags = {
-    Name = "${var.cluster_name}-vpc-endpoints-sg"
-  }
-}
-
-```
-
-</CodeGroup>
-
-* *Ahorro con VPC Endpoints:**
-
-- S3: $0 (gateway endpoint gratuito)
-
-- ECR: ~$7/mes - pero reduces NAT Gateway data transfer
-
-- NAT Gateway data: $0.045/GB → VPC Endpoint: $0.01/GB
-
-## DNS Resolution
-
-### Route53 Private Hosted Zone
-
-Para resolución de DNS interna (opcional).
-
-```hcl
-resource "aws_route53_zone" "private" {
-  name = "retrogame.internal"
-
-  vpc {
-    vpc_id = module.vpc.vpc_id
-  }
-
-  tags = {
-    Name = "${var.cluster_name}-private-zone"
-  }
-}
-
-# Registro para RDS
-resource "aws_route53_record" "rds" {
-  zone_id = aws_route53_zone.private.zone_id
-  name    = "postgres.retrogame.internal"
-  type    = "CNAME"
-  ttl     = 300
-  records = [aws_db_instance.postgres.address]
-}
-
-# Registro para Redis
-resource "aws_route53_record" "redis" {
-  zone_id = aws_route53_zone.private.zone_id
-  name    = "redis.retrogame.internal"
-  type    = "CNAME"
-  ttl     = 300
-  records = [aws_elasticache_cluster.redis.cache_nodes[0].address]
-}
-
-```
-
-Uso en aplicaciones:
-
-```javascript
-// En lugar de:
-DB_HOST=retrogame-db.xxxxx.eu-west-1.rds.amazonaws.com
-
-// Usar:
-DB_HOST=postgres.retrogame.internal
-
-```
-
-## Costos de Networking
+### Subnet Pública - NACL
 
 <Table>
   <thead>
     <tr>
-      <th>Componente</th>
-      <th>Costo/Hora</th>
-      <th>Costo/Mes</th>
+      <th>Regla</th>
+      <th>Tipo</th>
+      <th>Protocolo</th>
+      <th>Puerto</th>
+      <th>Origen/Destino</th>
+      <th>Acción</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>**NAT Gateway**</td>
-      <td>$0.045</td>
-      <td>**$32.40**</td>
+      <td>100</td>
+      <td>Inbound</td>
+      <td>TCP</td>
+      <td>80</td>
+      <td>0.0.0.0/0</td>
+      <td>ALLOW</td>
     </tr>
     <tr>
-      <td>**Data Transfer (NAT)**</td>
-      <td>$0.045/GB</td>
-      <td>**$4.50** (100GB)</td>
+      <td>110</td>
+      <td>Inbound</td>
+      <td>TCP</td>
+      <td>443</td>
+      <td>0.0.0.0/0</td>
+      <td>ALLOW</td>
     </tr>
     <tr>
-      <td>**VPC (gratis)**</td>
-      <td>$0</td>
-      <td>$0</td>
+      <td>120</td>
+      <td>Inbound</td>
+      <td>TCP</td>
+      <td>1024-65535</td>
+      <td>0.0.0.0/0</td>
+      <td>ALLOW</td>
     </tr>
     <tr>
-      <td>**Interface Endpoints**</td>
-      <td>$0.01/hora</td>
-      <td>**$7.20** por endpoint</td>
+      <td>100</td>
+      <td>Outbound</td>
+      <td>TCP</td>
+      <td>8080</td>
+      <td>10.0.0.0/16</td>
+      <td>ALLOW</td>
     </tr>
     <tr>
-      <td>**Data Transfer (Endpoint)**</td>
-      <td>$0.01/GB</td>
-      <td>**$1.00** (100GB)</td>
-    </tr>
-    <tr>
-      <td>**TOTAL (sin endpoints)**</td>
-      <td>-</td>
-      <td>**~$37/mes**</td>
+      <td>110</td>
+      <td>Outbound</td>
+      <td>TCP</td>
+      <td>1024-65535</td>
+      <td>0.0.0.0/0</td>
+      <td>ALLOW</td>
     </tr>
   </tbody>
 </Table>
 
-### Optimizar Costos
+### Subnet Privada - NACL
 
-<CardGroup cols={2}>
-  <Card title="1 NAT por AZ" icon="money-bill-wave">
-    **Dev**: 1 NAT total
+<Table>
+  <thead>
+    <tr>
+      <th>Regla</th>
+      <th>Tipo</th>
+      <th>Protocolo</th>
+      <th>Puerto</th>
+      <th>Origen/Destino</th>
+      <th>Acción</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>100</td>
+      <td>Inbound</td>
+      <td>TCP</td>
+      <td>8080</td>
+      <td>10.0.0.0/16</td>
+      <td>ALLOW</td>
+    </tr>
+    <tr>
+      <td>110</td>
+      <td>Inbound</td>
+      <td>TCP</td>
+      <td>443</td>
+      <td>10.0.0.0/16</td>
+      <td>ALLOW</td>
+    </tr>
+    <tr>
+      <td>120</td>
+      <td>Inbound</td>
+      <td>TCP</td>
+      <td>1024-65535</td>
+      <td>0.0.0.0/0</td>
+      <td>ALLOW</td>
+    </tr>
+    <tr>
+      <td>100</td>
+      <td>Outbound</td>
+      <td>TCP</td>
+      <td>443</td>
+      <td>0.0.0.0/0</td>
+      <td>ALLOW</td>
+    </tr>
+    <tr>
+      <td>110</td>
+      <td>Outbound</td>
+      <td>TCP</td>
+      <td>5432</td>
+      <td>10.0.0.0/16</td>
+      <td>ALLOW</td>
+    </tr>
+    <tr>
+      <td>120</td>
+      <td>Outbound</td>
+      <td>TCP</td>
+      <td>6379</td>
+      <td>10.0.0.0/16</td>
+      <td>ALLOW</td>
+    </tr>
+  </tbody>
+</Table>
 
-    **Prod**: 1 NAT por AZ (alta disponibilidad)
-  </Card>
+## Configuración de Routing
 
-  <Card title="VPC Endpoints" icon="link">
-    Para tráfico alto a S3/ECR
+### Route Tables
 
-    Break-even: ~800GB/mes
-  </Card>
-</CardGroup>
-
-## Network Policies
-
-Controla tráfico entre pods con Network Policies de Kubernetes.
-
-<Accordion title="Instalar Calico (opcional)">
-
-```bash
-
-# EKS usa VPC CNI por defecto (no soporta Network Policies)
-
-# Para Network Policies, instalar Calico:
-
-kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico-vxlan.yaml
-
-# Verificar instalación
-kubectl get pods -n kube-system | grep calico
-
-```
-
-</Accordion>
-
-### Ejemplo: Aislar Namespace
-
-```yaml
-
-# Solo permite tráfico dentro del namespace
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: deny-from-other-namespaces
-  namespace: retrogame
-spec:
-  podSelector: {}
-  policyTypes:
-  - Ingress
-  ingress:
-  - from:
-    - podSelector: {}  # Solo pods del mismo namespace
-
-```
-
-### Ejemplo: Solo desde ALB
-
-```yaml
-
-# Solo permite tráfico desde pods del ingress controller
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-from-alb-only
-  namespace: retrogame
-spec:
-  podSelector:
-    matchLabels:
-      app: frontend
-  policyTypes:
-  - Ingress
-  ingress:
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          name: kube-system
-      podSelector:
-        matchLabels:
-          app: aws-load-balancer-controller
-
-```
-
-## Troubleshooting
-
-<AccordionGroup>
-  <Accordion title="Pods no pueden acceder a Internet">
-    ```bash
-    # Verificar que hay ruta al NAT Gateway
-    kubectl run test --image=busybox --rm -it -- wget -O- https://www.google.com
-
-    # Verificar tabla de rutas
-    aws ec2 describe-route-tables --filters "Name=vpc-id,Values=<VPC_ID>"
-
-    # Verificar NAT Gateway está activo
-    aws ec2 describe-nat-gateways --filter "Name=vpc-id,Values=<VPC_ID>"
-    ```
-
-  </Accordion>
-
-  <Accordion title="RDS no accesible desde pods">
-    ```bash
-    # Verificar security group
-    aws ec2 describe-security-groups --group-ids <RDS_SG_ID>
-
-    # Test de conectividad desde un pod
-    kubectl run db-test --image=postgres:15 --rm -it -- \
-      psql -h postgres.retrogame.internal -U postgres -d retrogamedb
-
-    # Verificar DNS
-    kubectl run dns-test --image=busybox --rm -it -- \
-      nslookup postgres.retrogame.internal
-    ```
-
-  </Accordion>
-
-  <Accordion title="ALB no distribuye tráfico">
-    ```bash
-    # Ver target groups
-    aws elbv2 describe-target-health --target-group-arn <TG_ARN>
-
-    # Verificar health checks
-    kubectl get svc -n retrogame
-    kubectl describe svc <service-name> -n retrogame
-
-    # Ver logs del ALB
-    aws logs tail /aws/elasticloadbalancing/app/<alb-name> --follow
-    ```
-
-  </Accordion>
-</AccordionGroup>
-
-## Próximos Pasos
-
-<CardGroup cols={2}>
-  <Card title="Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
-    Prometheus, Grafana y alertas de red
-  </Card>
-
-  <Card title="Cluster EKS" icon="dharmachakra" href="/infrastructure/eks-cluster">
-    Configuración del cluster de Kubernetes
-  </Card>
-
-  <Card title="Desplegar Servicios" icon="cubes" href="/services/auth-service">
-    Microservicios en la red
-  </Card>
-
-  <Card title="Infraestructura General" icon="server" href="/infrastructure/overview">
-    Vista general de toda la infra
-  </Card>
-</CardGroup>
+<Tabs>
+  <Tab title="Public Route Table">
+    ```yaml
+    Routes:
+      - Destination: 10.0.0.0/16
+        Target: local
+        Description: "VPC internal routing"
+      
+      - Destination: 0.0.0.0/0
+        Target: igw-xxx
+        Description: "Internet Gateway

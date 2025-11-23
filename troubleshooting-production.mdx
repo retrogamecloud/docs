@@ -1,0 +1,561 @@
+---
+title: "Troubleshooting de Producción"
+description: "Guía completa para resolver problemas críticos en entornos de producción de RetroGameCloud"
+icon: "triangle-exclamation"
+---
+
+# Troubleshooting de Producción
+
+Esta guía cubre los problemas más comunes que pueden surgir en el entorno de producción de RetroGameCloud y sus soluciones prácticas.
+
+## Problemas de Kubernetes
+
+### Pod CrashLoopBackOff
+
+<Warning>
+Un pod en estado `CrashLoopBackOff` indica que el contenedor se reinicia continuamente. Esto puede causar indisponibilidad del servicio.
+</Warning>
+
+#### Diagnóstico
+
+```bash
+# Verificar el estado de los pods
+kubectl get pods -n retrogame-cloud
+
+# Obtener logs del pod problemático
+kubectl logs <pod-name> -n retrogame-cloud --previous
+
+# Describir el pod para ver eventos
+kubectl describe pod <pod-name> -n retrogame-cloud
+```
+
+#### Causas Comunes y Soluciones
+
+<Tabs>
+<Tab title="Secrets Faltantes">
+
+**Síntoma**: Error `secret "database-credentials" not found`
+
+```bash
+# Verificar secrets existentes
+kubectl get secrets -n retrogame-cloud
+
+# Crear secret faltante
+kubectl create secret generic database-credentials \
+  --from-literal=username=postgres \
+  --from-literal=password=<password> \
+  -n retrogame-cloud
+```
+
+</Tab>
+<Tab title="Health Checks Fallando">
+
+**Síntoma**: Liveness/Readiness probes failing
+
+```yaml
+# Ajustar los health checks en el deployment
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 60  # Aumentar delay
+  timeoutSeconds: 10       # Aumentar timeout
+  failureThreshold: 5      # Más intentos antes de fallar
+```
+
+</Tab>
+<Tab title="Variables de Entorno">
+
+**Síntoma**: Aplicación no puede conectar a servicios externos
+
+```bash
+# Verificar variables de entorno del pod
+kubectl exec <pod-name> -n retrogame-cloud -- env | grep -E "(DATABASE|REDIS|API)"
+
+# Verificar ConfigMap
+kubectl get configmap app-config -n retrogame-cloud -o yaml
+```
+
+</Tab>
+</Tabs>
+
+### Pods OOMKilled
+
+<Note>
+`OOMKilled` significa que el pod fue terminado por usar más memoria de la asignada en los resource limits.
+</Note>
+
+#### Diagnóstico
+
+```bash
+# Verificar uso de memoria actual
+kubectl top pods -n retrogame-cloud
+
+# Ver eventos de OOM
+kubectl get events -n retrogame-cloud --field-selector=reason=OOMKilling
+
+# Analizar métricas históricas en Grafana
+# Dashboard: Kubernetes Pod Memory Usage
+```
+
+#### Soluciones
+
+<Tabs>
+<Tab title="Aumentar Memory Limits">
+
+```yaml
+# Actualizar deployment
+resources:
+  limits:
+    memory: "2Gi"        # Aumentar desde 1Gi
+    cpu: "1000m"
+  requests:
+    memory: "1Gi"        # Aumentar requests también
+    cpu: "500m"
+```
+
+</Tab>
+<Tab title="Detectar Memory Leaks">
+
+```bash
+# Para servicios Node.js - habilitar heap profiling
+kubectl exec -it <pod-name> -n retrogame-cloud -- node --inspect
+
+# Para servicios Java - generar heap dump
+kubectl exec -it <pod-name> -n retrogame-cloud -- \
+  jmap -dump:format=b,file=/tmp/heap.hprof <pid>
+```
+
+</Tab>
+<Tab title="Optimización de Aplicación">
+
+Para el servicio `game-catalog`:
+
+```javascript
+// Implementar paginación para evitar cargar todos los juegos
+const getGames = async (page = 1, limit = 50) => {
+  return await Game.findAndCountAll({
+    limit: limit,
+    offset: (page - 1) * limit,
+    order: [['createdAt', 'DESC']]
+  });
+};
+
+// Usar streaming para archivos grandes
+const uploadROM = (req, res) => {
+  const uploadStream = s3.upload({
+    Bucket: 'retrogame-roms',
+    Key: req.file.originalname,
+    Body: req.file.stream
+  });
+  
+  uploadStream.send((err, data) => {
+    // Procesar respuesta sin cargar archivo en memoria
+  });
+};
+```
+
+</Tab>
+</Tabs>
+
+## Problemas de Base de Datos
+
+### Latencia Alta en RDS
+
+<Warning>
+Latencias superiores a 100ms pueden impactar significativamente la experiencia del usuario.
+</Warning>
+
+#### Diagnóstico
+
+<Tabs>
+<Tab title="Performance Insights">
+
+1. Acceder a AWS RDS Console
+2. Seleccionar la instancia de PostgreSQL
+3. Ir a "Performance Insights"
+4. Analizar:
+   - Top SQL statements
+   - Wait events
+   - Database load
+
+</Tab>
+<Tab title="Queries Lentas">
+
+```sql
+-- Habilitar log de queries lentas (como superuser)
+ALTER SYSTEM SET log_min_duration_statement = 1000; -- 1 segundo
+SELECT pg_reload_conf();
+
+-- Ver queries más lentas
+SELECT 
+  query,
+  calls,
+  total_time,
+  mean_time,
+  rows
+FROM pg_stat_statements 
+ORDER BY total_time DESC 
+LIMIT 10;
+```
+
+</Tab>
+<Tab title="Métricas de Conexión">
+
+```bash
+# Desde un pod de aplicación
+kubectl exec -it <auth-service-pod> -n retrogame-cloud -- \
+  psql postgresql://user:pass@rds-endpoint:5432/retrogame -c \
+  "SELECT count(*) FROM pg_stat_activity WHERE state = 'active';"
+```
+
+</Tab>
+</Tabs>
+
+#### Soluciones
+
+<Tabs>
+<Tab title="Índices Faltantes">
+
+```sql
+-- Identificar tablas sin índices en columnas frecuentemente consultadas
+SELECT 
+  schemaname,
+  tablename,
+  attname,
+  n_distinct,
+  correlation
+FROM pg_stats 
+WHERE tablename IN ('users', 'games', 'scores', 'rankings');
+
+-- Crear índices necesarios
+CREATE INDEX CONCURRENTLY idx_games_category ON games(category);
+CREATE INDEX CONCURRENTLY idx_scores_user_game ON scores(user_id, game_id);
+CREATE INDEX CONCURRENTLY idx_rankings_game_score ON rankings(game_id, score DESC);
+```
+
+</Tab>
+<Tab title="Connection Pooling">
+
+Configurar PgBouncer como sidecar:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgbouncer-config
+  namespace: retrogame-cloud
+data:
+  pgbouncer.ini: |
+    [databases]
+    retrogame = host=rds-endpoint.region.rds.amazonaws.com port=5432 dbname=retrogame
+    
+    [pgbouncer]
+    listen_port = 6432
+    listen_addr = 0.0.0.0
+    auth_type = md5
+    auth_file = /etc/pgbouncer/userlist.txt
+    pool_mode = transaction
+    max_client_conn = 200
+    default_pool_size = 25
+    reserve_pool_size = 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+spec:
+  template:
+    spec:
+      containers:
+      - name: auth-service
+        image: retrogame/auth:latest
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://user:pass@localhost:6432/retrogame"
+      - name: pgbouncer
+        image: pgbouncer/pgbouncer:latest
+        volumeMounts:
+        - name: pgbouncer-config
+          mountPath: /etc/pgbouncer
+```
+
+</Tab>
+<Tab title="Escalado RDS">
+
+```bash
+# Escalar verticalmente (requiere downtime)
+aws rds modify-db-instance \
+  --db-instance-identifier retrogame-production \
+  --db-instance-class db.r5.xlarge \
+  --apply-immediately
+
+# Crear read replica para consultas de solo lectura
+aws rds create-db-instance-read-replica \
+  --db-instance-identifier retrogame-read-replica \
+  --source-db-instance-identifier retrogame-production \
+  --db-instance-class db.r5.large
+```
+
+</Tab>
+</Tabs>
+
+### Agotamiento de Conexiones
+
+#### Síntomas
+
+```bash
+# Error común en logs de aplicación
+FATAL: remaining connection slots are reserved for non-replication superuser connections
+
+# Error en métricas
+DatabaseConnections > 90% of max_connections
+```
+
+#### Solución Inmediata
+
+```sql
+-- Ver conexiones activas
+SELECT 
+  pid,
+  usename,
+  application_name,
+  client_addr,
+  state,
+  query_start,
+  query
+FROM pg_stat_activity 
+WHERE state != 'idle'
+ORDER BY query_start;
+
+-- Terminar conexiones idle antiguas
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity 
+WHERE state = 'idle' 
+  AND query_start < now() - interval '30 minutes';
+```
+
+## Problemas de Red y Conectividad
+
+### 502 Bad Gateway (Kong)
+
+<Note>
+Este error indica que Kong no puede conectar con los servicios upstream.
+</Note>
+
+#### Diagnóstico
+
+```bash
+# Verificar estado de Kong
+kubectl get pods -n kong
+
+# Ver logs de Kong
+kubectl logs -f <kong-pod> -n kong
+
+# Verificar configuración de servicios
+kubectl get services -n retrogame-cloud
+
+# Comprobar endpoints
+kubectl get endpoints -n retrogame-cloud
+```
+
+#### Soluciones
+
+<Tabs>
+<Tab title="Service Health Check">
+
+```bash
+# Verificar que los pods estén corriendo
+kubectl get pods -n retrogame-cloud -l app=auth-service
+
+# Test directo al servicio
+kubectl port-forward svc/auth-service 8080:80 -n retrogame-cloud
+curl http://localhost:8080/health
+```
+
+</Tab>
+<Tab title="Configuración Kong">
+
+```yaml
+# Verificar Kong Service configuración
+apiVersion: configuration.konghq.com/v1
+kind: KongService
+metadata:
+  name: auth-service
+  namespace: retrogame-cloud
+spec:
+  protocol: http
+  host: auth-service.retrogame-cloud.svc.cluster.local
+  port: 80
+  path: /
+  connect_timeout: 60000
+  write_timeout: 60000
+  read_timeout: 60000
+```
+
+</Tab>
+<Tab title="DNS Resolution">
+
+```bash
+# Test DNS desde Kong pod
+kubectl exec -it <kong-pod> -n kong -- \
+  nslookup auth-service.retrogame-cloud.svc.cluster.local
+
+# Verificar CoreDNS
+kubectl get pods -n kube-system -l k8s-app=kube-dns
+```
+
+</Tab>
+</Tabs>
+
+## Problemas de Autenticación OAuth2
+
+### Redirect Loops
+
+<Warning>
+Los bucles de redirección OAuth2 pueden bloquear completamente el acceso de usuarios a la plataforma.
+</Warning>
+
+#### Causas Comunes
+
+<Tabs>
+<Tab title="Callback URLs Incorrectas">
+
+Verificar configuración en GitHub OAuth App:
+
+1. Ir a GitHub → Settings → Developer settings → OAuth Apps
+2. Verificar "Authorization callback URL":
+   - ✅ Correcto: `https://api.retrogamecloud.com/auth/github/callback`
+   - ❌ Incorrecto: `http://localhost:3000/auth/github/callback`
+
+```javascript
+// Verificar en el código del auth-service
+const GITHUB_CALLBACK_URL = process.env.GITHUB_CALLBACK_URL;
+console.log('Callback URL configured:', GITHUB_CALLBACK_URL);
+
+// Debe coincidir exactamente con GitHub OAuth App
+```
+
+</Tab>
+<Tab title="HTTPS vs HTTP">
+
+```bash
+# Verificar certificados SSL
+kubectl get certificates -n retrogame-cloud
+
+# Forzar HTTPS en Kong
+kubectl apply -f - <<EOF
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: force-https
+  namespace: retrogame-cloud
+plugin: request-termination
+config:
+  status_code: 301
+  headers:
+    Location: "https://\${host}\${uri}"
+EOF
+```
+
+</Tab>
+<Tab title="Session/Cookie Issues">
+
+```javascript
+// Configuración correcta de sesión
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // HTTPS only en prod
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 horas
+    domain: '.retrogamecloud.com' // Para subdominios
+  },
+  store: new RedisStore({
+    client: redisClient,
+    prefix: 'sess:'
+  })
+}));
+```
+
+</Tab>
+</Tabs>
+
+## Monitoreo y Alertas
+
+### Configurar Alertas Críticas
+
+```yaml
+# prometheus-alerts.yaml
+groups:
+- name: retrogame-critical
+  rules:
+  - alert: PodCrashLooping
+    expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Pod {{ $labels.pod }} is crash looping"
+      
+  - alert: HighMemoryUsage
+    expr: container_memory_usage_bytes / container_spec_memory_limit_bytes > 0.9
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High memory usage on {{ $labels.pod }}"
+      
+  - alert: DatabaseConnectionsHigh
+    expr: pg_stat_database_numbackends > 80
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High number of database connections"
+```
+
+### Dashboard de Estado
+
+Crear dashboard en Grafana con:
+
+- **Kubernetes**: Pod status, resource usage
+- **Database**: Connection count, query latency, slow queries
+- **Application**: Response times, error rates, OAuth success rate
+- **Infrastructure**: Node resources, network I/O
+
+<Note>
+Configura notificaciones en Slack o PagerDuty para alertas críticas que requieran intervención inmediata.
+</Note>
+
+## Procedimientos de Emergencia
+
+### Rollback Rápido
+
+```bash
+# Ver historial de deployments
+kubectl rollout history deployment/auth-service -n retrogame-cloud
+
+# Rollback a versión anterior
+kubectl rollout undo deployment/auth-service -n retrogame-cloud
+
+# Rollback a versión específica
+kubectl rollout undo deployment/auth-service --to-revision=2 -n retrogame-cloud
+```
+
+### Escalar Servicios Críticos
+
+```bash
+# Escalar horizontalmente en caso de carga alta
+kubectl scale deployment auth-service --replicas=10 -n retrogame-cloud
+kubectl scale deployment game-catalog --replicas=8 -n retrogame-cloud
+
+# Verificar que los pods estén listos
+kubectl get pods -l app=auth-service -n retrogame-cloud
+```
+
+<Warning>
+Siempre documenta cualquier cambio manual realizado durante una emergencia para poder revertirlo después a través del proceso GitOps normal.
+</Warning>

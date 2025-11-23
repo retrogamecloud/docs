@@ -1,466 +1,234 @@
 ---
 title: 2.1. Arquitectura del Sistema
-description: Visión general de la arquitectura de microservicios de Retro Game Hub
+description: Visión general de la arquitectura de microservicios cloud-native de Retro Game Hub desplegada en AWS EKS
 icon: file-lines
 ---
 
 ## Visión General de la Arquitectura
 
-Retro Game Hub está construido usando una arquitectura de microservicios cloud-native desplegada en AWS EKS (Kubernetes).
+Retro Game Hub está construido usando una arquitectura de microservicios cloud-native desplegada en AWS EKS (Kubernetes). La arquitectura sigue principios de escalabilidad, alta disponibilidad y separación de responsabilidades, organizándose en capas claramente definidas.
 
 ## Arquitectura de Alto Nivel
 
 ```mermaid
 graph TD
-    A[CloudFront CDN<br/>Game Assets & Static] --> B[Application Load Balancer<br/>SSL/TLS Termination]
-    B --> C[GitHub OAuth2 Proxy<br/>Monitoring Authentication]
-    C --> D[Grafana]
-    C --> E[Prometheus]
-    C --> F[AlertManager]
-    B --> G[Kong API Gateway<br/>Routing & Rate Limiting]
-    G --> H[Auth Service]
-    G --> I[Game Catalog Service]
-    G --> J[Score Service]
-    G --> K[Ranking Service]
-    G --> L[User Service]
-    G --> M[Frontend Static]
-    H --> N[PostgreSQL RDS<br/>Users, Games, Scores, Auth]
-    L --> N
-    J --> N
+    subgraph "CAPA DE ENTRADA"
+        A[CloudFront CDN<br/>Game Assets & Static Content]
+        B[Application Load Balancer<br/>SSL/TLS Termination]
+    end
+    
+    subgraph "CAPA DE GATEWAY"
+        C[GitHub OAuth2 Proxy<br/>Monitoring Authentication]
+        G[Kong API Gateway<br/>Routing & Rate Limiting]
+    end
+    
+    subgraph "CAPA DE OBSERVABILIDAD"
+        D[Grafana<br/>Dashboards]
+        E[Prometheus<br/>Metrics Collection]
+        F[AlertManager<br/>Alerting]
+    end
+    
+    subgraph "CAPA DE APLICACIÓN - EKS Cluster"
+        H[Auth Service<br/>:3001]
+        I[Game Catalog Service<br/>:3002]
+        J[Score Service<br/>:3003]
+        K[Ranking Service<br/>:3004]
+        L[User Service<br/>:3005]
+        M[Frontend Static<br/>js-dos Emulator]
+    end
+    
+    subgraph "CAPA DE DATOS"
+        N[PostgreSQL RDS<br/>Primary Database]
+        O[Redis Cache<br/>Rankings & Sessions]
+        P[S3 Bucket<br/>Game Assets & Static Files]
+    end
+    
+    A --> B
+    B --> C
+    B --> G
+    C --> D
+    C --> E
+    C --> F
+    G --> H
+    G --> I
+    G --> J
+    G --> K
+    G --> L
+    G --> M
+    H --> N
     I --> N
-    K --> O[Redis Cache]
+    J --> N
     J --> O
-
+    K --> O
+    L --> N
+    A -.-> P
+    M -.-> P
 ```
 
-## Componentes Principales
+## Arquitectura por Capas Detallada
 
-### Capa de Frontend
+### 1. Capa de Entrada
+Esta capa maneja todo el tráfico entrante y la distribución de contenido:
 
-- **Sitio Estático**: HTML/CSS/JS servido vía CloudFront
+- **CloudFront CDN**: Distribución global de contenido estático y assets de juegos
+- **Application Load Balancer**: Terminación SSL/TLS y balanceado de carga
 
-- **Emulador js-dos**: Emulación DOS basada en navegador
+### 2. Capa de Gateway
+Proporciona enrutamiento, autenticación y control de acceso:
 
-- **Assets de Juegos**: Archivos .jsdos alojados en CDN en S3
+- **Kong API Gateway**: Enrutamiento inteligente, rate limiting, y middleware
+- **GitHub OAuth2 Proxy**: Autenticación para herramientas de monitoreo
 
-### Capa de API Gateway
+### 3. Capa de Observabilidad
+Monitoreo y observabilidad del sistema:
 
-- **Kong**: Enrutamiento de peticiones, limitación de tasa, reenvío de autenticación
+- **Prometheus**: Recolección de métricas de todos los servicios
+- **Grafana**: Visualización de métricas y dashboards
+- **AlertManager**: Gestión de alertas y notificaciones
 
-- **Rutas**: `/auth`, `/games`, `/scores`, `/rankings`, `/users`
-
-### Capa de Microservicios
+### 4. Capa de Aplicación
+Microservicios desplegados en EKS:
 
 <CardGroup cols={2}>
-  <Card title="Servicio de Autenticación" icon="shield">
+  <Card title="Auth Service" icon="shield">
     - Generación/validación de tokens JWT
     - Autenticación de usuarios
+    - Gestión de sesiones
     - Puerto: 3001
   </Card>
 
-  <Card title="Servicio de Catálogo de Juegos" icon="gamepad">
+  <Card title="Game Catalog Service" icon="gamepad">
     - Gestión de metadatos de juegos
     - Listado de juegos disponibles
+    - Categorización y búsqueda
     - Puerto: 3002
   </Card>
 
-  <Card title="Servicio de Puntuaciones" icon="trophy">
-    - Envío de puntuaciones
-    - Validación de puntuaciones
-    - Publicación de eventos
+  <Card title="Score Service" icon="trophy">
+    - Envío y validación de puntuaciones
+    - Publicación de eventos de scoring
+    - Prevención de cheating
     - Puerto: 3003
   </Card>
 
-  <Card title="Servicio de Rankings" icon="ranking-star">
-    - Generación de tablas de clasificación
-    - Caché Redis
-    - Invalidación de caché
+  <Card title="Ranking Service" icon="ranking-star">
+    - Generación de tablas de posiciones
+    - Rankings globales y por juego
+    - Cache de rankings frecuentes
     - Puerto: 3004
   </Card>
 
-  <Card title="Servicio de Usuarios" icon="user">
+  <Card title="User Service" icon="user">
     - Gestión de perfiles de usuario
-    - Estadísticas de usuario
+    - Preferencias y configuración
+    - Historial de juegos
     - Puerto: 3005
   </Card>
-</CardGroup>
 
-### Capa de Datos
-
-<CardGroup cols={2}>
-  <Card title="PostgreSQL (RDS)" icon="database">
-    - Almacén de datos principal
-    - Transacciones ACID
-    - Esquemas: users, games, scores, auth_tokens
-  </Card>
-
-  <Card title="Redis" icon="bolt">
-    - Caché de rankings
-    - Almacenamiento de sesiones
-    - Tablas de clasificación en tiempo real
+  <Card title="Frontend Static" icon="browser">
+    - Interfaz web estática
+    - Integración con js-dos emulator
+    - Assets de frontend
   </Card>
 </CardGroup>
 
-### Capa de Infraestructura
+### 5. Capa de Datos
+Almacenamiento persistente y cache:
 
-<CardGroup cols={2}>
-  <Card title="AWS EKS" icon="dharmachakra">
-    - Orquestación Kubernetes
-    - Auto-escalado
-    - Despliegues continuos
-  </Card>
+- **PostgreSQL RDS**: Base de datos principal para usuarios, juegos, puntuaciones
+- **Redis Cache**: Cache de rankings y sesiones de usuario
+- **S3 Bucket**: Almacenamiento de archivos .jsdos y contenido estático
 
-  <Card title="Terraform" icon="code">
-    - Infraestructura como Código
-    - Gestión de estado (S3)
-    - Configuración modular
-  </Card>
+## Infraestructura como Código
 
-  <Card title="Stack de Monitoreo" icon="chart-line">
-    - Prometheus (métricas)
-    - Grafana (visualización)
-    - AlertManager (alertas)
-  </Card>
-
-  <Card title="Redes" icon="network-wired">
-    - VPC (10.0.0.0/16)
-    - 3 subredes públicas + 3 privadas
-    - NAT Gateway, ALB
-  </Card>
-</CardGroup>
-
-## Patrones de Comunicación
-
-### Comunicación Síncrona
-
-- **Protocolo**: REST/HTTP
-
-- **Gateway**: Kong enruta peticiones a servicios
-
-- **Autenticación**: Tokens JWT en cabecera Authorization
-
-- **Formato**: JSON
-
-### Comunicación Asíncrona
-
-- **Publicación de Eventos**: Servicio de puntuaciones publica eventos de puntuación
-
-- **Consumo de Eventos**: Servicio de rankings escucha invalidación de caché
-
-- **Patrón**: Pub/Sub vía Redis o cola de mensajes (futuro: Kafka)
-
-## Seguridad
-
-<Steps>
-  <Step title="Aislamiento de Red">
-    Servicios en subredes privadas, accesibles solo vía ALB
-  </Step>
-  <Step title="Autenticación JWT">
-    Autenticación basada en tokens sin estado para todas las llamadas API
-  </Step>
-  <Step title="GitHub OAuth">
-    OAuth restringido a organización para servicios de monitoreo
-  </Step>
-  <Step title="SSL/TLS">
-    Cifrado de extremo a extremo con certificados ACM
-  </Step>
-  <Step title="Grupos de Seguridad">
-    Reglas de acceso de red con mínimo privilegio
-  </Step>
-</Steps>
-
-## Escalabilidad
-
-### Escalado Horizontal
-
-- **Kubernetes HPA**: Auto-escala pods basado en CPU/memoria
-
-- **Grupos de Nodos**: Auto-escala instancias EC2 basado en demanda
-
-- **Base de Datos**: Réplicas de lectura para operaciones intensivas en lectura
-
-### Estrategia de Caché
-
-- **Redis**: Datos de ranking con TTL
-
-- **CloudFront**: Assets estáticos con caché en borde
-
-- **Aplicación**: Caché en memoria para datos accedidos frecuentemente
-
-### Optimización de Rendimiento
-
-- **CDN**: Assets de juegos servidos desde ubicaciones de borde
-
-- **Indexación de Base de Datos**: Consultas optimizadas para tablas de clasificación
-
-- **Pool de Conexiones**: Conexiones eficientes a base de datos
-
-## Próximos Pasos
-
-<CardGroup cols={2}>
-  <Card title="Detalles de Infraestructura" icon="server" href="/infrastructure/overview">
-    Profundiza en la configuración de Terraform y EKS
-  </Card>
-  <Card title="Documentación de Servicios" icon="cubes" href="/services/auth-service">
-    Explora los microservicios individuales
-  </Card>
-  <Card title="Referencia API" icon="terminal" href="/api-reference/auth/login">
-    Ver documentación completa de la API
-  </Card>
-  <Card title="Configuración de Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
-    Aprende sobre el stack de observabilidad
-  </Card>
-</CardGroup>
-
-
-## Arquitectura de Componentes
-
-```mermaid
-graph LR
-    subgraph Frontend
-        UI[Interfaz Web]
-        JSDOS[JS-DOS Emulator]
-    end
-
-    subgraph Gateway
-        Kong[Kong API Gateway]
-        OAuth[OAuth2 Proxy]
-    end
-
-    subgraph Microservicios
-        Auth[Auth Service]
-        User[User Service]
-        Catalog[Game Catalog]
-        Score[Score Service]
-        Ranking[Ranking Service]
-    end
-
-    subgraph Datos
-        DB[(PostgreSQL)]
-        S3[S3 Storage]
-    end
-
-    UI --> Kong
-    Kong --> OAuth
-    OAuth --> Auth
-    Kong --> User
-    Kong --> Catalog
-    Kong --> Score
-    Kong --> Ranking
-    Auth --> DB
-    User --> DB
-    Catalog --> S3
-    Score --> DB
-    Ranking --> DB
+### AWS EKS Cluster
+```yaml
+Cluster Configuration:
+- Kubernetes Version: 1.28
+- Node Groups: 
+  - System: t3.medium (2-4 nodes)
+  - Application: t3.large (2-6 nodes)
+- Auto Scaling: Habilitado
+- VPC: Private subnets con NAT Gateway
 ```
 
-
-
-```mermaid
-graph LR
-    subgraph Frontend
-        UI[Interfaz Web]
-        JSDOS[JS-DOS Emulator]
-    end
-
-    subgraph Gateway
-        Kong[Kong API Gateway]
-        OAuth[OAuth2 Proxy]
-    end
-
-    subgraph Microservicios
-        Auth[Auth Service]
-        User[User Service]
-        Catalog[Game Catalog]
-        Score[Score Service]
-        Ranking[Ranking Service]
-    end
-
-    subgraph Datos
-        DB[(PostgreSQL)]
-        S3[S3 Storage]
-    end
-
-    UI --> Kong
-    Kong --> OAuth
-    OAuth --> Auth
-    Kong --> User
-    Kong --> Catalog
-    Kong --> Score
-    Kong --> Ranking
-    Auth --> DB
-    User --> DB
-    Catalog --> S3
-    Score --> DB
-    Ranking --> DB
-
+### Networking
+```yaml
+VPC Configuration:
+- CIDR: 10.0.0.0/16
+- Public Subnets: 10.0.1.0/24, 10.0.2.0/24
+- Private Subnets: 10.0.10.0/24, 10.0.20.0/24
+- Availability Zones: Multi-AZ deployment
 ```
 
+## Flujo de Datos Típico
 
-
+### 1. Carga de Juego
 ```mermaid
-graph LR
-    subgraph Frontend
-        UI[Interfaz Web]
-        JSDOS[JS-DOS Emulator]
-    end
-
-    subgraph Gateway
-        Kong[Kong API Gateway]
-        OAuth[OAuth2 Proxy]
-    end
-
-    subgraph Microservicios
-        Auth[Auth Service]
-        User[User Service]
-        Catalog[Game Catalog]
-        Score[Score Service]
-        Ranking[Ranking Service]
-    end
-
-    subgraph Datos
-        DB[(PostgreSQL)]
-        S3[S3 Storage]
-    end
-
-    UI --> Kong
-    Kong --> OAuth
-    OAuth --> Auth
-    Kong --> User
-    Kong --> Catalog
-    Kong --> Score
-    Kong --> Ranking
-    Auth --> DB
-    User --> DB
-    Catalog --> S3
-    Score --> DB
-    Ranking --> DB
-
+sequenceDiagram
+    participant U as Usuario
+    participant CF as CloudFront
+    participant FE as Frontend
+    participant GW as Kong Gateway
+    participant GC as Game Catalog
+    participant S3 as S3 Assets
+    
+    U->>CF: Solicita página de juego
+    CF->>FE: Sirve HTML/CSS/JS
+    FE->>GW: GET /games/{id}/metadata
+    GW->>GC: Enruta solicitud
+    GC->>FE: Retorna metadatos
+    FE->>S3: Descarga archivo .jsdos
+    S3->>FE: Archivo del juego
+    FE->>U: Inicia emulador
 ```
 
-
-
+### 2. Envío de Puntuación
 ```mermaid
-graph LR
-    subgraph Frontend
-        UI[Interfaz Web]
-        JSDOS[JS-DOS Emulator]
-    end
-
-    subgraph Gateway
-        Kong[Kong API Gateway]
-        OAuth[OAuth2 Proxy]
-    end
-
-    subgraph Microservicios
-        Auth[Auth Service]
-        User[User Service]
-        Catalog[Game Catalog]
-        Score[Score Service]
-        Ranking[Ranking Service]
-    end
-
-    subgraph Datos
-        DB[(PostgreSQL)]
-        S3[S3 Storage]
-    end
-
-    UI --> Kong
-    Kong --> OAuth
-    OAuth --> Auth
-    Kong --> User
-    Kong --> Catalog
-    Kong --> Score
-    Kong --> Ranking
-    Auth --> DB
-    User --> DB
-    Catalog --> S3
-    Score --> DB
-    Ranking --> DB
-
+sequenceDiagram
+    participant U as Usuario
+    participant FE as Frontend
+    participant GW as Kong Gateway
+    participant AS as Auth Service
+    participant SS as Score Service
+    participant RS as Ranking Service
+    participant DB as PostgreSQL
+    participant RC as Redis Cache
+    
+    U->>FE: Finaliza juego con score
+    FE->>GW: POST /scores (con JWT)
+    GW->>AS: Valida token
+    AS->>GW: Token válido
+    GW->>SS: Enruta score
+    SS->>DB: Guarda puntuación
+    SS->>RS: Evento: nueva puntuación
+    RS->>RC: Actualiza cache de rankings
+    SS->>FE: Confirmación
+    FE->>U: Muestra resultado
 ```
 
+## Características de la Arquitectura
 
+### Escalabilidad
+- **Horizontal**: Auto-scaling de pods en EKS
+- **Vertical**: Ajuste dinámico de recursos por servicio
+- **CDN**: Distribución global de contenido estático
 
-```mermaid
-graph LR
-    subgraph Frontend
-        UI[Interfaz Web]
-        JSDOS[JS-DOS Emulator]
-    end
+### Alta Disponibilidad
+- **Multi-AZ**: Despliegue en múltiples zonas de disponibilidad
+- **Load Balancing**: Distribución de carga entre instancias
+- **Health Checks**: Monitoreo continuo de salud de servicios
 
-    subgraph Gateway
-        Kong[Kong API Gateway]
-        OAuth[OAuth2 Proxy]
-    end
+### Seguridad
+- **Network Policies**: Aislamiento de red entre microservicios
+- **JWT Authentication**: Autenticación stateless
+- **SSL/TLS**: Cifrado en tránsito
+- **VPC**: Red privada virtual aislada
 
-    subgraph Microservicios
-        Auth[Auth Service]
-        User[User Service]
-        Catalog[Game Catalog]
-        Score[Score Service]
-        Ranking[Ranking Service]
-    end
+### Observabilidad
+- **Metrics**: Prometheus para métricas de aplicación e infraestructura
+- **Logs**: Agregación centralizada de logs
+- **Tracing**: Seguimiento de requests distribuidos
+- **Alerting**: Notificaciones proactivas de problemas
 
-    subgraph Datos
-        DB[(PostgreSQL)]
-        S3[S3 Storage]
-    end
-
-    UI --> Kong
-    Kong --> OAuth
-    OAuth --> Auth
-    Kong --> User
-    Kong --> Catalog
-    Kong --> Score
-    Kong --> Ranking
-    Auth --> DB
-    User --> DB
-    Catalog --> S3
-    Score --> DB
-    Ranking --> DB
-
-```
-
-
-
-```mermaid
-graph LR
-    subgraph Frontend
-        UI[Interfaz Web]
-        JSDOS[JS-DOS Emulator]
-    end
-
-    subgraph Gateway
-        Kong[Kong API Gateway]
-        OAuth[OAuth2 Proxy]
-    end
-
-    subgraph Microservicios
-        Auth[Auth Service]
-        User[User Service]
-        Catalog[Game Catalog]
-        Score[Score Service]
-        Ranking[Ranking Service]
-    end
-
-    subgraph Datos
-        DB[(PostgreSQL)]
-        S3[S3 Storage]
-    end
-
-    UI --> Kong
-    Kong --> OAuth
-    OAuth --> Auth
-    Kong --> User
-    Kong --> Catalog
-    Kong --> Score
-    Kong --> Ranking
-    Auth --> DB
-    User --> DB
-    Catalog --> S3
-    Score --> DB
-    Ranking --> DB
-
-```
-
+Esta arquitectura permite que Retro Game Hub sea altamente escalable, mantenible y resiliente, proporcionando una experiencia de usuario óptima mientras facilita el desarrollo y operación del sistema.

@@ -1,0 +1,419 @@
+---
+title: "Guía de Contribución"
+description: "Proceso completo para contribuir al proyecto RetroGameCloud: estándares de código, pull requests y revisiones"
+icon: "users"
+---
+
+# Guía de Contribución
+
+Esta guía establece los estándares y procesos para contribuir al proyecto RetroGameCloud de manera eficiente y manteniendo la calidad del código.
+
+## Proceso de Contribución
+
+### 1. Preparación del Entorno
+
+<Tabs>
+  <Tab title="Fork y Clone">
+    ```bash
+    # Fork del repositorio en GitHub
+    # Luego clona tu fork localmente
+    git clone https://github.com/tu-usuario/retrogamecloud.git
+    cd retrogamecloud
+    
+    # Configura el repositorio upstream
+    git remote add upstream https://github.com/original/retrogamecloud.git
+    ```
+  </Tab>
+  
+  <Tab title="Configuración Local">
+    ```bash
+    # Instala dependencias
+    npm install
+    
+    # Configura variables de entorno
+    cp .env.example .env.local
+    
+    # Ejecuta tests para verificar setup
+    npm test
+    ```
+  </Tab>
+</Tabs>
+
+### 2. Creación de Branch
+
+<Warning>
+Siempre crea tu branch desde `main` actualizado y usa nombres descriptivos.
+</Warning>
+
+```bash
+# Actualiza main
+git checkout main
+git pull upstream main
+
+# Crea nueva branch
+git checkout -b feat/nueva-funcionalidad
+# o
+git checkout -b fix/correccion-bug
+# o
+git checkout -b docs/actualizar-documentacion
+```
+
+### 3. Desarrollo y Commits
+
+#### Convención de Commits
+
+Utilizamos [Conventional Commits](https://www.conventionalcommits.org/) con los siguientes tipos:
+
+<Card title="Tipos de Commits" icon="git-branch">
+- **feat:** Nueva funcionalidad
+- **fix:** Corrección de bugs
+- **docs:** Cambios en documentación
+- **style:** Cambios de formato (no afectan lógica)
+- **refactor:** Refactoring de código
+- **test:** Añadir o modificar tests
+- **chore:** Tareas de mantenimiento
+</Card>
+
+**Ejemplos de commits:**
+```bash
+git commit -m "feat(auth): añadir autenticación OAuth2"
+git commit -m "fix(game-catalog): corregir filtro por categoría"
+git commit -m "docs(api): actualizar endpoints de ranking"
+git commit -m "refactor(user-service): optimizar consultas de base de datos"
+```
+
+### 4. Testing y Calidad
+
+<Note>
+Es **obligatorio** mantener un coverage de tests superior al 80% y pasar todos los linters.
+</Note>
+
+```bash
+# Ejecutar tests unitarios
+npm test
+
+# Coverage de tests
+npm run test:coverage
+
+# Linting
+npm run lint
+
+# Formateo de código
+npm run format
+
+# Tests de integración
+npm run test:integration
+```
+
+#### Estructura de Tests
+
+```javascript
+// Ejemplo: tests/unit/services/auth.test.js
+const { AuthService } = require('../../../src/services/auth');
+
+describe('AuthService', () => {
+  describe('validateToken', () => {
+    it('debería validar token JWT válido', async () => {
+      const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+      const result = await AuthService.validateToken(token);
+      
+      expect(result.isValid).toBe(true);
+      expect(result.userId).toBeDefined();
+    });
+
+    it('debería rechazar token expirado', async () => {
+      const expiredToken = 'token.expirado.aqui';
+      const result = await AuthService.validateToken(expiredToken);
+      
+      expect(result.isValid).toBe(false);
+      expect(result.error).toBe('Token expired');
+    });
+  });
+});
+```
+
+## Estándares de Código
+
+### JavaScript/Node.js
+
+#### Configuración ESLint (Airbnb)
+
+```json
+// .eslintrc.js
+module.exports = {
+  extends: ['airbnb-base'],
+  env: {
+    node: true,
+    jest: true
+  },
+  rules: {
+    'no-console': 'warn',
+    'max-len': ['error', { code: 100 }],
+    'prefer-const': 'error'
+  }
+};
+```
+
+#### Patrones Obligatorios
+
+<Tabs>
+  <Tab title="Async/Await">
+    ```javascript
+    // ✅ Correcto - Usar async/await
+    const getUserData = async (userId) => {
+      try {
+        const user = await User.findById(userId);
+        const scores = await Score.findByUser(userId);
+        return { user, scores };
+      } catch (error) {
+        logger.error('Error fetching user data:', error);
+        throw error;
+      }
+    };
+
+    // ❌ Incorrecto - Callbacks anidados
+    const getUserData = (userId, callback) => {
+      User.findById(userId, (err, user) => {
+        if (err) return callback(err);
+        Score.findByUser(userId, (err, scores) => {
+          if (err) return callback(err);
+          callback(null, { user, scores });
+        });
+      });
+    };
+    ```
+  </Tab>
+  
+  <Tab title="Manejo de Errores">
+    ```javascript
+    // ✅ Correcto - Try-catch con logging
+    const createGame = async (gameData) => {
+      try {
+        const validatedData = await validateGameData(gameData);
+        const game = await Game.create(validatedData);
+        
+        logger.info('Game created successfully', { 
+          gameId: game.id, 
+          title: game.title 
+        });
+        
+        return game;
+      } catch (error) {
+        logger.error('Failed to create game:', {
+          error: error.message,
+          gameData,
+          stack: error.stack
+        });
+        
+        throw new GameCreationError('Unable to create game', error);
+      }
+    };
+    ```
+  </Tab>
+  
+  <Tab title="Logging con Winston">
+    ```javascript
+    // config/logger.js
+    const winston = require('winston');
+
+    const logger = winston.createLogger({
+      level: process.env.LOG_LEVEL || 'info',
+      format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.errors({ stack: true }),
+        winston.format.json()
+      ),
+      transports: [
+        new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+        new winston.transports.File({ filename: 'logs/combined.log' })
+      ]
+    });
+
+    // Uso en servicios
+    const processScore = async (scoreData) => {
+      logger.info('Processing score', { 
+        userId: scoreData.userId, 
+        gameId: scoreData.gameId 
+      });
+      
+      try {
+        const result = await ScoreService.create(scoreData);
+        logger.info('Score processed successfully', { scoreId: result.id });
+        return result;
+      } catch (error) {
+        logger.error('Score processing failed', { 
+          error: error.message,
+          scoreData 
+        });
+        throw error;
+      }
+    };
+    ```
+  </Tab>
+</Tabs>
+
+### Validación de Entrada
+
+Utilizamos **Joi** para validación de datos:
+
+```javascript
+const Joi = require('joi');
+
+// Schemas de validación
+const gameSchema = Joi.object({
+  title: Joi.string().min(1).max(100).required(),
+  description: Joi.string().max(500),
+  category: Joi.string().valid('arcade', 'platformer', 'rpg', 'shooter'),
+  difficulty: Joi.number().min(1).max(10),
+  romFile: Joi.string().uri().required()
+});
+
+// Middleware de validación
+const validateGame = async (req, res, next) => {
+  try {
+    const validatedData = await gameSchema.validateAsync(req.body);
+    req.validatedData = validatedData;
+    next();
+  } catch (error) {
+    res.status(400).json({ 
+      error: 'Validation failed', 
+      details: error.details 
+    });
+  }
+};
+```
+
+### Seguridad
+
+<Warning>
+**NUNCA** incluyas secrets, passwords o claves API en el código fuente.
+</Warning>
+
+```javascript
+// ✅ Correcto - Variables de entorno
+const dbConfig = {
+  host: process.env.DB_HOST,
+  password: process.env.DB_PASSWORD,
+  apiKey: process.env.AWS_API_KEY
+};
+
+// ❌ Incorrecto - Secrets hardcodeados
+const dbConfig = {
+  host: 'localhost',
+  password: 'mipassword123',
+  apiKey: 'AKIAIOSFODNN7EXAMPLE'
+};
+```
+
+## Pull Request Process
+
+### Template de Pull Request
+
+```markdown
+## 📋 Descripción
+
+Breve descripción de los cambios implementados.
+
+## 🔧 Tipo de Cambio
+
+- [ ] Bug fix (cambio que corrige un issue)
+- [ ] Nueva funcionalidad (cambio que añade funcionalidad)
+- [ ] Breaking change (fix o feature que causaría que funcionalidad existente no funcione como se espera)
+- [ ] Cambio de documentación
+
+## 🧪 Testing
+
+- [ ] Tests unitarios añadidos/actualizados
+- [ ] Tests de integración añadidos/actualizados
+- [ ] Coverage > 80%
+- [ ] Todos los tests pasan
+
+## ✅ Checklist
+
+- [ ] Mi código sigue las guías de estilo del proyecto
+- [ ] He realizado una auto-revisión de mi código
+- [ ] He comentado mi código, especialmente en áreas difíciles de entender
+- [ ] He actualizado la documentación correspondiente
+- [ ] Mis cambios no generan nuevas advertencias
+- [ ] No hay breaking changes sin justificación
+
+## 📸 Screenshots (si aplica)
+
+## 📚 Documentación Relacionada
+
+Links a issues, documentación externa, etc.
+```
+
+### Checklist de Code Review
+
+<Card title="Para Reviewers" icon="eye">
+
+#### Funcionalidad
+- [ ] El código hace lo que se supone que debe hacer
+- [ ] La lógica es correcta y eficiente
+- [ ] Los edge cases están manejados
+
+#### Código
+- [ ] Sigue las convenciones de naming
+- [ ] No hay código duplicado
+- [ ] Las funciones tienen una sola responsabilidad
+- [ ] El código es legible y mantenible
+
+#### Testing
+- [ ] Coverage adecuado (>80%)
+- [ ] Tests cubren casos importantes
+- [ ] Tests son claros y mantenibles
+
+#### Seguridad
+- [ ] No hay secrets expuestos
+- [ ] Validación de entrada apropiada
+- [ ] Autorización verificada donde corresponde
+
+#### Performance
+- [ ] No hay queries N+1
+- [ ] Uso eficiente de memoria
+- [ ] Optimizaciones donde sea necesario
+
+</Card>
+
+### Proceso de Merge
+
+```mermaid
+graph TD
+    A[PR Creado] --> B[Revisión Automática]
+    B --> C{Tests y Linting}
+    C -->|❌ Falla| D[Corregir Issues]
+    C -->|✅ Pasa| E[Asignar Reviewers]
+    D --> A
+    E --> F[Code Review]
+    F --> G{Aprobación}
+    G -->|Cambios Solicitados| H[Implementar Cambios]
+    G -->|✅ Aprobado por 2| I[Squash and Merge]
+    H --> F
+    I --> J[Deploy Automático]
+    J --> K[Verificación en Staging]
+```
+
+<Note>
+Se requiere **aprobación de 2 reviewers** como mínimo para hacer merge. Los cambios se integran usando **Squash and Merge** para mantener un historial limpio.
+</Note>
+
+## Recursos Adicionales
+
+### Herramientas Recomendadas
+
+- **IDE**: VS Code con extensiones ESLint, Prettier
+- **Git GUI**: GitKraken, SourceTree, o GitHub Desktop
+- **Testing**: Jest para unit tests, Supertest para API tests
+- **Debugging**: Node.js Inspector, winston para logs
+
+### Contacto y Soporte
+
+- **Canal Slack**: #retrogamecloud-dev
+- **Documentación API**: [/api-reference](/api-reference)
+- **Issues**: GitHub Issues para bugs y features
+- **Discusiones**: GitHub Discussions para preguntas generales
+
+---
+
+¡Gracias por contribuir a RetroGameCloud! 🎮✨

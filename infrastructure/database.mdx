@@ -1,7 +1,8 @@
 ---
-title: "Esquema y Arquitectura de Base de Datos"
-description: "Documentación completa del modelo de datos PostgreSQL, relaciones entre tablas, índices y estrategias de gestión para RetroGameCloud"
-icon: "database"
+title: Esquema y Arquitectura de Base de Datos
+description: Documentación completa del modelo de datos PostgreSQL, relaciones entre
+  tablas, índices y estrategias de gestión para RetroGameCloud
+icon: database
 ---
 
 # Esquema y Arquitectura de Base de Datos
@@ -67,6 +68,7 @@ erDiagram
         int score
         timestamp updated_at
     }
+
 ```
 
 ## Esquema de Tablas
@@ -91,6 +93,7 @@ Almacena la información de los usuarios registrados en la plataforma.
 | `updated_at` | TIMESTAMP | DEFAULT NOW() | Fecha de última modificación |
 </Tab>
 <Tab title="DDL">
+
 ```sql
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -105,7 +108,7 @@ CREATE TABLE users (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Trigger para actualizar updated_at
+- - Trigger para actualizar updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -114,20 +117,26 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-CREATE TRIGGER update_users_updated_at 
-    BEFORE UPDATE ON users 
-    FOR EACH ROW 
+CREATE TRIGGER update_users_updated_at
+    BEFORE UPDATE ON users
+    FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
 ```
+
 </Tab>
 <Tab title="Índices">
+
 ```sql
--- Índices adicionales para optimización
+
+- - Índices adicionales para optimización
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_created_at ON users(created_at);
 CREATE INDEX idx_users_active ON users(is_active) WHERE is_active = true;
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -152,6 +161,7 @@ Contiene el catálogo de juegos disponibles en la plataforma.
 | `updated_at` | TIMESTAMP | DEFAULT NOW() | Fecha de última modificación |
 </Tab>
 <Tab title="DDL">
+
 ```sql
 CREATE TABLE games (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -167,20 +177,25 @@ CREATE TABLE games (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TRIGGER update_games_updated_at 
-    BEFORE UPDATE ON games 
-    FOR EACH ROW 
+CREATE TRIGGER update_games_updated_at
+    BEFORE UPDATE ON games
+    FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
 ```
+
 </Tab>
 <Tab title="Índices">
+
 ```sql
 CREATE INDEX idx_games_slug ON games(slug);
 CREATE INDEX idx_games_category ON games(category);
 CREATE INDEX idx_games_year ON games(year);
 CREATE INDEX idx_games_published ON games(is_published) WHERE is_published = true;
 CREATE INDEX idx_games_category_year ON games(category, year) WHERE is_published = true;
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -202,6 +217,7 @@ Registra las puntuaciones obtenidas por los usuarios en cada juego.
 | `is_verified` | BOOLEAN | DEFAULT false | Estado de verificación |
 </Tab>
 <Tab title="DDL">
+
 ```sql
 CREATE TABLE scores (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -213,9 +229,12 @@ CREATE TABLE scores (
     created_at TIMESTAMP DEFAULT NOW(),
     is_verified BOOLEAN DEFAULT false
 );
+
 ```
+
 </Tab>
 <Tab title="Índices">
+
 ```sql
 CREATE INDEX idx_scores_user_id ON scores(user_id);
 CREATE INDEX idx_scores_game_id ON scores(game_id);
@@ -224,7 +243,9 @@ CREATE INDEX idx_scores_user_game ON scores(user_id, game_id);
 CREATE INDEX idx_scores_achieved_at ON scores(achieved_at);
 CREATE INDEX idx_scores_metadata ON scores USING gin(metadata);
 CREATE INDEX idx_scores_verified ON scores(is_verified) WHERE is_verified = true;
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -244,6 +265,7 @@ Mantiene los rankings actualizados para cada juego (tabla desnormalizada para op
 | `updated_at` | TIMESTAMP | DEFAULT NOW() | Última actualización |
 </Tab>
 <Tab title="DDL">
+
 ```sql
 CREATE TABLE rankings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -255,45 +277,56 @@ CREATE TABLE rankings (
     UNIQUE(game_id, user_id),
     UNIQUE(game_id, rank)
 );
+
 ```
+
 </Tab>
 <Tab title="Índices">
+
 ```sql
 CREATE UNIQUE INDEX idx_rankings_game_user ON rankings(game_id, user_id);
 CREATE UNIQUE INDEX idx_rankings_game_rank ON rankings(game_id, rank);
 CREATE INDEX idx_rankings_user_id ON rankings(user_id);
 CREATE INDEX idx_rankings_score ON rankings(score DESC);
+
 ```
+
 </Tab>
 </Tabs>
 
 ## Relaciones y Integridad Referencial
 
 <Card title="Relaciones Principales" icon="link">
+
 - **users → scores**: Un usuario puede tener múltiples puntuaciones (1:N)
+
 - **games → scores**: Un juego puede tener múltiples puntuaciones (1:N)
+
 - **users → rankings**: Un usuario puede aparecer en múltiples rankings (1:N)
+
 - **games → rankings**: Un juego tiene un ranking completo (1:N)
 </Card>
 
 ### Constraints de Integridad
 
 ```sql
--- Verificar que un usuario no tenga múltiples entradas en el mismo ranking
-ALTER TABLE rankings ADD CONSTRAINT unique_user_per_game_ranking 
+
+- - Verificar que un usuario no tenga múltiples entradas en el mismo ranking
+ALTER TABLE rankings ADD CONSTRAINT unique_user_per_game_ranking
     UNIQUE(game_id, user_id);
 
--- Verificar que las posiciones del ranking sean únicas por juego
-ALTER TABLE rankings ADD CONSTRAINT unique_rank_per_game 
+- - Verificar que las posiciones del ranking sean únicas por juego
+ALTER TABLE rankings ADD CONSTRAINT unique_rank_per_game
     UNIQUE(game_id, rank);
 
--- Verificar que las puntuaciones sean positivas
-ALTER TABLE scores ADD CONSTRAINT positive_score 
+- - Verificar que las puntuaciones sean positivas
+ALTER TABLE scores ADD CONSTRAINT positive_score
     CHECK (score >= 0);
 
--- Verificar formato de email
-ALTER TABLE users ADD CONSTRAINT valid_email_format 
+- - Verificar formato de email
+ALTER TABLE users ADD CONSTRAINT valid_email_format
     CHECK (email ~* '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$');
+
 ```
 
 ## Estrategias de Indexación
@@ -305,20 +338,22 @@ Los índices compuestos están optimizados para las consultas más frecuentes. R
 </Warning>
 
 ```sql
--- Índices para consultas de rankings por juego
-CREATE INDEX CONCURRENTLY idx_rankings_game_score 
-    ON rankings(game_id, score DESC) 
+
+- - Índices para consultas de rankings por juego
+CREATE INDEX CONCURRENTLY idx_rankings_game_score
+    ON rankings(game_id, score DESC)
     INCLUDE (user_id, rank);
 
--- Índices para búsqueda de juegos
-CREATE INDEX CONCURRENTLY idx_games_search 
-    ON games USING gin(to_tsvector('spanish', name || ' ' || description)) 
+- - Índices para búsqueda de juegos
+CREATE INDEX CONCURRENTLY idx_games_search
+    ON games USING gin(to_tsvector('spanish', name || ' ' || description))
     WHERE is_published = true;
 
--- Índices para consultas temporales de puntuaciones
-CREATE INDEX CONCURRENTLY idx_scores_recent 
-    ON scores(game_id, achieved_at DESC) 
+- - Índices para consultas temporales de puntuaciones
+CREATE INDEX CONCURRENTLY idx_scores_recent
+    ON scores(game_id, achieved_at DESC)
     WHERE is_verified = true;
+
 ```
 
 ### Estrategia de Particionado
@@ -326,17 +361,19 @@ CREATE INDEX CONCURRENTLY idx_scores_recent
 Para tablas de gran volumen como `scores`, se recomienda particionado por rango temporal:
 
 ```sql
--- Crear tabla padre particionada
+
+- - Crear tabla padre particionada
 CREATE TABLE scores_partitioned (
     LIKE scores INCLUDING ALL
 ) PARTITION BY RANGE (achieved_at);
 
--- Crear particiones mensuales
+- - Crear particiones mensuales
 CREATE TABLE scores_2024_01 PARTITION OF scores_partitioned
     FOR VALUES FROM ('2024-01-01') TO ('2024-02-01');
 
 CREATE TABLE scores_2024_02 PARTITION OF scores_partitioned
     FOR VALUES FROM ('2024-02-01') TO ('2024-03-01');
+
 ```
 
 ## Configuración de Amazon RDS
@@ -345,33 +382,52 @@ CREATE TABLE scores_2024_02 PARTITION OF scores_partitioned
 
 <Tabs>
 <Tab title="Producción">
+
 ```yaml
 Instancia: db.r6g.xlarge
+
 - vCPU: 4
+
 - RAM: 32 GB
+
 - Almacenamiento: gp3 500 GB
+
 - IOPS: 3000
+
 - Multi-AZ: Habilitado
+
 - Backup automático: 7 días
+
 - Ventana de mantenimiento: Dom 03:00-04:00 UTC
+
 ```
+
 </Tab>
 <Tab title="Desarrollo">
+
 ```yaml
 Instancia: db.t3.medium
+
 - vCPU: 2
+
 - RAM: 4 GB
+
 - Almacenamiento: gp2 100 GB
+
 - Multi-AZ: Deshabilitado
+
 - Backup automático: 3 días
+
 ```
+
 </Tab>
 </Tabs>
 
 ### Parámetros de Configuración
 
 ```sql
--- Configuraciones principales en PostgreSQL
+
+- - Configuraciones principales en PostgreSQL
 shared_preload_libraries = 'pg_stat_statements,auto_explain'
 max_connections = 200
 shared_buffers = '8GB'
@@ -381,11 +437,12 @@ work_mem = '64MB'
 random_page_cost = 1.1
 effective_io_concurrency = 200
 
--- Configuración para logging
+- - Configuración para logging
 log_statement = 'mod'
 log_min_duration_statement = 1000
 auto_explain.log_min_duration = 5000
 auto_explain.log_analyze = on
+
 ```
 
 ## Migraciones de Base de Datos
@@ -395,6 +452,7 @@ auto_explain.log_analyze = on
 Las migraciones se gestionan mediante archivos SQL versionados:
 
 ```
+
 migrations/
 ├── 001_create_users_table.up.sql
 ├── 001_create_users_table.down.sql
@@ -403,17 +461,20 @@ migrations/
 ├── 003_create_scores_table.up.sql
 ├── 003_create_scores_table.down.sql
 └── 004_create_rankings_table.up.sql
+
 ```
 
 ### Ejemplo de Migración
 
 <Tabs>
 <Tab title="001_create_users_table.up.sql">
+
 ```sql
--- Crear extensión para UUIDs
+
+- - Crear extensión para UUIDs
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Crear tabla users
+- - Crear tabla users
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -427,5 +488,5 @@ CREATE TABLE users (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Crear índices
+- - Crear índices
 CREATE INDEX idx_users_email ON users(email
