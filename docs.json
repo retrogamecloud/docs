@@ -49,16 +49,24 @@
         "tab": "Documentación",
         "groups": [
           {
-            "group": "1. Primeros Pasos",
+            "group": "1. Introducción",
             "pages": [
               "index",
-              "quickstart",
-              "desarrollo-local"
+              "quickstart"
             ],
-            "description": "Introducción al proyecto, guía de inicio rápido y configuración del entorno de desarrollo local"
+            "description": "Introducción al proyecto y guía de inicio rápido para comenzar a usar la plataforma"
           },
           {
-            "group": "2. Arquitectura del Sistema",
+            "group": "2. Desarrollo Local",
+            "pages": [
+              "desarrollo-local",
+              "configuration",
+              "troubleshooting"
+            ],
+            "description": "Configuración del entorno de desarrollo local, gestión de variables de entorno y resolución de problemas comunes"
+          },
+          {
+            "group": "3. Arquitectura y Diseño",
             "pages": [
               "architecture",
               "sequence-diagrams"
@@ -66,7 +74,7 @@
             "description": "Visión general de la arquitectura del sistema, patrones de diseño y diagramas de secuencia de los flujos principales"
           },
           {
-            "group": "3. Aplicación Frontend",
+            "group": "4. Aplicación Frontend",
             "pages": [
               "frontend/overview",
               "frontend/jsdos-integration"
@@ -74,7 +82,7 @@
             "description": "Arquitectura de la aplicación React, estructura de componentes e integración del emulador js-dos para juegos retro"
           },
           {
-            "group": "4. Microservicios Backend",
+            "group": "5. Microservicios Backend",
             "pages": [
               "services/auth-service",
               "services/user-service",
@@ -85,14 +93,14 @@
             "description": "Documentación técnica detallada de cada microservicio: autenticación, usuarios, catálogo de juegos, puntuaciones y rankings"
           },
           {
-            "group": "5. Seguridad y Autenticación",
+            "group": "6. Seguridad",
             "pages": [
               "infrastructure/oauth2-authentication"
             ],
-            "description": "Implementación de OAuth2 con GitHub y Google, gestión de tokens JWT y políticas de seguridad"
+            "description": "Implementación de OAuth2 con GitHub y Google, gestión de tokens JWT y políticas de seguridad de la plataforma"
           },
           {
-            "group": "6. Infraestructura en AWS",
+            "group": "7. Infraestructura Cloud",
             "pages": [
               "infrastructure/overview",
               "infrastructure/eks-cluster",
@@ -101,10 +109,10 @@
               "infrastructure/route53-ssl",
               "infrastructure/monitoring"
             ],
-            "description": "Infraestructura cloud completa: clúster EKS, redes VPC, CDN CloudFront, gestión DNS con Route53, certificados SSL y monitorización"
+            "description": "Infraestructura completa en AWS: clúster EKS, redes VPC, CDN CloudFront, gestión DNS con Route53, certificados SSL y monitorización"
           },
           {
-            "group": "7. Despliegue y GitOps",
+            "group": "8. Despliegue Continuo",
             "pages": [
               "cicd/overview",
               "cicd/github-actions",
@@ -112,15 +120,7 @@
               "infrastructure/argocd-gitops",
               "deployment"
             ],
-            "description": "Pipelines CI/CD con GitHub Actions, metodología GitOps, configuración de ArgoCD y procesos de despliegue automatizado"
-          },
-          {
-            "group": "8. Configuración y Operaciones",
-            "pages": [
-              "configuration",
-              "troubleshooting"
-            ],
-            "description": "Gestión de configuración, variables de entorno, resolución de problemas comunes y mantenimiento operativo"
+            "description": "Pipelines CI/CD con GitHub Actions, metodología GitOps con ArgoCD y procesos de despliegue automatizado a producción"
           }
         ]
       },
@@ -138,7 +138,7 @@
             "description": "Endpoints de inicio de sesión, registro de usuarios, verificación de tokens y especificación completa del servicio de autenticación"
           },
           {
-            "group": "2. Gestión de Usuarios",
+            "group": "2. Usuarios",
             "pages": [
               "api-reference/user-service"
             ],
@@ -151,7 +151,7 @@
               "api-reference/games/get",
               "api-reference/game-catalog-service"
             ],
-            "description": "Listado de juegos disponibles, búsqueda con filtros avanzados, consulta de detalles y especificación completa del servicio"
+            "description": "Listado de juegos disponibles, búsqueda con filtros avanzados, consulta de detalles y especificación completa del catálogo"
           },
           {
             "group": "4. Puntuaciones",
@@ -163,7 +163,7 @@
             "description": "Envío de puntuaciones de partidas, consulta de histórico personal, validación de resultados y especificación del servicio"
           },
           {
-            "group": "5. Rankings y Clasificaciones",
+            "group": "5. Rankings",
             "pages": [
               "api-reference/rankings/global",
               "api-reference/rankings/by-game",
@@ -172,11 +172,11 @@
             "description": "Tablas de clasificación globales, rankings específicos por juego, estadísticas y posicionamiento de jugadores"
           },
           {
-            "group": "6. API Gateway",
+            "group": "6. Gateway y Enrutamiento",
             "pages": [
               "api-reference/kong-config"
             ],
-            "description": "Configuración de Kong Gateway: enrutamiento, políticas, rate limiting, autenticación y gestión de tráfico API"
+            "description": "Configuración de Kong Gateway: enrutamiento de peticiones, políticas de seguridad, rate limiting y gestión del tráfico API"
           },
           {
             "group": "7. Infraestructura como Código",
@@ -184,15 +184,15 @@
               "api-reference/kubernetes-manifests",
               "api-reference/infrastructure-docs"
             ],
-            "description": "Manifiestos de Kubernetes para orquestación de contenedores y documentación completa de infraestructura como código con Terraform"
+            "description": "Manifiestos de Kubernetes para orquestación de contenedores y documentación completa de infraestructura con Terraform"
           },
           {
-            "group": "8. Especificaciones Técnicas Completas",
+            "group": "8. Especificaciones Completas",
             "pages": [
               "api-reference/backend-main",
               "api-reference/frontend"
             ],
-            "description": "Documentación técnica exhaustiva de la arquitectura backend y especificaciones detalladas de la aplicación frontend"
+            "description": "Documentación técnica exhaustiva de la arquitectura backend completa y especificaciones detalladas de la aplicación frontend"
           }
         ]
       }
