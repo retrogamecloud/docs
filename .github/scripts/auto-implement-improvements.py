@@ -43,36 +43,30 @@ class ImprovementImplementer:
             category = imp.get('category', '')
             priority = imp.get('priority', '')
             
-            # Solo implementar automáticamente:
-            # - High o medium priority
-            # - Categorías implementables: new_section, diagrams, content, navigation, code_examples
-            # - Excluir: structure (requiere eliminación/movimiento), formatting (cosmetico)
-            # - Con archivos específicos a crear
+            # IMPLEMENTAR TODO SIN RESTRICCIONES
+            # Solo excluir mejoras sin información suficiente
             
-            if priority not in ['high', 'medium']:
+            # Cualquier prioridad es válida (high, medium, low)
+            if not priority:
                 continue
             
-            # Categorías que SÍ se pueden auto-implementar (crear/modificar contenido)
-            implementable_categories = ['new_section', 'diagrams', 'content', 'navigation', 'code_examples', 'technical']
+            # Cualquier categoría es implementable
+            # - structure: eliminar/mover archivos
+            # - content: crear/modificar documentación
+            # - diagrams: agregar diagramas
+            # - navigation: actualizar nav
+            # - formatting: corregir formato
+            # - code_examples: agregar ejemplos
             
-            # Categorías que NO se pueden auto-implementar (requieren decisiones o eliminaciones)
-            non_implementable_categories = ['structure', 'formatting', 'organization']
-            
-            if category in non_implementable_categories:
-                continue
-            
-            if category not in implementable_categories:
-                continue
-            
+            # Solo requiere que haya alguna acción definida
             files_to_create = imp.get('files_to_create', [])
             files_to_modify = imp.get('files_to_modify', [])
+            files_to_delete = imp.get('files_to_delete', [])
             proposed_content = imp.get('proposed_content', '')
             
-            # Debe tener archivos a crear O archivos a modificar con contenido propuesto
-            if not files_to_create and not (files_to_modify and proposed_content):
-                continue
-            
-            implementable.append(imp)
+            # Si hay alguna acción concreta, es implementable
+            if files_to_create or files_to_modify or files_to_delete or proposed_content:
+                implementable.append(imp)
         
         return implementable
     
@@ -178,32 +172,52 @@ Plataforma de juegos retro con:
     def implement_improvement(self, improvement: Dict) -> bool:
         """Implementa una mejora específica"""
         title = improvement.get('title', 'Sin título')
+        category = improvement.get('category', '')
         files_to_create = improvement.get('files_to_create', [])
+        files_to_modify = improvement.get('files_to_modify', [])
+        files_to_delete = improvement.get('files_to_delete', [])
         
-        print(f"\n📝 Implementando: {title}")
+        print(f"\n📝 Implementando: {title} [{category}]")
         
         context = self.generate_context_summary()
         success_count = 0
         
-        for file_path_str in files_to_create:
-            # Convertir path relativo a absoluto
+        # 1. ELIMINAR archivos obsoletos/duplicados
+        for file_path_str in files_to_delete:
             file_path = self.docs_path / file_path_str
             
-            # Si el archivo ya existe, skip
+            if not file_path.exists():
+                print(f"   ⏭️  No existe: {file_path_str}")
+                continue
+            
+            try:
+                file_path.unlink()
+                print(f"   🗑️  Eliminado: {file_path_str}")
+                success_count += 1
+                self.implemented.append({
+                    'improvement': title,
+                    'file': file_path_str,
+                    'status': 'deleted'
+                })
+            except Exception as e:
+                print(f"   ❌ Error eliminando {file_path_str}: {e}")
+        
+        # 2. CREAR archivos nuevos
+        for file_path_str in files_to_create:
+            file_path = self.docs_path / file_path_str
+            
             if file_path.exists():
                 print(f"   ⏭️  Ya existe: {file_path_str}")
                 continue
             
             print(f"   🤖 Generando: {file_path_str}")
             
-            # Generar contenido con Claude
             content = self.generate_file_content_with_claude(improvement, context)
             
             if not content:
                 print(f"   ⚠️  No se pudo generar contenido")
                 continue
             
-            # Crear archivo
             if self.create_file(file_path, content):
                 success_count += 1
                 self.implemented.append({
@@ -211,6 +225,91 @@ Plataforma de juegos retro con:
                     'file': file_path_str,
                     'status': 'created'
                 })
+        
+        # 3. MODIFICAR archivos existentes
+        for file_path_str in files_to_modify:
+            file_path = self.docs_path / file_path_str
+            
+            if not file_path.exists():
+                print(f"   ⚠️  No existe para modificar: {file_path_str}")
+                # Si no existe, intentar crearlo
+                if improvement.get('proposed_content'):
+                    print(f"   🤖 Creando en su lugar: {file_path_str}")
+                    content = self.generate_file_content_with_claude(improvement, context)
+                    if content and self.create_file(file_path, content):
+                        success_count += 1
+                        self.implemented.append({
+                            'improvement': title,
+                            'file': file_path_str,
+                            'status': 'created'
+                        })
+                continue
+            
+            print(f"   📝 Modificando: {file_path_str}")
+            
+            # Leer contenido actual
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    current_content = f.read()
+            except Exception as e:
+                print(f"   ❌ Error leyendo {file_path_str}: {e}")
+                continue
+            
+            # Generar contenido mejorado con Claude
+            enhanced_prompt = f"""Mejora el siguiente archivo existente según la descripción.
+
+## Archivo: {file_path_str}
+
+## Contenido Actual:
+```
+{current_content[:2000]}...
+```
+
+## Mejora a Aplicar:
+{improvement.get('description', '')}
+
+## Contenido Propuesto:
+{improvement.get('proposed_content', '')}
+
+## Instrucciones:
+1. Mantén el frontmatter existente pero mejóralo si es necesario
+2. Integra el contenido propuesto de forma coherente
+3. Mantén el estilo y formato del archivo
+4. Responde SOLO con el contenido MDX completo mejorado
+"""
+            
+            try:
+                message = self.client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=4096,
+                    messages=[{"role": "user", "content": enhanced_prompt}]
+                )
+                
+                new_content = message.content[0].text.strip()
+                
+                # Limpiar markdown code blocks
+                if new_content.startswith('```'):
+                    lines = new_content.split('\n')
+                    if lines[0].startswith('```'):
+                        lines = lines[1:]
+                    if lines[-1].startswith('```'):
+                        lines = lines[:-1]
+                    new_content = '\n'.join(lines)
+                
+                # Escribir contenido mejorado
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(new_content)
+                
+                print(f"   ✅ Modificado: {file_path_str}")
+                success_count += 1
+                self.implemented.append({
+                    'improvement': title,
+                    'file': file_path_str,
+                    'status': 'modified'
+                })
+                
+            except Exception as e:
+                print(f"   ❌ Error modificando {file_path_str}: {e}")
         
         return success_count > 0
     
