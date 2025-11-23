@@ -1,97 +1,100 @@
 {
-  "analysis_summary": "La documentación tiene una estructura sólida pero presenta gaps críticos en seguridad, disaster recovery, observabilidad avanzada y guías de contribución. Falta documentación técnica profunda sobre decisiones de arquitectura, patrones de resiliencia y runbooks operacionales. Se requieren más diagramas de flujo de datos y componentes de infraestructura.",
-  "overall_score": 6.8,
+  "analysis_summary": "La documentación está bien estructurada pero presenta gaps críticos: falta documentación de seguridad y DR, los diagramas de arquitectura son insuficientes, hay inconsistencias en nomenclatura (Retro Game Hub vs RetroGameCloud), y faltan guías operativas para producción. Score general: 7.5/10.",
+  "overall_score": 7.5,
   "improvements": [
     {
       "priority": "high",
       "category": "content",
       "title": "Documentación de Seguridad Completa",
-      "description": "Falta documentación crítica sobre políticas de seguridad, gestión de secretos, escaneo de vulnerabilidades, políticas de red en Kubernetes, y hardening de servicios. Es fundamental para producción.",
+      "description": "Falta documentación crítica sobre seguridad: políticas de secretos, gestión de credenciales en K8s, rotación de tokens JWT, hardening de contenedores, políticas de red, y escaneo de vulnerabilidades. Es fundamental para producción.",
       "files_to_create": [
         "security/overview.mdx",
         "security/secrets-management.mdx",
         "security/network-policies.mdx",
-        "security/vulnerability-scanning.mdx",
-        "security/incident-response.mdx"
+        "security/container-security.mdx",
+        "security/jwt-best-practices.mdx"
       ],
       "files_to_modify": [
         "architecture.mdx",
         "deployment.mdx"
       ],
       "files_to_delete": [],
-      "proposed_content": "## Gestión de Secretos\n\n### AWS Secrets Manager\nTodos los secretos sensibles se almacenan en AWS Secrets Manager con rotación automática cada 90 días.\n\n### External Secrets Operator\nSincronización automática de secretos desde AWS a Kubernetes usando External Secrets Operator.\n\n### Políticas de Red\nNetworkPolicies de Kubernetes implementadas para limitar tráfico entre pods solo a lo necesario.",
-      "mermaid_diagram": "graph TD\n    A[Secretos en AWS Secrets Manager] --> B[External Secrets Operator]\n    B --> C[Secrets en K8s]\n    C --> D[Pods con Variables de Entorno]\n    E[Vault Alternativo] -.-> B\n    F[Rotación Automática] --> A",
-      "rationale": "La seguridad es crítica en producción y actualmente no hay documentación sobre cómo se manejan secretos, certificados, políticas de red ni respuesta a incidentes. Esto es un riesgo operacional."
+      "proposed_content": "# Seguridad en Retro Game Hub\n\n## Gestión de Secretos\n- AWS Secrets Manager para credenciales RDS\n- Kubernetes Secrets cifrados en reposo\n- Rotación automática de tokens JWT\n\n## Políticas de Red\n- Network Policies K8s entre microservicios\n- Security Groups AWS restrictivos\n- Whitelist de IPs para administración",
+      "mermaid_diagram": "graph TB\n    subgraph Capa_Perimetral[Capa Perimetral]\n        CF[CloudFront WAF]\n        ALB[ALB con SSL/TLS]\n    end\n    subgraph Capa_Autenticacion[Autenticación]\n        OAuth[OAuth2 Proxy]\n        Kong[Kong JWT Plugin]\n    end\n    subgraph Capa_Aplicacion[Aplicación]\n        Auth[Auth Service]\n        Game[Game Catalog]\n        Score[Score Service]\n    end\n    subgraph Capa_Datos[Datos]\n        RDS[(RDS PostgreSQL cifrado)]\n        Redis[(Redis con AUTH)]\n    end\n    CF -->|HTTPS| ALB\n    ALB -->|mTLS| OAuth\n    OAuth --> Kong\n    Kong -->|JWT Validado| Auth\n    Kong -->|JWT Validado| Game\n    Kong -->|JWT Validado| Score\n    Auth -.->|Secrets Manager| RDS\n    Score -.->|TLS| Redis",
+      "rationale": "La seguridad es crítica para producción. Sin documentación clara, los desarrolladores pueden cometer errores que expongan datos sensibles o credenciales."
     },
     {
       "priority": "high",
       "category": "content",
-      "title": "Disaster Recovery y Backup",
-      "description": "No existe documentación sobre estrategias de backup, recuperación ante desastres, RPO/RTO, procedimientos de restauración de bases de datos ni planes de contingencia.",
+      "title": "Plan de Recuperación ante Desastres (DR)",
+      "description": "No existe documentación sobre backups, RTO/RPO, procedimientos de restauración, o planes de continuidad. Fundamental para entornos productivos con datos críticos de usuarios.",
       "files_to_create": [
         "operations/disaster-recovery.mdx",
         "operations/backup-strategy.mdx",
-        "operations/rpo-rto.mdx"
+        "operations/incident-response.mdx"
       ],
       "files_to_modify": [
-        "infrastructure/overview.mdx"
+        "deployment.mdx"
       ],
       "files_to_delete": [],
-      "proposed_content": "## Estrategia de Backup\n\n### Base de Datos PostgreSQL\n- Backups automáticos diarios en RDS con retención de 30 días\n- Snapshots manuales antes de cambios mayores\n- Réplicas de lectura en múltiples AZs\n\n### Objetivos\n- RPO: 1 hora (máxima pérdida de datos)\n- RTO: 4 horas (tiempo de recuperación)\n\n### Procedimientos de Restauración\n1. Identificar backup válido\n2. Restaurar RDS desde snapshot\n3. Actualizar endpoints en servicios\n4. Validar integridad de datos",
-      "mermaid_diagram": "",
-      "rationale": "Sin documentación de DR, el equipo no sabe cómo actuar ante fallos catastróficos. Los RPO/RTO deben estar claramente definidos y los procedimientos de recuperación documentados y probados."
+      "proposed_content": "# Plan de Recuperación ante Desastres\n\n## Objetivos\n- RTO (Recovery Time Objective): 4 horas\n- RPO (Recovery Point Objective): 1 hora\n\n## Estrategia de Backups\n- RDS: Snapshots automatizados cada hora, retención 7 días\n- Redis: AOF persistence + replicación\n- S3: Versionado habilitado + Cross-Region Replication\n\n## Procedimientos de Restauración\n1. Recuperación de Base de Datos desde snapshot\n2. Recreación de cluster EKS desde código Terraform\n3. Despliegue de servicios vía ArgoCD\n4. Validación de integridad de datos",
+      "mermaid_diagram": "flowchart TD\n    Start[Detección de Incidente] --> Assess{Evaluar Severidad}\n    Assess -->|Crítico| Alert[Alertar Equipo On-Call]\n    Assess -->|Mayor| Investigate[Investigar Causa]\n    Assess -->|Menor| Log[Registrar en Sistema]\n    Alert --> Failover{¿Requiere Failover?}\n    Failover -->|Sí BD| RestoreDB[Restaurar desde Snapshot RDS]\n    Failover -->|Sí Cluster| RecreateEKS[Recrear EKS con Terraform]\n    Failover -->|Sí Servicios| RedeployServices[Redesplegar vía ArgoCD]\n    RestoreDB --> Validate[Validar Integridad]\n    RecreateEKS --> Validate\n    RedeployServices --> Validate\n    Validate --> PostMortem[Análisis Post-Mortem]\n    Investigate --> Fix[Aplicar Corrección]\n    Fix --> PostMortem\n    Log --> Monitor[Monitorizar]",
+      "rationale": "Sin un plan DR documentado, la recuperación ante fallos será caótica, incrementando el downtime y posible pérdida de datos de usuarios."
     },
     {
       "priority": "high",
       "category": "diagrams",
-      "title": "Diagrama de Flujo de Datos Completo",
-      "description": "Falta un diagrama que muestre el flujo completo de datos desde el usuario hasta la persistencia, incluyendo todos los componentes intermedios (CloudFront, ALB, Kong, servicios, bases de datos, caché).",
-      "files_to_create": [],
+      "title": "Diagrama de Arquitectura de Red Completo",
+      "description": "El diagrama actual de arquitectura es muy básico. Falta mostrar VPCs, subnets públicas/privadas, NAT Gateways, Security Groups, y flujo de tráfico detallado.",
+      "files_to_create": [
+        "infrastructure/network-architecture.mdx"
+      ],
       "files_to_modify": [
-        "architecture.mdx"
+        "architecture.mdx",
+        "infrastructure/networking.mdx"
       ],
       "files_to_delete": [],
-      "proposed_content": "",
-      "mermaid_diagram": "graph LR\n    A[Usuario] --> B[CloudFront CDN]\n    B --> C[Route53 DNS]\n    C --> D[ALB + SSL/TLS]\n    D --> E[Kong API Gateway]\n    E --> F{Tipo de Petición}\n    F -->|Autenticación| G[Auth Service]\n    F -->|Juegos| H[Game Catalog Service]\n    F -->|Puntuaciones| I[Score Service]\n    F -->|Rankings| J[Ranking Service]\n    F -->|Usuarios| K[User Service]\n    G --> L[(PostgreSQL RDS)]\n    H --> L\n    I --> L\n    J --> L\n    K --> L\n    G --> M[(Redis Cache)]\n    I --> M\n    J --> M\n    H --> N[S3 Bucket - Archivos .jsdos]\n    B -.Caché Estática.-> N",
-      "rationale": "El diagrama de arquitectura actual es de alto nivel. Se necesita uno detallado que muestre exactamente cómo fluyen las peticiones y datos a través de todos los componentes para debugging y onboarding."
+      "proposed_content": "# Arquitectura de Red AWS\n\n## Topología de VPC\n- VPC: 10.0.0.0/16\n- Subnets públicas: 10.0.1.0/24, 10.0.2.0/24 (ALB, NAT Gateway)\n- Subnets privadas: 10.0.10.0/24, 10.0.11.0/24 (EKS Workers)\n- Subnets de datos: 10.0.20.0/24, 10.0.21.0/24 (RDS, Redis)\n\n## Security Groups\n- SG-ALB: Permite 443 desde Internet\n- SG-EKS: Permite tráfico desde ALB\n- SG-RDS: Permite 5432 solo desde EKS\n- SG-Redis: Permite 6379 solo desde EKS",
+      "mermaid_diagram": "graph TB\n    subgraph Internet\n        Users[Usuarios]\n    end\n    subgraph AWS_Region[Región AWS us-east-1]\n        subgraph VPC[VPC 10.0.0.0/16]\n            subgraph AZ1[Zona Disponibilidad 1a]\n                PublicSubnet1[Subnet Pública<br/>10.0.1.0/24]\n                PrivateSubnet1[Subnet Privada<br/>10.0.10.0/24]\n                DataSubnet1[Subnet Datos<br/>10.0.20.0/24]\n            end\n            subgraph AZ2[Zona Disponibilidad 1b]\n                PublicSubnet2[Subnet Pública<br/>10.0.2.0/24]\n                PrivateSubnet2[Subnet Privada<br/>10.0.11.0/24]\n                DataSubnet2[Subnet Datos<br/>10.0.21.0/24]\n            end\n            IGW[Internet Gateway]\n            NAT1[NAT Gateway AZ1]\n            NAT2[NAT Gateway AZ2]\n            ALB[Application Load Balancer]\n            EKS1[EKS Worker Nodes]\n            EKS2[EKS Worker Nodes]\n            RDS1[(RDS Primary)]\n            RDS2[(RDS Standby)]\n            Redis1[(Redis Primary)]\n            Redis2[(Redis Replica)]\n        end\n        CF[CloudFront CDN]\n    end\n    Users -->|HTTPS| CF\n    CF -->|HTTPS| IGW\n    IGW --> PublicSubnet1\n    IGW --> PublicSubnet2\n    PublicSubnet1 --> ALB\n    PublicSubnet2 --> ALB\n    PublicSubnet1 --> NAT1\n    PublicSubnet2 --> NAT2\n    ALB -->|SG: 8080| PrivateSubnet1\n    ALB -->|SG: 8080| PrivateSubnet2\n    PrivateSubnet1 --> EKS1\n    PrivateSubnet2 --> EKS2\n    EKS1 -->|SG: 5432| DataSubnet1\n    EKS2 -->|SG: 5432| DataSubnet2\n    DataSubnet1 --> RDS1\n    DataSubnet2 --> RDS2\n    DataSubnet1 --> Redis1\n    DataSubnet2 --> Redis2\n    EKS1 -.->|Salida Internet| NAT1\n    EKS2 -.->|Salida Internet| NAT2\n    RDS1 -.->|Replicación| RDS2",
+      "rationale": "Un diagrama de red detallado es esencial para entender la segmentación, troubleshooting de conectividad, y auditorías de seguridad."
+    },
+    {
+      "priority": "high",
+      "category": "quality",
+      "title": "Inconsistencia en Nombres del Proyecto",
+      "description": "La documentación usa indistintamente 'Retro Game Hub' y 'RetroGameCloud'. Esto confunde y resta profesionalismo. Debe estandarizarse un solo nombre en toda la documentación.",
+      "files_to_create": [],
+      "files_to_modify": [
+        "index.mdx",
+        "quickstart.mdx",
+        "architecture.mdx",
+        "troubleshooting.mdx",
+        "configuration.mdx",
+        "deployment.mdx",
+        "README.md"
+      ],
+      "files_to_delete": [],
+      "proposed_content": "Buscar y reemplazar todas las instancias de los nombres variados por un único nombre oficial. Recomendación: usar 'Retro Game Hub' en documentación de usuario y 'retrogamehub' (sin espacios, minúsculas) en código, URLs y identificadores técnicos.",
+      "mermaid_diagram": "",
+      "rationale": "La consistencia en branding y nomenclatura es fundamental para credibilidad y usabilidad. Los usuarios se confunden cuando ven nombres diferentes en distintas secciones."
     },
     {
       "priority": "high",
       "category": "content",
-      "title": "Documentación de Observabilidad Avanzada",
-      "description": "La sección de monitoring es básica. Falta documentación sobre logs centralizados, trazabilidad distribuida, alertas específicas, dashboards, SLIs/SLOs y prácticas de observabilidad.",
+      "title": "Guía de Operaciones y Runbooks",
+      "description": "Falta documentación operativa diaria: procedimientos de escalado, actualizaciones de servicios, rollback, manejo de incidentes comunes, y playbooks para operadores.",
       "files_to_create": [
-        "operations/observability.mdx",
-        "operations/logging.mdx",
-        "operations/tracing.mdx",
-        "operations/alerting.mdx",
-        "operations/slos.mdx"
-      ],
-      "files_to_modify": [
-        "infrastructure/monitoring.mdx"
-      ],
-      "files_to_delete": [],
-      "proposed_content": "## Observabilidad en Retro Game Hub\n\n### Stack de Observabilidad\n- **Métricas**: Prometheus + Grafana\n- **Logs**: Loki + Promtail\n- **Trazas**: Jaeger o Tempo\n- **Alertas**: AlertManager\n\n### SLIs Definidos\n- Disponibilidad de API: 99.9%\n- Latencia p95 < 200ms\n- Tasa de error < 0.1%\n\n### Logs Estructurados\nTodos los servicios emiten logs en formato JSON con campos estándar: timestamp, level, service, trace_id, user_id, message.",
-      "mermaid_diagram": "graph TD\n    A[Servicios en K8s] --> B[Promtail]\n    A --> C[Prometheus]\n    A --> D[Jaeger Agent]\n    B --> E[Loki]\n    C --> F[Grafana]\n    E --> F\n    D --> G[Jaeger Collector]\n    G --> H[Grafana Tempo]\n    H --> F\n    C --> I[AlertManager]\n    I --> J[PagerDuty/Slack]",
-      "rationale": "La observabilidad actual es limitada. Para operar en producción se necesita trazabilidad completa, logs centralizados, alertas proactivas y SLOs definidos. Esto reduce MTTR dramáticamente."
-    },
-    {
-      "priority": "medium",
-      "category": "content",
-      "title": "Runbooks Operacionales",
-      "description": "Faltan runbooks detallados para operaciones comunes: escalar servicios, rotar secretos, actualizar bases de datos, gestionar incidentes, rollback de despliegues.",
-      "files_to_create": [
-        "operations/runbooks/scaling.mdx",
-        "operations/runbooks/secret-rotation.mdx",
-        "operations/runbooks/database-maintenance.mdx",
-        "operations/runbooks/rollback.mdx",
-        "operations/runbooks/index.mdx"
+        "operations/overview.mdx",
+        "operations/scaling.mdx",
+        "operations/updates-rollback.mdx",
+        "operations/runbooks.mdx",
+        "operations/on-call-guide.mdx"
       ],
       "files_to_modify": [
         "troubleshooting.mdx"
       ],
       "files_to_delete": [],
-      "proposed_content": "## Runbook: Escalado de Servicios\n\n### Cuándo Escalar\n- CPU > 70% durante 10 minutos\n- Latencia p95 > 500ms\n- Cola de peticiones > 1000\n\n### Procedimiento"
+      "proposed_content": "# Guía de Operaciones\n\n## Escalado de Servicios\n\n### Escalado Horizontal (HPA)"
     }
   ]
 }

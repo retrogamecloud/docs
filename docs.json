@@ -58,12 +58,12 @@
             "description": "Introducción al proyecto, guía de inicio rápido y configuración del entorno de desarrollo local"
           },
           {
-            "group": "2. Conceptos Fundamentales",
+            "group": "2. Arquitectura del Sistema",
             "pages": [
               "architecture",
               "sequence-diagrams"
             ],
-            "description": "Visión general de la arquitectura del sistema, patrones de diseño y flujos de comunicación entre componentes"
+            "description": "Visión general de la arquitectura del sistema, patrones de diseño y diagramas de secuencia de los flujos principales"
           },
           {
             "group": "3. Microservicios",
@@ -74,25 +74,25 @@
               "services/score-service",
               "services/ranking-service"
             ],
-            "description": "Documentación técnica detallada de cada microservicio: autenticación, gestión de usuarios, catálogo de juegos, puntuaciones y clasificaciones"
+            "description": "Documentación técnica detallada de cada microservicio del sistema: autenticación, usuarios, catálogo, puntuaciones y rankings"
           },
           {
-            "group": "4. Frontend",
+            "group": "4. Aplicación Frontend",
             "pages": [
               "frontend/overview",
               "frontend/jsdos-integration"
             ],
-            "description": "Aplicación web con React, arquitectura de componentes e integración del emulador js-dos para juegos retro"
+            "description": "Arquitectura de la aplicación React, estructura de componentes e integración del emulador js-dos para juegos retro"
           },
           {
             "group": "5. Seguridad y Autenticación",
             "pages": [
               "infrastructure/oauth2-authentication"
             ],
-            "description": "Implementación de OAuth2, gestión de tokens JWT, políticas de seguridad y autenticación de usuarios"
+            "description": "Implementación de OAuth2 con GitHub y Google, gestión de tokens JWT y políticas de seguridad"
           },
           {
-            "group": "6. Infraestructura y Nube",
+            "group": "6. Infraestructura en AWS",
             "pages": [
               "infrastructure/overview",
               "infrastructure/eks-cluster",
@@ -101,10 +101,10 @@
               "infrastructure/route53-ssl",
               "infrastructure/monitoring"
             ],
-            "description": "Infraestructura AWS: clúster Kubernetes EKS, redes VPC, CDN CloudFront, gestión DNS con Route53, certificados SSL y monitorización"
+            "description": "Infraestructura cloud completa: clúster EKS, redes VPC, CDN CloudFront, gestión DNS, certificados SSL y monitorización"
           },
           {
-            "group": "7. CI/CD y GitOps",
+            "group": "7. Despliegue y GitOps",
             "pages": [
               "cicd/overview",
               "cicd/github-actions",
@@ -112,7 +112,7 @@
               "infrastructure/argocd-gitops",
               "deployment"
             ],
-            "description": "Pipelines de integración y despliegue continuo con GitHub Actions, metodología GitOps y ArgoCD para despliegues automatizados"
+            "description": "Pipelines CI/CD con GitHub Actions, metodología GitOps, ArgoCD y procesos de despliegue automatizado"
           },
           {
             "group": "8. Configuración y Operaciones",
@@ -120,7 +120,7 @@
               "configuration",
               "troubleshooting"
             ],
-            "description": "Variables de entorno, configuración de servicios, resolución de problemas, análisis de logs y mantenimiento del sistema"
+            "description": "Gestión de configuración, variables de entorno, resolución de problemas y mantenimiento operativo"
           }
         ]
       },
@@ -128,51 +128,51 @@
         "tab": "Referencia API",
         "groups": [
           {
-            "group": "1. Autenticación",
+            "group": "1. API de Autenticación",
             "pages": [
               "api-reference/auth/login",
               "api-reference/auth/register",
               "api-reference/auth/verify",
               "api-reference/auth-service"
             ],
-            "description": "Endpoints de autenticación: login, registro, verificación de tokens y documentación técnica completa del servicio"
+            "description": "Endpoints de login, registro de usuarios, verificación de tokens y especificación completa del servicio de autenticación"
           },
           {
-            "group": "2. Usuarios",
+            "group": "2. API de Usuarios",
             "pages": [
               "api-reference/user-service"
             ],
-            "description": "API de gestión de usuarios: perfiles, actualización de datos, preferencias y configuración de cuenta"
+            "description": "Gestión completa de perfiles de usuario, actualización de datos y configuración de preferencias"
           },
           {
-            "group": "3. Catálogo de Juegos",
+            "group": "3. API de Catálogo de Juegos",
             "pages": [
               "api-reference/games/list",
               "api-reference/games/get",
               "api-reference/game-catalog-service"
             ],
-            "description": "Endpoints del catálogo: listado de juegos, búsqueda avanzada, filtros y consulta de detalles específicos"
+            "description": "Listado de juegos disponibles, búsqueda con filtros, consulta de detalles y especificación del servicio"
           },
           {
-            "group": "4. Puntuaciones",
+            "group": "4. API de Puntuaciones",
             "pages": [
               "api-reference/scores/submit",
               "api-reference/scores/get",
               "api-reference/score-service"
             ],
-            "description": "API de puntuaciones: registro de resultados, consulta de histórico, validación y gestión de puntuaciones"
+            "description": "Envío de puntuaciones, consulta de histórico, validación de resultados y especificación del servicio"
           },
           {
-            "group": "5. Rankings",
+            "group": "5. API de Rankings",
             "pages": [
               "api-reference/rankings/global",
               "api-reference/rankings/by-game",
               "api-reference/ranking-service"
             ],
-            "description": "Endpoints de clasificaciones: tablas globales, rankings por juego, estadísticas y posiciones de jugadores"
+            "description": "Tablas de clasificación globales, rankings por juego individual, estadísticas y posicionamiento de jugadores"
           },
           {
-            "group": "6. Especificaciones Técnicas",
+            "group": "6. Documentación Técnica del Sistema",
             "pages": [
               "api-reference/backend-main",
               "api-reference/frontend",
@@ -180,7 +180,7 @@
               "api-reference/kong-config",
               "api-reference/kubernetes-manifests"
             ],
-            "description": "Documentación técnica del sistema: arquitectura backend, frontend, infraestructura, configuración del API Gateway Kong y manifiestos Kubernetes"
+            "description": "Especificaciones técnicas completas: backend, frontend, infraestructura como código, configuración de Kong Gateway y manifiestos de Kubernetes"
           }
         ]
       }
