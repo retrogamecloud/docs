@@ -1,15 +1,15 @@
 # 📋 Reorganización de Estructura de Documentación
 
-**Fecha**: 2025-11-23 03:54:08  
+**Fecha**: 2025-11-23 11:34:13  
 **Generado por**: Claude Sonnet 4.5
 
 ## 📊 Resumen de Cambios
 
-Se ha reorganizado la estructura moviendo 'Seguridad y Autenticación' a la posición 3 (después de conceptos fundamentales), consolidando 'CI/CD y GitOps' con 'deployment' en un único grupo llamado 'CI/CD y Despliegue', y renombrando varios grupos para mayor claridad. Se ha mejorado la progresión lógica: Introducción → Conceptos → Seguridad → Implementación (Microservicios/Frontend) → Infraestructura → Despliegue → Configuración → Operaciones. Los nombres de grupos son más concisos y las descripciones más precisas.
+Se ha reorganizado la estructura pasando de 9 grupos a 8 grupos consolidados. El grupo de Seguridad se renombró a 'Seguridad y Autenticación' y se movió después del Frontend para seguir una progresión lógica. Se consolidó 'Operaciones y Mantenimiento' con 'Configuración' en un único grupo 'Configuración y Operaciones'. Se renombró el grupo de CI/CD a 'CI/CD y GitOps' para reflejar mejor su contenido. La estructura ahora sigue un flujo más natural: Introducción → Arquitectura → Implementación (Microservicios + Frontend) → Seguridad → Infraestructura → Despliegue → Operaciones.
 
 ## 🎯 Justificación
 
-La nueva organización sigue un flujo de aprendizaje más natural: primero se presenta el proyecto y conceptos básicos, luego se explica la seguridad (fundamental antes de entender los microservicios), después se profundiza en la implementación técnica, infraestructura y finalmente operaciones. La seguridad se adelanta porque es transversal y necesaria para comprender cómo funcionan los microservicios. Se consolida todo lo relacionado con despliegue en un único grupo (CI/CD) evitando dispersión. Los nombres son más claros: 'Primeros Pasos' vs 'Introducción', 'Infraestructura y Nube' vs 'Infraestructura AWS', 'CI/CD y Despliegue' integra conceptos relacionados. La estructura mejora la navegabilidad y reduce saltos conceptuales.
+La reorganización mejora el flujo de aprendizaje siguiendo un orden lógico de comprensión. Se eliminó la redundancia entre 'Configuración' y 'Operaciones' consolidándolas en un único grupo, ya que ambos son aspectos operativos del sistema. Se movió 'Seguridad' después de 'Frontend' para que aparezca junto con los aspectos de implementación antes de pasar a infraestructura. La reducción de 9 a 8 grupos hace la navegación más compacta sin perder información. El grupo de CI/CD se renombró para reflejar mejor que incluye específicamente GitOps y ArgoCD. Los nombres de grupos son más descriptivos y mantienen la numeración consecutiva del 1 al 8.
 
 ---
 
