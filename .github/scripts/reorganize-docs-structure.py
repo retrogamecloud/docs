@@ -54,6 +54,8 @@ def analyze_structure_with_claude(client, current_structure):
 - **Agrupación semántica**: Relacionar conceptos similares
 - **Jerarquía clara**: Máximo 3 niveles de profundidad
 - **Nomenclatura consistente**: Usar números para orden jerárquico cuando sea apropiado
+- **Numeración consecutiva**: Los grupos DEBEN numerarse 1, 2, 3, 4, 5... sin saltos (NO uses 7.1, 7.2 o 8.2)
+- **Sin subnumeración en grupos**: Los grupos son de nivel único (ej: "7. CI/CD y Despliegue" NO "7.1 GitHub Actions")
 - **Eliminar redundancias**: Consolidar páginas duplicadas
 
 ## Formato de Respuesta:
@@ -95,6 +97,8 @@ Responde SOLO con JSON puro (sin markdown, sin bloques ```):
 
 RECUERDA:
 - Usa números para indicar jerarquía/orden lógico en los nombres de grupos (ej: "1. Inicio", "2. Arquitectura")
+- Los números de grupos DEBEN ser consecutivos: 1, 2, 3, 4, 5, 6, 7, 8, 9... (SIN subnumeración como 7.1 o 8.2)
+- Las páginas dentro de un grupo NO se numeran, solo el grupo tiene número
 - TODO en español de España
 - Responde SOLO JSON sin markdown
 - Mantén los nombres de archivos (pages) tal cual están, solo reorganiza grupos y orden
@@ -166,13 +170,24 @@ def apply_reorganization(docs_data, proposed_structure):
     # Aplicar nueva estructura de navegación
     new_navigation = proposed_structure['proposed_structure']
     
+    # Renumerar grupos automáticamente para asegurar consecutividad
+    import re
+    for tab in new_navigation.get('tabs', []):
+        for idx, group in enumerate(tab.get('groups', []), start=1):
+            group_name = group.get('group', '')
+            # Eliminar numeración existente (ej: "7.1 ", "8.2 ", "10. ")
+            clean_name = re.sub(r'^\d+(\.\d+)?\.\s*', '', group_name)
+            # Aplicar numeración consecutiva correcta
+            group['group'] = f"{idx}. {clean_name}"
+            print(f"  📝 Renumerado: {group_name} → {group['group']}")
+    
     # Mantener global anchors si existen
     if 'navigation' in docs_data and 'global' in docs_data['navigation']:
         new_navigation['global'] = docs_data['navigation']['global']
     
     new_docs['navigation'] = new_navigation
     
-    print("✅ Reorganización aplicada")
+    print("✅ Reorganización aplicada con numeración consecutiva")
     return new_docs
 
 def generate_changelog(changes_summary, rationale):
