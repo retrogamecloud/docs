@@ -67,10 +67,71 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install anthropic pyyaml markdown json-repair
+          pip install anthropic pyyaml markdown json-repair requests
+      
+      - name: Auto-fix Quick Wins
+        id: autofix
+        run: |
+          echo "🔧 Aplicando correcciones automáticas..."
+          python .github/scripts/auto-fix-quick-wins.py \
+            --docs-path . \
+            --report-output AUTO_FIXES_REPORT.md
+          echo "autofix_completed=true" >> $GITHUB_OUTPUT
+      
+      - name: Validate Links
+        id: links
+        continue-on-error: true
+        run: |
+          echo "🔗 Validando links..."
+          python .github/scripts/validate-links.py \
+            --docs-path . \
+            --rate-limit 0.5 \
+            --output broken-links.json \
+            --report BROKEN_LINKS_REPORT.md || true
+          echo "links_validated=true" >> $GITHUB_OUTPUT
+      
+      - name: Analyze Code with AST
+        id: ast
+        run: |
+          echo "📝 Analizando código fuente..."
+          python .github/scripts/ast-code-analyzer.py \
+            --repos-path .analysis-repos \
+            --output undocumented-apis.json \
+            --report UNDOCUMENTED_APIS_REPORT.md
+          echo "ast_completed=true" >> $GITHUB_OUTPUT
+      
+      - name: Generate Diagrams
+        id: diagrams
+        run: |
+          echo "🎨 Generando diagramas..."
+          python .github/scripts/auto-generate-diagrams.py \
+            --repos-path .analysis-repos \
+            --docs-path . \
+            --output generated-diagrams.json
+          echo "diagrams_generated=true" >> $GITHUB_OUTPUT
+      
+      - name: Incremental Analysis Check
+        id: incremental
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANALYSIS_DEPTH: ${{ inputs.analysis_depth || 'full' }}
+        run: |
+          echo "🔄 Verificando necesidad de análisis completo..."
+          python .github/scripts/incremental-analysis-cache.py \
+            --docs-path . \
+            --full-interval-days 7 \
+            --output incremental-analysis.json
+          
+          # Determinar si se necesita análisis completo
+          if grep -q '"analysis_type": "full"' incremental-analysis.json; then
+            echo "needs_full_analysis=true" >> $GITHUB_OUTPUT
+          else
+            echo "needs_full_analysis=false" >> $GITHUB_OUTPUT
+          fi
           
       - name: Run Intelligent Analysis
         id: analysis
+        if: steps.incremental.outputs.needs_full_analysis == 'true' || inputs.analysis_depth == 'deep'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANALYSIS_DEPTH: ${{ inputs.analysis_depth || 'full' }}
@@ -125,18 +186,25 @@ jobs:
           BRANCH_NAME="docs/intelligent-improvements-$(date +%Y%m%d-%H%M%S)"
           git checkout -b "$BRANCH_NAME"
           
-          # Añadir archivos relevantes (docs.json + archivos .mdx modificados)
+          # Añadir TODOS los archivos generados y modificados
           git add docs.json IMPROVEMENTS.md STRUCTURE_CHANGELOG.md analysis-results.json 2>/dev/null || true
-          git add api-reference/ 2>/dev/null || true
-          git add docs/ 2>/dev/null || true
-          git add cicd/ infrastructure/ services/ frontend/ 2>/dev/null || true
+          git add AUTO_FIXES_REPORT.md BROKEN_LINKS_REPORT.md UNDOCUMENTED_APIS_REPORT.md 2>/dev/null || true
+          git add broken-links.json undocumented-apis.json generated-diagrams.json incremental-analysis.json 2>/dev/null || true
+          git add .analysis-cache.json 2>/dev/null || true
+          git add api-reference/ docs/ cicd/ infrastructure/ services/ frontend/ 2>/dev/null || true
           git add *.mdx 2>/dev/null || true
           
           if git diff --staged --quiet; then
             echo "ℹ️  No hay cambios que commitear"
           else
             git commit -m "docs: Mejoras inteligentes y reorganización estructural" \
-              -m "Análisis automático de documentación completa" \
+              -m "Análisis automático completo con nuevas capacidades:" \
+              -m "- Auto-fix de quick wins aplicados" \
+              -m "- Links validados" \
+              -m "- APIs analizadas con AST" \
+              -m "- Diagramas generados automáticamente" \
+              -m "- Análisis incremental con cache" \
+              -m "" \
               -m "Generado automáticamente por Claude Sonnet 4.5"
             
             git push -u origin "$BRANCH_NAME"
