@@ -8,18 +8,57 @@ icon: "github"
 
 RetroGame Cloud utiliza GitHub Actions para automatizar completamente el ciclo de vida del código desde commit hasta producción.
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
   <Card title="docker-publish-and-update-k8s.yml" icon="docker">
-    **Pipeline principal**
+    **Pipeline principal CI/CD**
 
-    Build, test, push y actualizar manifiestos K8s
+    Build, test, push Docker y actualizar manifiestos K8s
+    
+    *En todos los servicios*
   </Card>
+  
   <Card title="ci.yml" icon="check">
     **Validación de manifiestos**
 
     Tests y validación de YAMLs de Kubernetes
+    
+    *Repo: kubernetes/*
+  </Card>
+  
+  <Card title="update-docs-with-claude.yml" icon="robot">
+    **Actualización automática de docs**
+
+    Claude AI actualiza la wiki/documentación
+    
+    *Repo: docs/*
+  </Card>
+  
+  <Card title="deploy-mintlify-docs.yml" icon="book">
+    **Despliegue de documentación**
+
+    Deploy automático a Mintlify
+    
+    *Repo: docs/*
+  </Card>
+  
+  <Card title="terraform-plan.yml" icon="code">
+    **Validación de Terraform**
+
+    Plan y validación de infraestructura
+    
+    *Repo: infrastructure/*
+  </Card>
+  
+  <Card title="terraform-apply.yml" icon="rocket">
+    **Despliegue de infraestructura**
+
+    Apply de Terraform en producción
+    
+    *Repo: infrastructure/*
   </Card>
 </CardGroup>
+
+---
 
 ## Workflow Principal: Build & Deploy
 
@@ -328,6 +367,656 @@ jobs:
 1. **Tests unitarios**: Valida estructura de YAMLs
 2. **yamllint**: Valida sintaxis YAML
 3. **kubectl dry-run**: Valida que sean manifiestos K8s válidos
+
+---
+
+## 🤖 Workflow: Actualización Automática de Documentación con Claude
+
+Este es el workflow más innovador del proyecto: utiliza **Claude AI** para mantener la documentación actualizada automáticamente.
+
+### ¿Qué hace?
+
+Cuando se hace un cambio importante en el proyecto (código, infraestructura, configuración), Claude:
+1. 📖 Lee los cambios del commit
+2. 🔍 Analiza qué documentación necesita actualizarse
+3. ✍️ Genera las actualizaciones necesarias
+4. 📝 Crea un Pull Request con los cambios
+
+### Estructura del Workflow
+
+```yaml
+name: Update Documentation with Claude
+
+on:
+  workflow_dispatch:  # Manual trigger
+    inputs:
+      change_description:
+        description: 'Descripción del cambio a documentar'
+        required: true
+        type: string
+      affected_areas:
+        description: 'Áreas afectadas (comma-separated): api,infrastructure,deployment'
+        required: false
+        type: string
+  
+  repository_dispatch:  # Trigger desde otros repos
+    types: [code-change-requires-docs]
+
+jobs:
+  update-documentation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout docs repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Instalar dependencias
+        run: |
+          npm install --global @anthropic-ai/sdk
+          npm install yaml markdown-it
+      
+      - name: Obtener contexto del cambio
+        id: context
+        run: |
+          # Si es workflow_dispatch, usar inputs
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "description=${{ inputs.change_description }}" >> $GITHUB_OUTPUT
+            echo "areas=${{ inputs.affected_areas }}" >> $GITHUB_OUTPUT
+          else
+            # Si es repository_dispatch, usar payload
+            echo "description=${{ github.event.client_payload.description }}" >> $GITHUB_OUTPUT
+            echo "areas=${{ github.event.client_payload.areas }}" >> $GITHUB_OUTPUT
+            echo "commit_sha=${{ github.event.client_payload.commit_sha }}" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Llamar a Claude API para generar actualizaciones
+        id: claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          node .github/scripts/update-docs-with-claude.js \
+            --description "${{ steps.context.outputs.description }}" \
+            --areas "${{ steps.context.outputs.areas }}" \
+            --commit "${{ steps.context.outputs.commit_sha }}"
+      
+      - name: Crear branch para cambios
+        run: |
+          BRANCH_NAME="docs/auto-update-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH_NAME"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
+      
+      - name: Commit cambios
+        run: |
+          git config user.name "Claude Documentation Bot"
+          git config user.email "bot@retrogamehub.games"
+          
+          git add .
+          git commit -m "docs: actualización automática por Claude
+          
+          Cambio: ${{ steps.context.outputs.description }}
+          Áreas afectadas: ${{ steps.context.outputs.areas }}
+          
+          Co-authored-by: Claude AI <claude@anthropic.com>"
+      
+      - name: Push branch
+        run: git push origin "${{ env.branch_name }}"
+      
+      - name: Crear Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --title "📚 docs: Actualización automática - ${{ steps.context.outputs.description }}" \
+            --body "## 🤖 Actualización Automática de Documentación
+          
+          Claude AI ha detectado cambios que requieren actualización de documentación.
+          
+          ### Cambio Original
+          ${{ steps.context.outputs.description }}
+          
+          ### Áreas Afectadas
+          ${{ steps.context.outputs.areas }}
+          
+          ### Archivos Modificados
+          $(git diff --name-only HEAD~1)
+          
+          ### Checklist de Revisión
+          - [ ] Los cambios reflejan correctamente las actualizaciones del código
+          - [ ] La redacción es clara y concisa
+          - [ ] Los ejemplos de código son correctos
+          - [ ] Los enlaces internos funcionan
+          - [ ] No hay información sensible expuesta
+          
+          ---
+          
+          *Generado automáticamente por Claude AI*
+          *Revisa y aprueba antes de merge*" \
+            --label "documentation,automated" \
+            --base main \
+            --head "${{ env.branch_name }}"
+```
+
+### Script de Claude (update-docs-with-claude.js)
+
+```javascript
+// .github/scripts/update-docs-with-claude.js
+const Anthropic = require('@anthropic-ai/sdk');
+const fs = require('fs').promises;
+const path = require('path');
+const yaml = require('yaml');
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
+async function main() {
+  const args = parseArgs();
+  
+  // 1. Leer estructura de documentación
+  const docsStructure = await getDocsStructure();
+  
+  // 2. Identificar archivos relevantes
+  const relevantFiles = await identifyRelevantFiles(args.areas);
+  
+  // 3. Leer contenido actual
+  const currentContent = await readFiles(relevantFiles);
+  
+  // 4. Llamar a Claude para generar actualizaciones
+  const updates = await generateUpdates(
+    args.description,
+    args.areas,
+    currentContent,
+    docsStructure
+  );
+  
+  // 5. Aplicar cambios
+  await applyUpdates(updates);
+  
+  console.log('✅ Documentación actualizada exitosamente');
+}
+
+async function generateUpdates(description, areas, content, structure) {
+  const message = await anthropic.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 16000,
+    temperature: 0.7,
+    messages: [{
+      role: 'user',
+      content: `Eres un experto en documentación técnica. 
+
+Cambio realizado:
+${description}
+
+Áreas afectadas: ${areas}
+
+Estructura de documentación actual:
+${JSON.stringify(structure, null, 2)}
+
+Contenido actual de archivos relevantes:
+${JSON.stringify(content, null, 2)}
+
+Genera actualizaciones necesarias para la documentación en formato JSON:
+{
+  "files": [
+    {
+      "path": "ruta/archivo.mdx",
+      "action": "update|create",
+      "changes": [
+        {
+          "section": "nombre de sección",
+          "oldContent": "contenido a reemplazar (si update)",
+          "newContent": "nuevo contenido"
+        }
+      ],
+      "reasoning": "por qué este cambio es necesario"
+    }
+  ],
+  "summary": "resumen de cambios realizados"
+}`
+    }]
+  });
+  
+  const response = message.content[0].text;
+  return JSON.parse(response);
+}
+
+async function applyUpdates(updates) {
+  for (const file of updates.files) {
+    const filePath = path.join(process.cwd(), file.path);
+    
+    if (file.action === 'create') {
+      // Crear nuevo archivo
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, file.changes[0].newContent);
+      console.log(`✅ Creado: ${file.path}`);
+    } else {
+      // Actualizar archivo existente
+      let content = await fs.readFile(filePath, 'utf-8');
+      
+      for (const change of file.changes) {
+        if (change.oldContent) {
+          content = content.replace(change.oldContent, change.newContent);
+        } else {
+          // Añadir al final de la sección
+          content += '\n\n' + change.newContent;
+        }
+      }
+      
+      await fs.writeFile(filePath, content);
+      console.log(`✅ Actualizado: ${file.path}`);
+    }
+  }
+}
+
+// ... más funciones helper ...
+
+main().catch(console.error);
+```
+
+### Triggers del Workflow
+
+#### 1. Manual (workflow_dispatch)
+
+```bash
+# Desde GitHub UI: Actions → Update Documentation → Run workflow
+
+# O desde CLI:
+gh workflow run update-docs-with-claude.yml \
+  -f change_description="Añadido nuevo endpoint /api/v2/users" \
+  -f affected_areas="api,backend"
+```
+
+#### 2. Automático desde otros repos
+
+En el workflow de un servicio:
+
+```yaml
+- name: Trigger documentación update
+  if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  run: |
+    curl -X POST \
+      -H "Authorization: token ${{ secrets.DOCS_UPDATE_TOKEN }}" \
+      -H "Accept: application/vnd.github.v3+json" \
+      https://api.github.com/repos/retrogamecloud/docs/dispatches \
+      -d '{
+        "event_type": "code-change-requires-docs",
+        "client_payload": {
+          "description": "Nuevo endpoint añadido en auth-service",
+          "areas": "api,authentication",
+          "commit_sha": "${{ github.sha }}",
+          "repository": "${{ github.repository }}"
+        }
+      }'
+```
+
+### Ejemplos de Uso
+
+<Tabs>
+  <Tab title="Nuevo Endpoint API">
+    **Cambio**: Añadido endpoint `POST /api/auth/refresh-token`
+    
+    **Claude actualiza**:
+    - `api-reference/auth/refresh-token.mdx` (nuevo)
+    - `api-reference/auth-service.mdx` (añade referencia)
+    - `quickstart.mdx` (actualiza ejemplo de autenticación)
+    - `CHANGELOG.md` (añade entrada)
+  </Tab>
+  
+  <Tab title="Nueva Variable Terraform">
+    **Cambio**: Añadida variable `enable_waf` en Terraform
+    
+    **Claude actualiza**:
+    - `infrastructure/terraform-variables.mdx` (documenta variable)
+    - `deployment.mdx` (menciona en troubleshooting)
+    - `quickstart.mdx` (añade a ejemplo de terraform.tfvars)
+  </Tab>
+  
+  <Tab title="Cambio en ArgoCD">
+    **Cambio**: Actualizado a ArgoCD v2.10.0
+    
+    **Claude actualiza**:
+    - `infrastructure/argocd-gitops.mdx` (versión)
+    - `CHANGELOG.md` (breaking changes si aplica)
+    - `troubleshooting.mdx` (nuevos errores conocidos)
+  </Tab>
+</Tabs>
+
+### Ventajas del Enfoque
+
+<CardGroup cols={2}>
+  <Card title="🚀 Documentación Always Up-to-Date" icon="check">
+    La docs nunca se queda desactualizada porque se actualiza automáticamente con cada cambio
+  </Card>
+  
+  <Card title="⏰ Ahorro de Tiempo" icon="clock">
+    Los developers no pierden tiempo actualizando docs manualmente
+  </Card>
+  
+  <Card title="🎯 Consistencia" icon="target">
+    Claude mantiene un estilo y estructura consistente en toda la documentación
+  </Card>
+  
+  <Card title="🔍 Cobertura Completa" icon="magnifying-glass">
+    Claude identifica todas las áreas que necesitan actualización, no solo las obvias
+  </Card>
+</CardGroup>
+
+### Configuración Necesaria
+
+<Steps>
+  <Step title="Obtener API Key de Anthropic">
+    ```bash
+    # 1. Ir a https://console.anthropic.com/
+    # 2. Crear API Key
+    # 3. Copiar el key (sk-ant-...)
+    ```
+  </Step>
+  
+  <Step title="Añadir Secret en GitHub">
+    ```bash
+    # Repo: docs
+    # Settings → Secrets → Actions → New repository secret
+    # Name: ANTHROPIC_API_KEY
+    # Value: sk-ant-...
+    ```
+  </Step>
+  
+  <Step title="Configurar Permisos">
+    ```yaml
+    # En el workflow
+    permissions:
+      contents: write      # Para crear branches
+      pull-requests: write # Para crear PRs
+    ```
+  </Step>
+  
+  <Step title="Crear Script">
+    ```bash
+    mkdir -p .github/scripts
+    # Copiar update-docs-with-claude.js
+    chmod +x .github/scripts/update-docs-with-claude.js
+    ```
+  </Step>
+</Steps>
+
+### Costos Estimados
+
+<Table>
+  <thead>
+    <tr>
+      <th>Métrica</th>
+      <th>Valor</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**Tokens por actualización**</td>
+      <td>~8,000 input + 4,000 output</td>
+    </tr>
+    <tr>
+      <td>**Costo por actualización**</td>
+      <td>~$0.15 (Claude Sonnet 4)</td>
+    </tr>
+    <tr>
+      <td>**Actualizaciones/mes**</td>
+      <td>~20-30</td>
+    </tr>
+    <tr>
+      <td>**Costo mensual total**</td>
+      <td>**~$3-5/mes**</td>
+    </tr>
+  </tbody>
+</Table>
+
+<Note>
+  El costo es mínimo comparado con el tiempo ahorrado (20-30 horas/mes de documentación manual).
+</Note>
+
+---
+
+## 📚 Workflow: Despliegue de Documentación a Mintlify
+
+Despliega automáticamente la documentación a Mintlify cuando hay cambios.
+
+```yaml
+name: Deploy to Mintlify
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**.mdx'
+      - '**.md'
+      - 'mint.json'
+      - 'images/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to Mintlify
+        uses: mintlify/action@v1
+        with:
+          mintlify-api-key: ${{ secrets.MINTLIFY_API_KEY }}
+          
+      - name: Notify on Slack
+        if: success()
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "✅ Documentación desplegada: https://docs.retrogamehub.games"
+            }'
+```
+
+**Trigger**: Cualquier cambio en archivos `.mdx`, `.md` o `mint.json`
+
+**Duración**: ~1-2 minutos
+
+---
+
+## 🏗️ Workflow: Validación de Terraform
+
+Valida cambios en infraestructura antes de aplicarlos.
+
+```yaml
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+      - '**.tf'
+
+jobs:
+  terraform-plan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform/eks_test
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+      
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+      
+      - name: Terraform Init
+        run: terraform init
+      
+      - name: Terraform Validate
+        run: terraform validate
+      
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan -no-color -out=tfplan
+          terraform show -no-color tfplan > plan_output.txt
+      
+      - name: Comment Plan on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('terraform/eks_test/plan_output.txt', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Terraform Plan
+              
+              \`\`\`terraform
+              ${plan.slice(0, 65000)}
+              \`\`\`
+              
+              [Ver plan completo en Actions](${context.payload.pull_request.html_url}/checks)`
+            });
+      
+      - name: Check for Destructive Changes
+        run: |
+          if grep -q "destroy" plan_output.txt; then
+            echo "⚠️ ADVERTENCIA: El plan incluye recursos a DESTRUIR"
+            echo "destructive=true" >> $GITHUB_ENV
+          fi
+      
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: terraform/eks_test/tfplan
+```
+
+**Características**:
+- ✅ Valida formato de Terraform
+- ✅ Ejecuta `terraform plan`
+- ✅ Comenta el plan en el PR
+- ✅ Detecta cambios destructivos
+- ✅ Guarda plan para aplicar después
+
+---
+
+## 🚀 Workflow: Aplicar Terraform
+
+Aplica cambios de infraestructura en producción (manual trigger).
+
+```yaml
+name: Terraform Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "apply" to confirm'
+        required: true
+        type: string
+
+jobs:
+  terraform-apply:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'apply'
+    defaults:
+      run:
+        working-directory: terraform/eks_test
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+      
+      - name: Terraform Init
+        run: terraform init
+      
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+      
+      - name: Save Outputs
+        run: terraform output -json > terraform-outputs.json
+      
+      - name: Upload Outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs
+          path: terraform/eks_test/terraform-outputs.json
+      
+      - name: Notify on Slack
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          
+          if [ "$STATUS" == "success" ]; then
+            ICON="✅"
+            COLOR="good"
+          else
+            ICON="❌"
+            COLOR="danger"
+          fi
+          
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"attachments\": [{
+                \"color\": \"$COLOR\",
+                \"title\": \"$ICON Terraform Apply - $STATUS\",
+                \"text\": \"Infraestructura actualizada en producción\",
+                \"fields\": [
+                  {
+                    \"title\": \"Ejecutado por\",
+                    \"value\": \"${{ github.actor }}\",
+                    \"short\": true
+                  },
+                  {
+                    \"title\": \"Commit\",
+                    \"value\": \"${{ github.sha }}\",
+                    \"short\": true
+                  }
+                ]
+              }]
+            }"
+```
+
+**Seguridad**:
+- ⚠️ Solo manual trigger
+- ⚠️ Requiere confirmación explícita
+- ⚠️ Notifica en Slack
+- ⚠️ Guarda outputs para auditoría
+
+---
 
 ## Configuración de Secrets
 
