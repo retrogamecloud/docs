@@ -99,7 +99,7 @@ class ImprovementImplementer:
 
 {context}
 
-## Requisitos
+## Requisitos CRÍTICOS
 
 1. Genera un archivo MDX COMPLETO y funcional
 2. Incluye frontmatter con title, description, icon apropiado
@@ -109,10 +109,30 @@ class ImprovementImplementer:
 6. Ejemplos de código cuando sea relevante
 7. TODO en español de España (castellano)
 
+## REGLAS ESTRICTAS PARA <Tabs> Y <Tab>:
+
+**CRÍTICO**: Cada <Tab> DEBE tener su </Tab> correspondiente ANTES del </Tabs>
+
+Estructura correcta:
+```
+<Tabs>
+<Tab title="Ejemplo 1">
+contenido del tab 1
+</Tab>
+<Tab title="Ejemplo 2">
+contenido del tab 2
+</Tab>
+</Tabs>
+```
+
+**NUNCA** dejes un <Tab> sin cerrar
+**NUNCA** pongas ``` o líneas vacías después de </Tabs>
+
 ## Formato de Respuesta
 
 Responde SOLO con el contenido MDX completo, sin explicaciones adicionales.
 Comienza directamente con el frontmatter (---).
+ASEGURA que cada <Tab> tenga su </Tab> antes de </Tabs>.
 """
 
         try:
