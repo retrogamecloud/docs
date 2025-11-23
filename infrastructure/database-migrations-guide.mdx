@@ -1,7 +1,6 @@
 ---
 title: 8.5. Migraciones de Base de Datos
-description: Guía completa para crear, prostar y aplicar migraciones de esquema de
-  forma segura en producción
+description: Guía completa para crear, probar y aplicar migraciones de esquema de forma segura en producción
 icon: database
 ---
 
@@ -24,7 +23,6 @@ graph LR
     H -->|Sí| I[Migración Completa]
     H -->|No| J[Rollback Automático]
     J --> K[Investigar Fallos]
-
 ```
 
 ## Herramientas de Migración por Servicio
@@ -46,13 +44,33 @@ export class AddUserPreferences1234567890123 implements MigrationInterface {
             isNullable: true,
             default: "'{}'::jsonb"
         }));
+        
+        // Agregar índice GIN para búsquedas eficientes en JSONB
+        await queryRunner.query(
+            `CREATE INDEX "IDX_users_preferences" ON "users" USING gin ("preferences")`
+        );
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`DROP INDEX "IDX_users_preferences"`);
         await queryRunner.dropColumn('users', 'preferences');
     }
 }
+```
 
+**Generación de migraciones:**
+```bash
+# Generar migración automáticamente
+npm run migration:generate -- -n AddUserPreferences
+
+# Crear migración vacía
+npm run migration:create -- -n CustomMigration
+
+# Ejecutar migraciones
+npm run migration:run
+
+# Revertir última migración
+npm run migration:revert
 ```
 
 </Tab>
@@ -74,6 +92,13 @@ module.exports = {
       using: 'gin',
       name: 'games_tags_gin_idx'
     });
+    
+    // Migración de datos existentes
+    await queryInterface.sequelize.query(`
+      UPDATE games 
+      SET tags = ARRAY[category] 
+      WHERE tags IS NULL AND category IS NOT NULL
+    `);
   },
 
   async down(queryInterface, Sequelize) {
@@ -81,453 +106,423 @@ module.exports = {
     await queryInterface.removeColumn('games', 'tags');
   }
 };
+```
 
+**Comandos Sequelize:**
+```bash
+# Crear migración
+npx sequelize-cli migration:generate --name add-game-tags
+
+# Ejecutar migraciones
+npx sequelize-cli db:migrate
+
+# Revertir migración
+npx sequelize-cli db:migrate:undo
 ```
 
 </Tab>
-<Tab title="Knex (Score Service)">
+<Tab title="Raw SQL (Analytics)">
 
-```javascript
-// migrations/20231201_add_score_metadata.js
-exports.up = function(knex) {
-  return knex.schema.alterTable('scores', function(table) {
-    table.jsonb('metadata').nullable().defaultTo('{}');
-    table.index(['metadata'], 'scores_metadata_gin_idx', 'gin');
-  });
-};
+```sql
+-- migrations/20231201_001_add_user_activity_partitioning.sql
+BEGIN;
 
-exports.down = function(knex) {
-  return knex.schema.alterTable('scores', function(table) {
-    table.dropIndex(['metadata'], 'scores_metadata_gin_idx');
-    table.dropColumn('metadata');
-  });
-};
+-- Crear tabla particionada por fecha
+CREATE TABLE user_activity_new (
+    id BIGSERIAL,
+    user_id INTEGER NOT NULL,
+    activity_type VARCHAR(50) NOT NULL,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+) PARTITION BY RANGE (created_at);
 
+-- Crear particiones mensuales
+CREATE TABLE user_activity_2023_12 PARTITION OF user_activity_new
+    FOR VALUES FROM ('2023-12-01') TO ('2024-01-01');
+    
+CREATE TABLE user_activity_2024_01 PARTITION OF user_activity_new
+    FOR VALUES FROM ('2024-01-01') TO ('2024-02-01');
+
+-- Migrar datos existentes
+INSERT INTO user_activity_new 
+SELECT * FROM user_activity WHERE created_at >= '2023-12-01';
+
+-- Crear índices
+CREATE INDEX ON user_activity_new (user_id, created_at);
+CREATE INDEX ON user_activity_new USING gin (metadata);
+
+-- Intercambiar tablas
+ALTER TABLE user_activity RENAME TO user_activity_old;
+ALTER TABLE user_activity_new RENAME TO user_activity;
+
+COMMIT;
+```
+
+**Script de aplicación:**
+```bash
+#!/bin/bash
+# apply-migration.sh
+set -e
+
+MIGRATION_FILE=$1
+DATABASE_URL=$2
+
+echo "Aplicando migración: $MIGRATION_FILE"
+psql $DATABASE_URL -f $MIGRATION_FILE
+
+echo "Migración completada exitosamente"
 ```
 
 </Tab>
 </Tabs>
 
-## Estrategias para Cambios Breaking
+## Patrones de Migración Zero-Downtime
 
-### Patrón Expand-Contract
-
-<Warning>
-Los cambios breaking deben realizarse en múltiples fases para mantener zero-downtime.
-</Warning>
-
-#### Fase 1: Expand (Añadir nueva estructura)
-
-```sql
-
-- - Migración 001: Añadir nueva columna nullable
-ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT NULL;
-
-- - Crear índice para mejorar performance
-CREATE INDEX CONCURRENTLY idx_users_email_verified ON users(email_verified);
-
-```
-
-#### Fase 2: Migrate (Poblar datos y actualizar aplicación)
-
-```typescript
-// Migración de datos progresiva
-import { MigrationInterface, QueryRunner } from 'typeorm';
-
-export class MigrateEmailVerification implements MigrationInterface {
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        // Migrar datos en lotes para evitar locks largos
-        const batchSize = 1000;
-        let offset = 0;
-        let hasMore = true;
-
-        while (hasMore) {
-            const result = await queryRunner.query(`
-                UPDATE users
-                SET email_verified = CASE
-                    WHEN verification_token IS NULL THEN true
-                    ELSE false
-                END
-                WHERE email_verified IS NULL
-                AND id IN (
-                    SELECT id FROM users
-                    WHERE email_verified IS NULL
-                    ORDER BY id
-                    LIMIT $1 OFFSET $2
-                )
-            `, [batchSize, offset]);
-
-            hasMore = result.affectedRows === batchSize;
-            offset += batchSize;
-
-            // Pausa para no saturar la base de datos
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-    }
-
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`UPDATE users SET email_verified = NULL`);
-    }
-}
-
-```
-
-#### Fase 3: Contract (Eliminar estructura antigua)
-
-```sql
-
-- - Migración 003: Hacer campo obligatorio y limpiar
-ALTER TABLE users ALTER COLUMN email_verified SET NOT NULL;
-ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT false;
-
-- - Eliminar campos antiguos (en siguiente release)
-
-- - ALTER TABLE users DROP COLUMN verification_token;
-
-```
-
-## Testing de Migraciones
-
-### Testing Local
-
-```bash
-
-# Script: scripts/test-migration.sh
-#!/bin/bash
-set -e
-
-echo "🧪 Iniciando testing de migración..."
-
-# Crear snapshot de datos de prueba
-docker exec retro-postgres pg_dump -U postgres -d retro_dev > ./backup/before_migration.sql
-
-# Ejecutar migración
-npm run migration:run
-
-# Verificar integridad de datos
-npm run migration:verify
-
-# Ejecutar tests de integración
-npm test -- --testNamePattern="migration"
-
-echo "✅ Testing de migración completado"
-
-```
-
-### Testing en Staging
+### 1. Agregar Columnas
 
 <Tabs>
-<Tab title="Verificación Automática">
+<Tab title="Columnas Opcionales">
 
 ```typescript
-// tests/migrations/verify-migration.test.ts
-import { DataSource } from 'typeorm';
-import { User } from '../entities/User';
+// Paso 1: Agregar columna nullable
+export class AddEmailColumn implements MigrationInterface {
+    async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.addColumn('users', new TableColumn({
+            name: 'email',
+            type: 'varchar',
+            length: '255',
+            isNullable: true // Importante: inicialmente nullable
+        }));
+    }
+}
 
-describe('Migration Verification', () => {
-    let dataSource: DataSource;
-
-    beforeAll(async () => {
-        dataSource = await AppDataSource.initialize();
-    });
-
-    test('should maintain data integrity after migration', async () => {
-        const userCount = await dataSource.getRepository(User).count();
-        expect(userCount).toBeGreaterThan(0);
-
-        const usersWithNullEmail = await dataSource.getRepository(User)
-            .count({ where: { emailVerified: null } });
-        expect(usersWithNullEmail).toBe(0);
-    });
-
-    test('should have proper indexes', async () => {
-        const indexes = await dataSource.query(`
-            SELECT indexname FROM pg_indexes
-            WHERE tablename = 'users'
-            AND indexname = 'idx_users_email_verified'
+// Paso 2 (en siguiente release): Poblar datos
+export class PopulateEmailColumn implements MigrationInterface {
+    async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`
+            UPDATE users 
+            SET email = username || '@example.com' 
+            WHERE email IS NULL
         `);
-        expect(indexes).toHaveLength(1);
-    });
-});
+    }
+}
 
+// Paso 3 (en siguiente release): Hacer NOT NULL
+export class MakeEmailNotNull implements MigrationInterface {
+    async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(
+            `ALTER TABLE users ALTER COLUMN email SET NOT NULL`
+        );
+    }
+}
 ```
 
 </Tab>
-<Tab title="Performance Test">
+<Tab title="Columnas con Valores por Defecto">
 
-```typescript
-// tests/migrations/performance.test.ts
-describe('Migration Performance', () => {
-    test('should complete within acceptable time', async () => {
-        const startTime = Date.now();
+```sql
+-- Migración segura con valor por defecto
+ALTER TABLE games 
+ADD COLUMN status VARCHAR(20) 
+DEFAULT 'active' 
+NOT NULL;
 
-        // Simular consulta típica después de migración
-        const users = await dataSource.getRepository(User)
-            .find({
-                where: { emailVerified: true },
-                take: 100
-            });
-
-        const executionTime = Date.now() - startTime;
-        expect(executionTime).toBeLessThan(1000); // Max 1 segundo
-        expect(users).toBeDefined();
-    });
-});
-
+-- Crear índice de forma concurrente (PostgreSQL)
+CREATE INDEX CONCURRENTLY idx_games_status ON games(status);
 ```
 
 </Tab>
 </Tabs>
 
-## Aplicación en Producción
-
-### Preparación Pre-migración
-
-<Note>
-Utiliza este checklist antes de cada migración en producción.
-</Note>
-
-```yaml
-
-# .github/workflows/migration-checklist.yml
-name: Pre-Migration Checklist
-on:
-  workflow_dispatch:
-    inputs:
-      migration_name:
-        description: 'Nombre de la migración'
-        required: true
-
-jobs:
-  pre-migration:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Backup Database
-        run: |
-          kubectl exec -n retro-prod postgres-0 -- pg_dump \
-            -U postgres retro_prod > backup-$(date +%Y%m%d-%H%M%S).sql
-          aws s3 cp backup-*.sql s3://retro-backups/migrations/
-
-      - name: Dry Run Migration
-        run: |
-          # Ejecutar migración en modo dry-run
-          kubectl exec -n retro-prod deployment/user-service -- \
-            npm run migration:dry-run
-
-      - name: Verify Maintenance Window
-        run: |
-          # Verificar que estamos en ventana de mantenimiento
-          current_hour=$(date +%H)
-          if [ $current_hour -lt 2 ] || [ $current_hour -gt 6 ]; then
-            echo "❌ Fuera de ventana de mantenimiento (02:00-06:00 UTC)"
-            exit 1
-          fi
-
-```
-
-### Migración Zero-Downtime
-
-```bash
-#!/bin/bash
-
-# scripts/zero-downtime-migration.sh
-
-set -e
-
-MIGRATION_NAME=${1:-"unknown"}
-NAMESPACE=${2:-"retro-prod"}
-
-echo "🚀 Iniciando migración zero-downtime: $MIGRATION_NAME"
-
-# Paso 1: Verificar health inicial
-kubectl get pods -n $NAMESPACE -l app=user-service
-kubectl exec -n $NAMESPACE deployment/user-service -- curl -f localhost:3000/health
-
-# Paso 2: Aplicar migración de esquema
-echo "📊 Aplicando migración de esquema..."
-kubectl exec -n $NAMESPACE deployment/user-service -- npm run migration:run
-
-# Paso 3: Rolling update con nueva imagen
-echo "🔄 Actualizando aplicación..."
-kubectl set image deployment/user-service \
-  user-service=retro/user-service:${GITHUB_SHA} -n $NAMESPACE
-
-# Paso 4: Esperar rollout
-kubectl rollout status deployment/user-service -n $NAMESPACE --timeout=300s
-
-# Paso 5: Verificar health después de migración
-sleep 30
-kubectl exec -n $NAMESPACE deployment/user-service -- curl -f localhost:3000/health
-
-# Paso 6: Verificar métricas
-kubectl exec -n $NAMESPACE deployment/user-service -- curl -f localhost:3000/metrics
-
-echo "✅ Migración completada exitosamente"
-
-```
-
-## Plan de Rollback Automático
-
-### Configuración de Health Checks
+### 2. Eliminar Columnas
 
 ```typescript
-// src/health/migration-health.ts
-import { HealthIndicator, HealthIndicatorResult } from '@nestjs/terminus';
-import { Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
-
-@Injectable()
-export class MigrationHealthIndicator extends HealthIndicator {
-    constructor(private dataSource: DataSource) {
-        super();
+// Paso 1: Deprecar uso en código (sin migración de BD)
+// Paso 2: Después de deploy, eliminar columna
+export class DropDeprecatedColumn implements MigrationInterface {
+    async up(queryRunner: QueryRunner): Promise<void> {
+        // Verificar que la columna no está siendo usada
+        const result = await queryRunner.query(`
+            SELECT COUNT(*) as count 
+            FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'old_field'
+        `);
+        
+        if (result[0].count > 0) {
+            await queryRunner.dropColumn('users', 'old_field');
+        }
     }
 
-    async isHealthy(key: string): Promise<HealthIndicatorResult> {
-        try {
-            // Verificar que las migraciones se ejecutaron correctamente
-            const migrations = await this.dataSource.runMigrations({
-                transaction: 'none',
-                fake: true // Solo verificar, no ejecutar
-            });
+    async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.addColumn('users', new TableColumn({
+            name: 'old_field',
+            type: 'varchar',
+            isNullable: true
+        }));
+    }
+}
+```
 
-            const isHealthy = migrations.length === 0; // No hay migraciones pendientes
+### 3. Renombrar Tablas/Columnas
 
-            const result = this.getStatus(key, isHealthy, {
-                pendingMigrations: migrations.length
-            });
+```sql
+-- Estrategia de vistas para renombrar tablas
+BEGIN;
 
-            if (!isHealthy) {
-                throw new Error(`Pending migrations: ${migrations.length}`);
-            }
+-- Crear nueva tabla con estructura deseada
+CREATE TABLE user_profiles AS SELECT * FROM users WHERE false;
 
-            return result;
-        } catch (error) {
-            throw new Error(`Migration health check failed: ${error.message}`);
+-- Crear vista con nombre antiguo
+CREATE VIEW users AS SELECT * FROM user_profiles;
+
+-- Migrar datos en lotes
+DO $$
+DECLARE
+    batch_size INTEGER := 10000;
+    offset_val INTEGER := 0;
+    row_count INTEGER;
+BEGIN
+    LOOP
+        INSERT INTO user_profiles 
+        SELECT * FROM users_old 
+        ORDER BY id 
+        LIMIT batch_size OFFSET offset_val;
+        
+        GET DIAGNOSTICS row_count = ROW_COUNT;
+        EXIT WHEN row_count = 0;
+        
+        offset_val := offset_val + batch_size;
+        PERFORM pg_sleep(0.1); -- Pausa para no sobrecargar
+    END LOOP;
+END $$;
+
+COMMIT;
+```
+
+## Migraciones de Datos Grandes
+
+### Migración por Lotes
+
+```typescript
+export class MigrateUserDataInBatches implements MigrationInterface {
+    async up(queryRunner: QueryRunner): Promise<void> {
+        const batchSize = 10000;
+        let offset = 0;
+        let hasMoreData = true;
+
+        while (hasMoreData) {
+            const result = await queryRunner.query(`
+                UPDATE users 
+                SET normalized_email = LOWER(email)
+                WHERE id IN (
+                    SELECT id FROM users 
+                    WHERE normalized_email IS NULL 
+                    ORDER BY id 
+                    LIMIT ${batchSize}
+                )
+            `);
+
+            hasMoreData = result.affectedRows === batchSize;
+            
+            // Pausa para no sobrecargar la base de datos
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            console.log(`Procesados ${offset + result.affectedRows} registros`);
+            offset += batchSize;
         }
     }
 }
-
 ```
 
-### Script de Rollback Automático
+### Migración Asíncrona con Cola
+
+```typescript
+// migration-worker.ts
+export class DataMigrationWorker {
+    async processUserMigration(batchId: number): Promise<void> {
+        const batchSize = 1000;
+        const offset = batchId * batchSize;
+
+        await this.queryRunner.query(`
+            UPDATE users 
+            SET profile_data = jsonb_build_object(
+                'preferences', old_preferences,
+                'settings', old_settings
+            )
+            WHERE id >= ${offset} AND id < ${offset + batchSize}
+            AND profile_data IS NULL
+        `);
+    }
+}
+
+// Encolar trabajos de migración
+export class QueueDataMigration implements MigrationInterface {
+    async up(queryRunner: QueryRunner): Promise<void> {
+        // Contar total de registros
+        const result = await queryRunner.query(`
+            SELECT COUNT(*) as count FROM users WHERE profile_data IS NULL
+        `);
+        
+        const totalRecords = result[0].count;
+        const batchSize = 1000;
+        const totalBatches = Math.ceil(totalRecords / batchSize);
+
+        // Encolar trabajos
+        for (let i = 0; i < totalBatches; i++) {
+            await this.messageQueue.send('data-migration', {
+                type: 'user-profile-migration',
+                batchId: i
+            });
+        }
+    }
+}
+```
+
+## Procedimientos de Rollback
+
+### Rollback Automático
 
 ```bash
 #!/bin/bash
+# rollback-migration.sh
+set -e
 
-# scripts/auto-rollback.sh
+MIGRATION_NAME=$1
+SERVICE_NAME=$2
 
-NAMESPACE=${1:-"retro-prod"}
-MAX_RETRIES=5
-RETRY_INTERVAL=30
+echo "Iniciando rollback de migración: $MIGRATION_NAME"
 
-echo "🔍 Verificando health después de migración..."
-
-for i in $(seq 1 $MAX_RETRIES); do
-    echo "Intento $i/$MAX_RETRIES..."
-
-    if kubectl exec -n $NAMESPACE deployment/user-service -- \
-       curl -f localhost:3000/health/migration; then
-        echo "✅ Health check exitoso"
-        exit 0
+# Verificar salud del servicio
+if ! curl -f http://localhost:3000/health; then
+    echo "Servicio no responde, iniciando rollback..."
+    
+    # Rollback de base de datos
+    case $SERVICE_NAME in
+        "user-service")
+            cd /app/user-service && npm run migration:revert
+            ;;
+        "game-catalog")
+            cd /app/game-catalog && npx sequelize-cli db:migrate:undo
+            ;;
+        *)
+            echo "Servicio no reconocido"
+            exit 1
+            ;;
+    esac
+    
+    # Reiniciar servicio
+    systemctl restart $SERVICE_NAME
+    
+    # Verificar recuperación
+    sleep 10
+    if curl -f http://localhost:3000/health; then
+        echo "Rollback exitoso"
+    else
+        echo "Rollback falló, intervención manual requerida"
+        exit 1
     fi
-
-    echo "❌ Health check falló, esperando $RETRY_INTERVAL segundos..."
-    sleep $RETRY_INTERVAL
-done
-
-echo "🚨 INICIANDO ROLLBACK AUTOMÁTICO"
-
-# Rollback de Kubernetes deployment
-kubectl rollout undo deployment/user-service -n $NAMESPACE
-kubectl rollout status deployment/user-service -n $NAMESPACE --timeout=300s
-
-# Rollback de migración de base de datos
-echo "⏪ Ejecutando rollback de migración..."
-kubectl exec -n $NAMESPACE deployment/user-service -- npm run migration:revert
-
-# Verificar que el rollback funcionó
-if kubectl exec -n $NAMESPACE deployment/user-service -- \
-   curl -f localhost:3000/health; then
-    echo "✅ Rollback completado exitosamente"
-
-    # Notificar al equipo
-    curl -X POST $SLACK_WEBHOOK_URL -H 'Content-type: application/json' \
-      --data "{\"text\":\"🚨 Rollback automático ejecutado en $NAMESPACE para migración fallida\"}"
-else
-    echo "❌ ROLLBACK FALLÓ - INTERVENCIÓN MANUAL REQUERIDA"
-    exit 1
 fi
-
 ```
 
-## Monitorización de Migraciones
+### Rollback Manual con Punto de Restauración
+
+```sql
+-- Crear punto de restauración antes de migración
+BEGIN;
+SAVEPOINT before_migration;
+
+-- Aplicar migración
+ALTER TABLE games ADD COLUMN rating_avg DECIMAL(3,2);
+UPDATE games SET rating_avg = (
+    SELECT AVG(rating) FROM game_reviews WHERE game_id = games.id
+);
+
+-- En caso de problemas, rollback al punto de restauración
+ROLLBACK TO SAVEPOINT before_migration;
+
+-- Si todo está bien, confirmar cambios
+COMMIT;
+```
+
+## Monitoreo y Alertas
+
+### Script de Verificación Post-Migración
+
+```typescript
+// post-migration-check.ts
+interface MigrationCheck {
+    name: string;
+    query: string;
+    expectedResult?: any;
+    validator: (result: any) => boolean;
+}
+
+const migrationChecks: MigrationCheck[] = [
+    {
+        name: 'Verificar nueva columna',
+        query: `
+            SELECT COUNT(*) as count 
+            FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'preferences'
+        `,
+        validator: (result) => result[0].count === 1
+    },
+    {
+        name: 'Verificar datos migrados',
+        query: `
+            SELECT COUNT(*) as count 
+            FROM users 
+            WHERE preferences IS NOT NULL
+        `,
+        validator: (result) => result[0].count > 0
+    },
+    {
+        name: 'Verificar índice creado',
+        query: `
+            SELECT COUNT(*) as count 
+            FROM pg_indexes 
+            WHERE tablename = 'users' 
+            AND indexname = 'IDX_users_preferences'
+        `,
+        validator: (result) => result[0].count === 1
+    }
+];
+
+async function runPostMigrationChecks(): Promise<boolean> {
+    for (const check of migrationChecks) {
+        try {
+            const result = await queryRunner.query(check.query);
+            if (!check.validator(result)) {
+                console.error(`❌ Check failed: ${check.name}`);
+                return false;
+            }
+            console.log(`✅ Check passed: ${check.name}`);
+        } catch (error) {
+            console.error(`❌ Check error: ${check.name}`, error);
+            return false;
+        }
+    }
+    return true;
+}
+```
 
 ### Métricas de Migración
 
 ```typescript
-// src/metrics/migration-metrics.ts
-import { Injectable } from '@nestjs/common';
-import { PrometheusService } from './prometheus.service';
-
-@Injectable()
+// migration-metrics.ts
 export class MigrationMetrics {
-    private migrationDuration = this.prometheus.createHistogram({
-        name: 'migration_duration_seconds',
-        help: 'Duration of database migrations',
-        labelNames: ['migration_name', 'status']
-    });
-
-    private migrationCounter = this.prometheus.createCounter({
-        name: 'migrations_total',
-        help: 'Total number of migrations executed',
-        labelNames: ['migration_name', 'status']
-    });
-
-    constructor(private prometheus: PrometheusService) {}
-
-    recordMigrationStart(migrationName: string) {
-        return this.migrationDuration.startTimer({
-            migration_name: migrationName
+    async recordMigrationStart(migrationName: string): Promise<void> {
+        await this.metricsService.increment('database.migration.started', {
+            migration: migrationName,
+            service: process.env.SERVICE_NAME
         });
     }
 
-    recordMigrationComplete(timer: any, migrationName: string, success: boolean) {
-        const status = success ? 'success' : 'failed';
-        timer({ migration_name: migrationName, status });
-
-        this.migrationCounter.inc({
-            migration_name: migrationName,
-            status
+    async recordMigrationSuccess(migrationName: string, duration: number): Promise<void> {
+        await this.metricsService.increment('database.migration.completed', {
+            migration: migrationName,
+            service: process.env.SERVICE_NAME
         });
-    }
-}
-
-```
-
-### Dashboard de Migraciones
-
-```yaml
-
-# monitoring/migration-dashboard.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: migration-dashboard
-data:
-  dashboard.json: |
-    {
-      "dashboard": {
-        "title": "Database Migrations",
-        "panels": [
-          {
-            "title": "Migration Duration",
-            "targets": [{
-              "expr": "migration_duration_seconds"
-            }]
-          },
-          {
-            "title": "Migration Success Rate",
-            "targets": [{
-              "
-
+        
+        await this.metricsService.histogram('database.migration.
 ```

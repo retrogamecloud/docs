@@ -1,6 +1,7 @@
 ---
 title: Servicios - Visión General
-description: Documentación consolidada de todos los microservicios de RetroGameCloud con arquitectura, dependencias y endpoints principales
+description: Documentación consolidada de todos los microservicios de RetroGameCloud
+  con arquitectura, dependencias y endpoints principales
 icon: microchip
 ---
 
@@ -15,47 +16,48 @@ RetroGameCloud está construido sobre una arquitectura de microservicios que pro
 ```mermaid
 graph TB
     Client[Cliente Web/Mobile] --> Gateway[Kong API Gateway]
-    
+
     Gateway --> Auth[Auth Service<br/>:8001]
     Gateway --> User[User Service<br/>:8002]
     Gateway --> Catalog[Game Catalog<br/>:8003]
     Gateway --> Score[Score Service<br/>:8004]
     Gateway --> Ranking[Ranking Service<br/>:8005]
-    
+
     %% Comunicación entre servicios
     User -.->|Valida tokens| Auth
     Score -.->|Valida usuarios| Auth
     Score -.->|Info usuarios| User
     Ranking -.->|Obtiene scores| Score
     Catalog -.->|Valida permisos| Auth
-    
+
     %% Cache distribuido
     Auth --> Redis[(Redis<br/>Cache & Sessions)]
     User --> Redis
     Score --> Redis
     Ranking --> Redis
-    
+
     %% Bases de datos
     Auth --> AuthDB[(PostgreSQL<br/>auth_db)]
     User --> UserDB[(PostgreSQL<br/>user_db)]
     Catalog --> CatalogDB[(PostgreSQL<br/>catalog_db)]
     Score --> ScoreDB[(PostgreSQL<br/>score_db)]
     Ranking --> RankingDB[(PostgreSQL<br/>ranking_db)]
-    
+
     %% Servicios externos
     Catalog --> S3[AWS S3<br/>Game Assets]
     Gateway --> CDN[CloudFront CDN]
-    
+
     %% Estilos
     classDef service fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     classDef database fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
     classDef external fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
     classDef cache fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    
+
     class Auth,User,Catalog,Score,Ranking service
     class AuthDB,UserDB,CatalogDB,ScoreDB,RankingDB database
     class S3,CDN external
     class Redis cache
+
 ```
 
 </div>
@@ -72,9 +74,9 @@ sequenceDiagram
     participant U as User Service
     participant S as Score Service
     participant R as Redis
-    
+
     Note over C,R: Ejemplo: Subir nueva puntuación
-    
+
     C->>K: POST /api/scores (con JWT)
     K->>S: Reenvía request
     S->>R: Busca token en cache
@@ -85,13 +87,14 @@ sequenceDiagram
         A-->>S: Token válido + user_id
         S->>R: Guarda token en cache
     end
-    
+
     S->>U: GET /users/{user_id}/profile
     U-->>S: Datos del usuario
-    
+
     S->>S: Procesa y guarda puntuación
     S-->>K: Respuesta exitosa
     K-->>C: 201 Created
+
 ```
 
 </div>
@@ -125,7 +128,7 @@ sequenceDiagram
       </Card>
     </CardGroup>
   </Tab>
-  
+
   <Tab title="Juegos y Contenido">
     <Card title="Game Catalog" icon="gamepad-2" href="/services/game-catalog">
       Catálogo de juegos retro y gestión de assets
@@ -134,7 +137,7 @@ sequenceDiagram
       - Integración con S3/CDN
     </Card>
   </Tab>
-  
+
   <Tab title="Puntuaciones y Rankings">
     <CardGroup cols={2}>
       <Card title="Score Service" icon="trophy" href="/services/score-service">
@@ -156,32 +159,47 @@ sequenceDiagram
 ## 3.5. Patrones de Comunicación
 
 ### 3.5.1. Sincronización de Datos
+
 - **Cache distribuido**: Redis para sesiones y datos frecuentes
+
 - **Service-to-Service**: HTTP REST para comunicación directa
+
 - **Rate limiting**: Kong Gateway controla límites por servicio
 
 ### 3.5.2. Manejo de Errores
+
 - **Circuit breaker**: Prevención de fallos en cascada
+
 - **Retry policies**: Reintentos automáticos configurables
+
 - **Fallback responses**: Respuestas por defecto en caso de fallo
 
 ### 3.5.3. Seguridad
+
 - **JWT tokens**: Autenticación stateless
+
 - **Service mesh**: Comunicación segura entre servicios
+
 - **API rate limiting**: Protección contra abuso
 
 ## 3.6. Dependencias Críticas
 
 <Warning>
 Los siguientes servicios son críticos para el funcionamiento del sistema:
+
 - **Kong Gateway**: Punto de entrada único
+
 - **Redis**: Cache distribuido y sesiones
+
 - **Auth Service**: Validación de tokens para todos los servicios
 </Warning>
 
 <Tip>
 Para desarrollo local, todos los servicios pueden ejecutarse con:
+
 ```bash
 docker-compose up -d
+
 ```
+
 </Tip>

@@ -1,15 +1,15 @@
 ---
-title: Monitorización y Observabilidad
+title: 4.5 Monitorización y Observabilidad
 description: 'Stack completo de observabilidad para RetroGameCloud: métricas, logs,
   alertas y dashboards'
 icon: chart-line
 ---
 
-# Monitorización y Observabilidad
+# 4.5 Monitorización y Observabilidad
 
 RetroGameCloud implementa un stack completo de observabilidad que combina herramientas nativas de AWS con soluciones open source para garantizar la visibilidad total del sistema en producción.
 
-## Stack de Observabilidad
+## 4.5.1 Stack de Observabilidad
 
 <Card title="Componentes Principales" icon="stack">
 
@@ -26,15 +26,14 @@ RetroGameCloud implementa un stack completo de observabilidad que combina herram
 - **AWS X-Ray**: Trazado distribuido
 </Card>
 
-## Métricas de Negocio por Servicio
+## 4.5.2 Métricas de Negocio por Servicio
 
-### Auth Service
+### 4.5.2.1 Auth Service
 
 <Tabs>
 <Tab title="Métricas Clave">
 
 ```yaml
-
 # Métricas críticas del servicio de autenticación
 auth_registrations_total:
   description: "Total de registros de usuarios"
@@ -54,7 +53,6 @@ auth_token_validation_duration:
 auth_active_sessions:
   description: "Sesiones activas concurrentes"
   type: "gauge"
-
 ```
 
 </Tab>
@@ -70,10 +68,12 @@ auth_active_sessions:
 </Tab>
 </Tabs>
 
-### Game Catalog Service
+### 4.5.2.2 Game Catalog Service
+
+<Tabs>
+<Tab title="Métricas Clave">
 
 ```yaml
-
 # Métricas del catálogo de juegos
 game_catalog_searches_total:
   description: "Búsquedas realizadas en el catálogo"
@@ -83,505 +83,441 @@ game_catalog_searches_total:
 game_downloads_total:
   description: "Descargas de ROMs"
   type: "counter"
-  labels: ["game_id", "platform"]
+  labels: ["game_id", "platform", "user_region"]
 
-game_catalog_response_time:
-  description: "Tiempo de respuesta del catálogo"
+game_metadata_processing_duration:
+  description: "Tiempo de procesamiento de metadata"
   type: "histogram"
-  buckets: [0.1, 0.2, 0.5, 1.0, 2.0]
+  buckets: [1.0, 5.0, 10.0, 30.0, 60.0]
 
-most_played_games:
-  description: "Juegos más jugados (top 10)"
+catalog_index_size:
+  description: "Tamaño del índice de búsqueda"
   type: "gauge"
-  labels: ["game_name", "platform"]
-
 ```
 
-<Warning>
-El servicio de catálogo debe mantener un tiempo de respuesta p95 inferior a 1 segundo para garantizar una buena experiencia de usuario.
-</Warning>
+</Tab>
+<Tab title="Umbrales de Alerta">
 
-### Score y Ranking Services
+- **Búsquedas sin resultados > 30%**: Posible problema con índice
+
+- **Tiempo de descarga p95 > 30s**: Revisar ancho de banda
+
+- **Procesamiento metadata p99 > 2min**: Optimizar pipeline
+
+- **Tamaño índice crecimiento > 50%/semana**: Revisar estrategia de limpieza
+</Tab>
+</Tabs>
+
+### 4.5.2.3 Game Session Service
 
 <Tabs>
-<Tab title="Score Service">
+<Tab title="Métricas Clave">
 
 ```yaml
-score_submissions_total:
-  description: "Puntuaciones enviadas"
+# Métricas de sesiones de juego
+game_sessions_started_total:
+  description: "Sesiones de juego iniciadas"
   type: "counter"
-  labels: ["game_id", "user_type"]
+  labels: ["platform", "game_id", "user_tier"]
 
-score_validation_failures:
-  description: "Fallos en validación de puntuaciones"
-  type: "counter"
-  labels: ["reason", "game_id"]
-
-score_processing_duration:
-  description: "Tiempo de procesamiento de puntuaciones"
+game_session_duration:
+  description: "Duración de sesiones de juego"
   type: "histogram"
+  buckets: [60, 300, 900, 1800, 3600, 7200]
 
+concurrent_game_sessions:
+  description: "Sesiones concurrentes activas"
+  type: "gauge"
+  labels: ["platform"]
+
+game_state_saves_total:
+  description: "Estados de juego guardados"
+  type: "counter"
+  labels: ["game_id", "save_type"]
 ```
 
 </Tab>
-<Tab title="Ranking Service">
+<Tab title="Umbrales de Alerta">
 
-```yaml
-ranking_updates_total:
-  description: "Actualizaciones de ranking"
-  type: "counter"
-  labels: ["ranking_type", "game_id"]
+- **Sesiones concurrentes > 1000**: Escalar recursos de compute
 
-ranking_calculation_duration:
-  description: "Duración del cálculo de rankings"
-  type: "histogram"
+- **Duración media < 5min**: Posibles problemas de experiencia
 
-leaderboard_requests_total:
-  description: "Solicitudes de leaderboard"
-  type: "counter"
-  labels: ["game_id", "period"]
+- **Fallos de guardado > 5%**: Revisar almacenamiento
 
-```
-
+- **Latencia de inicio > 10s**: Optimizar tiempo de arranque
 </Tab>
 </Tabs>
 
-## Métricas de Infraestructura
-
-### Cluster EKS
-
-<Card title="Métricas de Nodos" icon="server">
-
-```yaml
-
-# Métricas críticas de infraestructura
-node_cpu_utilization:
-  description: "Uso de CPU por nodo"
-  threshold_warning: 70%
-  threshold_critical: 85%
-
-node_memory_utilization:
-  description: "Uso de memoria por nodo"
-  threshold_warning: 80%
-  threshold_critical: 90%
-
-node_disk_utilization:
-  description: "Uso de disco por nodo"
-  threshold_warning: 75%
-  threshold_critical: 85%
-
-pod_restart_count:
-  description: "Reinicios de pods"
-  threshold_warning: 3_restarts_per_hour
-  threshold_critical: 5_restarts_per_hour
-
-```
-
-</Card>
-
-### Pods y Contenedores
-
-```yaml
-
-# Métricas por servicio
-container_cpu_usage:
-  labels: ["service", "pod", "namespace"]
-
-container_memory_usage:
-  labels: ["service", "pod", "namespace"]
-
-container_network_receive_bytes:
-  description: "Bytes recibidos por contenedor"
-
-container_network_transmit_bytes:
-  description: "Bytes transmitidos por contenedor"
-
-# Umbrales por servicio
-service_thresholds:
-  auth-service:
-    cpu_warning: 200m
-    cpu_critical: 400m
-    memory_warning: 256Mi
-    memory_critical: 512Mi
-
-  game-catalog:
-    cpu_warning: 300m
-    cpu_critical: 500m
-    memory_warning: 512Mi
-    memory_critical: 1Gi
-
-```
-
-## Base de Datos (PostgreSQL en RDS)
-
-<Warning>
-Las métricas de base de datos son críticas para el rendimiento del sistema. Monitoriza especialmente las conexiones activas y la latencia de consultas.
-</Warning>
-
-```yaml
-
-# Métricas de RDS PostgreSQL
-rds_database_connections:
-  description: "Conexiones activas a la base de datos"
-  threshold_warning: 80  # 80% del máximo configurado
-  threshold_critical: 90  # 90% del máximo configurado
-
-rds_cpu_utilization:
-  threshold_warning: 70%
-  threshold_critical: 85%
-
-rds_free_memory:
-  threshold_warning: 1GB
-  threshold_critical: 500MB
-
-rds_read_latency:
-  threshold_warning: 200ms
-  threshold_critical: 500ms
-
-rds_write_latency:
-  threshold_warning: 200ms
-  threshold_critical: 500ms
-
-```
-
-## CloudWatch Alarms Críticos
-
-### Configuración de Alertas
+## 4.5.3 Configuración de Prometheus
 
 <Tabs>
-<Tab title="Infraestructura">
-
-```json
-{
-  "critical_alarms": [
-    {
-      "name": "EKS-Cluster-UnhealthyNodes",
-      "metric": "cluster.unhealthy_nodes",
-      "threshold": 1,
-      "comparison": "GreaterThanOrEqualToThreshold",
-      "evaluation_periods": 2,
-      "period": 300,
-      "notification": "sns:retrogame-critical-alerts"
-    },
-    {
-      "name": "RDS-ConnectionsHigh",
-      "metric": "DatabaseConnections",
-      "threshold": 80,
-      "comparison": "GreaterThanThreshold",
-      "evaluation_periods": 3,
-      "period": 300,
-      "notification": "sns:retrogame-critical-alerts"
-    },
-    {
-      "name": "ALB-5xxErrorsHigh",
-      "metric": "HTTPCode_Target_5XX_Count",
-      "threshold": 10,
-      "comparison": "GreaterThanThreshold",
-      "evaluation_periods": 2,
-      "period": 300,
-      "notification": "sns:retrogame-critical-alerts"
-    }
-  ]
-}
-
-```
-
-</Tab>
-<Tab title="Aplicación">
-
-```json
-{
-  "application_alarms": [
-    {
-      "name": "Auth-Service-ErrorRate",
-      "metric": "auth_errors_total",
-      "threshold": 0.05,  // 5% de tasa de error
-      "comparison": "GreaterThanThreshold",
-      "evaluation_periods": 3,
-      "period": 300
-    },
-    {
-      "name": "Game-Download-Failures",
-      "metric": "game_download_failures_total",
-      "threshold": 20,
-      "comparison": "GreaterThanThreshold",
-      "evaluation_periods": 2,
-      "period": 600
-    },
-    {
-      "name": "Score-Processing-Latency",
-      "metric": "score_processing_duration_p95",
-      "threshold": 2.0,  // 2 segundos
-      "comparison": "GreaterThanThreshold",
-      "evaluation_periods": 3,
-      "period": 300
-    }
-  ]
-}
-
-```
-
-</Tab>
-</Tabs>
-
-## Logs Centralizados
-
-### Configuración de CloudWatch Logs
+<Tab title="Configuración Principal">
 
 ```yaml
+# prometheus.yml
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
 
-# Configuración de log groups
-log_groups:
-  - name: "/aws/eks/retrogame-cluster/cluster"
-    retention_days: 7
+rule_files:
+  - "rules/*.yml"
 
-  - name: "/retrogame/auth-service"
-    retention_days: 30
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
 
-  - name: "/retrogame/game-catalog"
-    retention_days: 30
+scrape_configs:
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['auth-service:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
 
-  - name: "/retrogame/score-service"
-    retention_days: 14
+  - job_name: 'game-catalog-service'
+    static_configs:
+      - targets: ['catalog-service:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
 
-  - name: "/retrogame/ranking-service"
-    retention_days: 14
-
-  - name: "/retrogame/nginx-ingress"
-    retention_days: 14
-
-# Configuración de Fluent Bit
-fluent_bit_config: |
-  [INPUT]
-      Name              tail
-      Path              /var/log/containers/*.log
-      Parser            docker
-      Tag               kube.*
-      Refresh_Interval  5
-
-  [FILTER]
-      Name                kubernetes
-      Match               kube.*
-      Kube_URL            https://kubernetes.default.svc:443
-      Merge_Log           On
-      Keep_Log            Off
-
-  [OUTPUT]
-      Name                cloudwatch_logs
-      Match               kube.*
-      region              eu-west-1
-      log_group_name      /aws/eks/retrogame-cluster/application
-      auto_create_group   true
-
-```
-
-### Acceso a Logs con kubectl
-
-<Note>
-Para acceder a los logs de los servicios en tiempo real, utiliza estos comandos de kubectl:
-</Note>
-
-```bash
-
-# Ver logs de un servicio específico
-kubectl logs -f deployment/auth-service -n retrogame
-
-# Ver logs de múltiples pods
-kubectl logs -f -l app=game-catalog -n retrogame
-
-# Ver logs con contexto de tiempo
-kubectl logs --since=1h deployment/score-service -n retrogame
-
-# Ver logs de un pod específico con múltiples contenedores
-kubectl logs -f pod/auth-service-7d4b6c8f9-xk2m9 -c auth-service -n retrogame
-
-# Filtrar logs por nivel (si está estructurado)
-kubectl logs deployment/ranking-service -n retrogame | grep ERROR
-
-# Ver eventos del cluster
-kubectl get events --sort-by='.lastTimestamp' -n retrogame
-
-```
-
-## CloudWatch Insights
-
-### Queries Útiles
-
-<Tabs>
-<Tab title="Análisis de Errores">
-
-```sql
-
-# Errores por servicio en las últimas 24 horas
-fields @timestamp, @message
-| filter @message like /ERROR/
-| stats count() by bin(5m)
-| sort @timestamp desc
-
-# Top 10 errores más frecuentes
-fields @timestamp, @message
-| filter @message like /ERROR/
-| parse @message /ERROR: (?<error_message>.*)/
-| stats count() as error_count by error_message
-| sort error_count desc
-| limit 10
-
+  - job_name: 'game-session-service'
+    static_configs:
+      - targets: ['session-service:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
 ```
 
 </Tab>
-<Tab title="Rendimiento">
+<Tab title="Reglas de Alertas">
 
-```sql
+```yaml
+# rules/retrogamecloud.yml
+groups:
+  - name: retrogamecloud.rules
+    rules:
+    - alert: HighErrorRate
+      expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Alta tasa de errores en {{ $labels.service }}"
+        description: "{{ $labels.service }} tiene una tasa de errores del {{ $value }}%"
 
-# Análisis de latencia por endpoint
-fields @timestamp, @message
-| filter @message like /request_duration/
-| parse @message /duration=(?<duration>\d+)/
-| stats avg(duration), max(duration), min(duration) by bin(5m)
-| sort @timestamp desc
+    - alert: HighResponseTime
+      expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 0.5
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Tiempo de respuesta alto en {{ $labels.service }}"
+        description: "P95 de tiempo de respuesta: {{ $value }}s"
 
-# Requests por minuto
-fields @timestamp
-| filter @message like /HTTP/
-| stats count() as requests by bin(1m)
-| sort @timestamp desc
-
-```
-
-</Tab>
-<Tab title="Usuarios y Juegos">
-
-```sql
-
-# Juegos más jugados
-fields @timestamp, @message
-| filter @message like /game_started/
-| parse @message /game_id=(?<game_id>\w+)/
-| stats count() as plays by game_id
-| sort plays desc
-| limit 20
-
-# Actividad de usuarios por hora
-fields @timestamp, @message
-| filter @message like /user_login/
-| stats count() as logins by bin(1h)
-| sort @timestamp desc
-
+    - alert: DatabaseConnectionsHigh
+      expr: pg_stat_activity_count > 80
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Alto número de conexiones a base de datos"
+        description: "{{ $value }} conexiones activas"
 ```
 
 </Tab>
 </Tabs>
 
-## Dashboards de Grafana
+## 4.5.4 Dashboards de Grafana
 
-### Dashboard Principal del Sistema
+### 4.5.4.1 Dashboard de Infraestructura
+
+<Card title="Métricas de Sistema" icon="server">
 
 ```json
 {
   "dashboard": {
-    "title": "RetroGameCloud - Vista General",
+    "title": "RetroGameCloud - Infrastructure Overview",
     "panels": [
       {
-        "title": "Solicitudes por Segundo",
-        "type": "graph",
+        "title": "CPU Usage by Service",
+        "type": "stat",
         "targets": [
           {
-            "expr": "sum(rate(http_requests_total[5m])) by (service)",
-            "legendFormat": "{{service}}"
+            "expr": "avg(rate(container_cpu_usage_seconds_total[5m])) by (container_name) * 100"
           }
         ]
       },
       {
-        "title": "Latencia p95 por Servicio",
-        "type": "graph",
+        "title": "Memory Usage",
+        "type": "timeseries",
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service))",
-            "legendFormat": "p95 {{service}}"
+            "expr": "container_memory_usage_bytes / container_spec_memory_limit_bytes * 100"
           }
         ]
       },
       {
-        "title": "Tasa de Error",
-        "type": "singlestat",
+        "title": "Network I/O",
+        "type": "timeseries",
         "targets": [
           {
-            "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m]))",
-            "legendFormat": "Error Rate"
+            "expr": "rate(container_network_receive_bytes_total[5m])"
           }
         ]
       }
     ]
   }
 }
-
 ```
 
-### Dashboard de Infraestructura
-
-<Card title="Métricas de Infraestructura" icon="chart-bar">
-
-- **Uso de CPU y Memoria por nodo**
-
-- **Tráfico de red del cluster**
-
-- **Almacenamiento disponible**
-
-- **Estado de los pods**
-
-- **Métricas de RDS**
-
-- **Distribución de tráfico del Load Balancer**
 </Card>
 
-## Procedimientos de Respuesta a Incidentes
+### 4.5.4.2 Dashboard de Aplicación
 
-### Runbook de Alertas
+<Card title="Métricas de Negocio" icon="gamepad-2">
 
-<Warning>
-Sigue estos procedimientos cuando recibas alertas críticas:
-</Warning>
+```json
+{
+  "dashboard": {
+    "title": "RetroGameCloud - Application Metrics",
+    "panels": [
+      {
+        "title": "Active Game Sessions",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(concurrent_game_sessions)"
+          }
+        ]
+      },
+      {
+        "title": "User Registrations (24h)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "increase(auth_registrations_total[24h])"
+          }
+        ]
+      },
+      {
+        "title": "Game Downloads by Platform",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "sum(rate(game_downloads_total[1h])) by (platform)"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+</Card>
+
+## 4.5.5 Configuración de Alertas
+
+### 4.5.5.1 AlertManager
 
 <Tabs>
-<Tab title="Alta Tasa de Error 5xx">
+<Tab title="Configuración">
 
-```bash
+```yaml
+# alertmanager.yml
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@retrogamecloud.com'
 
-# 1. Verificar estado de los pods
-kubectl get pods -n retrogame
+route:
+  group_by: ['alertname']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'web.hook'
 
-# 2. Revisar logs recientes
-kubectl logs -f deployment/auth-service -n retrogame --tail=100
+receivers:
+- name: 'web.hook'
+  email_configs:
+  - to: 'devops@retrogamecloud.com'
+    subject: 'RetroGameCloud Alert: {{ .GroupLabels.alertname }}'
+    body: |
+      {{ range .Alerts }}
+      Alert: {{ .Annotations.summary }}
+      Description: {{ .Annotations.description }}
+      {{ end }}
+  
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/...'
+    channel: '#alerts'
+    title: 'RetroGameCloud Alert'
+    text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
 
-# 3. Verificar métricas de recursos
-kubectl top pods -n retrogame
-
-# 4. Comprobar conectividad con RDS
-kubectl exec -it deployment/auth-service -n retrogame -- pg_isready -h $DB_HOST
-
-# 5. Si es necesario, hacer rollback
-kubectl rollout undo deployment/auth-service -n retrogame
-
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'service']
 ```
 
 </Tab>
-<Tab title="Nodos Unhealthy">
+<Tab title="Plantillas de Notificación">
 
-```bash
-
-# 1. Verificar estado del cluster
-kubectl get nodes
-
-# 2. Describir nodo problemático
-kubectl describe node <node-name>
-
-# 3. Revisar eventos del cluster
-kubectl get events --all-namespaces --sort-by='.lastTimestamp'
-
-# 4. Si es necesario, drenar y reemplazar el nodo
-kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data
-
+```html
+<!-- email.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RetroGameCloud Alert</title>
+</head>
+<body>
+    <h2>🚨 RetroGameCloud System Alert</h2>
+    
+    {{ range .Alerts }}
+    <div style="border: 1px solid #ddd; padding: 10px; margin: 10px 0;">
+        <h3>{{ .Annotations.summary }}</h3>
+        <p><strong>Severity:</strong> {{ .Labels.severity }}</p>
+        <p><strong>Service:</strong> {{ .Labels.service }}</p>
+        <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+        <p><strong>Started:</strong> {{ .StartsAt }}</p>
+    </div>
+    {{ end }}
+    
+    <p>
+        <a href="http://grafana.retrogamecloud.com">View Dashboards</a> |
+        <a href="http://prometheus.retrogamecloud.com">View Metrics</a>
+    </p>
+</body>
+</html>
 ```
 
 </Tab>
 </Tabs>
+
+### 4.5.5.2 Escalado de Alertas
+
+<Card title="Niveles de Escalado" icon="triangle-alert">
+
+**Nivel 1 - Warning (0-15 min)**
+- Notificación Slack al canal #alerts
+- Email a equipo de desarrollo
+
+**Nivel 2 - Critical (15-30 min)**
+- Llamada automática al on-call engineer
+- Notificación a gerencia técnica
+- Activación de runbooks automáticos
+
+**Nivel 3 - Emergency (30+ min)**
+- Escalado a CTO
+- Notificación a stakeholders de negocio
+- Activación de plan de contingencia
+
+</Card>
+
+## 4.5.6 Logging Centralizado
+
+### 4.5.6.1 CloudWatch Logs
+
+<Tabs>
+<Tab title="Configuración de Logs">
+
+```json
+{
+  "logConfiguration": {
+    "logDriver": "awslogs",
+    "options": {
+      "awslogs-group": "/ecs/retrogamecloud",
+      "awslogs-region": "us-west-2",
+      "awslogs-stream-prefix": "ecs"
+    }
+  },
+  "logGroups": [
+    {
+      "name": "/aws/lambda/auth-service",
+      "retentionInDays": 30
+    },
+    {
+      "name": "/aws/ecs/game-catalog",
+      "retentionInDays": 14
+    },
+    {
+      "name": "/aws/ecs/game-sessions",
+      "retentionInDays": 7
+    }
+  ]
+}
+```
+
+</Tab>
+<Tab title="Filtros de Logs">
+
+```bash
+# Ejemplos de filtros útiles
+# Errores críticos
+{ ($.level = "ERROR") && ($.service = "auth-service") }
+
+# Logins fallidos
+{ ($.event = "login_failed") && ($.attempts > 3) }
+
+# Sesiones de juego largas
+{ ($.event = "session_end") && ($.duration > 7200) }
+
+# Errores de base de datos
+{ $.message = "database*error*" }
+```
+
+</Tab>
+</Tabs>
+
+### 4.5.6.2 Formato de Logs Estructurados
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "level": "INFO",
+  "service": "auth-service",
+  "requestId": "req-123456789",
+  "userId": "user-987654321",
+  "event": "user_login",
+  "duration": 150,
+  "metadata": {
+    "ip": "192.168.1.1",
+    "userAgent": "RetroGameCloud-App/1.0.0",
+    "provider": "google"
+  },
+  "message": "User successfully authenticated"
+}
+```
+
+## 4.5.7 Trazado Distribuido con X-Ray
+
+<Tabs>
+<Tab title="Configuración">
+
+```python
+# Instrumentación Python
+import aws_xray_sdk.core
+from aws_xray_sdk.core import xray_recorder
+
+@xray_recorder.capture('auth_service.validate_token')
+def validate_token(token):
+    # Lógica de validación
+    subsegment = xray_recorder.current_subsegment()
+    subsegment.put_annotation('token_type', 'JWT')
+    subsegment.put_metadata('token_claims', claims)
+    
+    return validation_result
+
+# Middleware para Express.js
+const AWSXRay = require('aws-xray-sdk-core');
+const express = require('express');
+
+const app = express();
+app.use(AWSXRay.express.openSegment('GameCatalogService'));
+
+app.get('/games/:id', (req, res) => {
+  const segment = AWS
+</Tab>
+</Tabs>
+```

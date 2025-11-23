@@ -1,6 +1,7 @@
 ---
 title: 8.3. Configuración de Entornos
-description: Referencia completa de configuración para todos los servicios de Retro Game Hub
+description: Referencia completa de configuración para todos los servicios de Retro
+  Game Hub
 icon: file-lines
 ---
 
@@ -8,7 +9,7 @@ icon: file-lines
 
 Esta página documenta todas las variables de configuración, parámetros y ajustes disponibles en Retro Game Hub.
 
----
+- --
 
 ## 🔐 Variables de Entorno
 
@@ -17,6 +18,7 @@ Esta página documenta todas las variables de configuración, parámetros y ajus
 Variables de entorno para el servicio de autenticación:
 
 ```bash
+
 # Puerto del servicio
 PORT=3001
 
@@ -45,6 +47,7 @@ RATE_LIMIT_MAX_REQUESTS=10  # Máximo 10 requests/minuto
 
 # CORS
 CORS_ORIGIN=https://retrogamehub.games
+
 ```
 
 #### Valores Recomendados por Entorno
@@ -56,11 +59,12 @@ CORS_ORIGIN=https://retrogamehub.games
 | `RATE_LIMIT_MAX_REQUESTS` | `100` | `10` |
 | `DB_HOST` | `localhost` | RDS endpoint |
 
----
+- --
 
 ### User Service
 
 ```bash
+
 # Puerto del servicio
 PORT=3002
 
@@ -84,13 +88,15 @@ DEFAULT_AVATAR_URL=https://cdn.retrogamehub.games/avatars/default.png
 
 # Cache de perfiles (segundos)
 PROFILE_CACHE_TTL=300  # 5 minutos
+
 ```
 
----
+- --
 
 ### Game Catalog Service
 
 ```bash
+
 # Puerto del servicio
 PORT=3003
 
@@ -122,13 +128,15 @@ S3_BUCKET=retrogamehub-assets
 S3_REGION=eu-west-1
 AWS_ACCESS_KEY_ID=<access-key>
 AWS_SECRET_ACCESS_KEY=<secret-key>
+
 ```
 
----
+- --
 
 ### Review Service
 
 ```bash
+
 # Puerto del servicio
 PORT=3004
 
@@ -153,13 +161,15 @@ ENABLE_EMAIL_NOTIFICATIONS=true
 
 # Cache de reseñas
 REVIEW_CACHE_TTL=1800  # 30 minutos
+
 ```
 
----
+- --
 
 ### Notification Service
 
 ```bash
+
 # Puerto del servicio
 PORT=3005
 
@@ -181,13 +191,15 @@ FIREBASE_CLIENT_EMAIL=<client-email>
 # Rate Limiting para notificaciones
 EMAIL_RATE_LIMIT=10  # emails por usuario por día
 PUSH_RATE_LIMIT=50   # push notifications por usuario por día
+
 ```
 
----
+- --
 
 ### Frontend Application
 
 ```bash
+
 # API Gateway
 REACT_APP_API_BASE_URL=https://api.retrogamehub.games
 
@@ -203,9 +215,10 @@ REACT_APP_GOOGLE_ANALYTICS_ID=GA-XXXXXXXXX
 
 # CDN para assets
 REACT_APP_CDN_BASE_URL=https://cdn.retrogamehub.games
+
 ```
 
----
+- --
 
 ## 🐳 Configuración Docker
 
@@ -363,15 +376,19 @@ services:
 volumes:
   postgres_data:
   redis_data:
+
 ```
 
----
+- --
 
 ### .env Template
 
 ```bash
+
 # ===========================================
+
 # RETRO GAME HUB - ENVIRONMENT CONFIGURATION
+
 # ===========================================
 
 # Entorno general
@@ -406,9 +423,10 @@ S3_REGION=eu-west-1
 FIREBASE_PROJECT_ID=your_firebase_project_id
 FIREBASE_PRIVATE_KEY="your_firebase_private_key"
 FIREBASE_CLIENT_EMAIL=your_firebase_client_email
+
 ```
 
----
+- --
 
 ## ⚙️ Configuración de Nginx
 
@@ -423,19 +441,19 @@ http {
     upstream auth_service {
         server auth-service:3001;
     }
-    
+
     upstream user_service {
         server user-service:3002;
     }
-    
+
     upstream game_catalog_service {
         server game-catalog-service:3003;
     }
-    
+
     upstream review_service {
         server review-service:3004;
     }
-    
+
     upstream notification_service {
         server notification-service:3005;
     }
@@ -446,13 +464,13 @@ http {
 
     server {
         listen 80;
-        
+
         # Health check endpoint
         location /health {
             return 200 "OK";
             add_header Content-Type text/plain;
         }
-        
+
         # Auth endpoints with stricter rate limiting
         location /api/auth/ {
             limit_req zone=auth burst=5 nodelay;
@@ -461,7 +479,7 @@ http {
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         }
-        
+
         # User service
         location /api/users/ {
             limit_req zone=api burst=10 nodelay;
@@ -470,7 +488,7 @@ http {
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         }
-        
+
         # Game catalog service
         location /api/games/ {
             limit_req zone=api burst=20 nodelay;
@@ -479,7 +497,7 @@ http {
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         }
-        
+
         # Review service
         location /api/reviews/ {
             limit_req zone=api burst=10 nodelay;
@@ -488,7 +506,7 @@ http {
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         }
-        
+
         # Notification service
         location /api/notifications/ {
             limit_req zone=api burst=5 nodelay;
@@ -499,9 +517,10 @@ http {
         }
     }
 }
+
 ```
 
----
+- --
 
 ## 🔧 Configuración Adicional
 
@@ -510,6 +529,7 @@ http {
 #### PostgreSQL postgresql.conf
 
 ```ini
+
 # Configuración de memoria
 shared_buffers = 256MB
 work_mem = 4MB
@@ -527,30 +547,33 @@ log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '
 # Performance
 effective_cache_size = 1GB
 random_page_cost = 1.1
+
 ```
 
 #### Índices Recomendados
 
 ```sql
--- Auth Service
+
+- - Auth Service
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_sessions_token ON sessions(token);
 CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 
--- Game Catalog
+- - Game Catalog
 CREATE INDEX idx_games_title ON games USING gin(title gin_trgm_ops);
 CREATE INDEX idx_games_genre ON games(genre);
 CREATE INDEX idx_games_platform ON games(platform);
 CREATE INDEX idx_games_release_date ON games(release_date);
 
--- Reviews
+- - Reviews
 CREATE INDEX idx_reviews_game_id ON reviews(game_id);
 CREATE INDEX idx_reviews_user_id ON reviews(user_id);
 CREATE INDEX idx_reviews_rating ON reviews(rating);
 CREATE INDEX idx_reviews_created_at ON reviews(created_at);
+
 ```
 
----
+- --
 
 ### Configuración de Redis
 

@@ -1,63 +1,52 @@
 ---
-title: 6.10. Optimización de Costos AWS
-description: Guía completa para monitorizar y optimizar los costos operativos de RetroGameCloud
-  en AWS
+title: 4.10. Optimización de Costos AWS
+description: Guía completa para monitorizar y optimizar los costos operativos de RetroGameCloud en AWS
 icon: coins
 ---
 
-# 6.10. Optimización de Costos AWS
+# 4.10. Optimización de Costos AWS
 
 Esta guía proporciona estrategias específicas para optimizar los costos de infraestructura de RetroGameCloud, incluyendo análisis detallado de gastos por servicio y recomendaciones de ahorro.
 
-## Análisis de Costos por Servicio
+## 4.10.1. Análisis de Costos por Servicio
 
 ### Breakdown de Costos Actual
 
 <Tabs>
 <Tab title="EKS y Compute">
 
-* *Amazon EKS Cluster**
+**Amazon EKS Cluster**
 
 - Control Plane: $73/mes por cluster
-
 - Worker Nodes (3x t3.medium): ~$65/mes
-
 - Load Balancer: ~$18/mes
-
 - **Total EKS**: ~$156/mes
 
-* *Potencial de Ahorro**: 40-70% con Reserved/Spot Instances
+**Potencial de Ahorro**: 40-70% con Reserved/Spot Instances
 </Tab>
 <Tab title="RDS PostgreSQL">
 
-* *Base de Datos**
+**Base de Datos**
 
 - RDS PostgreSQL (db.t3.micro): ~$13/mes
-
 - Multi-AZ: +100% (~$26/mes total)
-
 - Snapshots automatizados: ~$5/mes
-
 - **Total RDS**: ~$31/mes
 
-* *Potencial de Ahorro**: 38% con Reserved Instances
+**Potencial de Ahorro**: 38% con Reserved Instances
 </Tab>
 <Tab title="Almacenamiento y CDN">
 
-* *Amazon S3**
+**Amazon S3**
 
 - Almacenamiento Standard: ~$23/TB/mes
-
 - ROMs y assets de juegos: estimado 50GB (~$1.15/mes)
-
 - Transferencia de datos: ~$0.09/GB
 
-* *CloudFront CDN**
+**CloudFront CDN**
 
 - Primeros 1TB gratis/mes
-
 - Costos adicionales: $0.085/GB
-
 - **Total estimado**: ~$15-30/mes según tráfico
 </Tab>
 </Tabs>
@@ -65,7 +54,6 @@ Esta guía proporciona estrategias específicas para optimizar los costos de inf
 ### Herramientas de Monitorización
 
 ```yaml
-
 # AWS Cost Explorer Query Example
 cost_analysis:
   services:
@@ -78,10 +66,9 @@ cost_analysis:
     - service: "Amazon S3"
       monthly_cost: "$15"
       optimization_potential: "60% (Intelligent Tiering)"
-
 ```
 
-## Estrategias de Optimización
+## 4.10.2. Estrategias de Optimización
 
 ### Reserved Instances para EKS
 
@@ -89,238 +76,225 @@ cost_analysis:
 Las Reserved Instances pueden reducir los costos de compute hasta un 40% comparado con instancias On-Demand.
 </Note>
 
-* *Implementación para Worker Nodes:**
+**Implementación para Worker Nodes:**
 
 ```bash
-
 # Análisis de uso actual
-aws ce get-usage-and-costs \
+aws ce get-usage-and-cost \
   --time-period Start=2024-01-01,End=2024-02-01 \
   --granularity MONTHLY \
   --metrics BlendedCost \
   --group-by Type=DIMENSION,Key=INSTANCE_TYPE
 
-# Compra de Reserved Instance recomendada
-aws ec2 purchase-reserved-instances-offering \
-  --reserved-instances-offering-id <offering-id> \
-  --instance-count 3
-
-```
-
-* *Configuración Terraform para RI:**
-
-```hcl
-
-# terraform/reserved-instances.tf
-resource "aws_ec2_reserved_instance" "eks_workers" {
-  availability_zone    = "eu-west-1a"
-  duration            = 31536000  # 1 año
-  fixed_price         = 227       # Precio por t3.medium
-  instance_count      = 3
-  instance_type       = "t3.medium"
-  product_description = "Linux/UNIX"
-  reserved_instances_offering_id = data.aws_ec2_reserved_instance_offering.example.id
-}
-
+# Recomendaciones de Reserved Instances
+aws ce get-reservation-purchase-recommendation \
+  --service EC2-Instance \
+  --lookback-period-in-days 30 \
+  --term-in-years 1
 ```
 
 ### Spot Instances para Cargas No Críticas
 
-<Warning>
-Utiliza Spot Instances solo para workloads que toleran interrupciones, como procesamiento de métricas o tareas de backup.
-</Warning>
-
-* *Configuración de Spot Node Group:**
+**Configuración Spot Fleet para Workers:**
 
 ```yaml
-
-# k8s/spot-nodegroup.yaml
-apiVersion: v1
-kind: ConfigMap
+apiVersion: karpenter.sh/v1alpha5
+kind: Provisioner
 metadata:
-  name: spot-nodegroup-config
-data:
-  nodegroup.yaml: |
-    apiVersion: eksctl.io/v1alpha5
-    kind: ClusterConfig
-    metadata:
-      name: retrogame-cluster
-      region: eu-west-1
-
-    nodeGroups:
-    - name: spot-workers
-      instanceTypes:
-        - t3.medium
-        - t3.large
-      spot: true
-      minSize: 1
-      maxSize: 5
-      desiredCapacity: 2
-      labels:
-        node-type: "spot"
-      taints:
-        spot: "true:NoSchedule"
-
-```
-
-* *Tolerations para Pods Compatibles:**
-
-```yaml
-
-# k8s/deployments/metrics-processor.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: metrics-processor
+  name: spot-provisioner
 spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: metrics-processor
-  template:
-    spec:
-      tolerations:
-      - key: "spot"
-        operator: "Equal"
-        value: "true"
-        effect: "NoSchedule"
-      nodeSelector:
-        node-type: "spot"
-      containers:
-      - name: processor
-        image: retrogame/metrics-processor:latest
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-
+  requirements:
+    - key: karpenter.sh/capacity-type
+      operator: In
+      values: ["spot"]
+    - key: node.kubernetes.io/instance-type
+      operator: In
+      values: ["t3.small", "t3.medium", "t3.large"]
+  limits:
+    resources:
+      cpu: 100
+      memory: 100Gi
+  providerRef:
+    name: nodepool
+  ttlSecondsAfterEmpty: 30
 ```
 
-### S3 Intelligent Tiering y Lifecycle Policies
+### Optimización de Almacenamiento S3
 
-* *Política de Ciclo de Vida para Backups:**
+**Intelligent Tiering para ROMs:**
+
+```bash
+# Configurar Intelligent Tiering
+aws s3api put-bucket-intelligent-tiering-configuration \
+  --bucket retrogamecloud-roms \
+  --id entire-bucket \
+  --intelligent-tiering-configuration \
+  Id=entire-bucket,Status=Enabled,Filter={},Tiering={Days=1,AccessTier=ARCHIVE_ACCESS},{Days=90,AccessTier=DEEP_ARCHIVE_ACCESS}
+```
+
+## 4.10.3. Automatización de Cost Management
+
+### AWS Budgets y Alertas
 
 ```json
 {
-  "Rules": [
+  "BudgetName": "RetroGameCloud-Monthly-Budget",
+  "BudgetLimit": {
+    "Amount": "500",
+    "Unit": "USD"
+  },
+  "TimeUnit": "MONTHLY",
+  "BudgetType": "COST",
+  "CostFilters": {
+    "Service": [
+      "Amazon Elastic Kubernetes Service",
+      "Amazon Relational Database Service",
+      "Amazon Simple Storage Service"
+    ]
+  },
+  "NotificationsWithSubscribers": [
     {
-      "ID": "RetroGameBackupLifecycle",
-      "Status": "Enabled",
-      "Filter": {
-        "Prefix": "backups/"
+      "Notification": {
+        "NotificationType": "ACTUAL",
+        "ComparisonOperator": "GREATER_THAN",
+        "Threshold": 80,
+        "ThresholdType": "PERCENTAGE"
       },
-      "Transitions": [
+      "Subscribers": [
         {
-          "Days": 30,
-          "StorageClass": "STANDARD_IA"
-        },
-        {
-          "Days": 90,
-          "StorageClass": "GLACIER"
-        },
-        {
-          "Days": 365,
-          "StorageClass": "DEEP_ARCHIVE"
+          "SubscriptionType": "EMAIL",
+          "Address": "admin@retrogamecloud.com"
         }
-      ],
-      "Expiration": {
-        "Days": 2555
+      ]
+    }
+  ]
+}
+```
+
+### Lambda para Optimización Automática
+
+```python
+import boto3
+import json
+from datetime import datetime, timedelta
+
+def lambda_handler(event, context):
+    """
+    Función Lambda para optimización automática de costos
+    """
+    ec2 = boto3.client('ec2')
+    rds = boto3.client('rds')
+    
+    # Identificar instancias subutilizadas
+    unused_instances = identify_unused_instances(ec2)
+    
+    # Escalar RDS según uso
+    optimize_rds_instances(rds)
+    
+    # Cleanup de snapshots antiguos
+    cleanup_old_snapshots(ec2, rds)
+    
+    return {
+        'statusCode': 200,
+        'body': json.dumps('Optimización completada')
+    }
+
+def identify_unused_instances(ec2_client):
+    """Identifica instancias EC2 con baja utilización"""
+    cloudwatch = boto3.client('cloudwatch')
+    
+    instances = ec2_client.describe_instances()
+    unused = []
+    
+    for reservation in instances['Reservations']:
+        for instance in reservation['Instances']:
+            if instance['State']['Name'] == 'running':
+                # Verificar métricas de CPU últimos 7 días
+                cpu_metrics = cloudwatch.get_metric_statistics(
+                    Namespace='AWS/EC2',
+                    MetricName='CPUUtilization',
+                    Dimensions=[
+                        {
+                            'Name': 'InstanceId',
+                            'Value': instance['InstanceId']
+                        }
+                    ],
+                    StartTime=datetime.utcnow() - timedelta(days=7),
+                    EndTime=datetime.utcnow(),
+                    Period=3600,
+                    Statistics=['Average']
+                )
+                
+                if cpu_metrics['Datapoints']:
+                    avg_cpu = sum(dp['Average'] for dp in cpu_metrics['Datapoints']) / len(cpu_metrics['Datapoints'])
+                    if avg_cpu < 10:  # CPU menor al 10%
+                        unused.append(instance['InstanceId'])
+    
+    return unused
+```
+
+## 4.10.4. Métricas y Dashboards
+
+### CloudWatch Dashboard para Costos
+
+```json
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/Billing", "EstimatedCharges", "Currency", "USD"]
+        ],
+        "period": 86400,
+        "stat": "Maximum",
+        "region": "us-east-1",
+        "title": "Estimated Monthly Charges"
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/EKS", "cluster_failed_request_count", "cluster_name", "retrogamecloud"]
+        ],
+        "period": 300,
+        "stat": "Sum",
+        "region": "us-west-2",
+        "title": "EKS Cluster Health"
       }
     }
   ]
 }
-
 ```
 
-* *Terraform para S3 Optimization:**
+### Terraform para Cost Anomaly Detection
 
 ```hcl
-resource "aws_s3_bucket_lifecycle_configuration" "retrogame_lifecycle" {
-  bucket = aws_s3_bucket.retrogame_storage.id
-
-  rule {
-    id     = "game_assets_optimization"
-    status = "Enabled"
-
-    filter {
-      prefix = "roms/"
-    }
-
-    transition {
-      days          = 30
-      storage_class = "STANDARD_INFREQUENT_ACCESS"
-    }
-
-    transition {
-      days          = 90
-      storage_class = "GLACIER_INSTANT_RETRIEVAL"
-    }
-  }
-
-  rule {
-    id     = "logs_cleanup"
-    status = "Enabled"
-
-    filter {
-      prefix = "logs/"
-    }
-
-    expiration {
-      days = 90
-    }
-  }
-}
-
-resource "aws_s3_bucket_intelligent_tiering_configuration" "retrogame_tiering" {
-  bucket = aws_s3_bucket.retrogame_storage.id
-  name   = "EntireBucket"
-
-  status = "Enabled"
-
-  tiering {
-    access_tier = "ARCHIVE_ACCESS"
-    days        = 90
-  }
-
-  tiering {
-    access_tier = "DEEP_ARCHIVE_ACCESS"
-    days        = 180
-  }
-}
-
-```
-
-## AWS Cost Anomaly Detection
-
-### Configuración de Alertas
-
-```hcl
-
-# terraform/cost-anomaly-detection.tf
-resource "aws_ce_anomaly_detector" "retrogame_detector" {
-  name         = "retrogame-cost-anomaly"
+resource "aws_ce_anomaly_detector" "retrogamecloud_anomaly" {
+  name         = "retrogamecloud-cost-anomaly"
   monitor_type = "DIMENSIONAL"
 
   specification = jsonencode({
-    Dimension     = "SERVICE"
-    MatchOptions  = ["EQUALS"]
-    Values        = ["Amazon Elastic Kubernetes Service", "Amazon RDS"]
-    CostCategories = {}
-    Tags = {}
+    Dimension = {
+      Key           = "SERVICE"
+      Values        = ["Amazon Elastic Kubernetes Service", "Amazon RDS"]
+      MatchOptions  = ["EQUALS"]
+    }
   })
 }
 
-resource "aws_ce_anomaly_subscription" "retrogame_subscription" {
-  name      = "retrogame-anomaly-alerts"
+resource "aws_ce_anomaly_subscription" "retrogamecloud_anomaly_subscription" {
+  name      = "retrogamecloud-anomaly-subscription"
   frequency = "DAILY"
-
+  
   monitor_arn_list = [
-    aws_ce_anomaly_detector.retrogame_detector.arn
+    aws_ce_anomaly_detector.retrogamecloud_anomaly.arn
   ]
-
+  
   subscriber {
     type    = "EMAIL"
-    address = "devops@retrogamecloud.com"
+    address = "admin@retrogamecloud.com"
   }
 
   threshold_expression {
@@ -333,213 +307,100 @@ resource "aws_ce_anomaly_subscription" "retrogame_subscription" {
     }
   }
 }
-
 ```
 
-### Dashboard de Costos
+## 4.10.5. Plan de Reducción de Costos
 
-```yaml
+### Cronograma de Implementación
 
-# monitoring/cost-dashboard.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: cost-dashboard-config
-data:
-  dashboard.json: |
+<Steps>
+<Step title="Semana 1: Análisis Base">
+- Implementar Cost Explorer detallado
+- Configurar AWS Budgets y alertas
+- Analizar patrones de uso actuales
+</Step>
+
+<Step title="Semana 2-3: Optimizaciones Inmediatas">
+- Migrar a Reserved Instances para cargas predecibles
+- Implementar Spot Instances para workers no críticos
+- Configurar S3 Intelligent Tiering
+</Step>
+
+<Step title="Semana 4: Automatización">
+- Desplegar Lambda de optimización automática
+- Configurar Cost Anomaly Detection
+- Implementar auto-scaling mejorado
+</Step>
+
+<Step title="Evaluación Mensual">
+- Revisar métricas de ahorro
+- Ajustar estrategias según patrones de uso
+- Optimizar configuraciones basadas en datos
+</Step>
+</Steps>
+
+### ROI Esperado
+
+<Warning>
+**Proyección de Ahorro Mensual:**
+- EKS Compute: $62-109 (40-70% de $156)
+- RDS Reserved: $12 (38% de $31)
+- S3 Intelligent Tiering: $9 (60% de $15)
+- **Total ahorro estimado: $83-130/mes**
+</Warning>
+
+## 4.10.6. Mejores Prácticas
+
+### Governance y Policies
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
     {
-      "dashboard": {
-        "title": "RetroGameCloud - Cost Optimization",
-        "panels": [
-          {
-            "title": "Monthly Cost by Service",
-            "type": "piechart",
-            "targets": [
-              {
-                "expr": "aws_billing_estimated_charges",
-                "legendFormat": "{{service_name}}"
-              }
-            ]
-          },
-          {
-            "title": "EKS Nodes Utilization vs Cost",
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "100 - (avg(irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
-                "legendFormat": "CPU Utilization %"
-              }
-            ]
-          }
-        ]
+      "Effect": "Deny",
+      "Action": [
+        "ec2:RunInstances"
+      ],
+      "Resource": "arn:aws:ec2:*:*:instance/*",
+      "Condition": {
+        "ForAllValues:StringNotEquals": {
+          "ec2:InstanceType": [
+            "t3.nano",
+            "t3.micro",
+            "t3.small",
+            "t3.medium"
+          ]
+        }
       }
     }
-
+  ]
+}
 ```
 
-## Rightsizing de Instancias
-
-### Análisis de Métricas Actuales
-
-<Tabs>
-<Tab title="Comando de Análisis">
-
-```bash
-#!/bin/bash
-
-# scripts/analyze-instance-utilization.sh
-
-echo "=== Análisis de Utilización de Instancias EKS ==="
-
-# CPU promedio por nodo en los últimos 7 días
-kubectl top nodes
-
-# Métricas detalladas de Prometheus
-curl -G 'http://prometheus:9090/api/v1/query' \
-  --data-urlencode 'query=avg_over_time(100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)[7d:1h])' | \
-  jq -r '.data.result[] | "Node: \(.metric.instance) - CPU Avg: \(.value[1])%"'
-
-# Memoria promedio
-curl -G 'http://prometheus:9090/api/v1/query' \
-  --data-urlencode 'query=avg_over_time((1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100[7d:1h])' | \
-  jq -r '.data.result[] | "Node: \(.metric.instance) - Memory Avg: \(.value[1])%"'
-
-echo "=== Recomendaciones de Rightsizing ==="
-if [[ $(echo "$cpu_avg < 20" | bc) -eq 1 ]]; then
-  echo "⚠️  CPU utilization < 20% - Consider t3.small instead of t3.medium"
-fi
-
-```
-
-</Tab>
-<Tab title="Configuración Optimizada">
+### Tagging Strategy para Cost Allocation
 
 ```yaml
+# Terraform tagging example
+locals {
+  common_tags = {
+    Project     = "RetroGameCloud"
+    Environment = var.environment
+    Owner       = "platform-team"
+    CostCenter  = "infrastructure"
+    Backup      = "required"
+  }
+}
 
-# k8s/optimized-nodegroup.yaml
-apiVersion: eksctl.io/v1alpha5
-kind: ClusterConfig
-metadata:
-  name: retrogame-cluster
-  region: eu-west-1
-
-nodeGroups:
-
-- name: optimized-workers
-  # Cambio de t3.medium a t3.small basado en métricas
-  instanceTypes: ["t3.small"]
-  minSize: 2
-  maxSize: 6
-  desiredCapacity: 3
-
-  # Configurar instance metadata
-  instanceMetadata:
-    httpPutResponseHopLimit: 2
-    httpTokens: required
-
-  # Tags para cost tracking
-  tags:
-    Environment: "production"
-    CostCenter: "retrogame-ops"
-    Rightsized: "true"
-
-  # Resource limits más precisos
-  kubeletExtraConfig:
-    maxPods: 20  # Reducido de 110 default
-
+resource "aws_instance" "worker_node" {
+  # ... configuración de instancia
+  
+  tags = merge(local.common_tags, {
+    Name = "rgc-worker-${count.index}"
+    Role = "kubernetes-worker"
+    Tier = "compute"
+  })
+}
 ```
 
-</Tab>
-</Tabs>
-
-### Automatización de Rightsizing
-
-```python
-
-# scripts/auto-rightsizing.py
-import boto3
-import json
-from datetime import datetime, timedelta
-
-class EKSRightsizing:
-    def __init__(self):
-        self.cloudwatch = boto3.client('cloudwatch')
-        self.eks = boto3.client('eks')
-        self.ec2 = boto3.client('ec2')
-
-    def get_node_utilization(self, instance_id, days=7):
-        """Obtiene métricas de utilización de los últimos N días"""
-        end_time = datetime.utcnow()
-        start_time = end_time - timedelta(days=days)
-
-        # CPU Utilization
-        cpu_response = self.cloudwatch.get_metric_statistics(
-            Namespace='AWS/EC2',
-            MetricName='CPUUtilization',
-            Dimensions=[{'Name': 'InstanceId', 'Value': instance_id}],
-            StartTime=start_time,
-            EndTime=end_time,
-            Period=3600,  # 1 hour
-            Statistics=['Average']
-        )
-
-        cpu_avg = sum(point['Average'] for point in cpu_response['Datapoints']) / len(cpu_response['Datapoints'])
-
-        return {
-            'instance_id': instance_id,
-            'cpu_average': cpu_avg,
-            'memory_average': self._get_memory_utilization(instance_id, start_time, end_time)
-        }
-
-    def recommend_instance_type(self, current_type, cpu_avg, memory_avg):
-        """Recomienda tipo de instancia basado en utilización"""
-        recommendations = {
-            't3.medium': {
-                'downsize_to': 't3.small',
-                'cpu_threshold': 30,
-                'memory_threshold': 40
-            },
-            't3.large': {
-                'downsize_to': 't3.medium',
-                'cpu_threshold': 40,
-                'memory_threshold': 50
-            }
-        }
-
-        if current_type in recommendations:
-            thresholds = recommendations[current_type]
-            if cpu_avg < thresholds['cpu_threshold'] and memory_avg < thresholds['memory_threshold']:
-                return {
-                    'recommended_type': thresholds['downsize_to'],
-                    'potential_savings': self._calculate_savings(current_type, thresholds['downsize_to'])
-                }
-
-        return {'recommended_type': current_type, 'potential_savings': 0}
-
-if __name__ == "__main__":
-    rightsizer = EKSRightsizing()
-    # Analizar y generar recomendaciones
-    recommendations = rightsizer.analyze_cluster_nodes('retrogame-cluster')
-    print(json.dumps(recommendations, indent=2))
-
-```
-
-## Limpieza de Recursos Huérfanos
-
-### Script de Detección y Limpieza
-
-```bash
-#!/bin/bash
-
-# scripts/cleanup-orphaned-resources.sh
-
-echo "🔍 Buscando recursos huérfanos en AWS..."
-
-# 1. EBS Volumes no attachados
-echo "=== EBS Volumes no attachados ==="
-aws ec2 describe-volumes \
-  --filters Name=status,Values=available \
-  --query 'Volumes[?State==`available`].[VolumeId,Size,CreateTime]' \
-  --output table
-
-```
+Con estas estrategias de optimización, RetroGameCloud puede reducir significativamente sus costos de AWS mientras mantiene la performance y disponibilidad del servicio.

@@ -1,15 +1,15 @@
 ---
-title: Procedimientos de Recuperación Ante Desastres
+title: "4.6 Procedimientos de Recuperación Ante Desastres"
 description: Guía completa de disaster recovery con procedimientos paso a paso, RPO/RTO
   definidos, simulacros de DR y escenarios de desastre documentados
 icon: shield-halved
 ---
 
-# Procedimientos de Recuperación ante Desastres
+# 4.6 Procedimientos de Recuperación ante Desastres
 
 Esta guía establece los procedimientos completos de recuperación ante desastres (DR) para la plataforma RetroGameCloud, incluyendo objetivos de tiempo y punto de recuperación, procedimientos detallados, escenarios específicos y validaciones.
 
-## Objetivos de Recuperación
+## 4.6.1 Objetivos de Recuperación
 
 ### Definiciones Clave
 
@@ -21,17 +21,42 @@ Esta guía establece los procedimientos completos de recuperación ante desastre
   **4 horas** - Tiempo máximo para restaurar servicios
 </Card>
 
-### Matriz de Criticidad
+### Matriz de Criticidad Extendida
 
-| Componente | RPO | RTO | Prioridad |
-|------------|-----|-----|-----------|
-| Base de Datos (PostgreSQL) | 1 hora | 30 min | Crítica |
-| Aplicaciones (EKS) | 1 hora | 2 horas | Alta |
-| Configuración Kong | 1 hora | 1 hora | Alta |
-| CDN/Frontend | 4 horas | 1 hora | Media |
-| Redis Cache | 4 horas | 30 min | Media |
+| Componente | RPO | RTO | Prioridad | Objetivo Específico |
+|------------|-----|-----|-----------|-------------------|
+| Base de Datos (PostgreSQL) | 15 min | 20 min | Crítica | 99.9% disponibilidad |
+| Aplicaciones Core (EKS) | 30 min | 1 hora | Crítica | Servicios esenciales |
+| API Gateway (Kong) | 30 min | 30 min | Crítica | Acceso a servicios |
+| Aplicaciones Secundarias | 1 hora | 2 horas | Alta | Funciones no críticas |
+| CDN/Frontend | 2 horas | 45 min | Alta | Experiencia usuario |
+| Redis Cache | 4 horas | 15 min | Media | Rendimiento |
+| Logs y Métricas | 4 horas | 1 hora | Media | Observabilidad |
+| Documentación | 24 horas | 2 horas | Baja | Soporte operacional |
 
-## Arquitectura de Backup
+### Niveles de Servicio por Escenario
+
+<Tabs>
+<Tab title="Nivel 1 - Degradado">
+- **Tiempo objetivo:** 15 minutos
+- **Funcionalidad:** Solo servicios críticos
+- **Capacidad:** 25% del tráfico normal
+</Tab>
+
+<Tab title="Nivel 2 - Parcial">
+- **Tiempo objetivo:** 1 hora
+- **Funcionalidad:** Servicios principales
+- **Capacidad:** 60% del tráfico normal
+</Tab>
+
+<Tab title="Nivel 3 - Completo">
+- **Tiempo objetivo:** 4 horas
+- **Funcionalidad:** Todos los servicios
+- **Capacidad:** 100% del tráfico normal
+</Tab>
+</Tabs>
+
+## 4.6.2 Arquitectura de Backup
 
 ```mermaid
 graph TB
@@ -54,404 +79,361 @@ graph TB
     style F fill:#99ff99
 ```
 
-## Escenarios de Desastre
+### Componentes de Backup
 
-### Escenario 1: Pérdida Total de Región AWS
-
-<Card title="Pérdida Región AWS Madrid (eu-west-1)" icon="cloud-exclamation">
-
-**Síntomas:**
-- Todos los servicios AWS en eu-west-1 inaccesibles
-- Timeout en conexiones a RDS, EKS, y S3
-- Dashboard AWS muestra región indisponible
-
-**Impacto:** Sistema completamente inoperativo
-
-**Procedimiento de Recuperación:**
-
-<Tabs>
-  <Tab title="1. Activación DR">
-    ```bash
-    # Activar región de disaster recovery
-    export DR_REGION="eu-central-1"
-    export PRIMARY_REGION="eu-west-1"
-
-    # Verificar conectividad a región DR
-    aws ec2 describe-regions --region $DR_REGION
-
-    # Activar infraestructura DR con Terraform
-    cd terraform/disaster-recovery
-    terraform workspace select dr-frankfurt
-    terraform apply -auto-approve
-    ```
-  </Tab>
-
-  <Tab title="2. Restaurar Base de Datos">
-    ```bash
-    # Encontrar último snapshot cross-region
-    LATEST_SNAPSHOT=$(aws rds describe-db-snapshots \
-      --region $DR_REGION \
-      --db-instance-identifier retrogame-prod \
-      --query 'DBSnapshots[0].DBSnapshotIdentifier' \
-      --output text)
-
-    # Restaurar RDS desde snapshot
-    aws rds restore-db-instance-from-db-snapshot \
-      --db-instance-identifier retrogame-dr \
-      --db-snapshot-identifier $LATEST_SNAPSHOT \
-      --region $DR_REGION
-    ```
-  </Tab>
-
-  <Tab title="3. Desplegar Aplicaciones">
-    ```bash
-    # Configurar kubectl para cluster DR
-    aws eks update-kubeconfig \
-      --region $DR_REGION \
-      --name retrogame-dr
-
-    # Desplegar aplicaciones desde GitOps
-    kubectl apply -f k8s/production/
-    
-    # Verificar pods en ejecución
-    kubectl get pods -A
-    ```
-  </Tab>
-</Tabs>
-
-**RTO Esperado:** 3-4 horas
-**RPO Esperado:** 1 hora máximo
-
+<Card title="Backup de Base de Datos" icon="database">
+- **Snapshots automáticos RDS:** Cada 6 horas
+- **Backup continuo:** Point-in-time recovery
+- **Replicación cross-region:** Frankfurt (eu-central-1)
+- **Retención:** 30 días para snapshots automáticos
+- **Validación:** Tests de restauración semanales
 </Card>
 
-### Escenario 2: Corrupción de Base de Datos
-
-<Card title="Corrupción BBDD PostgreSQL" icon="database">
-
-**Síntomas:**
-- Errores de conexión a base de datos
-- Consultas SQL fallan con errores de corrupción
-- Logs muestran errores de integridad de datos
-
-**Impacto:** Pérdida de funcionalidad dependiente de BBDD
-
-**Procedimiento de Recuperación:**
-
-<Tabs>
-  <Tab title="1. Diagnóstico">
-    ```bash
-    # Verificar estado de RDS
-    aws rds describe-db-instances \
-      --db-instance-identifier retrogame-prod
-
-    # Revisar logs de PostgreSQL
-    aws logs get-log-events \
-      --log-group-name /aws/rds/instance/retrogame-prod/postgresql
-
-    # Test de conectividad básica
-    psql -h $DB_ENDPOINT -U retrogame_user -d retrogame_db -c "\l"
-    ```
-  </Tab>
-
-  <Tab title="2. Point-in-Time Recovery">
-    ```bash
-    # Identificar timestamp antes de la corrupción
-    RECOVERY_TIME="2024-01-15T10:30:00Z"
-
-    # Crear nueva instancia desde point-in-time
-    aws rds restore-db-instance-to-point-in-time \
-      --source-db-instance-identifier retrogame-prod \
-      --target-db-instance-identifier retrogame-recovery \
-      --restore-time $RECOVERY_TIME
-    ```
-  </Tab>
-
-  <Tab title="3. Validación y Switchover">
-    ```bash
-    # Validar integridad de datos restaurados
-    psql -h $RECOVERY_ENDPOINT -c "SELECT COUNT(*) FROM users;"
-    psql -h $RECOVERY_ENDPOINT -c "SELECT COUNT(*) FROM games;"
-
-    # Actualizar configuración de aplicaciones
-    kubectl patch configmap db-config \
-      --patch '{"data":{"DB_HOST":"'$RECOVERY_ENDPOINT'"}}'
-
-    # Reiniciar pods para aplicar cambios
-    kubectl rollout restart deployment/retrogame-api
-    ```
-  </Tab>
-</Tabs>
-
-**RTO Esperado:** 30-60 minutos
-**RPO Esperado:** Variable según timestamp de recovery
-
+<Card title="Backup de Aplicaciones" icon="cube">
+- **Imágenes Docker:** Replicadas en ECR multi-región
+- **Configuraciones Kubernetes:** Backup via Velero
+- **Secrets y ConfigMaps:** Encriptados en S3
+- **Helm Charts:** Versionado en repositorio Git
 </Card>
 
-### Escenario 3: Compromiso de Seguridad
-
-<Card title="Compromiso de Seguridad / Breach" icon="shield-exclamation">
-
-**Síntomas:**
-- Actividad sospechosa en logs
-- Acceso no autorizado detectado
-- Alertas de seguridad en AWS GuardDuty
-
-**Impacto:** Sistema comprometido, datos en riesgo
-
-**Procedimiento de Recuperación:**
-
-<Tabs>
-  <Tab title="1. Contención Inmediata">
-    ```bash
-    # Aislar cluster EKS
-    aws eks update-cluster-config \
-      --name retrogame-prod \
-      --resources-vpc-config endpointConfigPrivateAccess=true,endpointConfigPublicAccess=false
-
-    # Rotar todas las credenciales
-    aws iam create-access-key --user-name retrogame-service
-    aws secretsmanager rotate-secret --secret-id retrogame/db-credentials
-
-    # Revisar y revocar sesiones activas
-    aws sts get-caller-identity
-    ```
-  </Tab>
-
-  <Tab title="2. Análisis Forense">
-    ```bash
-    # Exportar logs para análisis
-    aws logs create-export-task \
-      --log-group-name /aws/eks/retrogame-prod/cluster \
-      --from-time $(date -d '24 hours ago' +%s)000 \
-      --to $(date +%s)000 \
-      --destination retrogame-security-logs
-
-    # Snapshot de instancias para preservar evidencia
-    aws ec2 create-snapshot \
-      --volume-id vol-xxxxx \
-      --description "Security incident forensic snapshot"
-    ```
-  </Tab>
-
-  <Tab title="3. Reconstrucción Limpia">
-    ```bash
-    # Desplegar infraestructura limpia en región DR
-    cd terraform/disaster-recovery
-    terraform apply -var="security_incident=true"
-
-    # Restaurar datos desde backup verificado limpio
-    CLEAN_SNAPSHOT="retrogame-clean-backup-$(date -d '48 hours ago' +%Y%m%d)"
-    aws rds restore-db-instance-from-db-snapshot \
-      --db-snapshot-identifier $CLEAN_SNAPSHOT
-    ```
-  </Tab>
-</Tabs>
-
-**RTO Esperado:** 4-6 horas
-**RPO Esperado:** Hasta 48 horas (último backup verificado limpio)
-
+<Card title="Backup de Configuración" icon="cog">
+- **Kong Configuration:** Export automático diario
+- **Terraform State:** Replicación cross-region S3
+- **Variables de entorno:** Backup encriptado semanal
+- **Certificados SSL:** Backup automático en Vault
 </Card>
 
-### Escenario 4: Fallo del Cluster EKS
+## 4.6.3 Procedimientos de Test Trimestral
 
-<Card title="Fallo Cluster EKS" icon="layer-group">
+### Calendario de Simulacros DR
 
-**Síntomas:**
-- Nodes del cluster no responden
-- API Server de Kubernetes inaccesible
-- Pods en estado "Unknown" o "NotReady"
+<Card title="Programa de Tests 2024" icon="calendar">
+**Q1 2024 - Marzo:**
+- Tipo: Test parcial de base de datos
+- Duración: 2 horas
+- Horario: Sábado 9:00-11:00 GMT
 
-**Impacto:** Aplicaciones no disponibles
+**Q2 2024 - Junio:**
+- Tipo: Simulacro completo
+- Duración: 4 horas  
+- Horario: Domingo 6:00-10:00 GMT
 
-**Procedimiento de Recuperación:**
+**Q3 2024 - Septiembre:**
+- Tipo: Test de aplicaciones
+- Duración: 3 horas
+- Horario: Sábado 8:00-11:00 GMT
 
-<Tabs>
-  <Tab title="1. Diagnóstico del Cluster">
-    ```bash
-    # Verificar estado del cluster
-    aws eks describe-cluster --name retrogame-prod
-
-    # Revisar nodes
-    kubectl get nodes -o wide
-
-    # Verificar eventos del cluster
-    kubectl get events --sort-by='.lastTimestamp' -A
-    ```
-  </Tab>
-
-  <Tab title="2. Recuperación de Nodes">
-    ```bash
-    # Reiniciar node groups
-    aws eks update-nodegroup-config \
-      --cluster-name retrogame-prod \
-      --nodegroup-name retrogame-workers \
-      --scaling-config minSize=0,maxSize=10,desiredSize=0
-
-    # Escalar de nuevo
-    aws eks update-nodegroup-config \
-      --cluster-name retrogame-prod \
-      --nodegroup-name retrogame-workers \
-      --scaling-config minSize=2,maxSize=10,desiredSize=3
-    ```
-  </Tab>
-
-  <Tab title="3. Redeployment de Aplicaciones">
-    ```bash
-    # Forzar recreación de deployments
-    kubectl delete deployment --all -n default
-    kubectl apply -f k8s/production/
-
-    # Verificar estado de pods
-    kubectl get pods -A
-    kubectl describe pods -l app=retrogame-api
-    ```
-  </Tab>
-</Tabs>
-
-**RTO Esperado:** 1-2 horas
-**RPO Esperado:** Mínimo (datos en RDS intactos)
-
+**Q4 2024 - Diciembre:**
+- Tipo: Simulacro integral
+- Duración: 6 horas
+- Horario: Domingo 5:00-11:00 GMT
 </Card>
 
-### Escenario 5: Pérdida de Datos Redis
-
-<Card title="Pérdida Cache Redis / ElastiCache" icon="memory">
-
-**Síntomas:**
-- Conexiones Redis fallan
-- Performance degradado por falta de cache
-- Logs muestran errores de conexión a Redis
-
-**Impacto:** Degradación de performance, algunas funcionalidades limitadas
-
-**Procedimiento de Recuperación:**
+### Procedimientos de Test por Trimestre
 
 <Tabs>
-  <Tab title="1. Evaluación de Redis">
-    ```bash
-    # Verificar estado del cluster Redis
-    aws elasticache describe-cache-clusters \
-      --cache-cluster-id retrogame-redis
+<Tab title="Test Trimestre 1">
+**Objetivo:** Validar backup y restauración de base de datos
 
-    # Test conectividad
-    redis-cli -h $REDIS_ENDPOINT ping
+**Pasos:**
+1. Crear snapshot manual de RDS
+2. Restaurar en región DR (Frankfurt)
+3. Validar integridad de datos
+4. Medir tiempo de restauración
+5. Documentar métricas obtenidas
 
-    # Verificar snapshots disponibles
-    aws elasticache describe-snapshots \
-      --cache-cluster-id retrogame-redis
-    ```
-  </Tab>
+**Criterios de Éxito:**
+- Restauración completada < 20 minutos
+- 0% pérdida de datos críticos
+- Todas las tablas íntegras
+</Tab>
 
-  <Tab title="2. Restauración desde Snapshot">
-    ```bash
-    # Crear nuevo cluster desde snapshot
-    LATEST_SNAPSHOT=$(aws elasticache describe-snapshots \
-      --query 'Snapshots[0].SnapshotName' --output text)
+<Tab title="Test Trimestre 2">
+**Objetivo:** Simulacro completo de DR
 
-    aws elasticache create-cache-cluster \
-      --cache-cluster-id retrogame-redis-recovery \
-      --snapshot-name $LATEST_SNAPSHOT \
-      --cache-node-type cache.r6g.large
-    ```
-  </Tab>
+**Pasos:**
+1. Declarar escenario de desastre
+2. Activar team de respuesta DR
+3. Ejecutar failover completo
+4. Restaurar todos los servicios
+5. Validar funcionamiento end-to-end
+6. Realizar rollback controlado
 
-  <Tab title="3. Failover y Warming">
-    ```bash
-    # Actualizar configuración de aplicaciones
-    kubectl patch configmap redis-config \
-      --patch '{"data":{"REDIS_HOST":"'$NEW_REDIS_ENDPOINT'"}}'
+**Criterios de Éxito:**
+- RTO < 4 horas cumplido
+- RPO < 1 hora cumplido
+- Todos los servicios operativos
+</Tab>
 
-    # Reiniciar aplicaciones
-    kubectl rollout restart deployment/retrogame-api
+<Tab title="Test Trimestre 3">
+**Objetivo:** Validar recuperación de aplicaciones
 
-    # Script de warming de cache
-    kubectl apply -f k8s/jobs/cache-warming-job.yaml
-    ```
-  </Tab>
-</Tabs>
+**Pasos:**
+1. Simular fallo del cluster EKS
+2. Restaurar desde backups Velero
+3. Redeployar aplicaciones críticas
+4. Validar configuraciones Kong
+5. Verificar conectividad de servicios
 
-**RTO Esperado:** 30 minutos
-**RPO Esperado:** Última backup automática (máximo 24h)
+**Criterios de Éxito:**
+- Aplicaciones críticas < 1 hora
+- Configuración Kong < 30 minutos
+- Tráfico fluye correctamente
+</Tab>
 
-</Card>
+<Tab title="Test Trimestre 4">
+**Objetivo:** Simulacro integral con todos los componentes
 
-## Procedimiento General de Disaster Recovery
+**Pasos:**
+1. Simular desastre regional completo
+2. Activar procedimientos de emergencia
+3. Coordinar equipos de respuesta
+4. Ejecutar recuperación por fases
+5. Validar cada nivel de servicio
+6. Documentar lecciones aprendidas
 
-### Fase 1: Evaluación y Activación
-
-<Tabs>
-  <Tab title="Evaluación Inicial">
-    ```bash
-    # Verificar estado de la región primaria
-    aws ec2 describe-regions --region eu-west-1
-    aws rds describe-db-instances --region eu-west-1
-    aws eks describe-cluster --name retrogame-prod --region eu-west-1
-
-    # Comprobar último snapshot disponible
-    aws rds describe-db-snapshots \
-      --db-instance-identifier retrogame-prod \
-      --snapshot-type automated \
-      --query 'DBSnapshots[0]'
-    ```
-  </Tab>
-
-  <Tab title="Decisión de Activación">
-    ```bash
-    # Checklist de activación DR
-    echo "1. ¿Región primaria completamente inaccesible? [y/n]"
-    echo "2. ¿RTO/RPO en riesgo de no cumplirse? [y/n]"
-    echo "3. ¿Equipo DR notificado y disponible? [y/n]"
-    echo "4. ¿Stakeholders informados? [y/n]"
-
-    # Si todas las respuestas son 'y', proceder con DR
-    ```
-  </Tab>
-
-  <Tab title="Comunicación">
-    ```bash
-    # Notificar inicio de procedimiento DR
-    curl -X POST $SLACK_WEBHOOK \
-      -d '{"text":"🚨 DISASTER RECOVERY ACTIVATED - Incident #DR-001"}'
-
-    # Actualizar página de status
-    curl -X POST "https://api.statuspage.io/v1/pages/xxx/incidents" \
-      -H "Authorization: OAuth xxx" \
-      -d '{"incident": {"name": "Service Disruption - DR in Progress"}}'
-    ```
-  </Tab>
-</Tabs>
-
-### Fase 2: Recuperación de Infraestructura
-
-<Tabs>
-  <Tab title="Terraform DR">
-    ```bash
-    # Cambiar a workspace de DR
-    cd infrastructure/terraform
-    terraform workspace select disaster-recovery
-
-    # Aplicar configuración DR
-    terraform apply \
-      -var="enable_dr=true" \
-      -var="snapshot_id=$LATEST_SNAPSHOT_ID" \
-      -auto-approve
-
-    # Verificar recursos creados
-    terraform output
-    ```
-  </Tab>
-
-  <Tab title="Base de Datos">
-    ```bash
-    # Esperar a que RDS esté disponible
-    aws rds wait db-instance-available \
-      --db-instance-identifier retrogame-dr
-
-    # Actualizar security groups
-    aws ec2 authorize-security-group-ingress \
-      --group-id $DR_SG_ID \
-      --protocol tcp \
-      --port 5
+**Criterios de Éxito:**
+- Cumplimiento de todos los RTO/RPO
+- Coordinación efectiva de equipos
+- Comunicación clara con stakeholders
 </Tab>
 </Tabs>
+
+### Métricas de Seguimiento
+
+```yaml
+metricas_dr:
+  tiempo_deteccion:
+    objetivo: "< 5 minutos"
+    medicion: "Tiempo desde incidente hasta alerta"
+  
+  tiempo_activacion:
+    objetivo: "< 15 minutos" 
+    medicion: "Desde alerta hasta inicio de DR"
+  
+  tiempo_restauracion_db:
+    objetivo: "< 20 minutos"
+    medicion: "RDS snapshot restore completo"
+  
+  tiempo_restauracion_apps:
+    objetivo: "< 60 minutos"
+    medicion: "Aplicaciones críticas funcionando"
+  
+  perdida_datos:
+    objetivo: "< 1 hora"
+    medicion: "Última transacción perdida"
+  
+  disponibilidad_post_dr:
+    objetivo: "> 99.9%"
+    medicion: "Uptime 72h post-recuperación"
 ```
+
+## 4.6.4 Checklist de Validación Post-Recuperación
+
+### Validación Técnica
+
+<Card title="Base de Datos" icon="database">
+**Verificaciones Obligatorias:**
+
+- [ ] Conexión a RDS establecida correctamente
+- [ ] Integridad referencial de todas las tablas
+- [ ] Usuarios y permisos configurados
+- [ ] Backups automáticos reconfigurados
+- [ ] Réplicas de lectura funcionando
+- [ ] Métricas de performance normalizadas
+- [ ] Logs de transacciones sin errores
+- [ ] Tests de escritura/lectura exitosos
+
+**Queries de Validación:**
+```sql
+-- Verificar integridad de datos críticos
+SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '2 hours';
+SELECT COUNT(*) FROM game_sessions WHERE status = 'active';
+SELECT COUNT(*) FROM payment_transactions WHERE processed_at IS NULL;
+
+-- Validar constraints y foreign keys
+SELECT constraint_name, table_name 
+FROM information_schema.table_constraints 
+WHERE constraint_type = 'FOREIGN KEY' 
+AND constraint_schema = 'public';
+```
+</Card>
+
+<Card title="Aplicaciones Kubernetes" icon="cube">
+**Verificaciones de Deployments:**
+
+- [ ] Todos los pods en estado Ready
+- [ ] Services expuestos correctamente
+- [ ] Ingress controllers funcionando
+- [ ] Persistent Volumes montados
+- [ ] ConfigMaps y Secrets cargados
+- [ ] Health checks respondiendo
+- [ ] Resource limits aplicados
+- [ ] Network policies activas
+
+**Comandos de Validación:**
+```bash
+# Verificar estado del cluster
+kubectl get nodes -o wide
+kubectl get pods --all-namespaces | grep -v Running
+
+# Validar deployments críticos
+kubectl rollout status deployment/game-api -n production
+kubectl rollout status deployment/user-service -n production
+kubectl rollout status deployment/payment-service -n production
+
+# Verificar conectividad entre servicios
+kubectl exec -it deployment/game-api -n production -- \
+  curl http://user-service:8080/health
+```
+</Card>
+
+<Card title="API Gateway Kong" icon="network-wired">
+**Verificaciones de Kong:**
+
+- [ ] Admin API accesible
+- [ ] Servicios registrados correctamente
+- [ ] Rutas configuradas y activas
+- [ ] Plugins funcionando (auth, rate-limit, etc.)
+- [ ] Upstream services saludables
+- [ ] SSL/TLS certificates válidos
+- [ ] Rate limiting operativo
+- [ ] Logs de proxy sin errores críticos
+
+**Tests de Conectividad:**
+```bash
+# Verificar servicios Kong
+curl -i http://kong-admin:8001/services
+
+# Validar rutas principales
+curl -i https://api.retrogamecloud.com/v1/health
+curl -i https://api.retrogamecloud.com/v1/games
+curl -i https://api.retrogamecloud.com/v1/users/profile
+
+# Verificar plugins activos
+curl -s http://kong-admin:8001/plugins | jq '.data[].name'
+```
+</Card>
+
+### Validación Funcional
+
+<Card title="Tests End-to-End" icon="vial">
+**Escenarios Críticos de Usuario:**
+
+- [ ] Registro de nuevo usuario
+- [ ] Login con credenciales existentes
+- [ ] Carga de lista de juegos
+- [ ] Inicio de sesión de juego
+- [ ] Guardado de progreso
+- [ ] Procesamiento de pago
+- [ ] Descarga de archivo de juego
+- [ ] Sincronización entre dispositivos
+
+**Scripts de Validación:**
+```javascript
+// Test crítico de flujo de usuario
+describe('DR Validation - Critical User Flow', () => {
+  test('User can register, login and play game', async () => {
+    // Registro
+    const user = await registerUser({
+      email: 'dr-test@example.com',
+      password: 'TestPass123!'
+    });
+    expect(user.id).toBeDefined();
+    
+    // Login
+    const session = await loginUser(user.email, user.password);
+    expect(session.token).toBeDefined();
+    
+    // Cargar juegos
+    const games = await fetchGames(session.token);
+    expect(games.length).toBeGreaterThan(0);
+    
+    // Iniciar juego
+    const gameSession = await startGame(games[0].id, session.token);
+    expect(gameSession.status).toBe('active');
+    
+    // Guardar progreso
+    const saveResult = await saveProgress(gameSession.id, {
+      level: 1,
+      score: 100
+    });
+    expect(saveResult.success).toBe(true);
+  });
+});
+```
+</Card>
+
+<Card title="Tests de Performance" icon="tachometer-alt">
+**Métricas de Performance:**
+
+- [ ] Tiempo de respuesta API < 200ms
+- [ ] Throughput > 1000 req/min
+- [ ] Error rate < 0.1%
+- [ ] CPU utilization < 70%
+- [ ] Memory utilization < 80%
+- [ ] Database connections < 80% pool
+- [ ] Redis hit ratio > 95%
+- [ ] CDN cache hit > 90%
+
+**Monitoring Dashboard:**
+```yaml
+performance_alerts:
+  response_time:
+    threshold: 200ms
+    duration: 5m
+    action: "Investigar performance"
+  
+  error_rate:
+    threshold: 0.1%
+    duration: 2m  
+    action: "Alertar equipo técnico"
+  
+  throughput:
+    threshold: 1000rpm
+    duration: 10m
+    action: "Validar capacidad"
+```
+</Card>
+
+### Validación de Seguridad
+
+<Card title="Security Checklist" icon="shield-alt">
+**Verificaciones de Seguridad:**
+
+- [ ] Certificados SSL válidos y renovados
+- [ ] Secrets de Kubernetes actualizados
+- [ ] API keys funcionando correctamente
+- [ ] Políticas de red aplicadas
+- [ ] Firewall rules configuradas
+- [ ] VPN connections establecidas
+- [ ] IAM roles y policies correctas
+- [ ] Encryption at rest habilitado
+- [ ] Logs de seguridad sin anomalías
+- [ ] Vulnerability scanning completado
+
+**Tests de Penetración Básicos:**
+```bash
+# Verificar SSL/TLS
+nmap --script ssl-enum-ciphers -p 443 api.retrogamecloud.com
+
+# Validar headers de seguridad
+curl -I https://api.retrogamecloud.com | grep -i security
+
+# Test de autenticación
+curl -X POST https://api.retrogamecloud.com/v1/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"invalid","password":"test"}'
+```
+</Card>
+
+### Checklist de Comunicación
+
+<Card title="Stakeholder Communication" icon="bullhorn">
+**Comunicaciones Obligatorias:**
+
+- [ ] Notificar inicio de procedimiento DR
+- [ ] Actualizar status page con progreso
+- [ ] Informar a equipos técnicos del estado
+- [ ] Comunicar a
+</Card>

@@ -6,18 +6,18 @@ icon: code
 
 <Note>
   Esta sección contiene la documentación completa de todas las APIs del sistema,
-  incluyendo endpoints REST, GraphQL y integraciones de terceros.
+  incluyendo endpoints REST, GraphQL, infraestructura backend y integraciones de terceros.
 </Note>
 
 ## Bienvenido a la Referencia de API
 
 Nuestra documentación de API está construida usando [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) y [componentes MDX](https://mintlify.com/docs/api-playground/mdx/configuration) para proporcionar una experiencia de desarrollo completa y interactiva.
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
   <Card
     title="REST API Endpoints"
     icon="globe"
-    href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
+    href="/api-reference/endpoints"
   >
     Especificación OpenAPI completa de nuestros endpoints REST
   </Card>
@@ -28,20 +28,138 @@ Nuestra documentación de API está construida usando [OpenAPI](https://mintlify
   >
     Documentación del esquema GraphQL y queries disponibles
   </Card>
+  <Card
+    title="Backend Architecture"
+    icon="server"
+    href="/api-reference/backend"
+  >
+    Documentación de la arquitectura backend e infraestructura
+  </Card>
 </CardGroup>
+
+## Arquitectura del Sistema
+
+### Backend Principal
+
+<AccordionGroup>
+  <Accordion title="Microservicios Core">
+    **Servicios Principales:**
+    - **Authentication Service**: Gestión de usuarios y autenticación
+    - **Data Service**: Procesamiento y almacenamiento de datos
+    - **Notification Service**: Sistema de notificaciones en tiempo real
+    - **Integration Service**: Conexiones con servicios externos
+    
+    ```mermaid
+    graph TD
+        A[API Gateway] --> B[Auth Service]
+        A --> C[Data Service]
+        A --> D[Notification Service]
+        A --> E[Integration Service]
+    ```
+  </Accordion>
+  
+  <Accordion title="Base de Datos y Almacenamiento">
+    **Componentes de Datos:**
+    - **PostgreSQL**: Base de datos principal
+    - **Redis**: Cache y sesiones
+    - **MongoDB**: Datos no estructurados
+    - **S3**: Almacenamiento de archivos
+    
+    ```sql
+    -- Ejemplo de esquema principal
+    CREATE TABLE users (
+        id UUID PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+    ```
+  </Accordion>
+  
+  <Accordion title="Sistema de Colas y Eventos">
+    **Message Brokers:**
+    - **RabbitMQ**: Cola de mensajes principal
+    - **Apache Kafka**: Streaming de eventos
+    - **WebSockets**: Comunicación en tiempo real
+    
+    ```javascript
+    // Ejemplo de configuración de eventos
+    const eventConfig = {
+      queues: ['user-events', 'data-processing', 'notifications'],
+      exchanges: ['direct', 'topic', 'fanout']
+    };
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Infraestructura de Despliegue
+
+<Tabs>
+  <Tab title="Containerización">
+    **Docker Configuration:**
+    ```yaml
+    version: '3.8'
+    services:
+      api:
+        image: app/api:latest
+        ports:
+          - "3000:3000"
+        environment:
+          - NODE_ENV=production
+          - DATABASE_URL=${DATABASE_URL}
+      
+      database:
+        image: postgres:14
+        environment:
+          - POSTGRES_DB=app_db
+          - POSTGRES_USER=${DB_USER}
+    ```
+  </Tab>
+  
+  <Tab title="Kubernetes">
+    **K8s Deployment:**
+    ```yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: api-deployment
+    spec:
+      replicas: 3
+      selector:
+        matchLabels:
+          app: api
+      template:
+        metadata:
+          labels:
+            app: api
+        spec:
+          containers:
+          - name: api
+            image: app/api:latest
+            ports:
+            - containerPort: 3000
+    ```
+  </Tab>
+  
+  <Tab title="Cloud Infrastructure">
+    **AWS Architecture:**
+    - **ECS/EKS**: Orquestación de contenedores
+    - **RDS**: Base de datos gestionada
+    - **ElastiCache**: Redis gestionado
+    - **Application Load Balancer**: Balanceador de carga
+    - **CloudWatch**: Monitoreo y logs
+  </Tab>
+</Tabs>
 
 ## Autenticación y Seguridad
 
-Todos los endpoints de la API están autenticados usando tokens Bearer y están definidos en el archivo de especificación OpenAPI.
-
-```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
-
-```
+<CardGroup cols={2}>
+  <Card title="Token-based Auth" icon="key">
+    Autenticación principal usando JWT tokens
+  </Card>
+  <Card title="API Security" icon="shield">
+    Rate limiting, CORS, y validación de entrada
+  </Card>
+</CardGroup>
 
 ### Tipos de Autenticación
 
@@ -49,16 +167,49 @@ Todos los endpoints de la API están autenticados usando tokens Bearer y están 
   <Accordion title="Bearer Token Authentication">
     Método principal para autenticación de APIs REST
     ```bash
-    curl -H "Authorization: Bearer YOUR_TOKEN" https://api.example.com/endpoint
+    curl -H "Authorization: Bearer YOUR_TOKEN" \
+         https://api.example.com/endpoint
     ```
-
+    
+    **Estructura del JWT:**
+    ```json
+    {
+      "header": {
+        "alg": "HS256",
+        "typ": "JWT"
+      },
+      "payload": {
+        "sub": "user_id",
+        "iat": 1516239022,
+        "exp": 1516242622,
+        "roles": ["user", "admin"]
+      }
+    }
+    ```
   </Accordion>
+  
   <Accordion title="API Key Authentication">
     Para integraciones de servicios específicos
     ```bash
-    curl -H "X-API-Key: YOUR_API_KEY" https://api.example.com/endpoint
+    curl -H "X-API-Key: YOUR_API_KEY" \
+         https://api.example.com/endpoint
     ```
-
+    
+    **Scopes disponibles:**
+    - `read:users` - Lectura de usuarios
+    - `write:data` - Escritura de datos
+    - `admin:all` - Acceso administrativo
+  </Accordion>
+  
+  <Accordion title="OAuth 2.0 / OpenID Connect">
+    Para integraciones con terceros
+    ```javascript
+    const authConfig = {
+      clientId: 'your-client-id',
+      redirectUri: 'https://your-app.com/callback',
+      scopes: ['openid', 'profile', 'email']
+    };
+    ```
   </Accordion>
 </AccordionGroup>
 
@@ -66,61 +217,134 @@ Todos los endpoints de la API están autenticados usando tokens Bearer y están 
 
 <Steps>
   <Step title="Endpoints Principales">
-    APIs core del sistema para funcionalidades principales
+    **APIs Core del Sistema:**
+    - `/api/v1/users` - Gestión de usuarios
+    - `/api/v1/data` - Operaciones de datos
+    - `/api/v1/auth` - Autenticación y autorización
+    - `/api/v1/notifications` - Sistema de notificaciones
   </Step>
-  <Step title="Webhooks">
-    Configuración y manejo de eventos en tiempo real
+  
+  <Step title="GraphQL Endpoint">
+    **Unified Data Layer:**
+    - Single endpoint: `/graphql`
+    - Real-time subscriptions
+    - Flexible query structure
+    - Type-safe operations
   </Step>
-  <Step title="Integraciones">
-    APIs para conectar con servicios de terceros
+  
+  <Step title="Webhooks y Eventos">
+    **Real-time Integration:**
+    - Event-driven architecture
+    - Configurable webhook endpoints
+    - Retry mechanisms y dead letter queues
+    - Event sourcing patterns
   </Step>
-  <Step title="Utilidades">
-    Endpoints auxiliares para operaciones de soporte
+  
+  <Step title="Integraciones Externas">
+    **Third-party APIs:**
+    - Payment processors
+    - Email services
+    - Analytics platforms
+    - Social media APIs
   </Step>
 </Steps>
 
-## Códigos de Respuesta
+## Monitoreo y Observabilidad
 
-| Código | Descripción | Uso |
-|--------|-------------|-----|
-| `200` | OK | Operación exitosa |
-| `201` | Created | Recurso creado correctamente |
-| `400` | Bad Request | Error en los parámetros de entrada |
-| `401` | Unauthorized | Token de autenticación inválido |
-| `403` | Forbidden | Permisos insuficientes |
-| `404` | Not Found | Recurso no encontrado |
-| `429` | Rate Limited | Límite de requests excedido |
-| `500` | Internal Error | Error interno del servidor |
+### Métricas del Sistema
 
-## Rate Limiting
+<Tabs>
+  <Tab title="Performance Metrics">
+    ```json
+    {
+      "response_time": {
+        "p50": "120ms",
+        "p95": "300ms", 
+        "p99": "800ms"
+      },
+      "throughput": "1000 req/sec",
+      "error_rate": "0.1%"
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Infrastructure Metrics">
+    ```yaml
+    resources:
+      cpu_usage: "65%"
+      memory_usage: "80%"
+      disk_usage: "45%"
+      network_io: "100MB/s"
+    
+    databases:
+      postgres_connections: 85
+      redis_memory: "2GB"
+      query_performance: "avg 50ms"
+    ```
+  </Tab>
+  
+  <Tab title="Business Metrics">
+    ```javascript
+    const businessMetrics = {
+      daily_active_users: 10000,
+      api_calls_per_day: 1000000,
+      conversion_rate: "2.5%",
+      uptime: "99.9%"
+    };
+    ```
+  </Tab>
+</Tabs>
 
-Las APIs implementan rate limiting para garantizar la estabilidad del sistema:
+### Logging y Alerting
 
-- **Requests por minuto**: 1000 requests/min por token
+<Note>
+  Todos los logs siguen el formato JSON estructurado para facilitar la búsqueda y análisis.
+</Note>
 
-- **Burst limit**: 100 requests en 10 segundos
-
-- **Headers de respuesta**: `X-RateLimit-Remaining`, `X-RateLimit-Reset`
-
-<Warning>
-  Los límites pueden variar según el tipo de endpoint y el plan de suscripción.
-</Warning>
+```json
+{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "level": "INFO",
+  "service": "api-gateway",
+  "trace_id": "abc123",
+  "user_id": "user_456",
+  "endpoint": "/api/v1/users",
+  "method": "GET",
+  "status_code": 200,
+  "response_time_ms": 150,
+  "message": "Request processed successfully"
+}
+```
 
 ## Próximos Pasos
 
 <CardGroup cols={2}>
   <Card
     title="Explorar Endpoints"
-    icon="play"
+    icon="compass"
     href="/api-reference/endpoints"
   >
-    Comienza explorando los endpoints disponibles
+    Comenzar con los endpoints REST principales
   </Card>
   <Card
-    title="Configurar Webhooks"
+    title="GraphQL Playground"
+    icon="play"
+    href="/api-reference/graphql/playground"
+  >
+    Probar queries GraphQL interactivamente
+  </Card>
+  <Card
+    title="Webhooks Setup"
     icon="webhook"
     href="/api-reference/webhooks"
   >
-    Configura webhooks para eventos en tiempo real
+    Configurar webhooks para eventos en tiempo real
+  </Card>
+  <Card
+    title="SDKs y Libraries"
+    icon="code"
+    href="/api-reference/sdks"
+  >
+    Utilizar nuestras librerías oficiales
   </Card>
 </CardGroup>
