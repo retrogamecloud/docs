@@ -1,6 +1,6 @@
 ---
 title: Scaling Guide
-description: 'Estrategias de escalado horizontal y vertical para los servicios'
+description: Estrategias de escalado horizontal y vertical para los servicios
 icon: arrows-up-down
 ---
 
@@ -48,6 +48,7 @@ spec:
       - type: Percent
         value: 50
         periodSeconds: 120
+
 ```
 
 ## Vertical Pod Autoscaler (VPA)
@@ -73,6 +74,7 @@ spec:
       maxAllowed:
         cpu: 2000m
         memory: 2Gi
+
 ```
 
 ## Escalado de Base de Datos
@@ -92,6 +94,7 @@ spec:
     "MetricType": "RDSReaderAverageCPUUtilization"
   }
 }
+
 ```
 
 ## Estrategias por Servicio
@@ -131,11 +134,13 @@ export default function () {
     'response time < 500ms': (r) => r.timings.duration < 500,
   });
 }
+
 ```
 
 ## Métricas de Escalado
 
 ```promql
+
 # Pods activos
 count(kube_pod_status_phase{phase="Running"})
 
@@ -143,10 +148,11 @@ count(kube_pod_status_phase{phase="Running"})
 rate(kube_hpa_status_desired_replicas[5m])
 
 # Utilización actual vs target
-(avg(rate(container_cpu_usage_seconds_total[5m])) / 
+(avg(rate(container_cpu_usage_seconds_total[5m])) /
 avg(kube_pod_container_resource_requests)) * 100
+
 ```
 
----
+- --
 
 El escalado automático mantiene el rendimiento bajo carga variable.
