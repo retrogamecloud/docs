@@ -1,6 +1,6 @@
 ---
 title: Database Complete Guide
-description: 'Guía completa de administración, optimización y troubleshooting de PostgreSQL'
+description: Guía completa de administración, optimización y troubleshooting de PostgreSQL
 icon: book-open-cover
 ---
 
@@ -21,25 +21,29 @@ JOIN games g ON s.game_id = g.id
 WHERE g.slug = 'pacman'
 ORDER BY s.score DESC
 LIMIT 10;
+
 ```
 
 ### Índices Compuestos
 
 ```sql
--- Para búsquedas por juego y ordenamiento
+
+- - Para búsquedas por juego y ordenamiento
 CREATE INDEX idx_scores_game_score ON scores(game_id, score DESC);
 
--- Para búsquedas por usuario y fecha
+- - Para búsquedas por usuario y fecha
 CREATE INDEX idx_scores_user_date ON scores(user_id, submitted_at DESC);
 
--- Índice parcial para scores recientes
+- - Índice parcial para scores recientes
 CREATE INDEX idx_recent_scores ON scores(game_id, score DESC)
 WHERE submitted_at > CURRENT_DATE - INTERVAL '30 days';
+
 ```
 
 ## Tuning de PostgreSQL
 
 ```conf
+
 # postgresql.conf
 max_connections = 200
 shared_buffers = 2GB
@@ -53,12 +57,14 @@ effective_io_concurrency = 200
 work_mem = 10485kB
 min_wal_size = 1GB
 max_wal_size = 4GB
+
 ```
 
 ## Particionamiento
 
 ```sql
--- Tabla particionada por fecha
+
+- - Tabla particionada por fecha
 CREATE TABLE scores_partitioned (
     id UUID DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
@@ -67,24 +73,26 @@ CREATE TABLE scores_partitioned (
     submitted_at TIMESTAMP NOT NULL
 ) PARTITION BY RANGE (submitted_at);
 
--- Particiones mensuales
+- - Particiones mensuales
 CREATE TABLE scores_2024_01 PARTITION OF scores_partitioned
     FOR VALUES FROM ('2024-01-01') TO ('2024-02-01');
 
 CREATE TABLE scores_2024_02 PARTITION OF scores_partitioned
     FOR VALUES FROM ('2024-02-01') TO ('2024-03-01');
+
 ```
 
 ## Vacuum y Mantenimiento
 
 ```sql
--- Vacuum manual
+
+- - Vacuum manual
 VACUUM ANALYZE scores;
 
--- Reindex
+- - Reindex
 REINDEX TABLE scores;
 
--- Estadísticas de bloat
+- - Estadísticas de bloat
 SELECT
     schemaname,
     tablename,
@@ -95,6 +103,7 @@ SELECT
 FROM pg_stat_user_tables
 WHERE n_dead_tup > 0
 ORDER BY n_dead_tup DESC;
+
 ```
 
 ## Connection Pooling con PgBouncer
@@ -110,11 +119,13 @@ default_pool_size = 25
 min_pool_size = 10
 reserve_pool_size = 5
 reserve_pool_timeout = 3
+
 ```
 
 ## Backup y Restore
 
 ```bash
+
 # Backup completo
 pg_dump -h rds-endpoint.amazonaws.com -U admin -d gamedb -F c -f backup.dump
 
@@ -123,6 +134,7 @@ pg_dump -h rds-endpoint.amazonaws.com -U admin -d gamedb --schema-only -f schema
 
 # Restore
 pg_restore -h rds-endpoint.amazonaws.com -U admin -d gamedb -v backup.dump
+
 ```
 
 ## Troubleshooting
@@ -130,24 +142,26 @@ pg_restore -h rds-endpoint.amazonaws.com -U admin -d gamedb -v backup.dump
 ### Queries Lentas
 
 ```sql
--- Top 10 queries más lentas
+
+- - Top 10 queries más lentas
 SELECT query, mean_exec_time, calls
 FROM pg_stat_statements
 ORDER BY mean_exec_time DESC
 LIMIT 10;
 
--- Queries activas
+- - Queries activas
 SELECT pid, usename, application_name, state, query
 FROM pg_stat_activity
 WHERE state != 'idle';
 
--- Locks
+- - Locks
 SELECT l.locktype, l.mode, l.granted, a.query
 FROM pg_locks l
 JOIN pg_stat_activity a ON l.pid = a.pid
 WHERE NOT l.granted;
+
 ```
 
----
+- --
 
 La administración proactiva de PostgreSQL previene problemas de rendimiento.

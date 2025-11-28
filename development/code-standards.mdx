@@ -1,6 +1,6 @@
 ---
 title: Estándares de Código
-description: 'Guía de estándares de código, convenciones y mejores prácticas para RetroGameCloud'
+description: Guía de estándares de código, convenciones y mejores prácticas para RetroGameCloud
 icon: code
 ---
 
@@ -14,15 +14,15 @@ Esta guía establece los estándares de código, convenciones de nomenclatura y 
   <Card title="Clean Code" icon="broom">
     Código legible y auto-documentado
   </Card>
-  
+
   <Card title="SOLID Principles" icon="cube">
     Principios de diseño orientado a objetos
   </Card>
-  
+
   <Card title="DRY" icon="clone">
     Don't Repeat Yourself
   </Card>
-  
+
   <Card title="KISS" icon="heart">
     Keep It Simple, Stupid
   </Card>
@@ -34,6 +34,7 @@ Esta guía establece los estándares de código, convenciones de nomenclatura y 
 
 <Tabs>
   <Tab title="TypeScript/JavaScript">
+
 ```typescript
 // ✅ CORRECTO: camelCase para variables y funciones
 const userName = 'John Doe';
@@ -46,11 +47,15 @@ function calculateScore(points: number): number {
 // ❌ INCORRECTO
 const UserName = 'John Doe';  // PascalCase solo para clases
 const user_name = 'John Doe'; // snake_case no se usa en JS/TS
+
 ```
+
   </Tab>
 
   <Tab title="Python">
+
 ```python
+
 # ✅ CORRECTO: snake_case para variables y funciones
 user_name = "John Doe"
 user_age = 25
@@ -61,7 +66,9 @@ def calculate_score(points: int) -> int:
 # ❌ INCORRECTO
 userName = "John Doe"  # camelCase no es pythonic
 UserName = "John Doe"  # PascalCase solo para clases
+
 ```
+
   </Tab>
 </Tabs>
 
@@ -69,6 +76,7 @@ UserName = "John Doe"  # PascalCase solo para clases
 
 <Tabs>
   <Tab title="TypeScript">
+
 ```typescript
 // ✅ CORRECTO: PascalCase para clases e interfaces
 class UserService {
@@ -93,11 +101,15 @@ interface GameScore {
 // ❌ INCORRECTO
 class userService {} // debe ser PascalCase
 interface gameScore {} // debe ser PascalCase
+
 ```
+
   </Tab>
 
   <Tab title="Python">
+
 ```python
+
 # ✅ CORRECTO: PascalCase para clases
 class UserService:
     def __init__(self, repository: UserRepository):
@@ -109,7 +121,9 @@ class UserService:
 # ❌ INCORRECTO
 class user_service:  # debe ser PascalCase
     pass
+
 ```
+
   </Tab>
 </Tabs>
 
@@ -124,6 +138,7 @@ const DEFAULT_TIMEOUT_MS = 5000;
 // ❌ INCORRECTO
 const maxRetryAttempts = 3;  // debe ser SCREAMING_SNAKE_CASE
 const apiBaseUrl = 'https://api.example.com';
+
 ```
 
 ## Estructura de Archivos
@@ -131,6 +146,7 @@ const apiBaseUrl = 'https://api.example.com';
 ### Organización por Feature
 
 ```
+
 src/
 ├── features/
 │   ├── auth/
@@ -161,6 +177,7 @@ src/
     ├── database.ts
     ├── redis.ts
     └── aws.ts
+
 ```
 
 ## Mejores Prácticas por Lenguaje
@@ -169,6 +186,7 @@ src/
 
 <Tabs>
   <Tab title="Async/Await">
+
 ```typescript
 // ✅ CORRECTO: Usar async/await
 async function getUserScores(userId: string): Promise<Score[]> {
@@ -192,10 +210,13 @@ function getUserScores(userId: string): Promise<Score[]> {
       throw error;
     });
 }
+
 ```
+
   </Tab>
 
   <Tab title="Error Handling">
+
 ```typescript
 // ✅ CORRECTO: Errores tipados y específicos
 class NotFoundError extends Error {
@@ -207,11 +228,11 @@ class NotFoundError extends Error {
 
 async function getGame(id: string): Promise<Game> {
   const game = await gameRepository.findById(id);
-  
+
   if (!game) {
     throw new NotFoundError('Game', id);
   }
-  
+
   return game;
 }
 
@@ -224,10 +245,13 @@ async function getGame(id: string): Promise<Game | null> {
     return null;  // Oculta el error
   }
 }
+
 ```
+
   </Tab>
 
   <Tab title="Dependency Injection">
+
 ```typescript
 // ✅ CORRECTO: Inyección de dependencias
 class ScoreService {
@@ -253,7 +277,9 @@ class ScoreService {
     // ...
   }
 }
+
 ```
+
   </Tab>
 </Tabs>
 
@@ -261,7 +287,9 @@ class ScoreService {
 
 <Tabs>
   <Tab title="Type Hints">
+
 ```python
+
 # ✅ CORRECTO: Usar type hints
 from typing import List, Optional
 from datetime import datetime
@@ -272,11 +300,11 @@ def calculate_ranking(
 ) -> List[dict]:
     """
     Calcula el ranking de jugadores basado en scores.
-    
+
     Args:
         scores: Lista de scores con user_id y points
         limit: Número máximo de resultados
-        
+
     Returns:
         Lista ordenada de rankings
     """
@@ -290,11 +318,15 @@ def calculate_ranking(
 # ❌ INCORRECTO: Sin type hints
 def calculate_ranking(scores, limit=10):
     return sorted(scores, key=lambda x: x['points'], reverse=True)[:limit]
+
 ```
+
   </Tab>
 
   <Tab title="Context Managers">
+
 ```python
+
 # ✅ CORRECTO: Usar context managers
 async def get_user_data(user_id: str) -> dict:
     async with db_pool.acquire() as conn:
@@ -314,7 +346,9 @@ async def get_user_data(user_id: str) -> dict:
     await cursor.close()  # Puede olvidarse
     await conn.close()  # Puede olvidarse
     return result
+
 ```
+
   </Tab>
 </Tabs>
 
@@ -368,9 +402,10 @@ graph LR
     G -->|Changes Requested| H[Ajustes]
     H --> C
     G -->|Approved| I[Merge]
-    
+
     style I fill:#28a745
     style F fill:#dc3545
+
 ```
 
 ## Herramientas de Linting
@@ -394,6 +429,7 @@ graph LR
     "prettier/prettier": "error"
   }
 }
+
 ```
 
 ### Prettier Configuration
@@ -408,6 +444,7 @@ graph LR
   "useTabs": false,
   "arrowParens": "avoid"
 }
+
 ```
 
 ### Python (Ruff + Black)
@@ -421,6 +458,7 @@ ignore = ["E501"]
 [tool.black]
 line-length = 100
 target-version = ['py311']
+
 ```
 
 ## Git Commit Messages
@@ -428,6 +466,7 @@ target-version = ['py311']
 ### Convenciones
 
 ```bash
+
 # Formato
 <type>(<scope>): <subject>
 
@@ -451,19 +490,25 @@ fix(scores): corregir cálculo de ranking global
 docs(api): actualizar documentación de endpoints
 refactor(game-service): extraer lógica de validación
 test(auth-service): agregar tests de integración
+
 ```
 
 ### Ejemplo de Buen Commit
 
 ```
+
 feat(ranking): implementar cache de leaderboards
 
 - Agregar Redis cache para rankings globales y por juego
+
 - TTL de 5 minutos para rankings dinámicos
+
 - Invalidar cache automáticamente al enviar nuevo score
+
 - Reducir latencia de GET /rankings de 350ms a 45ms
 
 Closes #234
+
 ```
 
 ## Documentación de Código
@@ -486,6 +531,7 @@ Closes #234
  * const ranking = await calculateRanking('pac-man', 10);
  * console.log(ranking[0]); // Top player
  * ```
+
  */
 async function calculateRanking(
   gameId: string,
@@ -494,6 +540,7 @@ async function calculateRanking(
 ): Promise<RankingEntry[]> {
   // Implementation
 }
+
 ```
 
 ### Python Docstrings
@@ -506,25 +553,26 @@ def calculate_ranking(
 ) -> List[RankingEntry]:
     """
     Calcula el ranking global de jugadores basado en sus scores totales.
-    
+
     Args:
         game_id: ID del juego para filtrar scores
         limit: Número máximo de resultados (default: 100)
         start_date: Fecha inicio del período (opcional)
-        
+
     Returns:
         Lista de entradas de ranking ordenadas por score
-        
+
     Raises:
         NotFoundError: Si el game_id no existe
         DatabaseError: Si hay error de conexión a DB
-        
+
     Example:
         >>> ranking = calculate_ranking('pac-man', limit=10)
         >>> print(ranking[0])
         RankingEntry(user_id='123', score=50000, rank=1)
     """
     # Implementation
+
 ```
 
 ## Recursos
@@ -533,20 +581,20 @@ def calculate_ranking(
   <Card title="Clean Code" icon="book" href="https://www.amazon.com/Clean-Code-Handbook-Software-Craftsmanship/dp/0132350882">
     Robert C. Martin
   </Card>
-  
+
   <Card title="Refactoring" icon="arrows-rotate" href="https://refactoring.com/">
     Martin Fowler
   </Card>
-  
+
   <Card title="TypeScript Handbook" icon="code" href="https://www.typescriptlang.org/docs/handbook/intro.html">
     Documentación oficial
   </Card>
-  
+
   <Card title="Python Style Guide" icon="python" href="https://peps.python.org/pep-0008/">
     PEP 8
   </Card>
 </CardGroup>
 
----
+- --
 
 Mantener estos estándares garantiza un código base consistente, mantenible y escalable para todo el equipo de RetroGameCloud.

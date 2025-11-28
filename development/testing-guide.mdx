@@ -1,6 +1,7 @@
 ---
 title: Testing y QA
-description: 'Estrategia completa de testing para RetroGameCloud: unitarios, integración, E2E y proceso de QA'
+description: 'Estrategia completa de testing para RetroGameCloud: unitarios, integración,
+  E2E y proceso de QA'
 icon: flask-vial
 ---
 
@@ -22,6 +23,7 @@ graph TD
     style B fill:#4ecdc4
     style C fill:#45b7d1
     style D fill:#96ceb4
+
 ```
 
 ### Cobertura de Testing
@@ -29,25 +31,25 @@ graph TD
 <CardGroup cols={2}>
   <Card title="Unitarios" icon="flask">
     **80%+ coverage**
-    
+
     Tests rápidos de lógica de negocio individual
   </Card>
-  
+
   <Card title="Integración" icon="plug">
     **Componentes críticos**
-    
+
     Interacción entre servicios y bases de datos
   </Card>
-  
+
   <Card title="E2E" icon="robot">
     **Flujos principales**
-    
+
     Simulación completa de usuario final
   </Card>
-  
+
   <Card title="Carga" icon="chart-line">
     **Performance**
-    
+
     Tests de resistencia y escalabilidad
   </Card>
 </CardGroup>
@@ -60,6 +62,7 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
 
 <Tabs>
   <Tab title="package.json">
+
 ```json
 {
   "scripts": {
@@ -85,10 +88,13 @@ Los tests unitarios se ejecutan con **Jest** y deben mantener un **coverage supe
     }
   }
 }
+
 ```
+
   </Tab>
 
   <Tab title="jest.config.js">
+
 ```javascript
 module.exports = {
   preset: 'ts-jest',
@@ -106,7 +112,9 @@ module.exports = {
   coverageDirectory: 'coverage',
   verbose: true,
 };
+
 ```
+
   </Tab>
 </Tabs>
 
@@ -114,6 +122,7 @@ module.exports = {
 
 <Tabs>
   <Tab title="Service Test">
+
 ```typescript
 // tests/unit/score.service.test.ts
 import { ScoreService } from '../../src/services/score.service';
@@ -165,10 +174,13 @@ describe('ScoreService', () => {
     });
   });
 });
+
 ```
+
   </Tab>
 
   <Tab title="Utility Test">
+
 ```typescript
 // tests/unit/validators.test.ts
 import { validateGameId, validateUserId } from '../../src/utils/validators';
@@ -198,7 +210,9 @@ describe('Validators', () => {
     });
   });
 });
+
 ```
+
   </Tab>
 </Tabs>
 
@@ -208,6 +222,7 @@ describe('Validators', () => {
 
 <Tabs>
   <Tab title="API Integration Test">
+
 ```typescript
 // tests/integration/auth.api.test.ts
 import request from 'supertest';
@@ -285,10 +300,13 @@ describe('Authentication API', () => {
     });
   });
 });
+
 ```
+
   </Tab>
 
   <Tab title="Database Integration">
+
 ```typescript
 // tests/integration/score.repository.test.ts
 import { ScoreRepository } from '../../src/repositories/score.repository';
@@ -347,7 +365,9 @@ describe('ScoreRepository Integration', () => {
     expect(topScores[1].score).toBe(25000);
   });
 });
+
 ```
+
   </Tab>
 </Tabs>
 
@@ -357,6 +377,7 @@ describe('ScoreRepository Integration', () => {
 
 <Tabs>
   <Tab title="playwright.config.ts">
+
 ```typescript
 import { defineConfig, devices } from '@playwright/test';
 
@@ -387,10 +408,13 @@ export default defineConfig({
     },
   ],
 });
+
 ```
+
   </Tab>
 
   <Tab title="auth.spec.ts">
+
 ```typescript
 import { test, expect } from '@playwright/test';
 
@@ -436,10 +460,13 @@ test.describe('Authentication Flow', () => {
     await expect(page).toHaveURL('/dashboard');
   });
 });
+
 ```
+
   </Tab>
 
   <Tab title="game-library.spec.ts">
+
 ```typescript
 import { test, expect } from '@playwright/test';
 
@@ -483,7 +510,9 @@ test.describe('Game Library', () => {
     await expect(page.locator('[data-testid="emulator-running"]')).toBeVisible();
   });
 });
+
 ```
+
   </Tab>
 </Tabs>
 
@@ -493,6 +522,7 @@ test.describe('Game Library', () => {
 
 <Tabs>
   <Tab title="load-test.js">
+
 ```javascript
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -521,10 +551,13 @@ export default function () {
 
   sleep(1);
 }
+
 ```
+
   </Tab>
 
   <Tab title="spike-test.js">
+
 ```javascript
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -554,7 +587,9 @@ export default function () {
 
   sleep(1);
 }
+
 ```
+
   </Tab>
 </Tabs>
 
@@ -620,6 +655,7 @@ jobs:
         with:
           name: playwright-report
           path: playwright-report/
+
 ```
 
 ## Mejores Prácticas
@@ -654,6 +690,7 @@ jobs:
 ## Comandos Útiles
 
 ```bash
+
 # Tests unitarios
 npm run test              # Ejecutar todos los tests
 npm run test:watch        # Modo watch
@@ -670,12 +707,13 @@ npm run test:e2e:headed   # Con interfaz visible
 # Tests de carga
 k6 run tests/load/load-test.js
 k6 run tests/load/spike-test.js --vus 1000 --duration 1m
+
 ```
 
 <Note>
 Para ejecutar los tests E2E localmente, asegúrate de tener el entorno de desarrollo corriendo en `http://localhost:3000`.
 </Note>
 
----
+- --
 
 Esta estrategia de testing garantiza la calidad y estabilidad de RetroGameCloud en cada despliegue.
