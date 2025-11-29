@@ -1,6 +1,6 @@
 ---
 title: Logging y Trazabilidad
-description: 'Sistema de logs centralizado, structured logging y correlation IDs'
+description: Sistema de logs centralizado, structured logging y correlation IDs
 icon: file-lines
 ---
 
@@ -14,15 +14,15 @@ Sistema centralizado de logs para RetroGameCloud con structured logging y correl
   <Card title="CloudWatch Logs" icon="aws">
     Agregación centralizada
   </Card>
-  
+
   <Card title="Structured JSON" icon="code">
     Logs parseables y buscables
   </Card>
-  
+
   <Card title="Correlation IDs" icon="link">
     Trazabilidad entre servicios
   </Card>
-  
+
   <Card title="Log Retention" icon="clock">
     30 días producción, 7 días desarrollo
   </Card>
@@ -59,6 +59,7 @@ logger.info('User login successful', {
   correlationId: req.headers['x-correlation-id'],
   duration: 234
 });
+
 ```
 
 ### Python (structlog)
@@ -74,6 +75,7 @@ logger.info(
     correlation_id=request.headers.get("x-correlation-id"),
     duration_ms=234
 )
+
 ```
 
 ## Correlation IDs
@@ -87,12 +89,13 @@ import { v4 as uuidv4 } from 'uuid';
 export function correlationIdMiddleware(req, res, next) {
   req.correlationId = req.headers['x-correlation-id'] || uuidv4();
   res.setHeader('x-correlation-id', req.correlationId);
-  
+
   // Agregar a todos los logs
   req.log = logger.child({ correlationId: req.correlationId });
-  
+
   next();
 }
+
 ```
 
 ## CloudWatch Insights Queries
@@ -100,28 +103,34 @@ export function correlationIdMiddleware(req, res, next) {
 ### Top Errors
 
 ```
+
 fields @timestamp, @message, level, error
 | filter level = "error"
 | stats count() by error
 | sort count desc
 | limit 10
+
 ```
 
 ### Latency por Endpoint
 
 ```
+
 fields @timestamp, method, path, duration
 | filter method = "GET"
 | stats avg(duration), p95(duration), p99(duration) by path
 | sort p99(duration) desc
+
 ```
 
 ### Buscar por Correlation ID
 
 ```
+
 fields @timestamp, @message, service
 | filter correlationId = "abc-123-def"
 | sort @timestamp asc
+
 ```
 
 ## Retención y Costos
@@ -130,6 +139,6 @@ fields @timestamp, @message, service
 Producción: 30 días retention. Desarrollo: 7 días. Logs archivados en S3 por 1 año con Glacier.
 </Note>
 
----
+- --
 
 Logging estructurado permite debugging eficiente y análisis de problemas en producción.
