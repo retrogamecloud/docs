@@ -14,11 +14,11 @@ Stack completo de observabilidad con métricas, logs y traces distribuidos.
   <Card title="Métricas" icon="chart-bar">
     Prometheus + Grafana
   </Card>
-  
+
   <Card title="Logs" icon="file-lines">
     CloudWatch Logs
   </Card>
-  
+
   <Card title="Traces" icon="route">
     AWS X-Ray
   </Card>
@@ -32,6 +32,7 @@ graph LR
     B[Traffic] --> E
     C[Errors] --> E
     D[Saturation] --> E
+
 ```
 
 ## Dashboards Principales
@@ -42,15 +43,16 @@ graph LR
 panels:
   - title: Request Rate
     query: rate(http_requests_total[5m])
-  
+
   - title: Error Rate
     query: rate(http_requests_total{status=~"5.."}[5m])
-  
+
   - title: P95 Latency
     query: histogram_quantile(0.95, http_request_duration_seconds_bucket)
-  
+
   - title: CPU Usage
     query: rate(container_cpu_usage_seconds_total[5m])
+
 ```
 
 ## Distributed Tracing
@@ -67,14 +69,15 @@ app.use(AWSXRay.express.openSegment('GameCatalogService'));
 app.get('/games/:id', (req, res) => {
   const segment = AWSXRay.getSegment();
   const subsegment = segment.addNewSubsegment('database-query');
-  
+
   // Query database
   subsegment.close();
-  
+
   res.json({ game: data });
 });
 
 app.use(AWSXRay.express.closeSegment());
+
 ```
 
 ## Métricas Custom
@@ -97,8 +100,9 @@ const scoreProcessingDuration = new Histogram({
 // Uso
 score Submissions.labels(gameId, 'success').inc();
 scoreProcessingDuration.observe(duration);
+
 ```
 
----
+- --
 
 La observabilidad completa permite detectar y resolver problemas rápidamente.

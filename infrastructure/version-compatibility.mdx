@@ -1,7 +1,6 @@
 ---
 title: 6.10. Matriz de Compatibilidad de Versiones
-description: Tabla completa de compatibilidad entre versiones de componentes y proceso
-  de actualización entre versiones mayores
+description: Tabla completa de compatibilidad entre versiones de componentes y proceso de actualización entre versiones mayores
 icon: table
 ---
 
@@ -43,296 +42,192 @@ Esta documentación proporciona una matriz completa de compatibilidad entre las 
 
 ## Matriz de Compatibilidad Cruzada
 
-### Kubernetes y Herramientas Asociadas
+### Compatibilidad Kubernetes vs Componentes Core
+
+La siguiente matriz muestra las combinaciones de versiones testeadas y validadas para los componentes principales del stack:
+
+<table>
+  <thead>
+    <tr>
+      <th>Kubernetes</th>
+      <th>Node.js</th>
+      <th>PostgreSQL</th>
+      <th>Redis</th>
+      <th>Kong Gateway</th>
+      <th>Estado</th>
+      <th>Notas</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1.30.x</td>
+      <td>20.11.x</td>
+      <td>15.6</td>
+      <td>7.2.x</td>
+      <td>3.6.x</td>
+      <td>✅ Validado</td>
+      <td>Configuración recomendada actual</td>
+    </tr>
+    <tr>
+      <td>1.30.x</td>
+      <td>18.19.x</td>
+      <td>15.6</td>
+      <td>7.2.x</td>
+      <td>3.6.x</td>
+      <td>✅ Validado</td>
+      <td>Node.js LTS compatible</td>
+    </tr>
+    <tr>
+      <td>1.30.x</td>
+      <td>20.11.x</td>
+      <td>14.9</td>
+      <td>7.0.x</td>
+      <td>3.5.x</td>
+      <td>✅ Validado</td>
+      <td>Versiones mínimas soportadas</td>
+    </tr>
+    <tr>
+      <td>1.29.x</td>
+      <td>20.11.x</td>
+      <td>15.6</td>
+      <td>7.2.x</td>
+      <td>3.6.x</td>
+      <td>✅ Validado</td>
+      <td>K8s versión anterior estable</td>
+    </tr>
+    <tr>
+      <td>1.29.x</td>
+      <td>18.19.x</td>
+      <td>14.9</td>
+      <td>7.0.x</td>
+      <td>3.4.x</td>
+      <td>✅ Validado</td>
+      <td>Configuración conservadora</td>
+    </tr>
+    <tr>
+      <td>1.28.x</td>
+      <td>20.11.x</td>
+      <td>15.6</td>
+      <td>7.2.x</td>
+      <td>3.5.x</td>
+      <td>⚠️ Limitado</td>
+      <td>Kong 3.6.x requiere validación adicional</td>
+    </tr>
+    <tr>
+      <td>1.28.x</td>
+      <td>18.17.x</td>
+      <td>14.9</td>
+      <td>7.0.x</td>
+      <td>3.4.x</td>
+      <td>✅ Validado</td>
+      <td>Mínima configuración soportada</td>
+    </tr>
+    <tr>
+      <td>1.27.x</td>
+      <td>20.x</td>
+      <td>15.x</td>
+      <td>7.x</td>
+      <td>3.6.x</td>
+      <td>❌ No Soportado</td>
+      <td>K8s próximo a deprecación</td>
+    </tr>
+    <tr>
+      <td>1.31.x</td>
+      <td>20.11.x</td>
+      <td>16.x</td>
+      <td>7.2.x</td>
+      <td>3.7.x</td>
+      <td>🧪 Beta</td>
+      <td>En evaluación para próxima release</td>
+    </tr>
+  </tbody>
+</table>
+
+### Leyenda de Estados
+
+- **✅ Validado**: Combinación completamente testeada y aprobada para producción
+- **⚠️ Limitado**: Funcional con restricciones o configuración especial
+- **❌ No Soportado**: Combinación no recomendada o con problemas conocidos  
+- **🧪 Beta**: En proceso de validación para futuras versiones
+
+### Notas de Compatibilidad Importantes
 
 <Note>
-La regla general es que kubectl debe estar dentro de ±1 versión menor de la versión del clúster de Kubernetes.
+**Kubernetes 1.28.x + Kong 3.6.x**: Requiere configuración adicional de RBAC y validación de políticas de red debido a cambios en la API de networking.
 </Note>
 
-| Kubernetes | kubectl | Helm | ArgoCD | Istio | Compatibilidad |
-|------------|---------|------|--------|-------|----------------|
-| 1.28.x | 1.27-1.29 | 3.12+ | 2.8+ | 1.18+ | ✅ Completa |
-| 1.29.x | 1.28-1.30 | 3.12+ | 2.8+ | 1.19+ | ✅ Completa |
-| 1.30.x | 1.29-1.31 | 3.13+ | 2.9+ | 1.20+ | ✅ Completa |
-
-### Node.js y Dependencias
-
-| Node.js | npm | PostgreSQL Client | Redis Client | Kubernetes | Estado |
-|---------|-----|-------------------|--------------|------------|---------|
-| 18.17+ | 9.0+ | pg@8.11+ | redis@4.6+ | 1.28+ | ✅ LTS |
-| 20.9+ | 10.0+ | pg@8.11+ | redis@4.6+ | 1.28+ | ✅ Recomendado |
-| 21.x | 10.0+ | pg@8.11+ | redis@4.6+ | 1.29+ | ⚠️ Current |
-
-### Base de Datos y Persistencia
-
-| PostgreSQL | pgAdmin | Redis | Kong | Backup Tool | Compatibilidad |
-|------------|---------|-------|------|-------------|----------------|
-| 14.9+ | 4.30+ | 7.0+ | 3.4+ | pg_dump 14+ | ✅ Producción |
-| 15.6+ | 4.30+ | 7.2+ | 3.6+ | pg_dump 15+ | ✅ Recomendado |
-
-## Proceso de Actualización entre Versiones Mayores
-
-### 1. Planificación Pre-Actualización
-
 <Warning>
-Las actualizaciones entre versiones mayores requieren planificación cuidadosa y pueden incluir cambios incompatibles.
+**Node.js 18.x**: Aunque funcional, se recomienda migrar a 20.x antes de abril 2025 cuando finaliza el soporte LTS.
 </Warning>
 
-#### Lista de Verificación Previa
-
-```bash
-
-# Verificar versiones actuales
-kubectl version --short
-node --version
-psql --version
-redis-server --version
-kong version
-
-# Backup completo antes de la actualización
-./scripts/backup-full-system.sh
-
-# Verificar estado del clúster
-kubectl get nodes -o wide
-kubectl get pods --all-namespaces | grep -v Running
-
-```
-
-#### Ventanas de Mantenimiento Estimadas
-
-<Tabs>
-<Tab title="Kubernetes">
-
-- **Minor Version** (1.29 → 1.30): 2-4 horas
-
-- **Patch Version** (1.30.1 → 1.30.2): 30-60 minutos
-
-- **Rollback**: 15-30 minutos
-
-- **Validación Post-upgrade**: 1 hora
-</Tab>
-<Tab title="Node.js">
-
-- **Major Version** (18 → 20): 4-6 horas
-
-- **Minor Version** (20.9 → 20.11): 1-2 horas
-
-- **Rollback**: 30-45 minutos
-
-- **Testing completo**: 2 horas
-</Tab>
-<Tab title="PostgreSQL">
-
-- **Major Version** (14 → 15): 6-8 horas
-
-- **Minor Version** (15.5 → 15.6): 2-3 horas
-
-- **Rollback**: 4-6 horas (restauración backup)
-
-- **Migración de datos**: Variable según tamaño
-</Tab>
-</Tabs>
-
-### 2. Secuencia de Actualización Recomendada
-
-#### Fase 1: Componentes de Infraestructura
-
-```mermaid
-graph LR
-    A[Backup Completo] --> B[kubectl/Helm]
-    B --> C[Kubernetes Control Plane]
-    C --> D[Worker Nodes]
-    D --> E[ArgoCD]
-    E --> F[Istio/Kong]
-    F --> G[Verificación K8s]
-
-```
-
-#### Fase 2: Servicios de Datos
-
-```bash
-
-# 1. PostgreSQL (requiere downtime)
-kubectl scale deployment auth-service --replicas=0
-kubectl scale deployment user-service --replicas=0
-
-# Actualizar PostgreSQL
-./scripts/upgrade-postgresql.sh
-
-# Verificar migración de datos
-./scripts/verify-db-migration.sh
-
-# 2. Redis (rolling update)
-helm upgrade redis-cluster ./charts/redis \
-  --set image.tag=7.2.4-alpine \
-  --wait --timeout=600s
-
-```
-
-#### Fase 3: Aplicaciones
-
-```bash
-
-# 1. Actualizar imágenes base de microservicios
-docker build --build-arg NODE_VERSION=20.11 \
-  -t retrogame/auth-service:v2.1.0 .
-
-# 2. Deploy gradual con ArgoCD
-kubectl patch application auth-service \
-  --type='merge' \
-  -p='{"spec":{"source":{"targetRevision":"v2.1.0"}}}'
-
-# 3. Verificar health checks
-kubectl get pods -l app=auth-service -w
-
-```
-
-### 3. Plan de Rollback
-
-<Warning>
-Siempre ten preparado un plan de rollback antes de iniciar cualquier actualización mayor.
-</Warning>
-
-#### Rollback Automático
-
-```yaml
-
-# rollback-playbook.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: rollback-procedures
-data:
-  kubernetes: |
-    kubectl rollout undo deployment/auth-service
-    kubectl rollout undo deployment/user-service
-    kubectl rollout undo deployment/game-catalog-service
-
-  database: |
-    # Restaurar desde backup automático
-    pg_restore -h postgres-primary -U postgres \
-      --clean --create /backups/pre-upgrade-backup.sql
-
-  applications: |
-    argocd app rollback auth-service
-    argocd app rollback user-service
-    argocd app sync game-catalog-service
-
-```
-
-#### Tiempos de Rollback por Componente
-
-| Componente | Tiempo de Rollback | Pérdida de Datos | Complejidad |
-|------------|-------------------|------------------|-------------|
-| Kubernetes Pods | 2-5 minutos | Ninguna | Baja |
-| Kong Gateway | 1-2 minutos | Configuración | Baja |
-| PostgreSQL | 30-60 minutos | Posible* | Alta |
-| Redis | 5-10 minutos | Cache únicamente | Media |
-| Frontend | 2-5 minutos | Ninguna | Baja |
-
-<Note>
-
-* La pérdida de datos en PostgreSQL durante rollback depende del tiempo transcurrido y los cambios de esquema realizados.
-</Note>
-
-### 4. Validación Post-Actualización
-
-#### Tests Automatizados
-
-```bash
-#!/bin/bash
-
-# post-upgrade-validation.sh
-
-echo "=== Validación de Infraestructura ==="
-kubectl cluster-info
-kubectl get nodes | grep Ready
-
-echo "=== Validación de Servicios ==="
-kubectl get pods --all-namespaces | grep -v Running
-kubectl get services --all-namespaces
-
-echo "=== Tests de Conectividad ==="
-curl -f http://api.retrogamecloud.com/health
-curl -f http://api.retrogamecloud.com/v1/auth/health
-curl -f http://api.retrogamecloud.com/v1/games/health
-
-echo "=== Validación de Base de Datos ==="
-psql -h postgres-primary -U postgres -c "SELECT version();"
-redis-cli -h redis-primary ping
-
-echo "=== Tests E2E Críticos ==="
-npm run test:e2e:smoke
-
-```
-
-#### Métricas de Validación
-
-<Tabs>
-<Tab title="SLA Targets">
-
-- **Tiempo de respuesta API**: < 200ms (p95)
-
-- **Disponibilidad**: > 99.9%
-
-- **Error rate**: < 0.1%
-
-- **Tiempo de inicio pods**: < 60s
-</Tab>
-<Tab title="Métricas de Recursos">
-
-- **CPU usage**: < 70% (promedio)
-
-- **Memory usage**: < 80% (promedio)
-
-- **Disk I/O**: < 80% capacidad
-
-- **Network latency**: < 10ms (interno)
-</Tab>
-</Tabs>
-
-## Matriz de Incompatibilidades Conocidas
-
-### Combinaciones No Soportadas
-
-<Warning>
-Estas combinaciones pueden causar fallos o comportamientos inesperados.
-</Warning>
-
-| Componente A | Versión | Componente B | Versión | Problema |
-|--------------|---------|--------------|---------|----------|
-| Kubernetes | < 1.28 | Istio | 1.20+ | CRDs incompatibles |
-| Node.js | 16.x | PostgreSQL | 15+ | Driver compatibility |
-| Kong | < 3.4 | Kubernetes | 1.30+ | API deprecations |
-| ArgoCD | < 2.8 | Kubernetes | 1.30+ | RBAC changes |
-
-### Dependencias Transitivas Críticas
+<Tip>
+**PostgreSQL 15.x + Redis 7.2.x**: Esta combinación ofrece mejoras significativas de rendimiento para operaciones de caché híbrida.
+</Tip>
+
+## Dependencias de Versiones Frontend
+
+### React y js-dos Compatibility Matrix
+
+| React | js-dos | Vite | Estado | Notas |
+|-------|---------|------|---------|--------|
+| 18.2.x | 6.22.74+ | 5.1.x | ✅ Validado | Configuración actual optimizada |
+| 18.2.x | 6.22.60+ | 4.4.x | ✅ Validado | Vite versión anterior compatible |
+| 18.2.x | 6.21.x | 5.1.x | ⚠️ Limitado | js-dos requiere patches de compatibilidad |
+| 17.x | 6.22.x | 5.x | ❌ No Soportado | React versión deprecada |
+
+## Proceso de Actualización Entre Versiones Mayores
+
+### 1. Planificación de Actualización
+
+<Steps>
+  <Step title="Análisis de Dependencias">
+    Revisar matriz de compatibilidad y identificar componentes afectados
+  </Step>
+  <Step title="Ambiente de Pruebas">
+    Configurar entorno de staging con nuevas versiones
+  </Step>
+  <Step title="Plan de Rollback">
+    Preparar procedimientos de reversión completos
+  </Step>
+  <Step title="Ventana de Mantenimiento">
+    Programar actualización en horario de menor impacto
+  </Step>
+</Steps>
+
+### 2. Orden de Actualización Recomendado
 
 ```mermaid
 graph TD
-    K8s[Kubernetes 1.30] --> A[ArgoCD 2.9+]
-    K8s --> I[Istio 1.20+]
-    K8s --> H[Helm 3.13+]
-
-    N[Node.js 20.x] --> P[pg driver 8.11+]
-    N --> R[redis driver 4.6+]
-    N --> E[Express 4.18+]
-
-    PG[PostgreSQL 15] --> B[Backup tools 15+]
-    PG --> M[Migration tools 15+]
-
+    A[Infrastructure Base] --> B[Base de Datos]
+    B --> C[Backend Services]
+    C --> D[API Gateway]
+    D --> E[Frontend Applications]
+    E --> F[Monitoring & Observability]
 ```
 
-## Calendario de Actualizaciones 2024
+### 3. Validación Post-Actualización
 
-| Mes | Componente | Acción | Versión Objetivo | Impacto |
-|-----|------------|--------|------------------|---------|
-| Q2 2024 | Node.js | Migración 18→20 | 20.11.x | Alto |
-| Q2 2024 | Kubernetes | Upgrade | 1.30.x | Medio |
-| Q3 2024 | PostgreSQL | Upgrade | 15.6 | Alto |
-| Q3 2024 | Kong | Upgrade | 3.6.x | Bajo |
-| Q4 2024 | Redis | Upgrade | 7.2.x | Medio |
+- **Health Checks**: Verificar endpoints críticos
+- **Performance Tests**: Ejecutar suite de pruebas de carga
+- **Integration Tests**: Validar comunicación entre servicios
+- **User Acceptance**: Pruebas funcionales de características principales
 
-<Note>
-Este calendario está sujeto a cambios basados en la disponibilidad de versiones estables y ventanas de mantenimiento del negocio.
-</Note>
+## Políticas de Soporte de Versiones
+
+### Lifecycle de Versiones
+
+- **Current**: Última versión mayor con soporte completo
+- **LTS**: Versión de soporte extendido (18 meses)
+- **Maintenance**: Solo corrección de bugs críticos (6 meses)
+- **End of Life**: Sin soporte activo
+
+### Criterios de Deprecación
+
+1. **Seguridad**: Vulnerabilidades sin parches disponibles
+2. **Compatibilidad**: Conflictos con dependencias críticas  
+3. **Upstream Support**: Fin de soporte por parte del proveedor
+4. **Performance**: Degradación significativa comparado con versiones nuevas
+
+<Tip>
+Mantenemos al menos 2 versiones mayores soportadas simultáneamente para facilitar migraciones graduales.
+</Tip>

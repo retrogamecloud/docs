@@ -23,16 +23,15 @@ Esta guía te lleva desde ejecutar un microservicio básico en Node.js hasta un 
   </Step>
 </Steps>
 
-- --
+---
 
-## Nivel 1: Node.js Puro
+## 8.1.1. Nivel 1: Node.js Puro
 
 ### Requisitos
 
 ```bash
 node --version  # v18 o superior
 npm --version   # v9 o superior
-
 ```
 
 ### Ejecutar el Servicio de Autenticación
@@ -47,7 +46,6 @@ npm --version   # v9 o superior
     cd auth-service
     npm install
     ```
-
   </Step>
 
   <Step title="Configurar variables de entorno">
@@ -67,7 +65,6 @@ npm --version   # v9 o superior
     # Puerto del servicio
     PORT=3001
     ```
-
   </Step>
 
   <Step title="Iniciar PostgreSQL local (opcional)">
@@ -80,7 +77,6 @@ npm --version   # v9 o superior
     npm run migrate
     ```
 
-
     O usa SQLite para desarrollo rápido:
     ```javascript
     // En config/database.js
@@ -91,7 +87,6 @@ npm --version   # v9 o superior
       }
     }
     ```
-
   </Step>
 
   <Step title="Ejecutar el servicio">
@@ -99,953 +94,485 @@ npm --version   # v9 o superior
     npm run dev
     ```
 
-
-    Verás:
-    ```
-
-    🚀 Auth Service running on http://localhost:3001
-    ✅ Database connected
-    ```
-
+    El servicio estará disponible en `http://localhost:3001`
   </Step>
 </Steps>
 
 ### Probar el Servicio
 
 ```bash
-
 # Registrar usuario
-curl -X POST http://localhost:3001/auth/register \
+curl -X POST http://localhost:3001/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{
-    "username": "player1",
-    "email": "player1@test.com",
-    "password": "password123"
-  }'
+  -d '{"username":"player1","email":"player@test.com","password":"123456"}'
 
-# Login
-curl -X POST http://localhost:3001/auth/login \
+# Iniciar sesión
+curl -X POST http://localhost:3001/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "player1@test.com",
-    "password": "password123"
-  }'
-
+  -d '{"email":"player@test.com","password":"123456"}'
 ```
 
-### Ejecutar Todos los Servicios
+---
 
-<Accordion title="Servicios disponibles y sus puertos">
-  - **Auth Service**: Puerto 3001
-  - **Game Catalog Service**: Puerto 3002
-  - **Score Service**: Puerto 3003
-  - **Ranking Service**: Puerto 3004 (requiere Redis)
-  - **User Service**: Puerto 3005
-  - **Frontend**: Puerto 8080
-</Accordion>
+## 8.1.2. Nivel 2: Docker
 
-```bash
-
-# Terminal 1: Auth Service
-cd auth-service && npm run dev
-
-# Terminal 2: Game Catalog Service
-cd game-catalog-service && npm install && npm run dev
-
-# Terminal 3: Score Service
-cd score-service && npm install && npm run dev
-
-# Terminal 4: Ranking Service (necesita Redis)
-redis-server --port 6379 &
-cd ranking-service && npm install && npm run dev
-
-# Terminal 5: User Service
-cd user-service && npm install && npm run dev
-
-# Terminal 6: Frontend
-cd frontend && npm install && npm start
-
-```
-
-<Warning>
-  Ejecutar múltiples terminales es tedioso - por eso usamos Docker 👇
-</Warning>
-
-- --
-
-## Nivel 2: Docker
-
-### Requisitos
-
-```bash
-docker --version  # Docker 20.10+
-
-```
-
-### Buildear Imagen de un Servicio
+### Construir Imagen del Servicio
 
 <Steps>
-  <Step title="Revisar el Dockerfile">
+  <Step title="Crear Dockerfile">
     ```dockerfile
-    # auth-service/Dockerfile
     FROM node:18-alpine
 
     WORKDIR /app
 
-    # Instalar dependencias
     COPY package*.json ./
     RUN npm ci --only=production
 
-    # Copiar código
     COPY . .
 
     EXPOSE 3001
 
-    CMD ["node", "src/index.js"]
+    CMD ["npm", "start"]
     ```
-
   </Step>
 
-  <Step title="Construir la imagen">
+  <Step title="Construir imagen">
     ```bash
-    cd auth-service
-    docker build -t retrogame/auth-service:latest .
+    docker build -t retrogame/auth-service:dev .
     ```
-
-
-    Verás:
-    ```
-
-    [+] Building 45.3s (10/10) FINISHED
-    => [1/5] FROM node:18-alpine
-    => [2/5] WORKDIR /app
-    => [3/5] COPY package*.json ./
-    => [4/5] RUN npm ci --only=production
-    => [5/5] COPY . .
-    => exporting to image
-    => => naming to docker.io/retrogame/auth-service:latest
-    ```
-
   </Step>
 
-  <Step title="Ejecutar el contenedor">
+  <Step title="Ejecutar container">
     ```bash
-    docker run -d \
-      --name auth-service \
-      -p 3001:3001 \
+    docker run -p 3001:3001 \
+      -e JWT_SECRET=mi-secreto-dev \
       -e DB_HOST=host.docker.internal \
-      -e DB_PASSWORD=postgres \
-      -e JWT_SECRET=mi-secreto \
-      retrogame/auth-service:latest
+      retrogame/auth-service:dev
     ```
-
-  </Step>
-
-  <Step title="Ver logs">
-    ```bash
-    # Logs en tiempo real
-    docker logs -f auth-service
-
-    # Últimas 50 líneas
-    docker logs --tail 50 auth-service
-    ```
-
   </Step>
 </Steps>
 
-### Buildear Todas las Imágenes
+---
 
-```bash
+## 8.1.3. Nivel 3: Docker Compose
 
-# Script para buildear todos los servicios
-#!/bin/bash
+### Configuración Completa
 
-services=(
-  "auth-service"
-  "game-catalog-service"
-  "score-service"
-  "ranking-service"
-  "user-service"
-  "frontend"
-)
+Crea `docker-compose.dev.yml`:
 
-for service in "${services[@]}"; do
-  echo "🏗️  Building $service..."
-  cd $service
-  docker build -t retrogame/$service:latest .
-  cd ..
-done
-
-echo "✅ All images built!"
-
-```
-
-### Gestionar Contenedores
-
-```bash
-
-# Ver contenedores corriendo
-docker ps
-
-# Detener contenedor
-docker stop auth-service
-
-# Eliminar contenedor
-docker rm auth-service
-
-# Ver logs
-docker logs auth-service
-
-# Acceder al contenedor
-docker exec -it auth-service sh
-
-# Ver uso de recursos
-docker stats
-
-```
-
-<Tip>
-  Docker resuelve el problema de "funciona en mi máquina" - pero gestionar 6+ contenedores manualmente es complejo. Siguiente nivel: Docker Compose 👇
-</Tip>
-
-- --
-
-## Nivel 3: Docker Compose
-
-Docker Compose orquesta múltiples contenedores con un solo comando.
-
-### Archivo docker-compose.yml
-
-<CodeGroup>
-
-```yaml docker-compose.yml
+```yaml
 version: '3.8'
 
 services:
-  # Base de datos PostgreSQL
+  # Base de datos
   postgres:
     image: postgres:15-alpine
-    container_name: retrogame-postgres
     environment:
-      POSTGRES_DB: retrogamedb
+      POSTGRES_DB: retrogame_dev
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Redis para caché de rankings
+  # Cache Redis
   redis:
     image: redis:7-alpine
-    container_name: retrogame-redis
     ports:
       - "6379:6379"
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
 
   # Servicio de Autenticación
   auth-service:
-    build: ./auth-service
-    container_name: auth-service
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
     ports:
       - "3001:3001"
     environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: retrogamedb
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      JWT_SECRET: dev-secret-cambiar-en-produccion
-      JWT_EXPIRATION: 24h
-      PORT: 3001
+      - NODE_ENV=development
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=retrogame_dev
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=mi-secreto-super-seguro-dev
     depends_on:
       postgres:
         condition: service_healthy
-    restart: unless-stopped
+      redis:
+        condition: service_started
+    volumes:
+      - ./auth-service:/app
+      - /app/node_modules
 
-  # Servicio de Catálogo de Juegos
-  game-catalog-service:
-    build: ./game-catalog-service
-    container_name: game-catalog-service
+  # Servicio de Juegos
+  game-service:
+    build:
+      context: ./game-service
+      dockerfile: Dockerfile
     ports:
       - "3002:3002"
     environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: retrogamedb
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      PORT: 3002
+      - NODE_ENV=development
+      - DB_HOST=postgres
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_URL=http://auth-service:3001
     depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # Servicio de Puntuaciones
-  score-service:
-    build: ./score-service
-    container_name: score-service
-    ports:
-      - "3003:3003"
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: retrogamedb
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      PORT: 3003
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # Servicio de Rankings
-  ranking-service:
-    build: ./ranking-service
-    container_name: ranking-service
-    ports:
-      - "3004:3004"
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: retrogamedb
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      CACHE_TTL: 300
-      PORT: 3004
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # Servicio de Usuarios
-  user-service:
-    build: ./user-service
-    container_name: user-service
-    ports:
-      - "3005:3005"
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: retrogamedb
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      PORT: 3005
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # Frontend
-  frontend:
-    build: ./frontend
-    container_name: frontend
-    ports:
-      - "8080:80"
-    environment:
-      API_BASE_URL: http://kong:8000
-    depends_on:
-      - kong
-    restart: unless-stopped
-
-  # Kong API Gateway
-  kong:
-    image: kong:3.4-alpine
-    container_name: kong
-    environment:
-      KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
-      KONG_PROXY_ACCESS_LOG: /dev/stdout
-      KONG_ADMIN_ACCESS_LOG: /dev/stdout
-      KONG_PROXY_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_LISTEN: 0.0.0.0:8001
-    ports:
-      - "8000:8000"  # Proxy
-      - "8001:8001"  # Admin API
+      - postgres
+      - redis
+      - auth-service
     volumes:
-      - ./kong/kong.yml:/kong/kong.yml:ro
+      - ./game-service:/app
+      - /app/node_modules
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - GAME_SERVICE_URL=http://game-service:3002
+      - USER_SERVICE_URL=http://user-service:3003
     depends_on:
       - auth-service
-      - game-catalog-service
-      - score-service
-      - ranking-service
-      - user-service
-    restart: unless-stopped
+      - game-service
+    volumes:
+      - ./api-gateway:/app
+      - /app/node_modules
+
+  # Frontend de Desarrollo
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8080:8080"
+    environment:
+      - VUE_APP_API_URL=http://localhost:3000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
 
 volumes:
   postgres_data:
   redis_data:
-
 ```
 
-```sql scripts/init-db.sql
-
-- - Crear esquemas
-CREATE SCHEMA IF NOT EXISTS auth;
-CREATE SCHEMA IF NOT EXISTS games;
-CREATE SCHEMA IF NOT EXISTS scores;
-CREATE SCHEMA IF NOT EXISTS users;
-
-- - Tabla de usuarios
-CREATE TABLE IF NOT EXISTS users.users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-- - Tabla de juegos
-CREATE TABLE IF NOT EXISTS games.games (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    file_path VARCHAR(255) NOT NULL,
-    thumbnail VARCHAR(255),
-    year INTEGER,
-    genre VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-- - Tabla de puntuaciones
-CREATE TABLE IF NOT EXISTS scores.scores (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users.users(id),
-    game_id INTEGER REFERENCES games.games(id),
-    score INTEGER NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-- - Índices para rendimiento
-CREATE INDEX idx_scores_user_id ON scores.scores(user_id);
-CREATE INDEX idx_scores_game_id ON scores.scores(game_id);
-CREATE INDEX idx_scores_score ON scores.scores(score DESC);
-
-- - Datos de ejemplo
-INSERT INTO games.games (name, description, file_path, year, genre) VALUES
-('DOOM', 'Legendary FPS game', 'doom.jsdos', 1993, 'FPS'),
-('Prince of Persia', 'Classic platformer', 'prince.jsdos', 1989, 'Platform'),
-('Wolfenstein 3D', 'The grandfather of FPS', 'wolf.jsdos', 1992, 'FPS');
-
-```
-
-</CodeGroup>
-
-### Ejecutar con Docker Compose
+### Ejecutar el Stack Completo
 
 <Steps>
-  <Step title="Levantar todos los servicios">
+  <Step title="Iniciar servicios">
     ```bash
-    # Construir imágenes y levantar servicios
-    docker-compose up --build
-
-    # En modo detached (background)
-    docker-compose up -d
+    docker-compose -f docker-compose.dev.yml up -d
     ```
-
-
-    Verás:
-    ```
-
-    ✅ Network retrogame_default created
-    ✅ Volume postgres_data created
-    ✅ Volume redis_data created
-    🐘 postgres started
-    🔴 redis started
-    🔐 auth-service started
-    🎮 game-catalog-service started
-    🏆 score-service started
-    📊 ranking-service started
-    👤 user-service started
-    🦍 kong started
-    🌐 frontend started
-    ```
-
   </Step>
 
-  <Step title="Verificar que todo funciona">
+  <Step title="Ver logs">
     ```bash
-    # Ver servicios corriendo
-    docker-compose ps
+    # Todos los servicios
+    docker-compose -f docker-compose.dev.yml logs -f
 
-    # Ver logs de todos los servicios
-    docker-compose logs -f
-
-    # Ver logs de un servicio específico
-    docker-compose logs -f auth-service
+    # Servicio específico
+    docker-compose -f docker-compose.dev.yml logs -f auth-service
     ```
-
   </Step>
 
-  <Step title="Probar la aplicación">
+  <Step title="Ejecutar migraciones">
     ```bash
-    # Frontend
-    open http://localhost:8080
-
-    # API Gateway
-    curl http://localhost:8000/health
-
-    # Autenticación
-    curl -X POST http://localhost:8000/auth/register \
-      -H "Content-Type: application/json" \
-      -d '{"username":"test","email":"test@test.com","password":"pass123"}'
+    docker-compose -f docker-compose.dev.yml exec auth-service npm run migrate
+    docker-compose -f docker-compose.dev.yml exec game-service npm run migrate
     ```
+  </Step>
 
+  <Step title="Acceder a la aplicación">
+    - API Gateway: http://localhost:3000
+    - Frontend: http://localhost:8080
+    - PostgreSQL: localhost:5432
+    - Redis: localhost:6379
   </Step>
 </Steps>
 
-### Comandos Útiles
+---
 
-```bash
+## 8.1.4. Nivel 4: Minikube
 
-# Detener todos los servicios
-docker-compose down
-
-# Detener y eliminar volúmenes (CUIDADO: borra datos)
-docker-compose down -v
-
-# Reconstruir un servicio específico
-docker-compose up -d --build auth-service
-
-# Escalar servicios
-docker-compose up -d --scale score-service=3
-
-# Ver logs en tiempo real
-docker-compose logs -f --tail=100
-
-# Ejecutar comando en un contenedor
-docker-compose exec postgres psql -U postgres retrogamedb
-
-# Reiniciar servicio
-docker-compose restart auth-service
-
-# Ver uso de recursos
-docker stats $(docker-compose ps -q)
-
-```
-
-<Tip>
-  Docker Compose es perfecto para desarrollo local - pero para producción necesitamos orquestación real. Siguiente nivel: Kubernetes 👇
-</Tip>
-
-- --
-
-## Nivel 4: Minikube (Kubernetes Local)
-
-Minikube crea un cluster de Kubernetes en tu máquina para probar despliegues.
-
-### Instalar Minikube
-
-<Tabs>
-  <Tab title="Linux">
-    ```bash
-    curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-    sudo install minikube-linux-amd64 /usr/local/bin/minikube
-    ```
-
-  </Tab>
-
-  <Tab title="macOS">
-    ```bash
-    brew install minikube
-    ```
-
-  </Tab>
-
-  <Tab title="Windows">
-    ```powershell
-    choco install minikube
-    ```
-
-  </Tab>
-</Tabs>
-
-### Iniciar Cluster
+### Preparar Kubernetes Local
 
 <Steps>
-  <Step title="Iniciar Minikube">
+  <Step title="Instalar herramientas">
     ```bash
-    # Iniciar con suficientes recursos
-    minikube start --cpus=4 --memory=8192 --driver=docker
+    # Instalar kubectl
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+    # Instalar minikube
+    curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+    sudo install minikube /usr/local/bin/
+    ```
+  </Step>
+
+  <Step title="Iniciar cluster">
+    ```bash
+    # Iniciar minikube con configuración para desarrollo
+    minikube start --driver=docker --cpus=4 --memory=8192 --disk-size=20g
 
     # Habilitar addons útiles
+    minikube addons enable dashboard
     minikube addons enable ingress
     minikube addons enable metrics-server
-    minikube addons enable dashboard
     ```
-
   </Step>
 
-  <Step title="Configurar kubectl">
+  <Step title="Configurar entorno Docker">
     ```bash
-    # Verificar conexión
-    kubectl cluster-info
-
-    # Ver nodos
-    kubectl get nodes
-
-    # Deberías ver:
-    # NAME       STATUS   ROLES           AGE   VERSION
-    # minikube   Ready    control-plane   1m    v1.28.3
-    ```
-
-  </Step>
-
-  <Step title="Usar registro de imágenes local">
-    ```bash
-    # Apuntar Docker al daemon de Minikube
+    # Usar Docker daemon de minikube para construir imágenes
     eval $(minikube docker-env)
 
-    # Ahora buildea las imágenes
-    docker build -t retrogame/auth-service:latest ./auth-service
-    docker build -t retrogame/game-catalog-service:latest ./game-catalog-service
-    # ... resto de servicios
+    # Construir imágenes en minikube
+    docker build -t retrogame/auth-service:dev ./auth-service
+    docker build -t retrogame/game-service:dev ./game-service
+    docker build -t retrogame/api-gateway:dev ./api-gateway
     ```
-
   </Step>
 </Steps>
 
-### Desplegar en Minikube
+### Desplegar en Kubernetes
 
-<CodeGroup>
+Crea los manifiestos en `k8s/dev/`:
 
-```yaml kubernetes/namespace.yaml
+```yaml
+# k8s/dev/namespace.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: retrogame
-
-```
-
-```yaml kubernetes/postgres.yaml
+  name: retrogame-dev
+---
+# k8s/dev/configmap.yaml
 apiVersion: v1
-kind: PersistentVolumeClaim
+kind: ConfigMap
 metadata:
-  name: postgres-pvc
-  namespace: retrogame
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 5Gi
-
-- --
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: postgres
-  namespace: retrogame
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: postgres
-  template:
-    metadata:
-      labels:
-        app: postgres
-    spec:
-      containers:
-      - name: postgres
-        image: postgres:15-alpine
-        ports:
-        - containerPort: 5432
-        env:
-        - name: POSTGRES_DB
-          value: "retrogamedb"
-        - name: POSTGRES_USER
-          value: "postgres"
-        - name: POSTGRES_PASSWORD
-          value: "postgres"
-        volumeMounts:
-        - name: postgres-storage
-          mountPath: /var/lib/postgresql/data
-      volumes:
-      - name: postgres-storage
-        persistentVolumeClaim:
-          claimName: postgres-pvc
-
-- --
+  name: app-config
+  namespace: retrogame-dev
+data:
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_NAME: "retrogame_dev"
+  REDIS_URL: "redis://redis-service:6379"
+---
+# k8s/dev/secrets.yaml
 apiVersion: v1
-kind: Service
+kind: Secret
 metadata:
-  name: postgres
-  namespace: retrogame
-spec:
-  selector:
-    app: postgres
-  ports:
-  - port: 5432
-    targetPort: 5432
-  type: ClusterIP
-
+  name: app-secrets
+  namespace: retrogame-dev
+type: Opaque
+data:
+  DB_USER: cG9zdGdyZXM=  # postgres
+  DB_PASSWORD: cG9zdGdyZXM=  # postgres  
+  JWT_SECRET: bWktc2VjcmV0by1zdXBlci1zZWd1cm8tZGV2  # mi-secreto-super-seguro-dev
 ```
 
-```yaml kubernetes/auth-service.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: auth-service
-  namespace: retrogame
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: auth-service
-  template:
-    metadata:
-      labels:
-        app: auth-service
-    spec:
-      containers:
-      - name: auth-service
-        image: retrogame/auth-service:latest
-        imagePullPolicy: Never  # Usar imagen local
-        ports:
-        - containerPort: 3001
-        env:
-        - name: DB_HOST
-          value: "postgres"
-        - name: DB_PORT
-          value: "5432"
-        - name: DB_NAME
-          value: "retrogamedb"
-        - name: DB_USER
-          value: "postgres"
-        - name: DB_PASSWORD
-          value: "postgres"
-        - name: JWT_SECRET
-          value: "minikube-secret"
-        - name: PORT
-          value: "3001"
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
-            memory: "256Mi"
-            cpu: "200m"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 3001
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 3001
-          initialDelaySeconds: 5
-          periodSeconds: 5
+### Aplicar Configuraciones
 
-- --
-apiVersion: v1
-kind: Service
-metadata:
-  name: auth-service
-  namespace: retrogame
-spec:
-  selector:
-    app: auth-service
-  ports:
-  - port: 3001
-    targetPort: 3001
-  type: ClusterIP
+<Steps>
+  <Step title="Aplicar manifiestos base">
+    ```bash
+    kubectl apply -f k8s/dev/namespace.yaml
+    kubectl apply -f k8s/dev/configmap.yaml
+    kubectl apply -f k8s/dev/secrets.yaml
+    ```
+  </Step>
 
-```
+  <Step title="Desplegar base de datos">
+    ```bash
+    kubectl apply -f k8s/dev/postgres.yaml
+    kubectl apply -f k8s/dev/redis.yaml
+    ```
+  </Step>
 
-</CodeGroup>
+  <Step title="Desplegar servicios">
+    ```bash
+    kubectl apply -f k8s/dev/auth-service.yaml
+    kubectl apply -f k8s/dev/game-service.yaml
+    kubectl apply -f k8s/dev/api-gateway.yaml
+    ```
+  </Step>
 
-### Aplicar Configuración
+  <Step title="Verificar despliegue">
+    ```bash
+    # Ver pods
+    kubectl get pods -n retrogame-dev
 
-```bash
+    # Ver servicios
+    kubectl get services -n retrogame-dev
 
-# Crear namespace
-kubectl apply -f kubernetes/namespace.yaml
-
-# Desplegar base de datos
-kubectl apply -f kubernetes/postgres.yaml
-kubectl apply -f kubernetes/redis.yaml
-
-# Esperar a que la DB esté lista
-kubectl wait --for=condition=ready pod -l app=postgres -n retrogame --timeout=60s
-
-# Desplegar servicios
-kubectl apply -f kubernetes/auth-service.yaml
-kubectl apply -f kubernetes/game-catalog-service.yaml
-kubectl apply -f kubernetes/score-service.yaml
-kubectl apply -f kubernetes/ranking-service.yaml
-kubectl apply -f kubernetes/user-service.yaml
-
-# Desplegar frontend y Kong
-kubectl apply -f kubernetes/kong.yaml
-kubectl apply -f kubernetes/frontend.yaml
-
-```
-
-### Verificar Despliegue
-
-```bash
-
-# Ver todos los pods
-kubectl get pods -n retrogame
-
-# Ver servicios
-kubectl get svc -n retrogame
-
-# Ver logs de un pod
-kubectl logs -f deployment/auth-service -n retrogame
-
-# Describir pod para debugging
-kubectl describe pod <pod-name> -n retrogame
-
-# Port forward para probar
-kubectl port-forward svc/auth-service 3001:3001 -n retrogame
-
-```
+    # Ver logs
+    kubectl logs -f deployment/auth-service -n retrogame-dev
+    ```
+  </Step>
+</Steps>
 
 ### Acceder a la Aplicación
 
 ```bash
+# Obtener URL del servicio
+minikube service api-gateway-service -n retrogame-dev --url
 
-# Obtener IP de Minikube
-minikube ip
-
-# Port forward al frontend
-kubectl port-forward svc/frontend 8080:80 -n retrogame
-
-# Abrir en navegador
-open http://localhost:8080
-
-# O usar minikube service
-minikube service frontend -n retrogame
-
-```
-
-### Dashboard de Kubernetes
-
-```bash
-
-# Abrir dashboard
+# Abrir dashboard de Kubernetes
 minikube dashboard
 
-# Ver métricas
-kubectl top nodes
-kubectl top pods -n retrogame
-
+# Port forwarding para desarrollo
+kubectl port-forward service/api-gateway-service 3000:3000 -n retrogame-dev
 ```
 
-### Limpiar
+---
+
+## 8.1.5. Herramientas de Desarrollo
+
+### Scripts Útiles
+
+Crea `scripts/dev-tools.sh`:
 
 ```bash
+#!/bin/bash
 
-# Eliminar todo el namespace
-kubectl delete namespace retrogame
+# Función para reiniciar un servicio específico
+restart_service() {
+  local service=$1
+  echo "Reiniciando $service..."
+  docker-compose -f docker-compose.dev.yml restart $service
+}
 
-# Detener Minikube
-minikube stop
+# Función para ver logs en tiempo real
+logs() {
+  local service=${1:-""}
+  if [ -z "$service" ]; then
+    docker-compose -f docker-compose.dev.yml logs -f
+  else
+    docker-compose -f docker-compose.dev.yml logs -f $service
+  fi
+}
 
-# Eliminar cluster
-minikube delete
+# Función para ejecutar migraciones
+migrate() {
+  echo "Ejecutando migraciones..."
+  docker-compose -f docker-compose.dev.yml exec auth-service npm run migrate
+  docker-compose -f docker-compose.dev.yml exec game-service npm run migrate
+}
 
+# Función para limpiar datos de desarrollo
+clean_data() {
+  echo "Limpiando datos de desarrollo..."
+  docker-compose -f docker-compose.dev.yml down -v
+  docker volume prune -f
+}
+
+# Parsear argumentos
+case "$1" in
+  restart)
+    restart_service $2
+    ;;
+  logs)
+    logs $2
+    ;;
+  migrate)
+    migrate
+    ;;
+  clean)
+    clean_data
+    ;;
+  *)
+    echo "Uso: $0 {restart|logs|migrate|clean} [service]"
+    exit 1
+esac
 ```
 
-- --
+### Configuración de VS Code
 
-## Comparación de Niveles
+Crea `.vscode/launch.json`:
 
-<Table>
-  <thead>
-    <tr>
-      <th>Aspecto</th>
-      <th>Node.js</th>
-      <th>Docker</th>
-      <th>Docker Compose</th>
-      <th>Minikube</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>**Complejidad**</td>
-      <td>⭐</td>
-      <td>⭐⭐</td>
-      <td>⭐⭐⭐</td>
-      <td>⭐⭐⭐⭐</td>
-    </tr>
-    <tr>
-      <td>**Setup**</td>
-      <td>5 min</td>
-      <td>10 min</td>
-      <td>15 min</td>
-      <td>30 min</td>
-    </tr>
-    <tr>
-      <td>**Portabilidad**</td>
-      <td>❌ Baja</td>
-      <td>✅ Media</td>
-      <td>✅ Alta</td>
-      <td>✅✅ Muy Alta</td>
-    </tr>
-    <tr>
-      <td>**Escalabilidad**</td>
-      <td>❌ Manual</td>
-      <td>❌ Manual</td>
-      <td>⚠️ Limitada</td>
-      <td>✅ Automática</td>
-    </tr>
-    <tr>
-      <td>**Monitoreo**</td>
-      <td>❌ No</td>
-      <td>⚠️ Básico</td>
-      <td>⚠️ Básico</td>
-      <td>✅ Completo</td>
-    </tr>
-    <tr>
-      <td>**Uso Recomendado**</td>
-      <td>Desarrollo rápido</td>
-      <td>Testing individual</td>
-      <td>Desarrollo completo</td>
-      <td>Testing pre-producción</td>
-    </tr>
-  </tbody>
-</Table>
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Auth Service",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/auth-service/src/server.js",
+      "env": {
+        "NODE_ENV": "development",
+        "DB_HOST": "localhost",
+        "JWT_SECRET": "debug-secret"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Attach to Docker",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "address": "localhost",
+      "localRoot": "${workspaceFolder}",
+      "remoteRoot": "/app"
+    }
+  ]
+}
+```
 
-## Próximos Pasos
+---
 
-<CardGroup cols={2}>
-  <Card title="Desplegar en AWS EKS" icon="aws" href="/quickstart">
-    Lleva tu aplicación a producción
-  </Card>
-  <Card title="Configurar CI/CD" icon="github">
-    Automatiza deployments con GitHub Actions
-  </Card>
-  <Card title="Monitoreo Avanzado" icon="chart-line" href="/infrastructure/monitoring">
-    Prometheus, Grafana y alertas
-  </Card>
-  <Card title="Arquitectura" icon="sitemap" href="/architecture">
-    Entiende el diseño completo
-  </Card>
-</CardGroup>
+## 8.1.6. Troubleshooting Común
+
+### Problemas de Puerto
+
+```bash
+# Ver qué proceso usa un puerto
+lsof -i :3001
+
+# Matar proceso en puerto específico
+kill -9 $(lsof -t -i:3001)
+```
+
+### Problemas con Docker
+
+```bash
+# Limpiar contenedores parados
+docker container prune -f
+
+# Limpiar imágenes sin usar
+docker image prune -f
+
+# Reiniciar Docker completamente
+sudo systemctl restart docker
+```
+
+### Problemas con Minikube
+
+```bash
+# Reiniciar minikube
+minikube stop
+minikube start
+
+# Limpiar completamente
+minikube delete
+minikube start
+```
+
+<Note>
+Para troubleshooting avanzado, consulta la sección [8.4. Troubleshooting](/development/troubleshooting).
+</Note>

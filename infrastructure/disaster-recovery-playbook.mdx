@@ -37,428 +37,580 @@ Esta guía establece los procedimientos completos de recuperación ante desastre
 | **Core Applications** | 15 min | 45 min | 35 min | P1-Alta | EKS, RDS, Redis | Microservicios críticos |
 | **Frontend/CDN** | 1 hora | 30 min | 25 min | P1-Alta | S3, CloudFront | Assets estáticos |
 | **Monitoring Stack** | 30 min | 1 hora | 45 min | P2-Media | EKS | Prometheus, Grafana |
-| **Logging (ELK)** | 2 horas | 1.5 horas | 1 hora | P2-Media | EKS | Elasticsearch cluster |
-| **CI/CD Pipeline** | 4 horas | 2 horas | 90 min | P3-Baja | EKS | Jenkins/ArgoCD |
-| **Backup Systems** | 24 horas | 4 horas | 3 horas | P3-Baja | S3 | Velero, snapshots |
+| **Logging (ELK)** | 2 horas | 2 horas | 90 min | P2-Media | EKS | Análisis diferido |
 
-<Info>*MTTR basado en incidentes de los últimos 12 meses</Info>
+*MTTR basado en simulacros últimos 6 meses
 
-## 4.6.2 Runbooks de Recuperación por Servicio
+## 4.6.2 Escenarios de Desastre Específicos
 
-### 4.6.2.1 PostgreSQL RDS - Runbook de Recuperación
+### Escenario 1: Pérdida Completa de Región AWS
 
-<Tabs>
-<Tab title="Escenario: Falla de Instancia Principal">
+<Callout type="error">
+**Severidad:** Catastrófica | **RPO:** 15 min | **RTO:** 2 horas | **Probabilidad:** Baja
+</Callout>
 
-#### Detección Automática
-
-```bash
-
-# Verificar estado RDS
-aws rds describe-db-instances \
-  --db-instance-identifier retrogame-prod-primary \
-  --query 'DBInstances[0].DBInstanceStatus'
-
-# Monitorear métricas CloudWatch
-aws cloudwatch get-metric-statistics \
-  --namespace AWS/RDS \
-  --metric-name DatabaseConnections \
-  --dimensions Name=DBInstanceIdentifier,Value=retrogame-prod-primary
-
-```
-
-#### Procedimiento de Failover
-
-```bash
-#!/bin/bash
-
-# recovery-rds-failover.sh
-
-echo "=== INICIANDO FAILOVER RDS ==="
-echo "Timestamp: $(date)"
-
-# 1. Verificar Multi-AZ status
-aws rds describe-db-instances \
-  --db-instance-identifier retrogame-prod-primary \
-  --query 'DBInstances[0].MultiAZ'
-
-# 2. Ejecutar failover automático
-aws rds reboot-db-instance \
-  --db-instance-identifier retrogame-prod-primary \
-  --force-failover
-
-# 3. Monitorear progreso
-while true; do
-  STATUS=$(aws rds describe-db-instances \
-    --db-instance-identifier retrogame-prod-primary \
-    --query 'DBInstances[0].DBInstanceStatus' \
-    --output text)
-
-  echo "Estado actual: $STATUS"
-
-  if [ "$STATUS" = "available" ]; then
-    echo "✅ Failover completado exitosamente"
-    break
-  fi
-
-  sleep 30
-done
-
-# 4. Verificar conectividad
-psql -h retrogame-prod-primary.cluster-xyz.us-east-1.rds.amazonaws.com \
-     -U admin -d retrogame -c "SELECT 1;"
-
-echo "=== FAILOVER RDS COMPLETADO ==="
-
-```
-
-#### Verificaciones Post-Recuperación
-
-- [ ] Conectividad desde aplicaciones
-
-- [ ] Replicación funcionando
-
-- [ ] Métricas de performance normales
-
-- [ ] Logs sin errores críticos
-
-</Tab>
-
-<Tab title="Escenario: Corrupción de Datos">
-
-#### Procedimiento de Point-in-Time Recovery
-
-```bash
-#!/bin/bash
-
-# recovery-rds-pitr.sh
-
-RESTORE_TIME="2024-01-15T10:30:00.000Z"
-NEW_INSTANCE_ID="retrogame-prod-restored-$(date +%Y%m%d-%H%M)"
-
-echo "=== INICIANDO POINT-IN-TIME RECOVERY ==="
-
-# 1. Crear nueva instancia desde backup
-aws rds restore-db-instance-to-point-in-time \
-  --source-db-instance-identifier retrogame-prod-primary \
-  --target-db-instance-identifier $NEW_INSTANCE_ID \
-  --restore-time $RESTORE_TIME \
-  --db-subnet-group-name retrogame-db-subnet-group \
-  --vpc-security-group-ids sg-1234567890abcdef0
-
-# 2. Esperar disponibilidad
-aws rds wait db-instance-available \
-  --db-instance-identifier $NEW_INSTANCE_ID
-
-# 3. Obtener nuevo endpoint
-NEW_ENDPOINT=$(aws rds describe-db-instances \
-  --db-instance-identifier $NEW_INSTANCE_ID \
-  --query 'DBInstances[0].Endpoint.Address' \
-  --output text)
-
-echo "Nueva instancia disponible en: $NEW_ENDPOINT"
-
-# 4. Validar datos
-psql -h $NEW_ENDPOINT -U admin -d retrogame << EOF
-SELECT COUNT(*) FROM users;
-SELECT COUNT(*) FROM games;
-SELECT MAX(created_at) FROM user_sessions;
-EOF
-
-echo "=== POINT-IN-TIME RECOVERY COMPLETADO ==="
-
-```
-
-</Tab>
-
-<Tab title="Escenario: Disaster Recovery Cross-Region">
-
-#### Procedimiento de Recuperación Regional
-
-```bash
-#!/bin/bash
-
-# recovery-rds-cross-region.sh
-
-DR_REGION="us-west-2"
-SNAPSHOT_ID="retrogame-prod-manual-$(date +%Y%m%d)"
-
-echo "=== INICIANDO DR CROSS-REGION ==="
-
-# 1. Crear snapshot manual
-aws rds create-db-snapshot \
-  --db-snapshot-identifier $SNAPSHOT_ID \
-  --db-instance-identifier retrogame-prod-primary
-
-# 2. Copiar snapshot a región DR
-aws rds copy-db-snapshot \
-  --source-db-snapshot-identifier $SNAPSHOT_ID \
-  --target-db-snapshot-identifier $SNAPSHOT_ID-dr \
-  --source-region us-east-1 \
-  --target-region $DR_REGION
-
-# 3. Restaurar en región DR
-aws rds restore-db-instance-from-db-snapshot \
-  --db-instance-identifier retrogame-prod-dr \
-  --db-snapshot-identifier $SNAPSHOT_ID-dr \
-  --region $DR_REGION
-
-echo "=== DR CROSS-REGION EN PROGRESO ==="
-
-```
-
-</Tab>
-</Tabs>
-
-### 4.6.2.2 EKS Cluster - Runbook de Recuperación
-
-<Tabs>
-<Tab title="Escenario: Falla del Control Plane">
-
-#### Diagnóstico y Detección
-
-```bash
-#!/bin/bash
-
-# diagnosis-eks-control-plane.sh
-
-echo "=== DIAGNÓSTICO EKS CONTROL PLANE ==="
-
-# 1. Verificar estado del cluster
-aws eks describe-cluster \
-  --name retrogame-prod \
-  --query 'cluster.status'
-
-# 2. Verificar endpoints de API
-kubectl cluster-info
-
-# 3. Verificar nodos
-kubectl get nodes -o wide
-
-# 4. Verificar servicios críticos
-kubectl get pods -n kube-system
-
-# 5. Verificar eventos recientes
-kubectl get events --sort-by='.lastTimestamp' | tail -20
-
-```
+#### Impacto
+- Pérdida total de servicios en región primaria (us-west-2)
+- Interrupción completa del servicio para usuarios
+- Activación de región secundaria (us-east-1)
 
 #### Procedimiento de Recuperación
 
+<Steps>
+<Step title="Detección y Activación (0-10 min)">
 ```bash
-#!/bin/bash
+# 1. Confirmar pérdida de región
+aws ec2 describe-regions --region us-west-2
+aws rds describe-db-instances --region us-west-2
 
-# recovery-eks-control-plane.sh
+# 2. Activar plan DR
+./scripts/dr-activate.sh --scenario=region-loss --target=us-east-1
 
-echo "=== RECUPERACIÓN EKS CONTROL PLANE ==="
-
-# 1. Verificar y actualizar kubeconfig
-aws eks update-kubeconfig \
-  --region us-east-1 \
-  --name retrogame-prod
-
-# 2. Verificar conectividad
-kubectl get nodes --request-timeout=10s
-
-# 3. Reiniciar servicios críticos si es necesario
-kubectl rollout restart deployment/coredns -n kube-system
-
-# 4. Verificar pods críticos
-kubectl get pods -n retrogame-system -o wide
-
-# 5. Restaurar aplicaciones desde backup
-helm list -n retrogame-prod
-argocd app sync retrogame-core-apps
-
+# 3. Notificar stakeholders
+./scripts/incident-notify.sh --severity=P0 --scenario="Region Loss"
 ```
+</Step>
 
-#### Escalación Automática
-
-```yaml
-
-# eks-recovery-automation.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: recovery-scripts
-  namespace: kube-system
-data:
-  auto-recovery.sh: |
-    #!/bin/bash
-    # Verificar cada 30 segundos
-    while true; do
-      if ! kubectl get nodes &>/dev/null; then
-        echo "Control plane no disponible - ejecutando recuperación"
-        /scripts/recovery-eks-control-plane.sh
-        sleep 300  # Esperar 5 minutos antes del siguiente intento
-      fi
-      sleep 30
-    done
-
-```
-
-</Tab>
-
-<Tab title="Escenario: Pérdida de Nodos Worker">
-
-#### Diagnóstico de Nodos
-
+<Step title="Activación Base de Datos (10-30 min)">
 ```bash
-#!/bin/bash
+# 1. Promover Read Replica a Master
+aws rds promote-read-replica \
+  --db-instance-identifier retrogame-db-replica-east \
+  --region us-east-1
 
-# diagnosis-eks-nodes.sh
+# 2. Actualizar endpoints de conexión
+kubectl apply -f configs/db-failover-east.yaml
 
-echo "=== DIAGNÓSTICO NODOS WORKER ==="
+# 3. Verificar conectividad
+./scripts/db-health-check.sh --endpoint=retrogame-db-east.amazonaws.com
+```
+</Step>
 
-# 1. Estado de nodos
-kubectl get nodes -o custom-columns=NAME:.metadata.name,STATUS:.status.conditions[-1].type,READY:.status.conditions[-1].status
+<Step title="Recuperación EKS y Aplicaciones (30-90 min)">
+```bash
+# 1. Escalar cluster EKS en región secundaria
+eksctl scale nodegroup --cluster=retrogame-dr \
+  --name=primary-nodes --nodes=5 --region=us-east-1
 
-# 2. Capacidad y utilización
+# 2. Desplegar aplicaciones desde backup
+helm upgrade retrogame ./charts/retrogame \
+  --set region=us-east-1 \
+  --set database.endpoint=retrogame-db-east.amazonaws.com
+
+# 3. Actualizar DNS y CDN
+aws route53 change-resource-record-sets \
+  --hosted-zone-id Z123456789 \
+  --change-batch file://dns-failover.json
+```
+</Step>
+
+<Step title="Verificación y Monitoreo (90-120 min)">
+```bash
+# 1. Ejecutar smoke tests
+./tests/dr-smoke-tests.sh --region=us-east-1
+
+# 2. Verificar métricas críticas
+./scripts/health-dashboard.sh --mode=dr
+
+# 3. Confirmar funcionalidad completa
+curl -f https://api.retrogamecloud.com/health
+```
+</Step>
+</Steps>
+
+### Escenario 2: Corrupción de Base de Datos RDS
+
+<Callout type="error">
+**Severidad:** Alta | **RPO:** 5 min | **RTO:** 45 min | **Probabilidad:** Media
+</Callout>
+
+#### Impacto
+- Datos inconsistentes o corruptos en PostgreSQL
+- Posible pérdida de transacciones recientes
+- Servicios degradados o no disponibles
+
+#### Procedimiento de Recuperación
+
+<Steps>
+<Step title="Identificación y Aislamiento (0-5 min)">
+```bash
+# 1. Detener escrituras a BD
+kubectl scale deployment --replicas=0 \
+  -l app.kubernetes.io/component=api
+
+# 2. Verificar extensión de corrupción
+psql -h retrogame-db.amazonaws.com -c "
+SELECT schemaname, tablename, 
+       pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
+FROM pg_tables WHERE schemaname = 'public';"
+
+# 3. Crear snapshot de emergencia
+aws rds create-db-snapshot \
+  --db-instance-identifier retrogame-db \
+  --db-snapshot-identifier emergency-$(date +%Y%m%d-%H%M%S)
+```
+</Step>
+
+<Step title="Restauración desde Backup (5-30 min)">
+```bash
+# 1. Identificar último backup válido
+aws rds describe-db-snapshots \
+  --db-instance-identifier retrogame-db \
+  --snapshot-type automated | jq '.DBSnapshots[0]'
+
+# 2. Restaurar desde snapshot
+aws rds restore-db-instance-from-db-snapshot \
+  --db-instance-identifier retrogame-db-restored \
+  --db-snapshot-identifier retrogame-db-2024-01-15-05-00
+
+# 3. Configurar parámetros de BD
+aws rds modify-db-instance \
+  --db-instance-identifier retrogame-db-restored \
+  --db-parameter-group-name retrogame-params
+```
+</Step>
+
+<Step title="Sincronización y Validación (30-40 min)">
+```bash
+# 1. Aplicar transacciones desde logs
+./scripts/replay-transactions.sh \
+  --from-timestamp="2024-01-15 05:00:00" \
+  --source=wal-archive
+
+# 2. Ejecutar validación de integridad
+./scripts/db-integrity-check.sh --full-scan
+
+# 3. Actualizar conexiones de aplicación
+kubectl set env deployment/retrogame-api \
+  DB_HOST=retrogame-db-restored.amazonaws.com
+```
+</Step>
+
+<Step title="Reactivación de Servicios (40-45 min)">
+```bash
+# 1. Escalar aplicaciones gradualmente
+kubectl scale deployment retrogame-api --replicas=2
+sleep 60
+kubectl scale deployment retrogame-api --replicas=5
+
+# 2. Verificar funcionalidad
+./tests/integration-tests.sh --suite=database
+
+# 3. Monitorear métricas post-recuperación
+./scripts/post-recovery-monitor.sh --duration=30m
+```
+</Step>
+</Steps>
+
+### Escenario 3: Fallo Completo del Cluster EKS
+
+<Callout type="warning">
+**Severidad:** Alta | **RPO:** 10 min | **RTO:** 1 hora | **Probabilidad:** Media
+</Callout>
+
+#### Impacto
+- Control plane de EKS no responde
+- Pods y servicios inaccesibles
+- Pérdida de configuraciones efímeras
+
+#### Procedimiento de Recuperación
+
+<Steps>
+<Step title="Diagnóstico y Decisión (0-10 min)">
+```bash
+# 1. Verificar estado del control plane
+kubectl cluster-info
+aws eks describe-cluster --name retrogame-prod
+
+# 2. Intentar recuperación básica
+kubectl get nodes
+eksctl utils update-cluster-logging --cluster=retrogame-prod
+
+# 3. Evaluar necesidad de recreación
+if [ $? -ne 0 ]; then
+  echo "Iniciando recreación de cluster"
+  ./scripts/cluster-rebuild.sh
+fi
+```
+</Step>
+
+<Step title="Recreación de Cluster (10-40 min)">
+```bash
+# 1. Crear nuevo cluster EKS
+eksctl create cluster -f configs/retrogame-cluster-dr.yaml
+
+# 2. Configurar networking
+kubectl apply -f configs/aws-load-balancer-controller.yaml
+kubectl apply -f configs/cluster-autoscaler.yaml
+
+# 3. Restaurar RBAC y secretos
+kubectl apply -f backups/rbac-backup-$(date -d "yesterday" +%Y%m%d).yaml
+kubectl apply -f backups/secrets-backup-$(date -d "yesterday" +%Y%m%d).yaml
+```
+</Step>
+
+<Step title="Despliegue de Aplicaciones (40-55 min)">
+```bash
+# 1. Restaurar aplicaciones desde Helm
+helm repo update
+helm install retrogame ./charts/retrogame \
+  --values configs/production-values.yaml
+
+# 2. Verificar conectividad a servicios externos
+kubectl run test-pod --image=busybox --rm -it -- \
+  nslookup retrogame-db.amazonaws.com
+
+# 3. Configurar ingress y load balancers
+kubectl apply -f configs/ingress-production.yaml
+```
+</Step>
+
+<Step title="Validación Final (55-60 min)">
+```bash
+# 1. Ejecutar health checks
+./tests/k8s-health-check.sh --comprehensive
+
+# 2. Verificar métricas de aplicación
+kubectl get pods -o wide
 kubectl top nodes
 
-# 3. Pods sin programar
-kubectl get pods --field-selector=status.phase=Pending -A
-
-# 4. Verificar Auto Scaling Groups
-aws autoscaling describe-auto-scaling-groups \
-  --auto-scaling-group-names retrogame-prod-nodes
-
+# 3. Confirmar tráfico de usuarios
+./scripts/traffic-validation.sh --duration=5m
 ```
+</Step>
+</Steps>
 
-#### Recuperación de Nodos
+### Escenario 4: Compromiso de Seguridad
 
+<Callout type="error">
+**Severidad:** Crítica | **RPO:** 0 min | **RTO:** 4 horas | **Probabilidad:** Media
+</Callout>
+
+#### Impacto
+- Acceso no autorizado detectado
+- Posible exfiltración de datos
+- Necesidad de rotación completa de credenciales
+
+#### Procedimiento de Recuperación
+
+<Steps>
+<Step title="Contención Inmediata (0-15 min)">
 ```bash
-#!/bin/bash
+# 1. Aislar sistemas comprometidos
+./scripts/security-lockdown.sh --mode=emergency
 
-# recovery-eks-nodes.sh
+# 2. Deshabilitar accesos sospechosos
+aws iam list-users --output table
+./scripts/disable-compromised-users.sh --list-file=suspect-users.txt
 
-ASG_NAME="retrogame-prod-nodes"
-DESIRED_CAPACITY=6
-
-echo "=== RECUPERACIÓN NODOS WORKER ==="
-
-# 1. Escalar ASG si es necesario
-aws autoscaling update-auto-scaling-group \
-  --auto-scaling-group-name $ASG_NAME \
-  --desired-capacity $DESIRED_CAPACITY
-
-# 2. Verificar instancias EC2
-aws ec2 describe-instances \
-  --filters "Name=tag:aws:autoscaling:groupName,Values=$ASG_NAME" \
-  --query 'Reservations[].Instances[].[InstanceId,State.Name]'
-
-# 3. Verificar registro de nodos
-kubectl get nodes -w &
-WATCH_PID=$!
-
-# Esperar hasta que los nodos estén listos
-sleep 300
-kill $WATCH_PID
-
-# 4. Redistribuir pods si es necesario
-kubectl get pods -o wide -A | grep Pending | while read line; do
-  NAMESPACE=$(echo $line | awk '{print $1}')
-  POD=$(echo $line | awk '{print $2}')
-  kubectl delete pod $POD -n $NAMESPACE
-done
-
+# 3. Activar logging extendido
+aws cloudtrail create-trail --name emergency-audit-$(date +%Y%m%d) \
+  --s3-bucket-name retrogame-security-logs
 ```
+</Step>
 
-#### Configuración Cluster Autoscaler
+<Step title="Análisis Forense (15-60 min)">
+```bash
+# 1. Capturar estado del sistema
+kubectl get events --all-namespaces > security-events-$(date +%Y%m%d-%H%M).log
+aws logs start-export-task --log-group-name /aws/eks/retrogame-prod/cluster
+
+# 2. Analizar accesos recientes
+./scripts/security-audit.sh --timerange="last 24 hours"
+
+# 3. Identificar vectores de ataque
+./tools/incident-analyzer.sh --mode=security \
+  --output=security-report-$(date +%Y%m%d).json
+```
+</Step>
+
+<Step title="Rotación de Credenciales (60-180 min)">
+```bash
+# 1. Rotar claves de AWS
+./scripts/rotate-aws-keys.sh --all-services
+
+# 2. Regenerar certificados TLS
+./scripts/cert-rotation.sh --domain=retrogamecloud.com
+
+# 3. Actualizar secretos de Kubernetes
+./scripts/k8s-secrets-rotation.sh --namespace=production
+
+# 4. Cambiar passwords de BD
+./scripts/db-password-rotation.sh --all-databases
+```
+</Step>
+
+<Step title="Reconstrucción Limpia (180-240 min)">
+```bash
+# 1. Crear entorno limpio desde imágenes conocidas
+./scripts/clean-deploy.sh --verified-images-only
+
+# 2. Restaurar datos desde backup verificado
+./scripts/restore-verified-backup.sh \
+  --timestamp="before-incident" --verify-integrity
+
+# 3. Implementar controles adicionales
+kubectl apply -f configs/enhanced-security-policies.yaml
+
+# 4. Ejecutar pruebas de penetración básicas
+./security-tests/post-incident-scan.sh
+```
+</Step>
+</Steps>
+
+### Escenario 5: Pérdida de Datos en S3
+
+<Callout type="warning">
+**Severidad:** Media-Alta | **RPO:** 1 hora | **RTO:** 2 horas | **Probabilidad:** Baja
+</Callout>
+
+#### Impacto
+- Pérdida de assets estáticos (imágenes, ROMs, saves)
+- CDN sin contenido para servir
+- Experiencia de usuario degradada
+
+#### Procedimiento de Recuperación
+
+<Steps>
+<Step title="Evaluación de Pérdida (0-15 min)">
+```bash
+# 1. Verificar estado de buckets
+aws s3 ls s3://retrogame-assets --recursive | wc -l
+aws s3api list-object-versions --bucket retrogame-assets
+
+# 2. Identificar extensión de la pérdida
+./scripts/s3-audit.sh --bucket=retrogame-assets \
+  --compare-with-manifest=assets-manifest.json
+
+# 3. Verificar impacto en CDN
+aws cloudfront get-distribution --id E1234567890ABC
+```
+</Step>
+
+<Step title="Restauración desde Versionado (15-60 min)">
+```bash
+# 1. Listar versiones disponibles
+aws s3api list-object-versions --bucket retrogame-assets \
+  --query 'Versions[?IsLatest==`false`]'
+
+# 2. Restaurar objetos eliminados
+./scripts/s3-version-restore.sh \
+  --bucket=retrogame-assets \
+  --restore-point="2024-01-15T00:00:00Z"
+
+# 3. Verificar integridad de archivos restaurados
+./scripts/asset-integrity-check.sh --bucket=retrogame-assets
+```
+</Step>
+
+<Step title="Restauración desde Backup (60-90 min)">
+```bash
+# 1. Restaurar desde Glacier si es necesario
+aws s3 restore-object --bucket retrogame-backups \
+  --key "full-backup-$(date -d '7 days ago' +%Y%m%d).tar.gz" \
+  --restore-request Days=1
+
+# 2. Sincronizar desde backup regional
+aws s3 sync s3://retrogame-assets-backup-eu s3://retrogame-assets \
+  --storage-class STANDARD
+
+# 3. Regenerar assets faltantes
+./scripts/asset-regeneration.sh --missing-only
+```
+</Step>
+
+<Step title="Invalidación CDN y Verificación (90-120 min)">
+```bash
+# 1. Invalidar cache de CloudFront
+aws cloudfront create-invalidation \
+  --distribution-id E1234567890ABC \
+  --paths "/*"
+
+# 2. Verificar disponibilidad de assets
+./tests/asset-availability-test.sh --comprehensive
+
+# 3. Monitorear métricas de CDN
+./scripts/cdn-health-monitor.sh --duration=30m
+
+# 4. Notificar finalización
+./scripts/incident-close.sh --scenario="S3 Data Loss" \
+  --status="Resolved" --impact="Minimal"
+```
+</Step>
+</Steps>
+
+## 4.6.3 Matriz de Escalación
+
+### Niveles de Severidad
+
+| Nivel | Descripción | Tiempo de Respuesta | Equipo Requerido |
+|-------|-------------|-------------------|------------------|
+| **P0 - Crítico** | Servicio completamente caído | 15 min | Incident Commander + Equipo completo |
+| **P1 - Alto** | Funcionalidad principal afectada | 30 min | Incident Commander + Especialistas |
+| **P2 - Medio** | Servicios secundarios afectados | 1 hora | Especialista designado |
+| **P3 - Bajo** | Impacto mínimo en usuarios | 4 horas | Equipo regular durante horario |
+
+### Contactos de Escalación
 
 ```yaml
+incident_commander:
+  primary: "Juan Pérez <juan.perez@retrogame.com>"
+  backup: "María García <maria.garcia@retrogame.com>"
 
-# cluster-autoscaler-config.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: cluster-autoscaler
-  namespace: kube-system
-spec:
-  template:
-    spec:
-      containers:
-      - name: cluster-autoscaler
-        image: k8s.gcr.io/autoscaling/cluster-autoscaler:v1.24.0
-        command:
-        - ./cluster-autoscaler
-        - --v=4
-        - --stderrthreshold=info
-        - --cloud-provider=aws
-        - --skip-nodes-with-local-storage=false
-        - --expander=least-waste
-        - --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/retrogame-prod
-        - --balance-similar-node-groups
-        - --scale-down-delay-after-add=10m
-        - --scale-down-unneeded-time=10m
+technical_leads:
+  infrastructure: "Carlos Ruiz <carlos.ruiz@retrogame.com>"
+  database: "Ana López <ana.lopez@retrogame.com>"
+  security: "Pedro Martín <pedro.martin@retrogame.com>"
 
+management:
+  cto: "Laura Sánchez <laura.sanchez@retrogame.com>"
+  ops_director: "Miguel Torres <miguel.torres@retrogame.com>"
+
+external:
+  aws_support: "Enterprise Support Case"
+  security_firm: "SecureCloud Inc. +1-555-SEC-HELP"
 ```
 
+## 4.6.4 Testing y Simulacros
+
+### Programa de Simulacros Trimestrales
+
+<Tabs>
+<Tab title="Q1 - Simulacro de Región">
+**Fecha:** Primer sábado de marzo
+**Duración:** 4 horas
+**Alcance:** Failover completo us-west-2 → us-east-1
+
+```bash
+# Plan de ejecución Q1
+./simulacros/q1-region-failover.sh --mode=simulation
+```
+
+**Métricas a validar:**
+- RTO real vs objetivo (120 min)
+- RPO real vs objetivo (15 min)
+- Funcionalidad post-recuperación (100%)
 </Tab>
 
-<Tab title="Escenario: Pérdida de Datos de Aplicaciones">
-
-#### Recuperación con Velero
-
-```bash
-#!/bin/bash
-
-# recovery-eks-velero.sh
-
-BACKUP_NAME="daily-backup-$(date -d '1 day ago' +%Y%m%d)"
-
-echo "=== RECUPERACIÓN CON VELERO ==="
-
-# 1. Listar backups disponibles
-velero backup get
-
-# 2. Verificar backup específico
-velero backup describe $BACKUP_NAME
-
-# 3. Crear restore desde backup
-velero restore create restore-$(date +%Y%m%d-%H%M) \
-  --from-backup $BACKUP_NAME \
-  --namespace-mappings retrogame-prod:retrogame-prod
-
-# 4. Monitorear progreso
-velero restore get
-velero restore logs restore-$(date +%Y%m%d-%H%M)
-
-# 5. Verificar aplicaciones
-kubectl get pods -n retrogame-prod
-kubectl get pvc -n retrogame-prod
-
-```
-
-#### Recuperación Selectiva
+<Tab title="Q2 - Simulacro de Base de Datos">
+**Fecha:** Primer sábado de junio
+**Duración:** 2 horas
+**Alcance:** Restauración RDS desde snapshot
 
 ```bash
-#!/bin/bash
-
-# selective-restore.sh
-
-echo "=== RECUPERACIÓN SELECTIVA ==="
-
-# Recuperar solo un namespace específico
-velero restore create restore-api-$(date +%Y%m%d) \
-  --from-backup $BACKUP_NAME \
-  --include-namespaces retrogame-api
-
-# Recuperar solo recursos específicos
-velero restore create restore-db-$(date +%Y%m%d) \
-  --from-backup $BACKUP_NAME \
-  --include-resources persistentvolumes,persistentvolumeclaims
-
-# Excluir recursos problemáticos
-velero restore create restore-safe-$(date +%Y%m%d) \
-  --from-backup $BACKUP_NAME \
-  --exclude-resources nodes,events
-
+# Plan de ejecución Q2
+./simulacros/q2-database-recovery.sh --mode=simulation
 ```
 
+**Métricas a validar:**
+- Tiempo de restauración (45 min)
+- Integridad de datos (100%)
+- Tiempo de sincronización (10 min)
+</Tab>
+
+<Tab title="Q3 - Simulacro de Seguridad">
+**Fecha:** Primer sábado de septiembre
+**Duración:** 6 horas
+**Alcance:** Respuesta a incident de seguridad
+
+```bash
+# Plan de ejecución Q3
+./simulacros/q3-security-incident.sh --mode=tabletop
+```
+
+**Métricas a validar:**
+- Tiempo de contención (15 min)
+- Tiempo de rotación de credenciales (3 horas)
+- Tiempo de reconstrucción limpia (4 horas)
+</Tab>
+
+<Tab title="Q4 - Simulacro Integral">
+**Fecha:** Primer sábado de diciembre
+**Duración:** 8 horas
+**Alcance:** Múltiples fallos simultáneos
+
+```bash
+# Plan de ejecución Q4
+./simulacros/q4-comprehensive.sh --mode=full-simulation
+```
+
+**Métricas a validar:**
+- Coordinación entre equipos
+- Comunicación con stakeholders
+- Documentación de lecciones aprendidas
 </Tab>
 </Tabs>
 
-### 4.6.2.3 Redis ElastiCache - Runbook de Recuperación
+### Herramientas de Testing Automatizado
 
-Consultar el runbook específico de Redis en la sección de [Runbooks](/infrastructure/runbooks) para procedimientos detallados de recuperación de ElastiCache.
+```yaml
+# chaos-engineering.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chaos-testing-config
+data:
+  experiments: |
+    - name: "pod-failure"
+      schedule: "0 2 * * MON"
+      target: "random-pod"
+      duration: "5m"
+    
+    - name: "network-latency"
+      schedule: "0 3 * * WED"
+      target: "api-gateway"
+      latency: "500ms"
+      duration: "10m"
+    
+    - name: "disk-pressure"
+      schedule: "0 4 * * FRI"
+      target: "database-volume"
+      usage: "90%"
+      duration: "15m"
+```
+
+## 4.6.5 Métricas y Reportes
+
+### Dashboard de DR en Tiempo Real
+
+```javascript
+// Grafana Dashboard Query Examples
+// RTO Actual vs Objetivo
+rate(recovery_time_seconds[5m]) / recovery_time_objective_seconds * 100
+
+// RPO Actual vs Objetivo  
+rate(data_loss_seconds[5m]) / recovery_point_objective_seconds * 100
+
+// Disponibilidad del Sistema
+(up == 1) * 100
+```
+
+### Reporte Post-Incident
+
+<Callout>
+**Plantilla de Post-Mortem disponible en:**
+`/docs/templates/post-mortem-template.md`
+</Callout>
+
+**Elementos requeridos:**
+- Timeline detallado del incidente
+- RTO/RPO reales vs objetivos
+- Acciones correctivas identificadas
+- Actualizaciones a runbooks necesarias
+- Próximos pasos de mejora
+
+### SLA y Compromisos de Disponibilidad
+
+| Servicio | SLA Mensual | Downtime Permitido | Penalizaciones |
+|----------|-------------|-------------------|----------------|
+| **API Principal** | 99.95% | 21.6 minutos | Crédito 10% |
+| **Frontend** | 99.9% | 43.2 minutos | Crédito 5% |
+| **Servicios Auxiliares** | 99.5% | 3.6 horas | Sin penalización |
+
+---
+
+<Callout type="info">
+**Próxima Revisión:** Esta documentación se actualiza mensualmente.
+**Última Actualización:** Enero 2024
+**Responsable:** Equipo de Infrastructure & SRE
+</Callout>

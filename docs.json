@@ -55,7 +55,7 @@
               "index",
               "quickstart"
             ],
-            "description": "Visión general del proyecto RetroGameHub y guía de inicio rápido para empezar a utilizar la plataforma"
+            "description": "Visión general del proyecto RetroGameHub y guía de inicio rápido para comenzar a utilizar la plataforma"
           },
           {
             "group": "2. Conceptos y Arquitectura",
@@ -67,15 +67,14 @@
             "description": "Arquitectura del sistema, patrones de diseño y diagramas de secuencia de los flujos principales de la aplicación"
           },
           {
-            "group": "3. Guías de Desarrollo",
+            "group": "3. Configuración del Entorno",
             "icon": "code",
             "pages": [
               "desarrollo-local",
               "configuration",
-              "development/e2e-testing",
               "troubleshooting"
             ],
-            "description": "Configuración del entorno de desarrollo local, variables de entorno, pruebas end-to-end y resolución de problemas comunes"
+            "description": "Configuración del entorno de desarrollo local, variables de entorno y resolución de problemas comunes"
           },
           {
             "group": "4. Frontend",
@@ -99,7 +98,7 @@
             "description": "Documentación técnica de los microservicios: autenticación, gestión de usuarios, catálogo de juegos, puntuaciones y clasificaciones"
           },
           {
-            "group": "6. Seguridad",
+            "group": "6. Seguridad y Autenticación",
             "icon": "shield",
             "pages": [
               "infrastructure/oauth2-authentication"
@@ -132,6 +131,14 @@
               "deployment"
             ],
             "description": "Pipelines CI/CD con GitHub Actions, metodología GitOps con ArgoCD y procesos de despliegue automatizado en Kubernetes"
+          },
+          {
+            "group": "9. Pruebas y Calidad",
+            "icon": "check-circle",
+            "pages": [
+              "development/e2e-testing"
+            ],
+            "description": "Pruebas end-to-end, estrategias de testing y aseguramiento de la calidad del código"
           }
         ]
       },
@@ -139,7 +146,7 @@
         "tab": "Referencia API",
         "groups": [
           {
-            "group": "1. Visión General",
+            "group": "1. Introducción a la API",
             "icon": "book-open",
             "pages": [
               "api-reference/backend-main",
@@ -177,20 +184,27 @@
             "description": "API del catálogo: listado de juegos disponibles, búsqueda con filtros y consulta de detalles de cada juego"
           },
           {
-            "group": "5. Puntuaciones y Clasificaciones",
-            "icon": "trophy",
+            "group": "5. Puntuaciones",
+            "icon": "star",
             "pages": [
               "api-reference/score-service",
               "api-reference/scores/submit",
-              "api-reference/scores/get",
+              "api-reference/scores/get"
+            ],
+            "description": "API de puntuaciones: envío y consulta de resultados de partidas"
+          },
+          {
+            "group": "6. Clasificaciones y Rankings",
+            "icon": "trophy",
+            "pages": [
               "api-reference/ranking-service",
               "api-reference/rankings/global",
               "api-reference/rankings/by-game"
             ],
-            "description": "API de puntuaciones: envío y consulta de resultados, tablas de clasificación globales y rankings por juego"
+            "description": "API de clasificaciones: tablas de clasificación globales y rankings por juego"
           },
           {
-            "group": "6. Especificaciones Técnicas",
+            "group": "7. Especificaciones Técnicas",
             "icon": "code",
             "pages": [
               "api-reference/frontend",

@@ -28,6 +28,53 @@ GitOps es una metodología de despliegue donde **Git es la única fuente de verd
   </Card>
 </CardGroup>
 
+## Flujo de Trabajo Completo
+
+El siguiente diagrama muestra el flujo completo desde el desarrollo hasta la producción:
+
+```mermaid
+flowchart TD
+    Dev[👩‍💻 Desarrollador] -->|git push| GitHub[📦 GitHub Repository]
+    
+    GitHub --> Actions[⚡ GitHub Actions]
+    Actions --> Validate[✅ Validar Manifiestos]
+    Actions --> Test[🧪 Test Migraciones]
+    Actions --> Build[🔨 Build & Push Images]
+    
+    Build --> Success{✅ CI Success?}
+    Success -->|❌ Fail| Notification[📧 Notificar Error]
+    Success -->|✅ Pass| ArgoCD[🤖 ArgoCD]
+    
+    ArgoCD --> Sync[🔄 Sync Manifiestos]
+    Sync --> EKS[☁️ Amazon EKS]
+    
+    EKS --> Deploy[🚀 Deploy Aplicación]
+    Deploy --> Health{💚 Health Check?}
+    
+    Health -->|❌ Fail| Rollback[↩️ Rollback Automático]
+    Health -->|✅ Pass| Production[🌐 Producción]
+    
+    Rollback --> ArgoCD
+    Production --> Monitor[📊 Monitoreo]
+    
+    Monitor -->|🚨 Alerta| AlertManager[🔔 Alert Manager]
+    AlertManager --> Slack[💬 Slack/Email]
+
+    classDef github fill:#f9f9f9,stroke:#24292e
+    classDef actions fill:#e7f3ff,stroke:#0969da
+    classDef argocd fill:#fff2e7,stroke:#fd7e14
+    classDef eks fill:#e7f7ff,stroke:#0084c7
+    classDef success fill:#e7f7e7,stroke:#28a745
+    classDef error fill:#ffe7e7,stroke:#dc3545
+    
+    class GitHub github
+    class Actions,Validate,Test,Build actions
+    class ArgoCD,Sync argocd
+    class EKS,Deploy eks
+    class Production success
+    class Rollback,Notification error
+```
+
 ## Repositorio GitOps: `kubernetes/`
 
 Este repositorio centraliza todos los manifiestos de Kubernetes y scripts de migración de base de datos.
@@ -35,7 +82,6 @@ Este repositorio centraliza todos los manifiestos de Kubernetes y scripts de mig
 ### Estructura del Repositorio
 
 ```
-
 kubernetes/
 ├── .github/
 │   └── workflows/
@@ -58,335 +104,167 @@ kubernetes/
 ├── 06-auth-service.yaml              # Servicio de autenticación
 ├── 07-game-catalog.yaml             # Catálogo de juegos
 ├── 08-score-service.yaml            # Servicio de puntuaciones
-├── 09-ranking-service.yaml          # Servicio de rankings
-├── 10-user-service.yaml             # Servicio de usuarios
-├── 11-flyway-migration-job.yaml     # Job para ejecutar migraciones
-├── README.md
-└── package.json
-
+├── 09-ranking-service.yaml          # Servicio de ranking
+├── 10-redis.yaml                    # Cache Redis
+└── 11-monitoring.yaml               # Stack de monitoreo
 ```
 
-### Nomenclatura de Archivos
+### Pipeline de CI/CD
 
-Los archivos están numerados para indicar el orden de aplicación:
-
-<Steps>
-  <Step title="00-namespace.yaml">
-    **Primero**: Crear el namespace `retrogame`
-
-    Todos los demás recursos dependen de esto.
-  </Step>
-
-  <Step title="01-postgres.yaml">
-    **Segundo**: Base de datos
-
-    Los servicios necesitan conectarse a PostgreSQL.
-  </Step>
-
-  <Step title="02-11-services.yaml">
-    **Tercero**: Servicios de aplicación
-
-    Backend, frontend, microservicios y API Gateway.
-  </Step>
-
-  <Step title="11-flyway-migration-job.yaml">
-    **Último**: Job de migración
-
-    Ejecuta migraciones después del despliegue de la base de datos.
-  </Step>
-</Steps>
-
-## Migraciones de Base de Datos
-
-### Herramientas
-
-Utilizamos **Flyway** para versionado de esquema con migraciones SQL versionadas.
-
-<Card title="¿Por qué Flyway?" icon="database">
-  - **Versionado automático**: Trackea qué migraciones se han ejecutado
-  - **Checksums**: Valida integridad de migraciones existentes
-  - **Rollback**: Soporte para migraciones reversibles
-  - **Kubernetes Jobs**: Integración nativa con nuestro flujo GitOps
-</Card>
-
-### Proceso de Migración
-
-<Steps>
-  <Step title="Crear Script de Migración">
-    ```sql
-    -- migrations/V004__add_leaderboard_table.sql
-    CREATE TABLE leaderboard (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id),
-        game_id INTEGER REFERENCES games(id),
-        score INTEGER NOT NULL,
-        achieved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE INDEX idx_leaderboard_game_score ON leaderboard(game_id, score DESC);
-    ```
-
-  </Step>
-
-  <Step title="Probar en Local">
-    ```bash
-    # Usar Docker Compose para testing local
-    docker-compose -f docker-compose.test.yml up postgres
-
-    # Ejecutar migración
-    flyway -configFiles=migrations/flyway.conf migrate
-
-    # Validar resultado
-    psql -h localhost -U retrogame_user -d retrogame_test -c "\dt"
-    ```
-
-  </Step>
-
-  <Step title="Ejecutar en Staging">
+<Tabs>
+  <Tab title="GitHub Actions">
     ```yaml
-    # 11-flyway-migration-job.yaml
-    apiVersion: batch/v1
-    kind: Job
+    name: Validar Manifiestos
+    on:
+      push:
+        branches: [main, develop]
+      pull_request:
+        branches: [main]
+
+    jobs:
+      validate:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          
+          - name: Validar YAML
+            run: |
+              yamllint *.yaml
+              kubeval *.yaml
+              
+          - name: Test Migraciones
+            run: |
+              docker run --rm -v $(pwd)/migrations:/flyway/sql \
+                flyway/flyway validate
+    ```
+  </Tab>
+
+  <Tab title="ArgoCD Application">
+    ```yaml
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
     metadata:
-      name: flyway-migration-staging
-      namespace: retrogame
+      name: retrogame-platform
+      namespace: argocd
     spec:
-      template:
-        spec:
-          containers:
-          - name: flyway
-            image: flyway/flyway:8.5.13
-            command: ["flyway", "migrate"]
-            env:
-            - name: FLYWAY_URL
-              value: "jdbc:postgresql://postgres-staging:5432/retrogame"
-            - name: FLYWAY_USER
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-credentials
-                  key: username
-            - name: FLYWAY_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-credentials
-                  key: password
-            volumeMounts:
-            - name: migration-scripts
-              mountPath: /flyway/sql
-          volumes:
-          - name: migration-scripts
-            configMap:
-              name: flyway-migrations
-          restartPolicy: Never
+      project: default
+      source:
+        repoURL: https://github.com/empresa/kubernetes
+        targetRevision: main
+        path: .
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: retrogame
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - CreateNamespace=true
     ```
+  </Tab>
 
-  </Step>
-
-  <Step title="Validar Integridad">
+  <Tab title="Rollback Strategy">
     ```bash
-    # Tests automatizados post-migración
-    kubectl apply -f tests/migration-validation-job.yaml
-
-    # Verificar que no hay errores
-    kubectl logs -f job/migration-validation
+    # Rollback automático en caso de fallo
+    # ArgoCD detecta fallos en health checks
+    
+    # 1. Rollback de aplicación
+    argocd app rollback retrogame-platform
+    
+    # 2. Rollback de base de datos (si necesario)
+    docker run --rm \
+      -v $(pwd)/migrations:/flyway/sql \
+      flyway/flyway undo
+    
+    # 3. Notificación automática
+    curl -X POST $SLACK_WEBHOOK \
+      -d "Rollback ejecutado en retrogame-platform"
     ```
+  </Tab>
+</Tabs>
 
-  </Step>
+## Gestión de Base de Datos
 
-  <Step title="Desplegar en Producción">
-    <Warning>
-      Migraciones en producción requieren **ventana de mantenimiento aprobada**
-    </Warning>
+### Migraciones con Flyway
 
-    ```bash
-    # Aplicar con ArgoCD
-    argocd app sync retrogame-production
+<Warning>
+Las migraciones se ejecutan **antes** del despliegue de aplicaciones para garantizar compatibilidad del esquema.
+</Warning>
 
-    # Monitorear ejecución
-    kubectl logs -f job/flyway-migration-production
-    ```
+```sql
+-- migrations/V004__add_achievements_table.sql
+CREATE TABLE achievements (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    game_id VARCHAR(50) NOT NULL,
+    achievement_type VARCHAR(100) NOT NULL,
+    points INTEGER DEFAULT 0,
+    unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-  </Step>
-</Steps>
+CREATE INDEX idx_achievements_user_game 
+ON achievements(user_id, game_id);
+```
 
-### Estrategias de Versionado de Esquema
+### Rollback de Migraciones
+
+```sql
+-- migrations/U004__remove_achievements_table.sql
+DROP TABLE IF EXISTS achievements CASCADE;
+```
+
+## Monitoreo y Alertas
+
+El flujo GitOps incluye monitoreo continuo:
 
 <CardGroup cols={2}>
-  <Card title="Migraciones Aditivas" icon="plus">
-    **Seguras para aplicar en caliente:**
-
-    - `ADD COLUMN` con valores por defecto
-    - `CREATE INDEX CONCURRENTLY`
-    - `CREATE TABLE` nuevas
-    - Nuevas vistas y funciones
+  <Card title="Health Checks" icon="heart-pulse">
+    - Liveness probes
+    - Readiness probes  
+    - Startup probes
+    - Database connectivity
   </Card>
 
-  <Card title="Migraciones Destructivas" icon="triangle-exclamation">
-    **Requieren ventana de mantenimiento:**
-
-    - `DROP COLUMN`
-    - `ALTER COLUMN` que cambie tipo
-    - `DROP INDEX` en tablas grandes
-    - Renombrar columnas críticas
+  <Card title="Métricas Clave" icon="chart-line">
+    - Deployment success rate
+    - Rollback frequency
+    - Time to recovery
+    - Migration duration
   </Card>
 </CardGroup>
 
-### Nomenclatura de Migraciones
+## Estrategias de Despliegue
 
-```
-
-V{VERSION}__{DESCRIPCION}.sql     # Migración hacia adelante
-U{VERSION}__{DESCRIPCION}.sql     # Migración de rollback
-
-Ejemplos:
-V001__initial_schema.sql
-V002__add_users_table.sql
-V003__add_games_indexes.sql
-U003__remove_games_indexes.sql   # Rollback de V003
-V004__add_leaderboard_table.sql
-
-```
-
-### Procedimientos de Rollback
-
-<Accordion title="Rollback Automático">
-  Para migraciones con script de rollback disponible:
-
-  ```bash
-  # Ejecutar rollback usando Flyway
-  flyway undo -target=V002
-
-  # O mediante Job de Kubernetes
-  kubectl apply -f jobs/flyway-rollback-job.yaml
-  ```
-
-</Accordion>
-
-<Accordion title="Rollback Manual">
-  Para migraciones sin script de rollback:
-
-  <Steps>
-    <Step title="Identificar Cambios">
-      ```sql
-      -- Revisar historial de migraciones
-      SELECT * FROM flyway_schema_history ORDER BY installed_on DESC;
-      ```
-
-    </Step>
-
-    <Step title="Crear Script de Rollback">
-      ```sql
-      -- Ejemplo: Rollback de ADD COLUMN
-      ALTER TABLE users DROP COLUMN last_login;
-
-      -- Ejemplo: Rollback de CREATE INDEX
-      DROP INDEX CONCURRENTLY idx_users_email;
-      ```
-
-    </Step>
-
-    <Step title="Aplicar con Precaución">
-      <Warning>
-        Migraciones destructivas pueden causar pérdida de datos
-      </Warning>
-
-      ```bash
-      # Backup antes del rollback
-      pg_dump retrogame > backup_pre_rollback.sql
-
-      # Aplicar rollback
-      psql -f rollback_script.sql retrogame
-      ```
-
-    </Step>
-  </Steps>
-</Accordion>
-
-## Flujo GitOps Completo
-
-### 1. Desarrollo Local
-
-```bash
-
-# Developer workflow
-git checkout -b feature/new-leaderboard
-
-# Crear migración
-echo "CREATE TABLE leaderboard..." > migrations/V004__add_leaderboard.sql
-
-# Probar localmente
-docker-compose up -d postgres
-flyway migrate
-
-# Commit cambios
-git add migrations/
-git commit -m "feat: add leaderboard table migration"
-git push origin feature/new-leaderboard
-
-```
-
-### 2. CI/CD Pipeline
+### Blue-Green Deployment
 
 ```yaml
-
-# .github/workflows/ci.yml
-name: Validate Manifests and Migrations
-
-on:
-  pull_request:
-    branches: [main]
-
-jobs:
-  validate-manifests:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Validate Kubernetes YAMLs
-      run: |
-        kubectl --dry-run=client apply -f *.yaml
-
-    - name: Test Migrations
-      run: |
-        docker-compose -f docker-compose.test.yml up -d postgres
-        flyway -configFiles=migrations/flyway.conf migrate
-        flyway validate
-
+# Configuración para despliegue blue-green
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 0
 ```
 
-### 3. ArgoCD Sync
+### Canary Releases
 
-```bash
-
-# ArgoCD detecta cambios en el repo
-
-# y aplica automáticamente:
-
-1. Manifiestos de Kubernetes actualizados
-2. Job de migración con nuevos scripts
-3. Validación post-despliegue
-
+```yaml
+# ArgoCD Rollouts para canary
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+spec:
+  strategy:
+    canary:
+      steps:
+      - setWeight: 10
+      - pause: {duration: 5m}
+      - setWeight: 50
+      - pause: {duration: 10m}
 ```
 
-<Info>
-
-* *Resultado**: Infraestructura y esquema de base de datos siempre sincronizados con Git, con historial completo y capacidad de rollback.
-</Info>
-
-## Mejores Prácticas
-
-<CardGroup cols={2}>
-  <Card title="Seguridad" icon="shield">
-    - Nunca hardcodear credenciales
-    - Usar Kubernetes Secrets
-    - Principio de menor privilegio
-    - Auditar cambios de esquema
-  </Card>
-
-  <Card title="Reliability" icon="heart">
-    - Siempre crear script de rollback
-    - Probar en staging primero
-    - Backup antes de migraciones
-    - Monitorear métricas post-deploy
-  </Card>
-</CardGroup>
+<Tip>
+El flujo GitOps garantiza **despliegues consistentes** y **rollbacks rápidos** manteniendo siempre la trazabilidad completa en Git.
+</Tip>

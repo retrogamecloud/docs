@@ -1,12 +1,81 @@
 ---
 title: Database Complete Guide
-description: 'Guía completa de administración, optimización y troubleshooting de PostgreSQL'
+description: Guía completa de administración, optimización y troubleshooting de PostgreSQL
 icon: book-open-cover
 ---
 
 # Guía Completa de Base de Datos
 
 Administración avanzada, optimización y troubleshooting de PostgreSQL en RDS.
+
+## Schema de Base de Datos
+
+### Estructura Principal
+
+```sql
+-- Usuarios
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    avatar_url TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Juegos
+CREATE TABLE games (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL,
+    slug VARCHAR(100) UNIQUE NOT NULL,
+    description TEXT,
+    image_url TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Puntuaciones
+CREATE TABLE scores (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    score INTEGER NOT NULL CHECK (score >= 0),
+    submitted_at TIMESTAMP DEFAULT NOW(),
+    metadata JSONB DEFAULT '{}'
+);
+
+-- Rankings
+CREATE TABLE rankings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    rank INTEGER NOT NULL,
+    score INTEGER NOT NULL,
+    updated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(game_id, user_id)
+);
+```
+
+### Índices Estratégicos
+
+```sql
+-- Índices para búsquedas frecuentes
+CREATE INDEX idx_scores_game_score ON scores(game_id, score DESC);
+CREATE INDEX idx_scores_user_date ON scores(user_id, submitted_at DESC);
+CREATE INDEX idx_rankings_game_rank ON rankings(game_id, rank);
+
+-- Índices parciales para optimización
+CREATE INDEX idx_recent_scores ON scores(game_id, score DESC)
+WHERE submitted_at > CURRENT_DATE - INTERVAL '30 days';
+
+CREATE INDEX idx_active_games ON games(slug, name)
+WHERE is_active = true;
+
+-- Índices para JSONB
+CREATE INDEX idx_scores_metadata ON scores USING GIN(metadata);
+```
 
 ## Optimización de Queries
 
@@ -23,131 +92,288 @@ ORDER BY s.score DESC
 LIMIT 10;
 ```
 
-### Índices Compuestos
+### Queries Optimizadas Comunes
 
 ```sql
--- Para búsquedas por juego y ordenamiento
-CREATE INDEX idx_scores_game_score ON scores(game_id, score DESC);
+-- Top 10 scores por juego (usando índice compuesto)
+SELECT s.score, u.username, s.submitted_at
+FROM scores s
+JOIN users u ON s.user_id = u.id
+WHERE s.game_id = $1
+ORDER BY s.score DESC
+LIMIT 10;
 
--- Para búsquedas por usuario y fecha
-CREATE INDEX idx_scores_user_date ON scores(user_id, submitted_at DESC);
+-- Histórico de usuario (usando índice por usuario)
+SELECT g.name, s.score, s.submitted_at
+FROM scores s
+JOIN games g ON s.game_id = g.id
+WHERE s.user_id = $1
+ORDER BY s.submitted_at DESC
+LIMIT 20;
 
--- Índice parcial para scores recientes
-CREATE INDEX idx_recent_scores ON scores(game_id, score DESC)
-WHERE submitted_at > CURRENT_DATE - INTERVAL '30 days';
+-- Rankings actualizados
+WITH ranked_scores AS (
+  SELECT user_id, score,
+         ROW_NUMBER() OVER (ORDER BY score DESC) as rank
+  FROM scores
+  WHERE game_id = $1
+)
+SELECT u.username, rs.score, rs.rank
+FROM ranked_scores rs
+JOIN users u ON rs.user_id = u.id
+WHERE rs.rank <= 100;
 ```
 
 ## Tuning de PostgreSQL
 
+### Configuración Optimizada
+
 ```conf
-# postgresql.conf
+# postgresql.conf - Para instancia m5.xlarge (4vCPU, 16GB RAM)
 max_connections = 200
-shared_buffers = 2GB
-effective_cache_size = 6GB
-maintenance_work_mem = 512MB
+shared_buffers = 4GB
+effective_cache_size = 12GB
+maintenance_work_mem = 1GB
 checkpoint_completion_target = 0.9
 wal_buffers = 16MB
 default_statistics_target = 100
 random_page_cost = 1.1
 effective_io_concurrency = 200
-work_mem = 10485kB
-min_wal_size = 1GB
-max_wal_size = 4GB
+work_mem = 20MB
+min_wal_size = 2GB
+max_wal_size = 8GB
+checkpoint_timeout = 10min
+max_wal_senders = 10
 ```
+
+### Configuración por Tamaño de Instancia
+
+<Tabs>
+<Tab title="Small (t3.medium)">
+```conf
+shared_buffers = 1GB
+effective_cache_size = 3GB
+work_mem = 4MB
+maintenance_work_mem = 256MB
+max_connections = 100
+```
+</Tab>
+
+<Tab title="Medium (m5.large)">
+```conf
+shared_buffers = 2GB
+effective_cache_size = 6GB
+work_mem = 10MB
+maintenance_work_mem = 512MB
+max_connections = 150
+```
+</Tab>
+
+<Tab title="Large (m5.xlarge)">
+```conf
+shared_buffers = 4GB
+effective_cache_size = 12GB
+work_mem = 20MB
+maintenance_work_mem = 1GB
+max_connections = 200
+```
+</Tab>
+</Tabs>
 
 ## Particionamiento
 
+### Particionado por Fecha
+
 ```sql
--- Tabla particionada por fecha
+-- Tabla particionada por mes
 CREATE TABLE scores_partitioned (
     id UUID DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
     game_id UUID NOT NULL,
     score INTEGER NOT NULL,
-    submitted_at TIMESTAMP NOT NULL
+    submitted_at TIMESTAMP NOT NULL,
+    metadata JSONB DEFAULT '{}'
 ) PARTITION BY RANGE (submitted_at);
 
--- Particiones mensuales
-CREATE TABLE scores_2024_01 PARTITION OF scores_partitioned
-    FOR VALUES FROM ('2024-01-01') TO ('2024-02-01');
+-- Crear particiones automáticamente
+CREATE OR REPLACE FUNCTION create_monthly_partition(table_name text, start_date date)
+RETURNS void AS $$
+DECLARE
+    partition_name text;
+    end_date date;
+BEGIN
+    partition_name := table_name || '_' || to_char(start_date, 'YYYY_MM');
+    end_date := start_date + interval '1 month';
+    
+    EXECUTE format('CREATE TABLE %I PARTITION OF %I FOR VALUES FROM (%L) TO (%L)',
+                   partition_name, table_name, start_date, end_date);
+END;
+$$ LANGUAGE plpgsql;
 
-CREATE TABLE scores_2024_02 PARTITION OF scores_partitioned
-    FOR VALUES FROM ('2024-02-01') TO ('2024-03-01');
+-- Crear particiones para el año actual
+SELECT create_monthly_partition('scores_partitioned', date_trunc('month', CURRENT_DATE) + (n || ' months')::interval)
+FROM generate_series(0, 11) n;
 ```
 
 ## Vacuum y Mantenimiento
 
-```sql
--- Vacuum manual
-VACUUM ANALYZE scores;
-
--- Reindex
-REINDEX TABLE scores;
-
--- Estadísticas de bloat
-SELECT
-    schemaname,
-    tablename,
-    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size,
-    n_dead_tup,
-    n_live_tup,
-    round(n_dead_tup * 100.0 / NULLIF(n_live_tup + n_dead_tup, 0), 2) AS dead_ratio
-FROM pg_stat_user_tables
-WHERE n_dead_tup > 0
-ORDER BY n_dead_tup DESC;
-```
-
-## Connection Pooling con PgBouncer
-
-```ini
-[databases]
-gamedb = host=rds-endpoint.amazonaws.com port=5432 dbname=gamedb
-
-[pgbouncer]
-pool_mode = transaction
-max_client_conn = 1000
-default_pool_size = 25
-min_pool_size = 10
-reserve_pool_size = 5
-reserve_pool_timeout = 3
-```
-
-## Backup y Restore
-
-```bash
-# Backup completo
-pg_dump -h rds-endpoint.amazonaws.com -U admin -d gamedb -F c -f backup.dump
-
-# Backup schema only
-pg_dump -h rds-endpoint.amazonaws.com -U admin -d gamedb --schema-only -f schema.sql
-
-# Restore
-pg_restore -h rds-endpoint.amazonaws.com -U admin -d gamedb -v backup.dump
-```
-
-## Troubleshooting
-
-### Queries Lentas
+### Estrategia de Vacuum
 
 ```sql
--- Top 10 queries más lentas
-SELECT query, mean_exec_time, calls
+-- Vacuum automático personalizado
+ALTER TABLE scores SET (
+    autovacuum_vacuum_scale_factor = 0.1,
+    autovacuum_analyze_scale_factor = 0.05,
+    autovacuum_vacuum_cost_delay = 10
+);
+
+-- Vacuum manual programado
+VACUUM (ANALYZE, VERBOSE) scores;
+VACUUM (ANALYZE, VERBOSE) users;
+
+-- Reindex periódico
+REINDEX INDEX CONCURRENTLY idx_scores_game_score;
+```
+
+### Scripts de Mantenimiento
+
+```sql
+-- Función para limpiar datos antiguos
+CREATE OR REPLACE FUNCTION cleanup_old_data()
+RETURNS void AS $$
+BEGIN
+    -- Eliminar scores muy antiguos (opcional)
+    DELETE FROM scores 
+    WHERE submitted_at < CURRENT_DATE - INTERVAL '2 years';
+    
+    -- Limpiar logs de la aplicación
+    DELETE FROM app_logs 
+    WHERE created_at < CURRENT_DATE - INTERVAL '30 days';
+    
+    RAISE NOTICE 'Cleanup completed at %', NOW();
+END;
+$$ LANGUAGE plpgsql;
+```
+
+## Monitoreo y Troubleshooting
+
+### Queries de Diagnóstico
+
+```sql
+-- Queries más lentas
+SELECT query, calls, total_time, mean_time, rows
 FROM pg_stat_statements
-ORDER BY mean_exec_time DESC
+ORDER BY mean_time DESC
 LIMIT 10;
 
--- Queries activas
-SELECT pid, usename, application_name, state, query
-FROM pg_stat_activity
-WHERE state != 'idle';
+-- Tamaño de tablas
+SELECT schemaname, tablename,
+       pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 
--- Locks
-SELECT l.locktype, l.mode, l.granted, a.query
-FROM pg_locks l
-JOIN pg_stat_activity a ON l.pid = a.pid
-WHERE NOT l.granted;
+-- Actividad de conexiones
+SELECT pid, usename, application_name, client_addr, state, query_start
+FROM pg_stat_activity
+WHERE state != 'idle'
+ORDER BY query_start;
+
+-- Bloqueos activos
+SELECT blocked_locks.pid AS blocked_pid,
+       blocked_activity.usename AS blocked_user,
+       blocking_locks.pid AS blocking_pid,
+       blocking_activity.usename AS blocking_user,
+       blocked_activity.query AS blocked_statement,
+       blocking_activity.query AS current_statement_in_blocking_process
+FROM pg_catalog.pg_locks blocked_locks
+JOIN pg_catalog.pg_stat_activity blocked_activity ON blocked_activity.pid = blocked_locks.pid
+JOIN pg_catalog.pg_locks blocking_locks ON blocking_locks.locktype = blocked_locks.locktype
+JOIN pg_catalog.pg_stat_activity blocking_activity ON blocking_activity.pid = blocking_locks.pid
+WHERE NOT blocked_locks.granted;
 ```
 
----
+### Métricas de Performance
 
-La administración proactiva de PostgreSQL previene problemas de rendimiento.
+```sql
+-- Estadísticas de cache hit ratio
+SELECT datname,
+       round(100.0 * blks_hit / (blks_hit + blks_read), 2) AS cache_hit_ratio
+FROM pg_stat_database
+WHERE blks_read > 0;
+
+-- Estadísticas de índices no utilizados
+SELECT schemaname, tablename, attname, n_distinct, correlation
+FROM pg_stats
+WHERE schemaname = 'public'
+ORDER BY n_distinct DESC;
+```
+
+## Backup y Recovery
+
+### Estrategia de Backup
+
+```bash
+# Backup completo con compresión
+pg_dump -h localhost -U postgres -d gamedb \
+        --verbose --format=custom --compress=9 \
+        --file=backup_$(date +%Y%m%d_%H%M%S).dump
+
+# Backup solo de schema
+pg_dump -h localhost -U postgres -d gamedb \
+        --schema-only --format=plain \
+        --file=schema_$(date +%Y%m%d).sql
+
+# Restore desde backup
+pg_restore -h localhost -U postgres -d gamedb \
+           --verbose --clean --if-exists \
+           backup_20240101_120000.dump
+```
+
+### Point-in-Time Recovery
+
+```sql
+-- Crear punto de restauración
+SELECT pg_create_restore_point('before_major_update');
+
+-- En RDS, usar snapshots automáticos y logs de transacciones
+-- para recuperación point-in-time desde la consola AWS
+```
+
+## Migración de Datos
+
+### Scripts de Migración Seguros
+
+```sql
+-- Migración con transacciones
+BEGIN;
+
+-- Crear nueva columna
+ALTER TABLE users ADD COLUMN full_name VARCHAR(100);
+
+-- Poblar datos
+UPDATE users SET full_name = COALESCE(first_name || ' ' || last_name, username);
+
+-- Verificar migración
+SELECT COUNT(*) FROM users WHERE full_name IS NULL;
+
+-- Solo hacer COMMIT si todo está correcto
+COMMIT;
+```
+
+### Zero-Downtime Migrations
+
+```sql
+-- Técnica de shadow table para migraciones grandes
+CREATE TABLE users_new (LIKE users INCLUDING ALL);
+ALTER TABLE users_new ADD COLUMN new_field TEXT;
+
+-- Copiar datos en lotes
+INSERT INTO users_new SELECT *, NULL FROM users WHERE id < 'some-uuid-threshold';
+
+-- Intercambiar tablas (requiere mantenimiento breve)
+BEGIN;
+ALTER TABLE users RENAME TO users_old;
+ALTER TABLE users_new RENAME TO users;
+COMMIT;
+```

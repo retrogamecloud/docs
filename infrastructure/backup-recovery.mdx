@@ -1,6 +1,6 @@
 ---
 title: Backup & Recovery
-description: 'Estrategias de backup, recovery y disaster recovery'
+description: Estrategias de backup, recovery y disaster recovery
 icon: floppy-disk
 ---
 
@@ -16,6 +16,7 @@ graph LR
     B[EBS Snapshots] --> D
     C[ArgoCD Backup] --> D
     D --> E[Glacier Archive]
+
 ```
 
 ## RDS Automated Backups
@@ -28,11 +29,13 @@ RDSInstance:
     PreferredBackupWindow: "03:00-04:00"
     CopyTagsToSnapshot: true
     DeleteAutomatedBackups: false
+
 ```
 
 ## Manual Snapshots
 
 ```bash
+
 # Crear snapshot manual
 aws rds create-db-snapshot \
   --db-instance-identifier gamedb-prod \
@@ -46,12 +49,14 @@ aws rds describe-db-snapshots \
 aws rds restore-db-instance-from-db-snapshot \
   --db-instance-identifier gamedb-restored \
   --db-snapshot-identifier gamedb-20240101
+
 ```
 
 ## Application Data Backup
 
 ```bash
 #!/bin/bash
+
 # backup-app-data.sh
 
 DATE=$(date +%Y%m%d_%H%M%S)
@@ -69,6 +74,7 @@ aws s3 sync $BACKUP_DIR s3://game-backups/k8s/$DATE/
 
 # Encrypt and archive
 tar czf - $BACKUP_DIR | openssl enc -aes-256-cbc -pbkdf2 -out $BACKUP_DIR.tar.gz.enc
+
 ```
 
 ## Recovery Time Objectives (RTO)
@@ -83,11 +89,13 @@ tar czf - $BACKUP_DIR | openssl enc -aes-256-cbc -pbkdf2 -out $BACKUP_DIR.tar.gz
 ## Point-in-Time Recovery
 
 ```bash
+
 # Restaurar RDS a punto específico
 aws rds restore-db-instance-to-point-in-time \
   --source-db-instance-identifier gamedb-prod \
   --target-db-instance-identifier gamedb-pitr \
   --restore-time 2024-01-01T10:00:00Z
+
 ```
 
 ## Disaster Recovery Playbook
@@ -95,6 +103,7 @@ aws rds restore-db-instance-to-point-in-time \
 ### 1. Database Failure
 
 ```bash
+
 # Paso 1: Verificar estado
 aws rds describe-db-instances --db-instance-identifier gamedb-prod
 
@@ -113,11 +122,13 @@ aws route53 change-resource-record-sets \
 
 # Paso 4: Validar conexión
 psql -h new-endpoint.amazonaws.com -U admin -d gamedb
+
 ```
 
 ### 2. Kubernetes Cluster Failure
 
 ```bash
+
 # Paso 1: Provisionar nuevo cluster
 eksctl create cluster -f cluster-config.yaml
 
@@ -129,11 +140,13 @@ argocd app sync --all
 
 # Paso 4: Verificar pods
 kubectl get pods -A
+
 ```
 
 ## Backup Monitoring
 
 ```promql
+
 # Último backup exitoso (horas)
 (time() - rds_last_backup_timestamp) / 3600
 
@@ -142,22 +155,30 @@ sum(aws_s3_bucket_size_bytes{bucket="game-backups"})
 
 # Tasa de crecimiento
 rate(aws_s3_bucket_size_bytes[7d])
+
 ```
 
 ## Pruebas de Recuperación
 
 ```bash
+
 # Ejecutar test de DR mensualmente
 ./scripts/dr-test.sh
 
 # Checklist:
+
 # - Restaurar DB desde snapshot
+
 # - Validar integridad de datos
+
 # - Probar aplicaciones contra DB restaurada
+
 # - Medir tiempo de recuperación
+
 # - Documentar lecciones aprendidas
+
 ```
 
----
+- --
 
 Los backups regulares y pruebas de recuperación garantizan la continuidad del negocio.

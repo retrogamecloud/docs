@@ -4,11 +4,11 @@ description: Guía completa para desplegar Retro Game Hub con GitOps y despliegu
 icon: rocket
 ---
 
-# Guía de Despliegue y CI/CD con GitOps
+# 7.5. Guía de Despliegue y CI/CD con GitOps
 
 Esta guía cubre el despliegue completo de Retro Game Hub utilizando prácticas modernas de GitOps, incluyendo infraestructura como código, pipelines de CI/CD automatizados y despliegue continuo con ArgoCD.
 
-## 📋 Arquitectura de Despliegue
+## 7.5.1. Arquitectura de Despliegue
 
 ```mermaid
 graph TB
@@ -52,12 +52,19 @@ graph TB
 
 ```
 
-## 🔧 Pre-requisitos
+### Flujo de Despliegue
+
+1. **Desarrollo**: Los desarrolladores pushean código al repositorio Git
+2. **CI Pipeline**: GitHub Actions ejecuta tests, build y security scans
+3. **Container Registry**: Imágenes se almacenan en ECR
+4. **GitOps Sync**: ArgoCD detecta cambios y sincroniza con Kubernetes
+5. **Deployment**: Helm charts despliegan la aplicación en EKS
+
+## 7.5.2. Pre-requisitos
 
 ### Herramientas Requeridas
 
 ```bash
-
 # AWS CLI
 aws --version  # >= 2.x
 
@@ -75,13 +82,11 @@ docker --version  # >= 24.0
 
 # ArgoCD CLI
 argocd version  # >= 2.9
-
 ```
 
-### Credenciales y Configuración
+### Configuración Inicial
 
 ```bash
-
 # Configurar credenciales AWS
 aws configure
 
@@ -93,7 +98,6 @@ export AWS_REGION="eu-west-1"
 export CLUSTER_NAME="retrogame-eks-cluster"
 export DOMAIN="retrogamehub.games"
 export ARGOCD_NAMESPACE="argocd"
-
 ```
 
 ### Permisos AWS Necesarios
@@ -110,244 +114,232 @@ export ARGOCD_NAMESPACE="argocd"
         "rds:*",
         "s3:*",
         "cloudfront:*",
-        "iam:*",
+        "iam:CreateRole",
+        "iam:AttachRolePolicy",
+        "iam:CreateInstanceProfile",
         "route53:*",
-        "ecr:*"
+        "acm:*"
       ],
       "Resource": "*"
     }
   ]
 }
-
 ```
 
-- --
+## 7.5.3. Infraestructura como Código
 
-## 🏗️ Fase 1: Infraestructura con Terraform
-
-### 1.1 Configuración Inicial
-
-```bash
-
-# Clonar repositorio de infraestructura
-git clone https://github.com/retrogamecloud/infrastructure.git
-cd infrastructure
-
-# Crear archivo de variables
-cp terraform.tfvars.example terraform.tfvars
-
-```
-
-### 1.2 Variables de Terraform
+### Terraform - Configuración Base
 
 ```hcl
+# terraform/main.tf
+terraform {
+  required_version = ">= 1.5.0"
+  
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.11"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.23"
+    }
+  }
 
-# terraform.tfvars
-aws_region = "eu-west-1"
-environment = "production"
-
-# VPC Configuration
-vpc_cidr = "10.0.0.0/16"
-availability_zones = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
-
-# EKS Configuration
-cluster_name = "retrogame-eks-cluster"
-cluster_version = "1.29"
-node_instance_type = "t3.medium"
-desired_nodes = 3
-min_nodes = 2
-max_nodes = 10
-
-# RDS Configuration
-db_instance_class = "db.t3.micro"
-db_name = "retrogamedb"
-db_username = "postgres"
-
-# ⚠️ Usar AWS Secrets Manager en producción
-db_password = "CHANGE_ME_IN_PRODUCTION"
-
-# S3 Configuration
-cdn_bucket_name = "retrogame-cdn-production"
-
-# ArgoCD Configuration
-argocd_enabled = true
-argocd_version = "5.51.6"
-
-# Tags
-tags = {
-  Environment = "production"
-  Project     = "retrogame-hub"
-  ManagedBy   = "terraform"
+  backend "s3" {
+    bucket         = "retrogame-terraform-state"
+    key            = "infrastructure/terraform.tfstate"
+    region         = "eu-west-1"
+    dynamodb_table = "terraform-state-lock"
+    encrypt        = true
+  }
 }
 
+provider "aws" {
+  region = var.aws_region
+  
+  default_tags {
+    tags = {
+      Project     = "retrogame-hub"
+      Environment = var.environment
+      ManagedBy   = "terraform"
+    }
+  }
+}
 ```
 
-### 1.3 Desplegar Infraestructura
+### EKS Cluster
 
-```bash
+```hcl
+# terraform/eks.tf
+module "eks" {
+  source  = "terraform-aws-modules/eks/aws"
+  version = "~> 19.0"
 
-# Inicializar Terraform
-terraform init
+  cluster_name    = "${var.project_name}-${var.environment}"
+  cluster_version = "1.28"
 
-# Planificar cambios
-terraform plan
+  vpc_id                         = module.vpc.vpc_id
+  subnet_ids                     = module.vpc.private_subnets
+  cluster_endpoint_public_access = true
 
-# Aplicar infraestructura
-terraform apply
+  # EKS Managed Node Groups
+  eks_managed_node_groups = {
+    main = {
+      name = "main-nodes"
 
-# Obtener outputs importantes
-terraform output eks_cluster_endpoint
-terraform output rds_endpoint
-terraform output s3_bucket_name
+      instance_types = ["t3.medium"]
+      
+      min_size     = 2
+      max_size     = 10
+      desired_size = 3
 
+      pre_bootstrap_user_data = <<-EOT
+        #!/bin/bash
+        set -ex
+        /etc/eks/bootstrap.sh ${var.cluster_name}
+      EOT
+
+      vpc_security_group_ids = [aws_security_group.node_group_one.id]
+    }
+  }
+
+  # aws-auth configmap
+  create_aws_auth_configmap = true
+  manage_aws_auth_configmap = true
+
+  aws_auth_users = [
+    {
+      userarn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+      username = "admin"
+      groups   = ["system:masters"]
+    }
+  ]
+
+  tags = {
+    Environment = var.environment
+  }
+}
 ```
 
-### 1.4 Configurar kubectl
+### RDS PostgreSQL
 
-```bash
+```hcl
+# terraform/rds.tf
+module "db" {
+  source  = "terraform-aws-modules/rds/aws"
+  version = "~> 6.0"
 
-# Configurar acceso al cluster
-aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+  identifier = "${var.project_name}-${var.environment}-db"
 
-# Verificar conexión
-kubectl cluster-info
-kubectl get nodes
+  # Database
+  engine               = "postgres"
+  engine_version       = "15.4"
+  family              = "postgres15"
+  major_engine_version = "15"
+  instance_class       = "db.t3.micro"
 
+  allocated_storage     = 20
+  max_allocated_storage = 100
+  storage_encrypted     = true
+
+  db_name  = var.db_name
+  username = var.db_username
+  password = var.db_password
+  port     = 5432
+
+  multi_az               = var.environment == "production"
+  subnet_ids             = module.vpc.database_subnets
+  vpc_security_group_ids = [aws_security_group.rds.id]
+
+  maintenance_window      = "Mon:00:00-Mon:03:00"
+  backup_window          = "03:00-06:00"
+  backup_retention_period = 7
+
+  tags = {
+    Environment = var.environment
+  }
+}
 ```
 
-- --
+### S3 y CloudFront
 
-## 🚀 Fase 2: Configuración de ArgoCD
+```hcl
+# terraform/s3-cloudfront.tf
+resource "aws_s3_bucket" "static_assets" {
+  bucket = "${var.project_name}-${var.environment}-static-assets"
+}
 
-### 2.1 Instalación de ArgoCD
+resource "aws_s3_bucket_public_access_block" "static_assets" {
+  bucket = aws_s3_bucket.static_assets.id
 
-```bash
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
+}
 
-# Crear namespace
-kubectl create namespace argocd
+resource "aws_cloudfront_distribution" "main" {
+  origin {
+    domain_name = aws_s3_bucket.static_assets.bucket_regional_domain_name
+    origin_id   = "S3-${aws_s3_bucket.static_assets.id}"
 
-# Instalar ArgoCD usando Helm
-helm repo add argo https://argoproj.github.io/argo-helm
-helm repo update
+    s3_origin_config {
+      origin_access_identity = aws_cloudfront_origin_access_identity.main.cloudfront_access_identity_path
+    }
+  }
 
-# Instalar con configuración personalizada
-cat <<EOF > argocd-values.yaml
-server:
-  service:
-    type: LoadBalancer
-  extraArgs:
-    - --insecure
-  config:
-    url: "https://argocd.${DOMAIN}"
-    application.instanceLabelKey: argocd.argoproj.io/instance
+  enabled             = true
+  is_ipv6_enabled     = true
+  default_root_object = "index.html"
 
-controller:
-  metrics:
-    enabled: true
-    serviceMonitor:
-      enabled: true
+  aliases = [var.domain]
 
-repoServer:
-  metrics:
-    enabled: true
-    serviceMonitor:
-      enabled: true
+  default_cache_behavior {
+    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "S3-${aws_s3_bucket.static_assets.id}"
+    compress               = true
+    viewer_protocol_policy = "redirect-to-https"
 
-redis:
-  metrics:
-    enabled: true
-    serviceMonitor:
-      enabled: true
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+  }
 
-notifications:
-  enabled: true
-  argocdUrl: "https://argocd.${DOMAIN}"
-EOF
+  viewer_certificate {
+    acm_certificate_arn = aws_acm_certificate_validation.main.certificate_arn
+    ssl_support_method  = "sni-only"
+  }
 
-helm install argocd argo/argo-cd \
-  --namespace argocd \
-  --values argocd-values.yaml \
-  --version 5.51.6
-
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+}
 ```
 
-### 2.2 Configurar Acceso a ArgoCD
+## 7.5.4. Pipeline CI/CD
 
-```bash
-
-# Esperar a que ArgoCD esté listo
-kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
-
-# Obtener password inicial del admin
-ARGOCD_INITIAL_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
-echo "ArgoCD Admin Password: $ARGOCD_INITIAL_PASSWORD"
-
-# Port forward para acceso local (temporal)
-kubectl port-forward svc/argocd-server -n argocd 8080:443 &
-
-# Login con ArgoCD CLI
-argocd login localhost:8080 --username admin --password $ARGOCD_INITIAL_PASSWORD --insecure
-
-```
-
-### 2.3 Configurar Repositorios Git
-
-```bash
-
-# Agregar repositorio de aplicaciones
-argocd repo add https://github.com/retrogamecloud/retrogame-hub.git \
-  --type git \
-  --name retrogame-app
-
-# Agregar repositorio de Helm charts
-argocd repo add https://github.com/retrogamecloud/helm-charts.git \
-  --type git \
-  --name retrogame-charts
-
-# Listar repositorios
-argocd repo list
-
-```
-
-- --
-
-## 🔄 Fase 3: Pipeline CI/CD con GitHub Actions
-
-### 3.1 Configuración de Secrets
-
-En GitHub, configurar los siguientes secrets:
-
-```bash
-
-# AWS Credentials
-AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY
-AWS_REGION
-
-# Container Registry
-ECR_REPOSITORY_URI
-
-# Kubernetes
-KUBE_CONFIG_DATA  # Base64 encoded kubeconfig
-
-# ArgoCD
-ARGOCD_SERVER
-ARGOCD_TOKEN
-
-```
-
-### 3.2 Pipeline Principal
+### GitHub Actions - Workflow Principal
 
 ```yaml
-
 # .github/workflows/ci-cd.yml
 name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ main, develop ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
 
 env:
   AWS_REGION: eu-west-1
@@ -357,212 +349,759 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: retrogame_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
+    - name: Install dependencies
+      run: npm ci
 
-      - name: Install dependencies
-        run: npm ci
+    - name: Run linting
+      run: npm run lint
 
-      - name: Run tests
-        run: |
-          npm run test:unit
-          npm run test:integration
+    - name: Run tests
+      run: npm run test:coverage
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/retrogame_test
 
-      - name: Run security audit
-        run: npm audit --audit-level high
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
 
   security-scan:
     runs-on: ubuntu-latest
-    needs: test
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
 
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: 'trivy-results.sarif'
+    - name: Run Snyk to check for vulnerabilities
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
   build-and-push:
-    runs-on: ubuntu-latest
     needs: [test, security-scan]
-    if: github.ref == 'refs/heads/main'
-    outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
-      image-digest: ${{ steps.build.outputs.digest }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Docker image
-        id: build
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  deploy:
     runs-on: ubuntu-latest
-    needs: build-and-push
-    environment: production
+    if: github.ref == 'refs/heads/main'
+
     steps:
-      - name: Checkout GitOps repo
-        uses: actions/checkout@v4
-        with:
-          repository: retrogamecloud/gitops-configs
-          token: ${{ secrets.GITOPS_TOKEN }}
-          path: gitops
+    - name: Checkout
+      uses: actions/checkout@v4
 
-      - name: Update image tag
-        run: |
-          cd gitops
-          IMAGE_TAG=$(echo "${{ needs.build-and-push.outputs.image-tag }}" | grep -o 'main-[a-f0-9]\{7\}')
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
 
-          # Update Helm values
-          sed -i "s|tag:.*|tag: ${IMAGE_TAG}|g" apps/retrogame-hub/values-production.yaml
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
 
-          # Commit changes
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "Update image tag to ${IMAGE_TAG}"
-          git push
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Sync ArgoCD Application
-        run: |
-          argocd login ${{ secrets.ARGOCD_SERVER }} --auth-token ${{ secrets.ARGOCD_TOKEN }}
-          argocd app sync retrogame-hub --prune
-          argocd app wait retrogame-hub --timeout 300
-
+    - name: Update image tag in GitOps repo
+      run: |
+        git clone https://${{ secrets.GITOPS_TOKEN }}@github.com/username/retrogame-gitops.git
+        cd retrogame-gitops
+        sed -i 's|image: .*|image: ${{ steps.build-image.outputs.image }}|' environments/production/values.yaml
+        git add .
+        git commit -m "Update image tag to ${{ github.sha }}"
+        git push
 ```
 
-### 3.3 Pipeline de Release
+### Dockerfile Optimizado
+
+```dockerfile
+# Dockerfile
+# Build stage
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY prisma ./prisma/
+
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy source code
+COPY . .
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Build application
+RUN npm run build
+
+# Production stage
+FROM node:18-alpine AS runner
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+WORKDIR /app
+
+# Copy built application
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT 3000
+ENV NODE_ENV production
+
+CMD ["server.js"]
+```
+
+## 7.5.5. GitOps con ArgoCD
+
+### Instalación de ArgoCD
+
+```bash
+# Crear namespace
+kubectl create namespace argocd
+
+# Instalar ArgoCD
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Exponer ArgoCD Server
+kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "LoadBalancer"}}'
+
+# Obtener password inicial
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+
+# Login con CLI
+argocd login <ARGOCD_SERVER_IP>
+argocd account update-password
+```
+
+### Configuración de Aplicaciones
 
 ```yaml
+# argocd/applications/retrogame-app.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: retrogame-hub
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/username/retrogame-gitops.git
+    targetRevision: HEAD
+    path: environments/production
+    helm:
+      valueFiles:
+        - values.yaml
 
-# .github/workflows/release.yml
-name: Release
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: retrogame-production
 
-on:
-  release:
-    types: [published]
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+```
+
+## 7.5.6. Helm Charts
+
+### Chart Principal
+
+```yaml
+# helm/retrogame-hub/Chart.yaml
+apiVersion: v2
+name: retrogame-hub
+description: A Helm chart for Retro Game Hub
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: postgresql
+    version: "12.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled
+  - name: redis
+    version: "17.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled
+```
+
+### Values por Defecto
+
+```yaml
+# helm/retrogame-hub/values.yaml
+replicaCount: 3
+
+image:
+  repository: your-account.dkr.ecr.eu-west-1.amazonaws.com/retrogame-hub
+  pullPolicy: IfNotPresent
+  tag: ""
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 2000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: retrogamehub.games
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: retrogame-tls
+      hosts:
+        - retrogamehub.games
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Database configuration
+postgresql:
+  enabled: false
+  auth:
+    database: retrogame_hub
+    username: retrogame_user
+
+# External database
+externalDatabase:
+  host: ""
+  port: 5432
+  username: retrogame_user
+  database: retrogame_hub
+  existingSecret: ""
+  existingSecretPasswordKey: ""
+
+# Redis configuration
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: false
+
+# Environment variables
+env:
+  NODE_ENV: production
+  PORT: 3000
+
+# Secret environment variables
+secretEnv: {}
+```
+
+### Templates de Deployment
+
+```yaml
+# helm/retrogame-hub/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "retrogame-hub.fullname" . }}
+  labels:
+    {{- include "retrogame-hub.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "retrogame-hub.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "retrogame-hub.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "retrogame-hub.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      
+      initContainers:
+      - name: migrate
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        command: ["npx", "prisma", "migrate", "deploy"]
+        env:
+          {{- include "retrogame-hub.env" . | nindent 10 }}
+      
+      containers:
+      - name: {{ .Chart.Name }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        
+        ports:
+        - name: http
+          containerPort: {{ .Values.env.PORT }}
+          protocol: TCP
+        
+        env:
+          {{- include "retrogame-hub.env" . | nindent 10 }}
+        
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        
+        readinessProbe:
+          httpGet:
+            path: /api/ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+      
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+```
+
+## 7.5.7. Monitoreo y Observabilidad
+
+### Prometheus y Grafana
+
+```yaml
+# monitoring/prometheus-values.yaml
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    ruleSelector: {}
+    ruleNamespaceSelector: {}
+
+grafana:
+  adminPassword: "admin123"
+  ingress:
+    enabled: true
+    hosts:
+      - grafana.retrogamehub.games
+
+alertmanager:
+  config:
+    global:
+      smtp_smarthost: 'localhost:587'
+      smtp_from: 'alerts@retrogamehub.games'
+    route:
+      group_by: ['alertname']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 1h
+      receiver: 'web.hook'
+    receivers:
+    - name: 'web.hook'
+      email_configs:
+      - to: 'admin@retrogamehub.games'
+        subject: 'Retro Game Hub Alert'
+```
+
+### Service Monitor para Métricas
+
+```yaml
+# monitoring/servicemonitor.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: retrogame-hub
+  labels:
+    app: retrogame-hub
+spec:
+  selector:
+    matchLabels:
+      app: retrogame-hub
+  endpoints:
+  - port: http
+    path: /api/metrics
+    interval: 30s
+```
+
+## 7.5.8. Gestión de Secretos
+
+### External Secrets Operator
+
+```yaml
+# secrets/external-secrets.yaml
+apiVersion: external-secrets.io/v1beta1
+kind: SecretStore
+metadata:
+  name: aws-secrets-manager
+  namespace: retrogame-production
+spec:
+  provider:
+    aws:
+      service: SecretsManager
+      region: eu-west-1
+      auth:
+        jwt:
+          serviceAccountRef:
+            name: external-secrets-sa
+
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: retrogame-secrets
+  namespace: retrogame-production
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: SecretStore
+  target:
+    name: retrogame-secrets
+    creationPolicy: Owner
+  data:
+  - secretKey: DATABASE_URL
+    remoteRef:
+      key: retrogame/database
+      property: url
+  - secretKey: JWT_SECRET
+    remoteRef:
+      key: retrogame/jwt
+      property: secret
+  - secretKey: SMTP_PASSWORD
+    remoteRef:
+      key: retrogame/smtp
+      property: password
+```
+
+## 7.5.9. Scripts de Despliegue
+
+### Script de Despliegue Completo
+
+```bash
+#!/bin/bash
+# scripts/deploy.sh
+
+set -euo pipefail
+
+# Variables
+ENVIRONMENT=${1:-production}
+AWS_REGION=${AWS_REGION:-eu-west-1}
+CLUSTER_NAME=${CLUSTER_NAME:-retrogame-eks-cluster}
+
+echo "🚀 Iniciando despliegue para entorno: $ENVIRONMENT"
+
+# 1. Verificar pre-requisitos
+echo "📋 Verificando pre-requisitos..."
+command -v aws >/dev/null 2>&1 || { echo "AWS CLI no encontrado" >&2; exit 1; }
+command -v kubectl >/dev/null 2>&1 || { echo "kubectl no encontrado" >&2; exit 1; }
+command -v helm >/dev/null 2>&1 || { echo "Helm no encontrado" >&2; exit 1; }
+
+# 2. Configurar kubectl
+echo "⚙️  Configurando kubectl..."
+aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+
+# 3. Crear namespace si no existe
+echo "📁 Creando namespace..."
+kubectl create namespace retrogame-$ENVIRONMENT --dry-run=client -o yaml | kubectl apply -f -
+
+# 4. Aplicar secrets
+echo "🔐 Aplicando secrets..."
+kubectl apply -f secrets/ -n retrogame-$ENVIRONMENT
+
+# 5. Instalar/actualizar chart
+echo "📦 Desplegando aplicación..."
+helm upgrade --install retrogame-hub ./helm/retrogame-hub \
+  --namespace retrogame-$ENVIRONMENT \
+  --values ./helm/retrogame-hub/values-$ENVIRONMENT.yaml \
+  --wait \
+  --timeout 10m
+
+# 6. Verificar despliegue
+echo "✅ Verificando despliegue..."
+kubectl rollout status deployment/retrogame-hub -n retrogame-$ENVIRONMENT
+
+# 7. Mostrar información del despliegue
+echo "📊 Información del despliegue:"
+kubectl get pods,svc,ingress -n retrogame-$ENVIRONMENT
+
+echo "🎉 Despliegue completado exitosamente!"
+```
+
+### Script de Rollback
+
+```bash
+#!/bin/bash
+# scripts/rollback.sh
+
+set -euo pipefail
+
+ENVIRONMENT=${1:-production}
+REVISION=${2:-}
+
+if [ -z "$REVISION" ]; then
+  echo "Versiones disponibles:"
+  helm history retrogame-hub -n retrogame-$ENVIRONMENT
+  echo "Uso: $0 <environment> <revision>"
+  exit 1
+fi
+
+echo "🔄 Realizando rollback a revisión $REVISION en $ENVIRONMENT..."
+
+helm rollback retrogame-hub $REVISION -n retrogame-$ENVIRONMENT --wait
+
+echo "✅ Rollback completado"
+kubectl get pods -n retrogame-$ENVIRONMENT
+```
+
+## 7.5.10. Entornos de Despliegue
+
+### Configuración por Entornos
+
+```yaml
+# environments/staging/values.yaml
+replicaCount: 2
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+
+ingress:
+  hosts:
+    - host: staging.retrogamehub.games
+      paths:
+        - path: /
+          pathType: Prefix
 
 env:
-  AWS_REGION: eu-west-1
-  ECR_REPOSITORY: retrogame-hub
-
-jobs:
-  release-deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build and push release image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.event.release.tag_name }}
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:stable
-
-      - name: Update production deployment
-        run: |
-          # Update production GitOps configuration
-          git clone https://${{ secrets.GITOPS_TOKEN }}@github.com/retrogamecloud/gitops-configs.git
-          cd gitops-configs
-
-          sed -i "s|tag:.*|tag: ${{ github.event.release.tag_name }}|g" apps/retrogame-hub/values-production.yaml
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "Release ${{ github.event.release.tag_name }} to production"
-          git push
-
+  NODE_ENV: staging
 ```
 
-- --
+```yaml
+# environments/production/values.yaml
+replicaCount: 5
 
-## 🎯 Fase 4: Configuración de Aplicaciones ArgoCD
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 1000m
+    memory: 1Gi
 
-### 4.1 Estructura de Repositorio GitOps
+autoscaling:
+  enabled: true
+  minReplicas: 5
+  maxReplicas: 20
 
+ingress:
+  hosts:
+    - host: retrogamehub.games
+      paths:
+        - path: /
+          pathType: Prefix
+
+env:
+  NODE_ENV: production
 ```
 
-gitops-configs/
-├── apps/
-│   └── retrogame-hub/
-│       ├── base/
-│       │   ├── kustomization.yaml
-│       │   ├── deployment.yaml
-│       │   ├── service.yaml
-│       │   └── ingress.yaml
-│       ├── overlays/
-│       │   ├── development/
-│       │   │   ├── kustomization.yaml
-│       │   │   └── values.yaml
-│       │   └── production/
-│       │       ├── kustomization.yaml
-│       │       └── values.yaml
-│       ├── values-development.yaml
-│       └── values-production.yaml
-├── charts/
-│   └── retrogame-hub/
-│       ├── Chart.yaml
-│       ├
+## 7.5.11. Verificación y Testing
 
+### Health Checks
+
+```typescript
+// src/pages/api/health.ts
+import { NextApiRequest, NextApiResponse } from 'next'
+import { PrismaClient } from '@prisma/client'
+
+const prisma = new PrismaClient()
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  try {
+    // Verificar conexión a base de datos
+    await prisma.$queryRaw`SELECT 1`
+    
+    res.status(200).json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      version: process.env.APP_VERSION || 'unknown'
+    })
+  } catch (error) {
+    res.status(503).json({
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    })
+  }
+}
 ```
+
+### Tests de Integración
+
+```bash
+#!/bin/bash
+# scripts/integration-test.sh
+
+set -euo pipefail
+
+ENVIRONMENT=${1:-staging}
+BASE_URL="https://$ENVIRONMENT.retrogamehub.games"
+
+echo "🧪 Ejecutando tests de integración contra $BASE_URL"
+
+# Health check
+echo "Verificando health check..."
+curl -f "$BASE_URL/api/health" || exit 1
+
+# API endpoints
+echo "Verificando API endpoints..."
+curl -f "$BASE_URL/api/games" || exit 1
+curl -f "$BASE_URL/api/users" || exit 1
+
+# Frontend
+echo "Verificando frontend..."
+curl -f "$BASE_URL" || exit 1
+
+echo "✅ Todos los tests pasaron"
+```
+
+## 7.5.12. Mejores Prácticas
+
+### GitOps
+
+1. **Separar repositorios**: Código fuente y configuraciones de despliegue en repos separados
+2. **Versionado**: Usar tags semánticos para releases
+3. **Revisión**: Pull requests obligatorios para cambios en configuración
+4. **Rollback**: Mantener historial de configuraciones para rollbacks rápidos
+
+### Seguridad
+
+1. **Secrets**: Usar External Secrets Operator o similar
+2. **RBAC**: Configurar roles y permisos mínimos necesarios
+3. **Network Policies**: Limitar comunicación entre pods
+4. **Image Scanning**: Escanear vulnerabilidades en imágenes
+
+### Monitoreo
+
+1. **Métricas**: Implementar métricas custom para business logic
+2. **Logs**: Centralizar logs con ELK o similar
+3. **Alertas**: Configurar alertas proactivas
+4. **Dashboards**: Crear dashboards para diferentes stakeholders
+
+Esta guía proporciona una base sólida para implementar un pipeline completo de CI/CD con GitOps para Retro Game Hub, siguiendo las mejores prácticas de la industria.

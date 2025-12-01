@@ -1,7 +1,6 @@
 ---
 title: 8.5. Migraciones de Base de Datos
-description: Guía completa para crear, probar y aplicar migraciones de esquema de
-  forma segura en producción
+description: Guía completa para crear, probar y aplicar migraciones de esquema de forma segura en producción
 icon: database
 ---
 
@@ -24,7 +23,6 @@ graph LR
     H -->|Sí| I[Migración Completa]
     H -->|No| J[Rollback Automático]
     J --> K[Investigar Fallos]
-
 ```
 
 ## Herramientas de Migración por Servicio
@@ -58,500 +56,614 @@ export class AddUserPreferences1234567890123 implements MigrationInterface {
         await queryRunner.dropColumn('users', 'preferences');
     }
 }
-
 ```
 
-* *Generación de migraciones:**
+**Generación de migraciones:**
 
 ```bash
-
 # Generar migración automáticamente
 npm run migration:generate -- -n AddUserPreferences
 
 # Crear migración vacía
 npm run migration:create -- -n CustomMigration
 
-# Ejecutar migraciones
+# Ejecutar migraciones pendientes
 npm run migration:run
 
 # Revertir última migración
 npm run migration:revert
-
 ```
 
-</Tab>
-<Tab title="Sequelize (Game Catalog)">
+**Configuración:**
 
-```javascript
-// migrations/20231201-add-game-tags.js
-'use strict';
-
-module.exports = {
-  async up(queryInterface, Sequelize) {
-    await queryInterface.addColumn('games', 'tags', {
-      type: Sequelize.ARRAY(Sequelize.STRING),
-      allowNull: true,
-      defaultValue: []
-    });
-
-    await queryInterface.addIndex('games', ['tags'], {
-      using: 'gin',
-      name: 'games_tags_gin_idx'
-    });
-
-    // Migración de datos existentes
-    await queryInterface.sequelize.query(`
-      UPDATE games
-      SET tags = ARRAY[category]
-      WHERE tags IS NULL AND category IS NOT NULL
-    `);
+```typescript
+// ormconfig.ts
+export default {
+  type: 'postgres',
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT),
+  username: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_DATABASE,
+  entities: ['src/entities/*.ts'],
+  migrations: ['src/migrations/*.ts'],
+  cli: {
+    migrationsDir: 'src/migrations',
   },
-
-  async down(queryInterface, Sequelize) {
-    await queryInterface.removeIndex('games', 'games_tags_gin_idx');
-    await queryInterface.removeColumn('games', 'tags');
-  }
+  synchronize: false, // NUNCA usar en producción
+  migrationsRun: false, // Controlar manualmente
 };
-
-```
-
-* *Comandos Sequelize:**
-
-```bash
-
-# Crear migración
-npx sequelize-cli migration:generate --name add-game-tags
-
-# Ejecutar migraciones
-npx sequelize-cli db:migrate
-
-# Revertir migración
-npx sequelize-cli db:migrate:undo
-
 ```
 
 </Tab>
-<Tab title="Raw SQL (Analytics)">
+<Tab title="Prisma (Product Service)">
 
 ```sql
+-- migrations/001_add_product_categories.sql
+-- Add product categories table
+CREATE TABLE product_categories (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    parent_id INTEGER REFERENCES product_categories(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
 
-- - migrations/20231201_001_add_user_activity_partitioning.sql
-BEGIN;
+-- Add category relationship to products
+ALTER TABLE products 
+ADD COLUMN category_id INTEGER REFERENCES product_categories(id);
 
-- - Crear tabla particionada por fecha
-CREATE TABLE user_activity_new (
-    id BIGSERIAL,
-    user_id INTEGER NOT NULL,
-    activity_type VARCHAR(50) NOT NULL,
-    metadata JSONB,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-) PARTITION BY RANGE (created_at);
-
-- - Crear particiones mensuales
-CREATE TABLE user_activity_2023_12 PARTITION OF user_activity_new
-    FOR VALUES FROM ('2023-12-01') TO ('2024-01-01');
-
-CREATE TABLE user_activity_2024_01 PARTITION OF user_activity_new
-    FOR VALUES FROM ('2024-01-01') TO ('2024-02-01');
-
-- - Migrar datos existentes
-INSERT INTO user_activity_new
-SELECT * FROM user_activity WHERE created_at >= '2023-12-01';
-
-- - Crear índices
-CREATE INDEX ON user_activity_new (user_id, created_at);
-CREATE INDEX ON user_activity_new USING gin (metadata);
-
-- - Intercambiar tablas
-ALTER TABLE user_activity RENAME TO user_activity_old;
-ALTER TABLE user_activity_new RENAME TO user_activity;
-
-COMMIT;
-
+-- Create indexes for performance
+CREATE INDEX idx_products_category_id ON products(category_id);
+CREATE INDEX idx_categories_parent_id ON product_categories(parent_id);
 ```
 
-* *Script de aplicación:**
+**Schema Prisma:**
+
+```prisma
+// schema.prisma
+model ProductCategory {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(255)
+  description String?   @db.Text
+  parentId    Int?      @map("parent_id")
+  parent      ProductCategory? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    ProductCategory[] @relation("CategoryHierarchy")
+  products    Product[]
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([parentId])
+  @@map("product_categories")
+}
+
+model Product {
+  id         Int       @id @default(autoincrement())
+  name       String
+  categoryId Int?      @map("category_id")
+  category   ProductCategory? @relation(fields: [categoryId], references: [id])
+  
+  @@index([categoryId])
+  @@map("products")
+}
+```
+
+**Comandos:**
 
 ```bash
-#!/bin/bash
+# Generar migración desde schema
+npx prisma migrate dev --name add-product-categories
 
-# apply-migration.sh
-set -e
+# Aplicar migraciones en producción
+npx prisma migrate deploy
 
-MIGRATION_FILE=$1
-DATABASE_URL=$2
+# Reset completo (solo desarrollo)
+npx prisma migrate reset
 
-echo "Aplicando migración: $MIGRATION_FILE"
-psql $DATABASE_URL -f $MIGRATION_FILE
+# Ver estado de migraciones
+npx prisma migrate status
+```
 
-echo "Migración completada exitosamente"
+</Tab>
+<Tab title="Liquibase (Order Service)">
 
+```xml
+<!-- src/main/resources/db/changelog/001-create-orders-table.xml -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.0.xsd">
+
+    <changeSet id="1" author="developer">
+        <createTable tableName="orders">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="total_amount" type="DECIMAL(10,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="orders" indexName="idx_orders_user_id">
+            <column name="user_id"/>
+        </createIndex>
+
+        <createIndex tableName="orders" indexName="idx_orders_status">
+            <column name="status"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="2" author="developer">
+        <addColumn tableName="orders">
+            <column name="payment_method" type="VARCHAR(50)" defaultValue="credit_card">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>
+```
+
+**Changelog maestro:**
+
+```xml
+<!-- src/main/resources/db/changelog/db.changelog-master.xml -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.0.xsd">
+
+    <include file="db/changelog/001-create-orders-table.xml"/>
+    <include file="db/changelog/002-add-order-items-table.xml"/>
+    <include file="db/changelog/003-add-payment-tracking.xml"/>
+
+</databaseChangeLog>
+```
+
+**Comandos:**
+
+```bash
+# Aplicar migraciones
+./mvnw liquibase:update
+
+# Ver migraciones pendientes
+./mvnw liquibase:status
+
+# Generar rollback SQL
+./mvnw liquibase:rollback-sql -Dliquibase.rollback-count=1
+
+# Aplicar rollback
+./mvnw liquibase:rollback -Dliquibase.rollback-count=1
 ```
 
 </Tab>
 </Tabs>
 
-## Patrones de Migración Zero-Downtime
+## Estrategias de Migración Zero-Downtime
 
-### 1. Agregar Columnas
+### 1. Migraciones Compatibles Hacia Atrás
 
-<Tabs>
-<Tab title="Columnas Opcionales">
+<Callout type="info">
+Diseña migraciones que mantengan compatibilidad con la versión anterior del código durante el despliegue.
+</Callout>
 
-```typescript
-// Paso 1: Agregar columna nullable
-export class AddEmailColumn implements MigrationInterface {
-    async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.addColumn('users', new TableColumn({
-            name: 'email',
-            type: 'varchar',
-            length: '255',
-            isNullable: true // Importante: inicialmente nullable
-        }));
-    }
-}
-
-// Paso 2 (en siguiente release): Poblar datos
-export class PopulateEmailColumn implements MigrationInterface {
-    async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
-            UPDATE users
-            SET email = username || '@example.com'
-            WHERE email IS NULL
-        `);
-    }
-}
-
-// Paso 3 (en siguiente release): Hacer NOT NULL
-export class MakeEmailNotNull implements MigrationInterface {
-    async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(
-            `ALTER TABLE users ALTER COLUMN email SET NOT NULL`
-        );
-    }
-}
-
-```
-
-</Tab>
-<Tab title="Columnas con Valores por Defecto">
+**Agregar Columnas (Seguro):**
 
 ```sql
+-- ✅ Buena práctica: columna opcional con valor por defecto
+ALTER TABLE users 
+ADD COLUMN email_verified BOOLEAN DEFAULT FALSE;
 
-- - Migración segura con valor por defecto
-ALTER TABLE games
-ADD COLUMN status VARCHAR(20)
-DEFAULT 'active'
-NOT NULL;
-
-- - Crear índice de forma concurrente (PostgreSQL)
-CREATE INDEX CONCURRENTLY idx_games_status ON games(status);
-
+-- ✅ Índice concurrente (PostgreSQL)
+CREATE INDEX CONCURRENTLY idx_users_email_verified 
+ON users(email_verified);
 ```
 
-</Tab>
-</Tabs>
-
-### 2. Eliminar Columnas
-
-```typescript
-// Paso 1: Deprecar uso en código (sin migración de BD)
-// Paso 2: Después de deploy, eliminar columna
-export class DropDeprecatedColumn implements MigrationInterface {
-    async up(queryRunner: QueryRunner): Promise<void> {
-        // Verificar que la columna no está siendo usada
-        const result = await queryRunner.query(`
-            SELECT COUNT(*) as count
-            FROM information_schema.columns
-            WHERE table_name = 'users' AND column_name = 'old_field'
-        `);
-
-        if (result[0].count > 0) {
-            await queryRunner.dropColumn('users', 'old_field');
-        }
-    }
-
-    async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.addColumn('users', new TableColumn({
-            name: 'old_field',
-            type: 'varchar',
-            isNullable: true
-        }));
-    }
-}
-
-```
-
-### 3. Renombrar Tablas/Columnas
+**Eliminar Columnas (Proceso en 2 Fases):**
 
 ```sql
+-- Fase 1: Marcar columna como deprecated (no eliminar)
+-- Actualizar código para no usar la columna
 
-- - Estrategia de vistas para renombrar tablas
-BEGIN;
+-- Fase 2: Eliminar después del despliegue
+ALTER TABLE users DROP COLUMN deprecated_field;
+```
 
-- - Crear nueva tabla con estructura deseada
-CREATE TABLE user_profiles AS SELECT * FROM users WHERE false;
+### 2. Migraciones de Datos Grandes
 
-- - Crear vista con nombre antiguo
-CREATE VIEW users AS SELECT * FROM user_profiles;
+Para tablas con millones de registros:
 
-- - Migrar datos en lotes
+```sql
+-- Migración por lotes para evitar locks largos
 DO $$
 DECLARE
     batch_size INTEGER := 10000;
-    offset_val INTEGER := 0;
-    row_count INTEGER;
+    affected_rows INTEGER;
 BEGIN
     LOOP
-        INSERT INTO user_profiles
-        SELECT * FROM users_old
-        ORDER BY id
-        LIMIT batch_size OFFSET offset_val;
-
-        GET DIAGNOSTICS row_count = ROW_COUNT;
-        EXIT WHEN row_count = 0;
-
-        offset_val := offset_val + batch_size;
-        PERFORM pg_sleep(0.1); -- Pausa para no sobrecargar
+        UPDATE users 
+        SET status = 'active' 
+        WHERE status IS NULL 
+        AND id IN (
+            SELECT id FROM users 
+            WHERE status IS NULL 
+            LIMIT batch_size
+        );
+        
+        GET DIAGNOSTICS affected_rows = ROW_COUNT;
+        
+        -- Pausa entre lotes para reducir impacto
+        PERFORM pg_sleep(0.1);
+        
+        EXIT WHEN affected_rows = 0;
     END LOOP;
 END $$;
-
-COMMIT;
-
 ```
 
-## Migraciones de Datos Grandes
+### 3. Renombrar Columnas/Tablas
 
-### Migración por Lotes
+**Estrategia de Vista Temporal:**
+
+```sql
+-- Paso 1: Crear nueva columna
+ALTER TABLE users ADD COLUMN full_name VARCHAR(255);
+
+-- Paso 2: Migrar datos
+UPDATE users SET full_name = name WHERE full_name IS NULL;
+
+-- Paso 3: Crear vista para compatibilidad
+CREATE OR REPLACE VIEW users_legacy AS 
+SELECT id, email, full_name as name, created_at 
+FROM users;
+
+-- Paso 4 (después del despliegue): Eliminar columna antigua
+ALTER TABLE users DROP COLUMN name;
+DROP VIEW users_legacy;
+```
+
+## Procedimientos de Testing
+
+### Tests de Migración
 
 ```typescript
-export class MigrateUserDataInBatches implements MigrationInterface {
-    async up(queryRunner: QueryRunner): Promise<void> {
-        const batchSize = 10000;
-        let offset = 0;
-        let hasMoreData = true;
+// tests/migrations/migration.test.ts
+describe('AddUserPreferences Migration', () => {
+    let connection: Connection;
 
-        while (hasMoreData) {
-            const result = await queryRunner.query(`
-                UPDATE users
-                SET normalized_email = LOWER(email)
-                WHERE id IN (
-                    SELECT id FROM users
-                    WHERE normalized_email IS NULL
-                    ORDER BY id
-                    LIMIT ${batchSize}
-                )
-            `);
+    beforeAll(async () => {
+        connection = await createConnection({
+            type: 'postgres',
+            database: ':memory:',
+            dropSchema: true,
+            entities: [User],
+            migrations: ['src/migrations/*.ts'],
+            logging: false,
+        });
+    });
 
-            hasMoreData = result.affectedRows === batchSize;
+    it('should apply migration successfully', async () => {
+        await connection.runMigrations();
+        
+        const queryRunner = connection.createQueryRunner();
+        const table = await queryRunner.getTable('users');
+        const preferencesColumn = table?.findColumnByName('preferences');
+        
+        expect(preferencesColumn).toBeDefined();
+        expect(preferencesColumn?.type).toBe('jsonb');
+    });
 
-            // Pausa para no sobrecargar la base de datos
-            await new Promise(resolve => setTimeout(resolve, 100));
+    it('should rollback migration successfully', async () => {
+        await connection.undoLastMigration();
+        
+        const queryRunner = connection.createQueryRunner();
+        const table = await queryRunner.getTable('users');
+        const preferencesColumn = table?.findColumnByName('preferences');
+        
+        expect(preferencesColumn).toBeUndefined();
+    });
 
-            console.log(`Procesados ${offset + result.affectedRows} registros`);
-            offset += batchSize;
-        }
-    }
-}
-
+    afterAll(async () => {
+        await connection.close();
+    });
+});
 ```
 
-### Migración Asíncrona con Cola
+### Validación de Datos Post-Migración
 
 ```typescript
-// migration-worker.ts
-export class DataMigrationWorker {
-    async processUserMigration(batchId: number): Promise<void> {
-        const batchSize = 1000;
-        const offset = batchId * batchSize;
+// scripts/validate-migration.ts
+import { Connection } from 'typeorm';
 
-        await this.queryRunner.query(`
-            UPDATE users
-            SET profile_data = jsonb_build_object(
-                'preferences', old_preferences,
-                'settings', old_settings
-            )
-            WHERE id >= ${offset} AND id < ${offset + batchSize}
-            AND profile_data IS NULL
-        `);
+export async function validateMigration(connection: Connection): Promise<void> {
+    // Verificar integridad referencial
+    const orphanedRecords = await connection.query(`
+        SELECT COUNT(*) as count 
+        FROM orders o 
+        LEFT JOIN users u ON o.user_id = u.id 
+        WHERE u.id IS NULL
+    `);
+    
+    if (orphanedRecords[0].count > 0) {
+        throw new Error(`Found ${orphanedRecords[0].count} orphaned orders`);
     }
-}
 
-// Encolar trabajos de migración
-export class QueueDataMigration implements MigrationInterface {
-    async up(queryRunner: QueryRunner): Promise<void> {
-        // Contar total de registros
-        const result = await queryRunner.query(`
-            SELECT COUNT(*) as count FROM users WHERE profile_data IS NULL
-        `);
-
-        const totalRecords = result[0].count;
-        const batchSize = 1000;
-        const totalBatches = Math.ceil(totalRecords / batchSize);
-
-        // Encolar trabajos
-        for (let i = 0; i < totalBatches; i++) {
-            await this.messageQueue.send('data-migration', {
-                type: 'user-profile-migration',
-                batchId: i
-            });
-        }
+    // Verificar constraints
+    const constraintViolations = await connection.query(`
+        SELECT COUNT(*) as count 
+        FROM users 
+        WHERE email IS NULL OR email = ''
+    `);
+    
+    if (constraintViolations[0].count > 0) {
+        throw new Error('Email constraint violations detected');
     }
-}
 
+    console.log('Migration validation passed ✅');
+}
 ```
 
-## Procedimientos de Rollback
+## Automatización con CI/CD
 
-### Rollback Automático
+### GitHub Actions
+
+```yaml
+# .github/workflows/database-migration.yml
+name: Database Migration
+
+on:
+  push:
+    branches: [main]
+    paths: ['**/migrations/**']
+
+jobs:
+  test-migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run migration tests
+        run: npm run test:migrations
+        env:
+          DATABASE_URL: postgresql://postgres:test@localhost:5432/test
+
+  deploy-staging:
+    needs: test-migrations
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Deploy to staging
+        run: |
+          # Aplicar migraciones en staging
+          kubectl exec -it staging-db -- \
+            npm run migration:run
+          
+          # Ejecutar health checks
+          npm run health-check:staging
+
+  deploy-production:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Backup production database
+        run: |
+          kubectl exec production-db -- \
+            pg_dump -U postgres app_db > backup-$(date +%Y%m%d-%H%M%S).sql
+            
+      - name: Apply migrations to production
+        run: |
+          kubectl exec production-db -- \
+            npm run migration:run
+            
+      - name: Validate migration
+        run: |
+          npm run validate:migration:production
+```
+
+## Rollback de Emergencia
+
+### Script de Rollback Automático
 
 ```bash
 #!/bin/bash
+# scripts/emergency-rollback.sh
 
-# rollback-migration.sh
 set -e
 
-MIGRATION_NAME=$1
-SERVICE_NAME=$2
+BACKUP_FILE=$1
+DATABASE_URL=$2
 
-echo "Iniciando rollback de migración: $MIGRATION_NAME"
-
-# Verificar salud del servicio
-if ! curl -f http://localhost:3000/health; then
-    echo "Servicio no responde, iniciando rollback..."
-
-    # Rollback de base de datos
-    case $SERVICE_NAME in
-        "user-service")
-            cd /app/user-service && npm run migration:revert
-            ;;
-        "game-catalog")
-            cd /app/game-catalog && npx sequelize-cli db:migrate:undo
-            ;;
-        *)
-            echo "Servicio no reconocido"
-            exit 1
-            ;;
-    esac
-
-    # Reiniciar servicio
-    systemctl restart $SERVICE_NAME
-
-    # Verificar recuperación
-    sleep 10
-    if curl -f http://localhost:3000/health; then
-        echo "Rollback exitoso"
-    else
-        echo "Rollback falló, intervención manual requerida"
-        exit 1
-    fi
+if [ -z "$BACKUP_FILE" ] || [ -z "$DATABASE_URL" ]; then
+    echo "Usage: $0 <backup_file> <database_url>"
+    exit 1
 fi
 
-```
+echo "🚨 EMERGENCY ROLLBACK INITIATED"
+echo "Backup file: $BACKUP_FILE"
+echo "Database: $DATABASE_URL"
 
-### Rollback Manual con Punto de Restauración
+# Confirmación requerida
+read -p "Are you sure you want to rollback? This will restore from backup (y/N): " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Rollback cancelled"
+    exit 1
+fi
 
-```sql
+# Crear backup actual antes del rollback
+echo "Creating safety backup..."
+pg_dump "$DATABASE_URL" > "emergency-backup-$(date +%Y%m%d-%H%M%S).sql"
 
-- - Crear punto de restauración antes de migración
-BEGIN;
-SAVEPOINT before_migration;
+# Restaurar desde backup
+echo "Restoring from backup..."
+psql "$DATABASE_URL" < "$BACKUP_FILE"
 
-- - Aplicar migración
-ALTER TABLE games ADD COLUMN rating_avg DECIMAL(3,2);
-UPDATE games SET rating_avg = (
-    SELECT AVG(rating) FROM game_reviews WHERE game_id = games.id
-);
+# Verificar estado
+echo "Verifying rollback..."
+npm run health-check
 
-- - En caso de problemas, rollback al punto de restauración
-ROLLBACK TO SAVEPOINT before_migration;
-
-- - Si todo está bien, confirmar cambios
-COMMIT;
-
+echo "✅ Emergency rollback completed"
 ```
 
 ## Monitoreo y Alertas
 
-### Script de Verificación Post-Migración
-
-```typescript
-// post-migration-check.ts
-interface MigrationCheck {
-    name: string;
-    query: string;
-    expectedResult?: any;
-    validator: (result: any) => boolean;
-}
-
-const migrationChecks: MigrationCheck[] = [
-    {
-        name: 'Verificar nueva columna',
-        query: `
-            SELECT COUNT(*) as count
-            FROM information_schema.columns
-            WHERE table_name = 'users' AND column_name = 'preferences'
-        `,
-        validator: (result) => result[0].count === 1
-    },
-    {
-        name: 'Verificar datos migrados',
-        query: `
-            SELECT COUNT(*) as count
-            FROM users
-            WHERE preferences IS NOT NULL
-        `,
-        validator: (result) => result[0].count > 0
-    },
-    {
-        name: 'Verificar índice creado',
-        query: `
-            SELECT COUNT(*) as count
-            FROM pg_indexes
-            WHERE tablename = 'users'
-            AND indexname = 'IDX_users_preferences'
-        `,
-        validator: (result) => result[0].count === 1
-    }
-];
-
-async function runPostMigrationChecks(): Promise<boolean> {
-    for (const check of migrationChecks) {
-        try {
-            const result = await queryRunner.query(check.query);
-            if (!check.validator(result)) {
-                console.error(`❌ Check failed: ${check.name}`);
-                return false;
-            }
-            console.log(`✅ Check passed: ${check.name}`);
-        } catch (error) {
-            console.error(`❌ Check error: ${check.name}`, error);
-            return false;
-        }
-    }
-    return true;
-}
-
-```
-
 ### Métricas de Migración
 
 ```typescript
-// migration-metrics.ts
-export class MigrationMetrics {
-    async recordMigrationStart(migrationName: string): Promise<void> {
-        await this.metricsService.increment('database.migration.started', {
-            migration: migrationName,
-            service: process.env.SERVICE_NAME
-        });
+// src/monitoring/migration-metrics.ts
+import { Counter, Histogram, register } from 'prom-client';
+
+export const migrationMetrics = {
+    duration: new Histogram({
+        name: 'db_migration_duration_seconds',
+        help: 'Time taken to execute database migrations',
+        labelNames: ['migration_name', 'status'],
+    }),
+    
+    errors: new Counter({
+        name: 'db_migration_errors_total',
+        help: 'Total number of migration errors',
+        labelNames: ['migration_name', 'error_type'],
+    }),
+};
+
+register.registerMetric(migrationMetrics.duration);
+register.registerMetric(migrationMetrics.errors);
+
+export async function trackMigration<T>(
+    migrationName: string,
+    operation: () => Promise<T>
+): Promise<T> {
+    const startTime = Date.now();
+    
+    try {
+        const result = await operation();
+        
+        migrationMetrics.duration
+            .labels(migrationName, 'success')
+            .observe((Date.now() - startTime) / 1000);
+            
+        return result;
+    } catch (error) {
+        migrationMetrics.duration
+            .labels(migrationName, 'error')
+            .observe((Date.now() - startTime) / 1000);
+            
+        migrationMetrics.errors
+            .labels(migrationName, error.name)
+            .inc();
+            
+        throw error;
     }
-
-    async recordMigrationSuccess(migrationName: string, duration: number): Promise<void> {
-        await this.metricsService.increment('database.migration.completed', {
-            migration: migrationName,
-            service: process.env.SERVICE_NAME
-        });
-
-        await this.metricsService.histogram('database.migration.
-
+}
 ```
+
+### Alertas Slack/Discord
+
+```typescript
+// src/notifications/migration-alerts.ts
+import { WebhookClient } from 'discord.js';
+
+const webhook = new WebhookClient({ 
+    url: process.env.DISCORD_WEBHOOK_URL 
+});
+
+export async function notifyMigrationStatus(
+    migrationName: string,
+    status: 'started' | 'completed' | 'failed',
+    details?: string
+) {
+    const emoji = {
+        started: '🔄',
+        completed: '✅',
+        failed: '❌'
+    };
+
+    const color = {
+        started: 0xFFFF00,
+        completed: 0x00FF00,
+        failed: 0xFF0000
+    };
+
+    await webhook.send({
+        embeds: [{
+            title: `${emoji[status]} Database Migration ${status.toUpperCase()}`,
+            fields: [
+                { name: 'Migration', value: migrationName, inline: true },
+                { name: 'Environment', value: process.env.NODE_ENV, inline: true },
+                { name: 'Timestamp', value: new Date().toISOString(), inline: true }
+            ],
+            description: details,
+            color: color[status],
+        }],
+    });
+}
+```
+
+## Best Practices
+
+<Callout type="warning">
+**Reglas de Oro para Migraciones Seguras:**
+
+1. **Siempre crear backup** antes de aplicar en producción
+2. **Probar en staging** con datos similares a producción
+3. **Migraciones pequeñas** y atómicas
+4. **Scripts idempotentes** que se puedan ejecutar múltiples veces
+5. **Monitorear performance** durante y después de la migración
+</Callout>
+
+### Checklist Pre-Producción
+
+- [ ] Migración probada en local
+- [ ] Migración probada en staging
+- [ ] Backup de producción creado
+- [ ] Scripts de rollback preparados
+- [ ] Monitoreo configurado
+- [ ] Ventana de mantenimiento programada (si necesaria)
+- [ ] Equipo notificado del despliegue
+- [ ] Plan de comunicación con usuarios (si hay downtime)
+
+### Naming Conventions
+
+```bash
+# Formato: YYYYMMDDHHMMSS-descriptive-name
+20240315120000-add-user-preferences-column.sql
+20240315130000-create-product-categories-table.sql
+20240315140000-migrate-legacy-user-data.sql
+```
+
+Esta guía asegura que las migraciones se ejecuten de forma predecible y segura, minimizando riesgos en producción y manteniendo la integridad de los datos.

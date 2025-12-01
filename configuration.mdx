@@ -1,24 +1,22 @@
 ---
 title: 8.3. Configuración de Entornos
-description: Referencia completa de configuración para todos los servicios de Retro
-  Game Hub
+description: Referencia completa de configuración para todos los servicios de Retro Game Hub
 icon: file-lines
 ---
 
-# ⚙️ Configuración del Sistema
+# 8.3. Configuración de Entornos
 
-Esta página documenta todas las variables de configuración, parámetros y ajustes disponibles en Retro Game Hub.
+Esta sección documenta todas las variables de configuración, parámetros y ajustes disponibles en Retro Game Hub para diferentes entornos.
 
-- --
+---
 
 ## 🔐 Variables de Entorno
 
-### Auth Service
+### 8.3.1. Auth Service
 
 Variables de entorno para el servicio de autenticación:
 
 ```bash
-
 # Puerto del servicio
 PORT=3001
 
@@ -48,23 +46,34 @@ RATE_LIMIT_MAX_REQUESTS=10  # Máximo 10 requests/minuto
 # CORS
 CORS_ORIGIN=https://retrogamehub.games
 
+# OAuth Providers
+GOOGLE_CLIENT_ID=<google-client-id>
+GOOGLE_CLIENT_SECRET=<google-client-secret>
+GITHUB_CLIENT_ID=<github-client-id>
+GITHUB_CLIENT_SECRET=<github-client-secret>
+
+# Email Service
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=<email>
+SMTP_PASS=<password>
 ```
 
 #### Valores Recomendados por Entorno
 
-| Variable | Development | Production |
-|----------|-------------|------------|
-| `NODE_ENV` | `development` | `production` |
-| `JWT_EXPIRATION` | `7d` | `24h` |
-| `RATE_LIMIT_MAX_REQUESTS` | `100` | `10` |
-| `DB_HOST` | `localhost` | RDS endpoint |
+| Variable | Development | Staging | Production |
+|----------|-------------|---------|------------|
+| `NODE_ENV` | `development` | `staging` | `production` |
+| `JWT_EXPIRATION` | `7d` | `1h` | `24h` |
+| `RATE_LIMIT_MAX_REQUESTS` | `100` | `50` | `10` |
+| `DB_HOST` | `localhost` | RDS staging | RDS prod |
+| `CORS_ORIGIN` | `http://localhost:3000` | `https://staging.retrogamehub.games` | `https://retrogamehub.games` |
 
-- --
+---
 
-### User Service
+### 8.3.2. User Service
 
 ```bash
-
 # Puerto del servicio
 PORT=3002
 
@@ -82,21 +91,28 @@ DB_PASSWORD=<secret>
 USERNAME_MIN_LENGTH=3
 USERNAME_MAX_LENGTH=20
 EMAIL_VALIDATION_REGEX=^[^\s@]+@[^\s@]+\.[^\s@]+$
+PASSWORD_MIN_LENGTH=8
 
-# Avatar por defecto
+# Avatar y archivos
 DEFAULT_AVATAR_URL=https://cdn.retrogamehub.games/avatars/default.png
+MAX_AVATAR_SIZE=5242880  # 5MB
+ALLOWED_IMAGE_TYPES=jpg,jpeg,png,gif,webp
 
 # Cache de perfiles (segundos)
 PROFILE_CACHE_TTL=300  # 5 minutos
 
+# S3 Configuration para avatares
+AWS_ACCESS_KEY_ID=<access-key>
+AWS_SECRET_ACCESS_KEY=<secret-key>
+AWS_REGION=eu-west-1
+S3_BUCKET_AVATARS=retrogame-avatars
 ```
 
-- --
+---
 
-### Game Catalog Service
+### 8.3.3. Game Catalog Service
 
 ```bash
-
 # Puerto del servicio
 PORT=3003
 
@@ -111,32 +127,34 @@ DB_USER=postgres
 DB_PASSWORD=<secret>
 
 # APIs Externas
-IGDB_CLIENT_ID=<client-id>
-IGDB_CLIENT_SECRET=<client-secret>
-MOBYGAMES_API_KEY=<api-key>
+IGDB_CLIENT_ID=<igdb-client-id>
+IGDB_CLIENT_SECRET=<igdb-client-secret>
+RAWG_API_KEY=<rawg-api-key>
+STEAM_API_KEY=<steam-api-key>
 
-# Cache de juegos (segundos)
-GAME_CACHE_TTL=3600  # 1 hora
-SEARCH_CACHE_TTL=300  # 5 minutos
+# Cache de datos
+GAME_CACHE_TTL=3600    # 1 hora
+SEARCH_CACHE_TTL=900   # 15 minutos
+IMAGE_CACHE_TTL=86400  # 24 horas
 
-# Paginación
-MAX_GAMES_PER_PAGE=50
-DEFAULT_GAMES_PER_PAGE=20
+# Límites de paginación
+DEFAULT_PAGE_SIZE=20
+MAX_PAGE_SIZE=100
 
-# S3 para imágenes
-S3_BUCKET=retrogamehub-assets
-S3_REGION=eu-west-1
-AWS_ACCESS_KEY_ID=<access-key>
-AWS_SECRET_ACCESS_KEY=<secret-key>
+# S3 Configuration para imágenes de juegos
+S3_BUCKET_GAMES=retrogame-games-media
+CDN_BASE_URL=https://cdn.retrogamehub.games
 
+# Indexación de búsqueda
+ELASTICSEARCH_URL=https://search-retrogame.eu-west-1.es.amazonaws.com
+ELASTICSEARCH_INDEX=games
 ```
 
-- --
+---
 
-### Review Service
+### 8.3.4. Review Service
 
 ```bash
-
 # Puerto del servicio
 PORT=3004
 
@@ -150,431 +168,423 @@ DB_NAME=retrogamedb
 DB_USER=postgres
 DB_PASSWORD=<secret>
 
-# Moderación de contenido
-ENABLE_PROFANITY_FILTER=true
+# Validación de reviews
 MIN_REVIEW_LENGTH=50
-MAX_REVIEW_LENGTH=5000
+MAX_REVIEW_LENGTH=2000
+RATING_MIN=1
+RATING_MAX=5
+
+# Moderación
+ENABLE_PROFANITY_FILTER=true
+PROFANITY_API_KEY=<profanity-api-key>
+AUTO_MODERATE=true
 
 # Notificaciones
-NOTIFICATION_SERVICE_URL=http://notification-service:3005
+NOTIFICATION_SERVICE_URL=http://notification-service:3006
 ENABLE_EMAIL_NOTIFICATIONS=true
 
-# Cache de reseñas
-REVIEW_CACHE_TTL=1800  # 30 minutos
-
+# Cache
+REVIEW_CACHE_TTL=600   # 10 minutos
+STATS_CACHE_TTL=1800   # 30 minutos
 ```
 
-- --
+---
 
-### Notification Service
+### 8.3.5. List Service
 
 ```bash
-
 # Puerto del servicio
 PORT=3005
 
 # Entorno
 NODE_ENV=production
 
-# Email SMTP
-SMTP_HOST=smtp.amazonaws.com
+# Base de datos
+DB_HOST=retrogame-db.xxxxx.eu-west-1.rds.amazonaws.com
+DB_PORT=5432
+DB_NAME=retrogamedb
+DB_USER=postgres
+DB_PASSWORD=<secret>
+
+# Límites de listas
+MAX_LISTS_PER_USER=50
+MAX_GAMES_PER_LIST=1000
+LIST_NAME_MAX_LENGTH=100
+LIST_DESCRIPTION_MAX_LENGTH=500
+
+# Tipos de lista predefinidos
+DEFAULT_LIST_TYPES=wishlist,completed,currently_playing,dropped,favorites
+
+# Cache
+LIST_CACHE_TTL=300     # 5 minutos
+USER_LISTS_CACHE_TTL=600  # 10 minutos
+
+# Privacidad
+DEFAULT_LIST_VISIBILITY=public
+ALLOWED_VISIBILITIES=public,private,friends
+```
+
+---
+
+### 8.3.6. Notification Service
+
+```bash
+# Puerto del servicio
+PORT=3006
+
+# Entorno
+NODE_ENV=production
+
+# Base de datos
+DB_HOST=retrogame-db.xxxxx.eu-west-1.rds.amazonaws.com
+DB_PORT=5432
+DB_NAME=retrogamedb
+DB_USER=postgres
+DB_PASSWORD=<secret>
+
+# Email Configuration
+SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=<smtp-user>
-SMTP_PASSWORD=<smtp-password>
-FROM_EMAIL=noreply@retrogamehub.games
+SMTP_USER=<email>
+SMTP_PASS=<password>
+EMAIL_FROM=noreply@retrogamehub.games
 
 # Push Notifications
 FIREBASE_PROJECT_ID=retrogamehub
 FIREBASE_PRIVATE_KEY=<private-key>
 FIREBASE_CLIENT_EMAIL=<client-email>
 
-# Rate Limiting para notificaciones
-EMAIL_RATE_LIMIT=10  # emails por usuario por día
-PUSH_RATE_LIMIT=50   # push notifications por usuario por día
+# Configuración de notificaciones
+MAX_NOTIFICATIONS_PER_USER=1000
+NOTIFICATION_RETENTION_DAYS=90
+BATCH_SIZE=100
 
+# Rate limiting para emails
+EMAIL_RATE_LIMIT=10  # emails por minuto por usuario
+DAILY_EMAIL_LIMIT=50 # emails por día por usuario
 ```
 
-- --
+---
 
-### Frontend Application
+### 8.3.7. API Gateway
 
 ```bash
+# Puerto del gateway
+PORT=3000
 
-# API Gateway
-REACT_APP_API_BASE_URL=https://api.retrogamehub.games
+# Entorno
+NODE_ENV=production
 
-# Autenticación
-REACT_APP_JWT_STORAGE_KEY=retrogame_token
+# URLs de servicios
+AUTH_SERVICE_URL=http://auth-service:3001
+USER_SERVICE_URL=http://user-service:3002
+GAME_SERVICE_URL=http://game-service:3003
+REVIEW_SERVICE_URL=http://review-service:3004
+LIST_SERVICE_URL=http://list-service:3005
+NOTIFICATION_SERVICE_URL=http://notification-service:3006
 
-# Características
-REACT_APP_ENABLE_DARK_MODE=true
-REACT_APP_ENABLE_ANALYTICS=true
+# Rate Limiting Global
+GLOBAL_RATE_LIMIT=1000    # requests por minuto
+AUTHENTICATED_RATE_LIMIT=2000
+PREMIUM_RATE_LIMIT=5000
 
-# Analytics
-REACT_APP_GOOGLE_ANALYTICS_ID=GA-XXXXXXXXX
+# Timeouts
+SERVICE_TIMEOUT=30000     # 30 segundos
+GATEWAY_TIMEOUT=60000     # 60 segundos
 
-# CDN para assets
-REACT_APP_CDN_BASE_URL=https://cdn.retrogamehub.games
-
-```
-
-- --
-
-## 🐳 Configuración Docker
-
-### docker-compose.yml
-
-```yaml
-version: '3.8'
-services:
-  # Base de datos
-  postgres:
-    image: postgres:14-alpine
-    environment:
-      POSTGRES_DB: retrogamedb
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Redis para cache
-  redis:
-    image: redis:7-alpine
-    command: redis-server --requirepass ${REDIS_PASSWORD}
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-
-  # Auth Service
-  auth-service:
-    build: ./services/auth
-    ports:
-      - "3001:3001"
-    environment:
-      - NODE_ENV=${NODE_ENV}
-      - PORT=3001
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=retrogamedb
-      - DB_USER=postgres
-      - DB_PASSWORD=${DB_PASSWORD}
-      - JWT_SECRET=${JWT_SECRET}
-      - REDIS_HOST=redis
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # User Service
-  user-service:
-    build: ./services/user
-    ports:
-      - "3002:3002"
-    environment:
-      - NODE_ENV=${NODE_ENV}
-      - PORT=3002
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=retrogamedb
-      - DB_USER=postgres
-      - DB_PASSWORD=${DB_PASSWORD}
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  # Game Catalog Service
-  game-catalog-service:
-    build: ./services/game-catalog
-    ports:
-      - "3003:3003"
-    environment:
-      - NODE_ENV=${NODE_ENV}
-      - PORT=3003
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=retrogamedb
-      - DB_USER=postgres
-      - DB_PASSWORD=${DB_PASSWORD}
-      - IGDB_CLIENT_ID=${IGDB_CLIENT_ID}
-      - IGDB_CLIENT_SECRET=${IGDB_CLIENT_SECRET}
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  # Review Service
-  review-service:
-    build: ./services/review
-    ports:
-      - "3004:3004"
-    environment:
-      - NODE_ENV=${NODE_ENV}
-      - PORT=3004
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=retrogamedb
-      - DB_USER=postgres
-      - DB_PASSWORD=${DB_PASSWORD}
-      - NOTIFICATION_SERVICE_URL=http://notification-service:3005
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  # Notification Service
-  notification-service:
-    build: ./services/notification
-    ports:
-      - "3005:3005"
-    environment:
-      - NODE_ENV=${NODE_ENV}
-      - PORT=3005
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-
-  # Frontend
-  frontend:
-    build: ./frontend
-    ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_API_BASE_URL=http://localhost:4000
-    depends_on:
-      - auth-service
-      - user-service
-      - game-catalog-service
-      - review-service
-
-  # API Gateway (Nginx)
-  api-gateway:
-    image: nginx:alpine
-    ports:
-      - "4000:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-    depends_on:
-      - auth-service
-      - user-service
-      - game-catalog-service
-      - review-service
-      - notification-service
-
-volumes:
-  postgres_data:
-  redis_data:
-
-```
-
-- --
-
-### .env Template
-
-```bash
-
-# ===========================================
-
-# RETRO GAME HUB - ENVIRONMENT CONFIGURATION
-
-# ===========================================
-
-# Entorno general
-NODE_ENV=development
-
-# Base de datos
-DB_PASSWORD=your_secure_db_password
-
-# Redis
-REDIS_PASSWORD=your_secure_redis_password
-
-# JWT
-JWT_SECRET=your_super_secure_jwt_secret_key_here
-
-# APIs Externas
-IGDB_CLIENT_ID=your_igdb_client_id
-IGDB_CLIENT_SECRET=your_igdb_client_secret
-MOBYGAMES_API_KEY=your_mobygames_api_key
-
-# Email SMTP
-SMTP_HOST=smtp.gmail.com
-SMTP_USER=your_email@gmail.com
-SMTP_PASSWORD=your_app_password
-
-# AWS S3 (para producción)
-AWS_ACCESS_KEY_ID=your_aws_access_key
-AWS_SECRET_ACCESS_KEY=your_aws_secret_key
-S3_BUCKET=retrogamehub-assets
-S3_REGION=eu-west-1
-
-# Firebase (para push notifications)
-FIREBASE_PROJECT_ID=your_firebase_project_id
-FIREBASE_PRIVATE_KEY="your_firebase_private_key"
-FIREBASE_CLIENT_EMAIL=your_firebase_client_email
-
-```
-
-- --
-
-## ⚙️ Configuración de Nginx
-
-### nginx.conf
-
-```nginx
-events {
-    worker_connections 1024;
-}
-
-http {
-    upstream auth_service {
-        server auth-service:3001;
-    }
-
-    upstream user_service {
-        server user-service:3002;
-    }
-
-    upstream game_catalog_service {
-        server game-catalog-service:3003;
-    }
-
-    upstream review_service {
-        server review-service:3004;
-    }
-
-    upstream notification_service {
-        server notification-service:3005;
-    }
-
-    # Rate limiting
-    limit_req_zone $binary_remote_addr zone=api:10m rate=10r/m;
-    limit_req_zone $binary_remote_addr zone=auth:10m rate=5r/m;
-
-    server {
-        listen 80;
-
-        # Health check endpoint
-        location /health {
-            return 200 "OK";
-            add_header Content-Type text/plain;
-        }
-
-        # Auth endpoints with stricter rate limiting
-        location /api/auth/ {
-            limit_req zone=auth burst=5 nodelay;
-            proxy_pass http://auth_service/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        }
-
-        # User service
-        location /api/users/ {
-            limit_req zone=api burst=10 nodelay;
-            proxy_pass http://user_service/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        }
-
-        # Game catalog service
-        location /api/games/ {
-            limit_req zone=api burst=20 nodelay;
-            proxy_pass http://game_catalog_service/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        }
-
-        # Review service
-        location /api/reviews/ {
-            limit_req zone=api burst=10 nodelay;
-            proxy_pass http://review_service/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        }
-
-        # Notification service
-        location /api/notifications/ {
-            limit_req zone=api burst=5 nodelay;
-            proxy_pass http://notification_service/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        }
-    }
-}
-
-```
-
-- --
-
-## 🔧 Configuración Adicional
-
-### Configuración de Base de Datos
-
-#### PostgreSQL postgresql.conf
-
-```ini
-
-# Configuración de memoria
-shared_buffers = 256MB
-work_mem = 4MB
-maintenance_work_mem = 64MB
-
-# Configuración de conexiones
-max_connections = 100
-listen_addresses = '*'
+# Load Balancing
+ENABLE_CIRCUIT_BREAKER=true
+CIRCUIT_BREAKER_THRESHOLD=5
+CIRCUIT_BREAKER_TIMEOUT=60000
 
 # Logging
-log_statement = 'all'
-log_duration = on
+LOG_LEVEL=info
+LOG_FORMAT=json
+ENABLE_REQUEST_LOGGING=true
+```
+
+---
+
+## 📊 Configuración de Base de Datos
+
+### 8.3.8. PostgreSQL Principal
+
+```yaml
+# postgresql.conf principales configuraciones
+
+# Conexiones
+max_connections = 200
+shared_buffers = 256MB
+effective_cache_size = 1GB
+
+# Logging
+log_statement = 'mod'
+log_min_duration_statement = 1000
 log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '
 
 # Performance
-effective_cache_size = 1GB
 random_page_cost = 1.1
+effective_io_concurrency = 200
+work_mem = 4MB
+maintenance_work_mem = 64MB
 
+# Backup y replicación
+wal_level = replica
+max_wal_senders = 3
+checkpoint_completion_target = 0.9
 ```
 
-#### Índices Recomendados
+### Índices Recomendados
 
 ```sql
+-- Usuarios
+CREATE INDEX CONCURRENTLY idx_users_email ON users(email);
+CREATE INDEX CONCURRENTLY idx_users_username ON users(username);
+CREATE INDEX CONCURRENTLY idx_users_created_at ON users(created_at);
 
-- - Auth Service
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_sessions_token ON sessions(token);
-CREATE INDEX idx_sessions_user_id ON sessions(user_id);
+-- Juegos
+CREATE INDEX CONCURRENTLY idx_games_title ON games USING GIN(to_tsvector('english', title));
+CREATE INDEX CONCURRENTLY idx_games_release_date ON games(release_date);
+CREATE INDEX CONCURRENTLY idx_games_rating ON games(average_rating);
 
-- - Game Catalog
-CREATE INDEX idx_games_title ON games USING gin(title gin_trgm_ops);
-CREATE INDEX idx_games_genre ON games(genre);
-CREATE INDEX idx_games_platform ON games(platform);
-CREATE INDEX idx_games_release_date ON games(release_date);
+-- Reviews
+CREATE INDEX CONCURRENTLY idx_reviews_game_user ON reviews(game_id, user_id);
+CREATE INDEX CONCURRENTLY idx_reviews_created_at ON reviews(created_at);
+CREATE INDEX CONCURRENTLY idx_reviews_rating ON reviews(rating);
 
-- - Reviews
-CREATE INDEX idx_reviews_game_id ON reviews(game_id);
-CREATE INDEX idx_reviews_user_id ON reviews(user_id);
-CREATE INDEX idx_reviews_rating ON reviews(rating);
-CREATE INDEX idx_reviews_created_at ON reviews(created_at);
-
+-- Listas
+CREATE INDEX CONCURRENTLY idx_lists_user_id ON lists(user_id);
+CREATE INDEX CONCURRENTLY idx_list_games_list_game ON list_games(list_id, game_id);
 ```
 
-- --
+---
 
-### Configuración de Redis
+## ☁️ Configuración AWS
 
-#### redis
+### 8.3.9. ECS Task Definitions
+
+```json
+{
+  "family": "retrogame-auth-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::account:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::account:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "auth-service",
+      "image": "retrogamehub/auth-service:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3001,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "arn:aws:ssm:region:account:parameter/retrogame/db/password"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/retrogame-auth",
+          "awslogs-region": "eu-west-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
+```
+
+### 8.3.10. RDS Configuration
+
+```yaml
+# Variables para RDS
+Engine: postgres
+EngineVersion: "14.9"
+DBInstanceClass: db.t3.micro  # Para desarrollo
+                 db.r5.large  # Para producción
+AllocatedStorage: 100
+StorageType: gp2
+StorageEncrypted: true
+MultiAZ: true  # Solo producción
+BackupRetentionPeriod: 7
+PreferredBackupWindow: "03:00-04:00"
+PreferredMaintenanceWindow: "Sun:04:00-Sun:05:00"
+
+# Parameter Group personalizado
+shared_preload_libraries: 'pg_stat_statements'
+log_statement: 'mod'
+log_min_duration_statement: 1000
+```
+
+---
+
+## 🔍 Monitoreo y Logging
+
+### 8.3.11. CloudWatch Configuration
+
+```yaml
+# Métricas personalizadas
+CustomMetrics:
+  - MetricName: "API_Requests"
+    Namespace: "RetroGameHub/API"
+    Dimensions:
+      - Name: "Service"
+        Value: "${SERVICE_NAME}"
+  
+  - MetricName: "Database_Connections"
+    Namespace: "RetroGameHub/Database"
+    
+  - MetricName: "Cache_Hit_Rate"
+    Namespace: "RetroGameHub/Cache"
+
+# Alarmas
+Alarms:
+  - AlarmName: "High-CPU-Usage"
+    MetricName: "CPUUtilization"
+    Threshold: 80
+    ComparisonOperator: "GreaterThanThreshold"
+    
+  - AlarmName: "High-Memory-Usage"
+    MetricName: "MemoryUtilization"
+    Threshold: 85
+    ComparisonOperator: "GreaterThanThreshold"
+```
+
+### Log Configuration
+
+```json
+{
+  "version": "0",
+  "timestamp": true,
+  "level": "info",
+  "format": "json",
+  "transports": {
+    "console": {
+      "colorize": true
+    },
+    "cloudwatch": {
+      "logGroup": "/retrogamehub/services",
+      "logStream": "${SERVICE_NAME}-${INSTANCE_ID}",
+      "region": "eu-west-1"
+    }
+  }
+}
+```
+
+---
+
+## 🔄 Variables por Entorno
+
+### 8.3.12. Development
+
+```bash
+# .env.development
+NODE_ENV=development
+LOG_LEVEL=debug
+ENABLE_CORS=true
+CORS_ORIGIN=http://localhost:3000
+
+# Base de datos local
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=retrogamedev
+DB_USER=postgres
+DB_PASSWORD=postgres
+
+# Desactivar rate limiting en desarrollo
+RATE_LIMIT_MAX_REQUESTS=1000
+
+# Hot reload
+ENABLE_HOT_RELOAD=true
+WATCH_FILES=true
+```
+
+### 8.3.13. Staging
+
+```bash
+# .env.staging
+NODE_ENV=staging
+LOG_LEVEL=info
+ENABLE_DETAILED_LOGGING=true
+
+# Base de datos staging
+DB_HOST=retrogame-staging-db.xxxxx.eu-west-1.rds.amazonaws.com
+DB_NAME=retrogamestaging
+
+# Rate limiting moderado
+RATE_LIMIT_MAX_REQUESTS=50
+
+# Testing features
+ENABLE_FEATURE_FLAGS=true
+FEATURE_FLAG_SERVICE=http://feature-flags:8080
+```
+
+### 8.3.14. Production
+
+```bash
+# .env.production
+NODE_ENV=production
+LOG_LEVEL=warn
+ENABLE_PERFORMANCE_MONITORING=true
+
+# Optimizaciones de producción
+ENABLE_COMPRESSION=true
+ENABLE_CACHING=true
+CACHE_MAX_AGE=3600
+
+# Seguridad adicional
+HELMET_ENABLED=true
+HSTS_MAX_AGE=31536000
+CONTENT_SECURITY_POLICY=strict
+
+# Rate limiting estricto
+RATE_LIMIT_MAX_REQUESTS=10
+ENABLE_IP_WHITELIST=false
+```
+
+---
+
+## 📋 Checklist de Configuración
+
+### Antes del Deploy
+
+- [ ] Todas las variables de entorno están definidas
+- [ ] Secretos almacenados en AWS Parameter Store/Secrets Manager
+- [ ] Configuración de base de datos validada
+- [ ] Certificados SSL/TLS configurados
+- [ ] Rate limiting apropiado por entorno
+- [ ] Logs configurados correctamente
+- [ ] Métricas y alarmas activas
+- [ ] Backup automático configurado
+- [ ] Variables de feature flags definidas
+- [ ] CORS configurado por entorno
+
+### Post-Deploy
+
+- [ ] Health checks funcionando
+- [ ] Métricas reportando correctamente
+- [ ] Logs visibles en CloudWatch
+- [ ] Base de datos accesible
+- [ ] Cache funcionando
+- [ ] APIs externas conectadas
+- [ ] Notificaciones funcionando
+- [ ] Rate limiting efectivo
+
+---
+
+*Para más detalles sobre deployment, consulta la [sección 7.5](./deployment.mdx).*
+*Para configuración de desarrollo local, ve a la [sección 8.1](./desarrollo-local.mdx).*
