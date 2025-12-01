@@ -1,7 +1,6 @@
 ---
 title: 3.4. Servicio de Puntuaciones
-description: Gestión de puntuaciones y logros de jugadores con sistema de rankings
-  en tiempo real
+description: Gestión de puntuaciones y logros de jugadores con sistema de rankings en tiempo real
 icon: trophy
 ---
 
@@ -35,7 +34,7 @@ El servicio de puntuaciones permite a los jugadores guardar y actualizar sus mej
 |---|---|
 | **Puerto** | 5003 |
 | **Base de Datos** | PostgreSQL (scores) |
-| **Dependencias** | Auth Service, Games Service |
+| **Dependencias** | Auth Service (3.1), Games Service (3.3) |
 | **Cache** | Redis para rankings |
 
 ## Flujo de Actualización de Puntuaciones
@@ -63,242 +62,300 @@ sequenceDiagram
     else Score no es mejor
         ScoreAPI->>Client: Score no actualizado
     end
-
 ```
 
 ## Características Principales
 
 ### 🎯 Gestión de Puntuaciones
 
-- Almacenamiento del mejor score por usuario/juego
+- **Best Score Only**: Almacena únicamente la mejor puntuación por usuario/juego
+- **Validación Automática**: Verificación de integridad y comparación de scores
+- **Actualización Condicional**: Solo actualiza si el nuevo score es superior
+- **Auditoría Completa**: Registro de todas las submissions con timestamps
 
-- Validación automática contra records anteriores
+### 🏆 Sistema de Rankings
 
-- Sistema de rankings dinámico
+- **Leaderboards Dinámicos**: Rankings actualizados en tiempo real
+- **Cache Inteligente**: Redis para consultas rápidas de rankings
+- **Invalidación Selectiva**: Solo actualiza cache afectado por cambios
+- **Rankings Globales**: Top players por juego con paginación
 
-- Cache inteligente para optimizar consultas
+### 📊 Análisis y Estadísticas
 
-### 🏆 Sistema de Leaderboards
+- **Métricas de Rendimiento**: Estadísticas detalladas por usuario
+- **Progresión Temporal**: Historial de mejoras de puntuaciones
+- **Comparativas**: Rankings relativos y percentiles
+- **Agregaciones**: Estadísticas por juego y período
 
-- Rankings globales por juego
+## Endpoints Principales
 
-- Posiciones calculadas en tiempo real
+### Gestión de Scores
 
-- Cache de rankings para respuesta rápida
+```http
+POST /api/scores
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
 
-- Invalidación automática al actualizar scores
-
-### ⚡ Optimizaciones de Rendimiento
-
-- Cache distribuido con Redis
-
-- Queries optimizadas con índices compuestos
-
-- Invalidación selectiva de cache
-
-- Paginación eficiente en rankings
-
-## Problemas Comunes
-
-### 🚨 Cache Desactualizado
-
-* *Problema:** Los rankings no reflejan scores recientes
-
-* *Síntomas:**
-
-```bash
-
-# Usuario reporta score no visible en leaderboard
-curl -H "Authorization: Bearer $TOKEN" /api/leaderboard/game123
-
-# Respuesta muestra datos obsoletos
-
+{
+  "gameId": "tetris-classic",
+  "score": 125000,
+  "metadata": {
+    "level": 8,
+    "lines": 240,
+    "duration": 180000
+  }
+}
 ```
 
-* *Logs a revisar:**
+### Consulta de Rankings
 
-```bash
-
-# Buscar errores de invalidación de cache
-docker logs score-service | grep "Cache invalidation failed"
-docker logs redis | grep "COMMAND FAILED"
-
+```http
+GET /api/scores/leaderboard/{gameId}?limit=10&offset=0
 ```
 
-* *Solución rápida:**
+### Scores de Usuario
 
-```bash
-
-# Limpiar cache manualmente
-redis-cli DEL "game_leaderboard:*"
-redis-cli DEL "user_scores:*"
-
-# Reiniciar servicio si persiste
-docker restart score-service
-
+```http
+GET /api/scores/user/{userId}
 ```
 
-### 🔄 Scores Duplicados
+## Modelo de Datos
 
-* *Problema:** Múltiples entries del mismo usuario/juego
-
-* *Síntomas:**
+### Tabla Scores
 
 ```sql
-
-- - Verificar duplicados
-SELECT user_id, game_id, COUNT(*)
-FROM scores
-GROUP BY user_id, game_id
-HAVING COUNT(*) > 1;
-
-```
-
-* *Logs relevantes:**
-
-```bash
-
-# Buscar race conditions
-docker logs score-service | grep "Constraint violation"
-docker logs score-service | grep "Transaction conflict"
-
-```
-
-* *Solución:**
-
-```sql
-
-- - Limpiar duplicados manteniendo el mejor score
-WITH ranked_scores AS (
-  SELECT *, ROW_NUMBER() OVER (
-    PARTITION BY user_id, game_id
-    ORDER BY score DESC, created_at DESC
-  ) as rn
-  FROM scores
-)
-DELETE FROM scores
-WHERE id IN (
-  SELECT id FROM ranked_scores WHERE rn > 1
+CREATE TABLE scores (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    game_id VARCHAR(50) NOT NULL,
+    score INTEGER NOT NULL,
+    metadata JSONB,
+    achieved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, game_id)
 );
 
+CREATE INDEX idx_scores_game_score ON scores(game_id, score DESC);
+CREATE INDEX idx_scores_user ON scores(user_id);
 ```
 
-### 🐌 Rankings Lentos
+### Cache Structure
 
-* *Problema:** Leaderboards tardan en cargar
+```redis
+# Leaderboard por juego (top 100)
+game_leaderboard:tetris-classic -> ZSET (score -> user_id)
 
-* *Síntomas:**
+# Scores de usuario
+user_scores:123 -> HASH (game_id -> score)
 
-```bash
-
-# Timeout en consultas de ranking
-curl -w "%{time_total}" /api/leaderboard/popular-game
-
-# > 5 segundos de respuesta
-
+# Posición en ranking
+user_rank:123:tetris-classic -> INTEGER
 ```
 
-* *Logs a reviever:**
+## Integración con Otros Servicios
 
-```bash
+### Dependencia del Auth Service (3.1)
 
-# Queries lentas
-docker logs score-service | grep "Query took"
-docker logs postgresql | grep "slow query"
-
+```javascript
+// Middleware de autenticación
+const verifyToken = async (req, res, next) => {
+  const response = await fetch(`${AUTH_SERVICE}/verify`, {
+    headers: { Authorization: req.headers.authorization }
+  });
+  
+  if (!response.ok) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  req.user = await response.json();
+  next();
+};
 ```
 
-* *Solución inmediata:**
+### Validación con Games Service (3.3)
 
-```sql
-
-- - Verificar índices
-EXPLAIN ANALYZE SELECT * FROM scores
-WHERE game_id = 'game123'
-ORDER BY score DESC LIMIT 100;
-
-- - Recrear índices si es necesario
-REINDEX INDEX idx_scores_game_score;
-
+```javascript
+// Verificar que el juego existe
+const validateGame = async (gameId) => {
+  const response = await fetch(`${GAMES_SERVICE}/api/games/${gameId}`);
+  return response.ok;
+};
 ```
 
-### 🔐 Errores de Autenticación
+### Comunicación con Ranking Service (3.5)
 
-* *Problema:** Scores no se guardan por token inválido
-
-* *Síntomas:**
-
-```bash
-
-# Error 401 al enviar score
-POST /api/scores
-Authorization: Bearer expired_token
-
-# Response: {"error": "Token expired"}
-
+```javascript
+// Notificar cambio de score al servicio de rankings
+const notifyRankingUpdate = async (userId, gameId, newScore) => {
+  await fetch(`${RANKING_SERVICE}/api/rankings/update`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, gameId, newScore })
+  });
+};
 ```
 
-* *Logs típicos:**
+## Estrategia de Cache
 
-```bash
-docker logs score-service | grep "JWT verification failed"
-docker logs score-service | grep "Invalid token"
+### Invalidación Inteligente
 
+```javascript
+const invalidateCache = async (userId, gameId) => {
+  const pipeline = redis.pipeline();
+  
+  // Invalidar scores del usuario
+  pipeline.del(`user_scores:${userId}`);
+  
+  // Invalidar leaderboard del juego
+  pipeline.del(`game_leaderboard:${gameId}`);
+  
+  // Invalidar ranking del usuario en el juego
+  pipeline.del(`user_rank:${userId}:${gameId}`);
+  
+  await pipeline.exec();
+};
 ```
 
-* *Solución:**
+### Cache Warming
 
-```bash
-
-# Verificar conectividad con auth service
-curl http://auth-service:5001/health
-
-# Revisar configuración JWT
-docker exec score-service env | grep JWT
-
+```javascript
+// Pre-cargar leaderboards populares
+const warmPopularLeaderboards = async () => {
+  const popularGames = await getPopularGames();
+  
+  for (const game of popularGames) {
+    await generateLeaderboard(game.id);
+  }
+};
 ```
 
-### 📊 Inconsistencias en Rankings
+## Rendimiento y Escalabilidad
 
-* *Problema:** Posiciones incorrectas en leaderboard
+### Optimizaciones de Base de Datos
 
-* *Síntomas:**
+- **Índices Compuestos**: Para consultas de rankings eficientes
+- **Particionado**: Por juego para grandes volúmenes
+- **Connection Pooling**: Pool de conexiones optimizado
+- **Query Optimization**: Consultas optimizadas para rankings
 
-```bash
+### Estrategias de Cache
 
-# Usuario con score alto aparece en posición baja
-GET /api/leaderboard/game123
+- **TTL Dinámico**: Expiración basada en popularidad del juego
+- **Cache Aside**: Patrón de cache para datos dinámicos
+- **Bulk Operations**: Operaciones en lote para actualizaciones masivas
+- **Cache Hierarchy**: Multiple niveles de cache
 
-# Usuario con 10000 puntos en posición 50
+### Métricas y Monitoring
 
+```javascript
+// Métricas de rendimiento
+const metrics = {
+  scoreSubmissions: new Counter('score_submissions_total'),
+  cacheHitRate: new Histogram('cache_hit_rate'),
+  dbQueryTime: new Histogram('db_query_duration_ms'),
+  rankingUpdateTime: new Histogram('ranking_update_duration_ms')
+};
 ```
 
-* *Solución de emergencia:**
+## Consideraciones de Seguridad
 
-```bash
+### Validación de Datos
 
-# Forzar recálculo de rankings
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
-  /api/admin/recalculate-rankings/game123
+- **Score Limits**: Límites máximos por juego para prevenir abuse
+- **Rate Limiting**: Límite de submissions por usuario/minuto
+- **Sanitización**: Validación estricta de metadata
+- **Audit Trail**: Log completo de todas las operaciones
 
-# O via base de datos
-docker exec -it postgresql psql -d gamedb -c \
-  "SELECT user_id, score,
-   ROW_NUMBER() OVER (ORDER BY score DESC) as position
-   FROM scores WHERE game_id = 'game123';"
+### Anti-Cheating
 
+```javascript
+// Validación de scores sospechosos
+const validateScoreIntegrity = (gameId, score, metadata) => {
+  const gameConfig = getGameConfig(gameId);
+  
+  if (score > gameConfig.maxPossibleScore) {
+    throw new Error('Score imposible detectado');
+  }
+  
+  // Validaciones específicas por juego
+  return validateGameSpecificRules(gameId, score, metadata);
+};
 ```
 
-## API Endpoints
+## Docker y Deployment
 
-### POST /api/scores
-Enviar nuevo score
+### Dockerfile
 
-### GET /api/leaderboard/:gameId
-Obtener ranking de un juego
+```dockerfile
+FROM node:18-alpine
 
-### GET /api/user-scores/:userId
-Obtener scores de un usuario
+WORKDIR /app
 
-### POST /api/admin/recalculate-rankings/:gameId
-Recalcular rankings (admin only)
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY . .
+
+EXPOSE 5003
+
+CMD ["npm", "start"]
+```
+
+### Health Checks
+
+```javascript
+app.get('/health', async (req, res) => {
+  try {
+    // Verificar conexión DB
+    await db.query('SELECT 1');
+    
+    // Verificar conexión Redis
+    await redis.ping();
+    
+    res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+  } catch (error) {
+    res.status(503).json({ status: 'unhealthy', error: error.message });
+  }
+});
+```
+
+## Testing
+
+### Tests de Integración
+
+```javascript
+describe('Score Service Integration', () => {
+  test('should update score when new score is higher', async () => {
+    const response = await request(app)
+      .post('/api/scores')
+      .set('Authorization', `Bearer ${validToken}`)
+      .send({
+        gameId: 'tetris-classic',
+        score: 150000
+      });
+      
+    expect(response.status).toBe(200);
+    expect(response.body.updated).toBe(true);
+  });
+  
+  test('should not update score when new score is lower', async () => {
+    const response = await request(app)
+      .post('/api/scores')
+      .set('Authorization', `Bearer ${validToken}`)
+      .send({
+        gameId: 'tetris-classic',
+        score: 50000
+      });
+      
+    expect(response.status).toBe(200);
+    expect(response.body.updated).toBe(false);
+  });
+});
+```
+
+## Próximos Pasos
+
+- **Logros y Badges**: Sistema de achievements basado en scores
+- **Torneos**: Competencias temporales con leaderboards especiales
+- **ML Analytics**: Detección inteligente de patrones de cheating
+- **Real-time Notifications**: WebSocket para updates en tiempo real

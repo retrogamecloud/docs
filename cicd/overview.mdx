@@ -1,7 +1,6 @@
 ---
 title: 6.1. Visión General de CI/CD
-description: Pipeline completo de integración y despliegue continuo con GitHub Actions,
-  Docker, ECR y ArgoCD con gates de aprobación y rollback automático
+description: Pipeline completo de integración y despliegue continuo con GitHub Actions, Docker, ECR y ArgoCD con gates de aprobación y rollback automático
 icon: rocket
 ---
 
@@ -31,7 +30,7 @@ Retro Game Hub implementa un pipeline completo de CI/CD que automatiza desde el 
 
 ## Pipeline Completo de CI/CD
 
-El siguiente diagrama muestra el flujo completo desde el desarrollo hasta producción, incluyendo gates de aprobación y mecanismos de rollback:
+El siguiente diagrama muestra el flujo completo desde el desarrollo hasta producción, incluyendo gates de calidad, aprobación y mecanismos de rollback:
 
 ```mermaid
 graph TB
@@ -52,251 +51,169 @@ graph TB
 
         E --> F[📦 Multi-stage Build]
         F --> G[🔒 Security Scan Image]
-        G --> H[📤 Push to AWS ECR]
+        G --> H1{🎯 Quality Gate 1}
+        H1 -->|❌ Fail| STOP2[🚫 Block Deployment]
+        H1 -->|✅ Pass| H[📤 Push to AWS ECR]
         H --> I[🏷️ Tag: latest, v1.0.X, sha-xxx]
     end
 
+    subgraph ECR["🐳 AWS ELASTIC CONTAINER REGISTRY"]
+        I --> I1[📦 Store Multi-arch Images]
+        I1 --> I2[🔒 Image Scanning]
+        I2 --> I3{🛡️ Vulnerability Gate}
+        I3 -->|❌ Critical Vulns| STOP3[🚫 Block Deployment]
+        I3 -->|✅ Secure| I4[✅ Ready for Deployment]
+    end
+
     subgraph GITOPS["📦 GITOPS WORKFLOW"]
-        I --> J[📝 Update K8s Manifests]
+        I4 --> J[📝 Update K8s Manifests]
         J --> K[⚙️ Kustomize Build]
         K --> L[✅ Validate Manifests]
         L --> M[📋 Create PR to Config Repo]
 
         M --> N{🤖 Auto-merge?}
         N -->|No| P[👀 Manual Review]
-        P --> P1[✅ Approve & Merge]
-        N -->|Yes| P1
-        P1 --> Q[📁 Config Repo Updated]
+        N -->|Yes| P2[🔄 Auto-merge]
+        P -->|✅ Approved| P2
+        P2 --> Q[🎯 Manifest Updated]
     end
 
-    subgraph CD["🚀 CONTINUOUS DEPLOYMENT - ArgoCD"]
-        Q --> R[🔍 ArgoCD Detects Changes]
-        R --> S[📥 Sync Application]
-        S --> T[🔄 Rolling Update]
-        T --> U[🏥 Health Checks]
-
-        U --> V{💚 Healthy?}
-        V -->|❌ Fail| W[⏪ Automatic Rollback]
-        V -->|✅ Success| X[✅ Deployment Complete]
-
-        W --> W1[📧 Alert Operators]
-        X --> X1[📊 Update Metrics]
+    subgraph ARGOCD["🔄 ARGOCD - CONTINUOUS DEPLOYMENT"]
+        Q --> R[👁️ Detect Changes]
+        R --> S[📥 Pull New Manifests]
+        S --> T[🔍 Diff Analysis]
+        T --> U{🎯 Quality Gate 2}
+        
+        U -->|❌ Fail| STOP4[🚫 Block Sync]
+        U -->|✅ Pass| V[🚀 Sync to EKS]
     end
 
-    subgraph MONITOR["📊 MONITORING"]
-        X1 --> Y[📈 Prometheus Metrics]
-        Y --> Z[📊 Grafana Dashboard]
-        Z --> Z1[🔔 Slack Notifications]
+    subgraph EKS["☸️ AWS EKS CLUSTER"]
+        V --> W[📊 Rolling Update]
+        W --> X[🏥 Health Checks]
+        X --> Y[🔍 Readiness Probes]
+        Y --> Z{🎯 Deployment Status}
+
+        Z -->|❌ Unhealthy| AA[⏪ Automatic Rollback]
+        Z -->|✅ Healthy| BB[🎉 Deployment Success]
+        
+        AA --> CC[📱 Slack Notification]
+        BB --> DD[📱 Success Notification]
     end
 
-    style STOP fill:#ff6b6b
-    style X fill:#51cf66
-    style W fill:#ffd43b
-    style D fill:#74c0fc
-    style V fill:#74c0fc
-    style N fill:#74c0fc
+    subgraph MONITORING["📈 MONITORING & OBSERVABILITY"]
+        BB --> EE[📊 Prometheus Metrics]
+        EE --> FF[📈 Grafana Dashboards]
+        FF --> GG[🚨 Alert Manager]
+        GG --> HH[📱 PagerDuty/Slack]
+    end
 
+    style D fill:#f9f,stroke:#333,stroke-width:2px
+    style H1 fill:#f96,stroke:#333,stroke-width:2px
+    style I3 fill:#f96,stroke:#333,stroke-width:2px
+    style U fill:#f96,stroke:#333,stroke-width:2px
+    style Z fill:#9f6,stroke:#333,stroke-width:2px
+    style STOP fill:#f66,stroke:#333,stroke-width:2px
+    style STOP2 fill:#f66,stroke:#333,stroke-width:2px
+    style STOP3 fill:#f66,stroke:#333,stroke-width:2px
+    style STOP4 fill:#f66,stroke:#333,stroke-width:2px
 ```
 
-## Componentes del Pipeline
+## Gates de Calidad y Seguridad
 
-### 1. Continuous Integration (CI)
+### 🎯 Quality Gate 1 - Build Stage
+- **Cobertura de código**: Mínimo 80%
+- **Complejidad ciclomática**: Máximo 10
+- **Duplicación de código**: Máximo 3%
+- **Deuda técnica**: Máximo rating B
 
-<CardGroup cols={2}>
-  <Card title="GitHub Actions" icon="github">
-    **Automatización completa**
-    - Triggers automáticos
-    - Workflows paralelos
-    - Caché inteligente
-    - Secrets management
-  </Card>
+### 🛡️ Security Gate - Container Registry
+- **Vulnerabilidades críticas**: 0 permitidas
+- **Vulnerabilidades altas**: Máximo 5
+- **Secrets scan**: Sin secrets expuestos
+- **Compliance**: OWASP Top 10 verificado
 
-  <Card title="Quality Gates" icon="shield-check">
-    **Control de calidad**
-    - Tests unitarios e integración
-    - Code coverage > 80%
-    - Security scanning
-    - Performance tests
-  </Card>
-</CardGroup>
+### 🎯 Quality Gate 2 - Pre-deployment
+- **Manifest validation**: Sintaxis K8s válida
+- **Resource limits**: Definidos correctamente
+- **Security contexts**: Configurados apropiadamente
+- **Network policies**: Implementadas según política
 
-### 2. Container Registry
+## Mecanismos de Rollback
 
 <CardGroup cols={2}>
-  <Card title="AWS ECR" icon="docker">
-    **Registry seguro**
-    - Image vulnerability scanning
-    - Lifecycle policies
-    - Cross-region replication
-    - IAM integration
+  <Card title="Rollback Automático" icon="rotate-left">
+    **Triggers automáticos:**
+    - Health checks fallan > 2min
+    - Error rate > 5%
+    - Latencia P95 > 2s
+    - CPU/Memory > 90%
+
+    **Tiempo de rollback:** < 30 segundos
   </Card>
 
-  <Card title="Multi-tagging" icon="tags">
-    **Versionado inteligente**
-    - Semantic versioning
-    - SHA-based tags
-    - Environment tags
-    - Latest promotion
-  </Card>
-</CardGroup>
+  <Card title="Rollback Manual" icon="hand">
+    **Comandos disponibles:**
+    ```bash
+    argocd app rollback retro-game-hub
+    kubectl rollout undo deployment/api
+    ```
 
-### 3. GitOps Deployment
-
-<CardGroup cols={2}>
-  <Card title="ArgoCD" icon="arrows-rotate">
-    **GitOps nativo**
-    - Declarative deployments
-    - Automatic sync
-    - Drift detection
-    - Multi-cluster support
-  </Card>
-
-  <Card title="Kustomize" icon="puzzle-piece">
-    **Configuration management**
-    - Environment overlays
-    - Secret management
-    - Resource patching
-    - Composition patterns
+    **UI disponible:** ArgoCD Dashboard
   </Card>
 </CardGroup>
 
-## Estrategias de Despliegue
+## Métricas y Monitoreo
 
-### Rolling Updates
+### 📊 Deployment Metrics
+- **Deployment Frequency**: 5-10 deploys/día
+- **Lead Time**: < 30 minutos
+- **Mean Time to Recovery**: < 5 minutos
+- **Change Failure Rate**: < 5%
 
-- **Zero downtime**: Actualizaciones sin interrupciones
-
-- **Gradual rollout**: Pods se actualizan gradualmente
-
-- **Health checks**: Verificación continua de salud
-
-- **Automatic rollback**: Reversión automática en fallos
-
-### Blue/Green Deployment
-
-- **Parallel environments**: Dos versiones ejecutándose
-
-- **Traffic switching**: Cambio instantáneo de tráfico
-
-- **Risk mitigation**: Rollback inmediato disponible
-
-- **Resource efficiency**: Optimización de recursos
-
-### Canary Releases
-
-- **Progressive exposure**: Exposición gradual del tráfico
-
-- **A/B testing**: Comparación de versiones
-
-- **Metrics-driven**: Decisiones basadas en métricas
-
-- **Automated promotion**: Promoción automática exitosa
-
-## Gates de Aprobación
-
-### Automated Gates
-
-```yaml
-quality_gates:
-  unit_tests:
-    coverage: "> 80%"
-    status: "required"
-
-  integration_tests:
-    status: "required"
-    timeout: "10m"
-
-  security_scan:
-    severity: "high"
-    action: "block"
-
-  performance:
-    response_time: "< 500ms"
-    error_rate: "< 1%"
-
-```
-
-### Manual Gates
-
-```yaml
-approval_gates:
-  staging_deploy:
-    reviewers: ["team-lead", "devops"]
-    timeout: "24h"
-
-  production_deploy:
-    reviewers: ["tech-lead", "product-owner"]
-    timeout: "48h"
-    require_all: true
-
-```
-
-## Rollback Automático
-
-### Trigger Conditions
-
-- **Health check failures**: Pods no pasan health checks
-
-- **Error rate spike**: Tasa de errores > threshold
-
-- **Performance degradation**: Latencia > SLA
-
-- **Resource exhaustion**: CPU/Memory limits
-
-### Rollback Process
-1. **Detect failure**: Monitoring detecta anomalías
-2. **Trigger rollback**: Proceso automático iniciado
-3. **Revert deployment**: Vuelta a versión anterior
-4. **Verify health**: Confirmación de estabilidad
-5. **Alert team**: Notificación a equipo
-
-## Métricas y Observabilidad
-
-<CardGroup cols={3}>
-  <Card title="Deployment Metrics" icon="chart-line">
-    - Deployment frequency
-    - Lead time
-    - MTTR (Mean Time to Recovery)
-    - Change failure rate
-  </Card>
-
-  <Card title="Pipeline Health" icon="heart-pulse">
-    - Build success rate
-    - Test execution time
-    - Quality gate pass rate
-    - Security scan results
-  </Card>
-
-  <Card title="Business Impact" icon="chart-bar">
-    - Feature adoption
-    - User satisfaction
-    - Performance impact
-    - Rollback frequency
-  </Card>
-</CardGroup>
+### 🚨 Alertas Configuradas
+- Pipeline failures → Slack #dev-alerts
+- Security vulnerabilities → Slack #security
+- Production issues → PagerDuty
+- Rollbacks → Slack #ops-critical
 
 ## Beneficios del Pipeline
 
-### Para Desarrolladores
+<CardGroup cols={2}>
+  <Card title="Velocidad" icon="gauge-high">
+    **Despliegue rápido y confiable**
+    - Automatización completa
+    - Feedback inmediato
+    - Deploy en 15-30 minutos
+  </Card>
 
-- **Fast feedback**: Retroalimentación rápida en cambios
+  <Card title="Seguridad" icon="shield-check">
+    **Múltiples capas de seguridad**
+    - Escaneo de vulnerabilidades
+    - Gates de calidad obligatorios
+    - Compliance automático
+  </Card>
 
-- **Reduced toil**: Menos tareas manuales repetitivas
+  <Card title="Confiabilidad" icon="check-double">
+    **Alta disponibilidad garantizada**
+    - Zero-downtime deployments
+    - Rollback automático
+    - Health checks continuos
+  </Card>
 
-- **Confidence**: Despliegues seguros y confiables
+  <Card title="Visibilidad" icon="eye">
+    **Observabilidad completa**
+    - Métricas en tiempo real
+    - Trazabilidad completa
+    - Alertas proactivas
+  </Card>
+</CardGroup>
 
-- **Focus**: Más tiempo en desarrollo de features
+## Próximos Pasos
 
-### Para el Negocio
+En las siguientes secciones profundizaremos en cada componente del pipeline:
 
-- **Faster TTM**: Tiempo al mercado reducido
-
-- **Quality**: Mayor calidad y estabilidad
-
-- **Risk reduction**: Menor riesgo en deployments
-
-- **Compliance**: Trazabilidad y auditabilidad
-
-<Note>
-El pipeline está diseñado para ser **self-healing** y **resilient**, con múltiples capas de verificación y mecanismos de recuperación automática que garantizan la estabilidad del sistema en producción.
-</Note>
+- **GitHub Actions**: Configuración de workflows y jobs
+- **Docker & ECR**: Estrategias de build y registro
+- **ArgoCD**: Configuración GitOps y sincronización
+- **Monitoring**: Métricas, alertas y observabilidad

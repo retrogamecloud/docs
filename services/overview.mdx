@@ -57,202 +57,197 @@ graph TB
     class AuthDB,UserDB,CatalogDB,ScoreDB,RankingDB database
     class S3,CDN external
     class Redis cache
-
 ```
 
 </div>
 
-## 3.2. Service Level Objectives (SLOs)
+## 3.2. Inventario de Servicios
 
-### 3.2.1. Métricas de Rendimiento por Microservicio
+| Servicio | Puerto | Responsabilidad | Estado | Versión |
+|----------|--------|-----------------|--------|---------|
+| **Auth Service** | 8001 | Autenticación y autorización | ✅ Activo | v2.1.0 |
+| **User Service** | 8002 | Gestión de perfiles de usuario | ✅ Activo | v1.8.3 |
+| **Game Catalog** | 8003 | Catálogo y metadatos de juegos | ✅ Activo | v1.5.2 |
+| **Score Service** | 8004 | Puntuaciones y logros | ✅ Activo | v1.4.1 |
+| **Ranking Service** | 8005 | Rankings y leaderboards | ✅ Activo | v1.2.7 |
 
-| Servicio | Latencia P95 | Disponibilidad | Tasa Error Max | Descripción |
-|----------|--------------|----------------|----------------|-------------|
-| **Auth Service** | < 100ms | 99.9% | < 0.1% | Servicio crítico - autenticación y autorización |
-| **User Service** | < 150ms | 99.5% | < 0.5% | Gestión de perfiles y datos de usuario |
-| **Game Catalog** | < 200ms | 99.0% | < 1.0% | Catálogo de juegos y metadatos |
-| **Score Service** | < 50ms | 99.9% | < 0.1% | Registro de puntuaciones en tiempo real |
-| **Ranking Service** | < 300ms | 99.0% | < 1.0% | Cálculos de rankings globales |
+## 3.3. Service Level Objectives (SLOs)
 
-### 3.2.2. Justificación de SLOs
+Los siguientes SLOs definen las expectativas de rendimiento y disponibilidad para cada microservicio:
 
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+### 3.3.1. Auth Service
 
-<div className="border rounded-lg p-4">
-
-* *Auth Service - 99.9% / 100ms P95**
-
-- Servicio crítico del que dependen todos los demás
-
-- Latencia baja esencial para UX fluida
-
-- Tolerancia mínima a errores
+<div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
+<div className="grid grid-cols-2 gap-4">
+<div>
+<strong>Latencia</strong>
+<ul className="mt-1 text-sm">
+<li>P95: ≤ 100ms</li>
+<li>P99: ≤ 250ms</li>
+</ul>
+</div>
+<div>
+<strong>Disponibilidad</strong>
+<ul className="mt-1 text-sm">
+<li>Uptime: ≥ 99.9%</li>
+<li>Tasa de error: ≤ 0.1%</li>
+</ul>
+</div>
+</div>
+<div className="mt-2">
+<strong>Throughput:</strong> 1,000 RPM por instancia
+</div>
 </div>
 
-<div className="border rounded-lg p-4">
+### 3.3.2. User Service
 
-* *Score Service - 99.9% / 50ms P95**
-
-- Funcionalidad core del gaming
-
-- Debe ser ultra-rápido para gameplay en tiempo real
-
-- Los errores afectan directamente la experiencia de juego
+<div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
+<div className="grid grid-cols-2 gap-4">
+<div>
+<strong>Latencia</strong>
+<ul className="mt-1 text-sm">
+<li>P95: ≤ 150ms</li>
+<li>P99: ≤ 400ms</li>
+</ul>
+</div>
+<div>
+<strong>Disponibilidad</strong>
+<ul className="mt-1 text-sm">
+<li>Uptime: ≥ 99.5%</li>
+<li>Tasa de error: ≤ 0.5%</li>
+</ul>
+</div>
+</div>
+<div className="mt-2">
+<strong>Throughput:</strong> 800 RPM por instancia
+</div>
 </div>
 
-<div className="border rounded-lg p-4">
+### 3.3.3. Game Catalog Service
 
-* *User Service - 99.5% / 150ms P95**
-
-- Importante pero no crítico para funcionalidad core
-
-- Tolerancia media a errores
-
-- Latencia aceptable para operaciones de perfil
+<div className="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-500">
+<div className="grid grid-cols-2 gap-4">
+<div>
+<strong>Latencia</strong>
+<ul className="mt-1 text-sm">
+<li>P95: ≤ 200ms</li>
+<li>P99: ≤ 500ms</li>
+</ul>
+</div>
+<div>
+<strong>Disponibilidad</strong>
+<ul className="mt-1 text-sm">
+<li>Uptime: ≥ 99.5%</li>
+<li>Tasa de error: ≤ 0.3%</li>
+</ul>
+</div>
+</div>
+<div className="mt-2">
+<strong>Throughput:</strong> 1,200 RPM por instancia
+</div>
 </div>
 
-<div className="border rounded-lg p-4">
+### 3.3.4. Score Service
 
-* *Ranking Service - 99.0% / 300ms P95**
-
-- Operaciones complejas de agregación
-
-- Mayor tolerancia a latencia por naturaleza analítica
-
-- Funcionalidad complementaria
+<div className="bg-orange-50 p-4 rounded-lg border-l-4 border-orange-500">
+<div className="grid grid-cols-2 gap-4">
+<div>
+<strong>Latencia</strong>
+<ul className="mt-1 text-sm">
+<li>P95: ≤ 120ms</li>
+<li>P99: ≤ 300ms</li>
+</ul>
+</div>
+<div>
+<strong>Disponibilidad</strong>
+<ul className="mt-1 text-sm">
+<li>Uptime: ≥ 99.7%</li>
+<li>Tasa de error: ≤ 0.2%</li>
+</ul>
+</div>
+</div>
+<div className="mt-2">
+<strong>Throughput:</strong> 2,000 RPM por instancia
+</div>
 </div>
 
+### 3.3.5. Ranking Service
+
+<div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
+<div className="grid grid-cols-2 gap-4">
+<div>
+<strong>Latencia</strong>
+<ul className="mt-1 text-sm">
+<li>P95: ≤ 180ms</li>
+<li>P99: ≤ 450ms</li>
+</ul>
+</div>
+<div>
+<strong>Disponibilidad</strong>
+<ul className="mt-1 text-sm">
+<li>Uptime: ≥ 99.3%</li>
+<li>Tasa de error: ≤ 0.5%</li>
+</ul>
+</div>
+</div>
+<div className="mt-2">
+<strong>Throughput:</strong> 600 RPM por instancia
+</div>
 </div>
 
-### 3.2.3. Monitoreo y Alertas
+## 3.4. Matriz de Dependencias
+
+| Servicio | Dependencias Internas | Dependencias Externas | Criticidad |
+|----------|----------------------|----------------------|------------|
+| **Auth Service** | - | Redis, PostgreSQL | 🔴 Crítico |
+| **User Service** | Auth Service | Redis, PostgreSQL | 🟡 Alto |
+| **Game Catalog** | Auth Service | PostgreSQL, S3, CDN | 🟡 Alto |
+| **Score Service** | Auth Service, User Service | Redis, PostgreSQL | 🟠 Medio |
+| **Ranking Service** | Score Service | Redis, PostgreSQL | 🟢 Bajo |
+
+## 3.5. Monitoreo de SLOs
+
+### 3.5.1. Métricas Clave
+
+- **Golden Signals**: Latencia, Tráfico, Errores, Saturación
+- **Business Metrics**: Usuarios activos, Juegos jugados, Scores registrados
+- **Infrastructure Metrics**: CPU, Memoria, Conexiones DB, Cache hit ratio
+
+### 3.5.2. Alertas por Violación de SLO
 
 ```yaml
-
-# Configuración de alertas por SLO
+# Ejemplo de configuración de alertas
 alerts:
-  latency_p95:
-    threshold_multiplier: 1.2  # Alerta al 120% del SLO
-    evaluation_window: "5m"
-
-  availability:
-    threshold_offset: -0.1%    # Alerta 0.1% antes del límite
-    evaluation_window: "10m"
-
-  error_rate:
-    threshold_multiplier: 0.8  # Alerta al 80% del límite
-    evaluation_window: "5m"
-
+  - name: "auth-service-latency-high"
+    condition: "p95_latency > 100ms"
+    severity: "warning"
+    action: "scale-up"
+  
+  - name: "auth-service-availability-low" 
+    condition: "uptime < 99.9%"
+    severity: "critical"
+    action: "page-oncall"
 ```
 
-## 3.3. Inventario de Servicios
+## 3.6. Estrategia de Escalado
 
-### 3.3.1. Servicios Core
+### Horizontal Pod Autoscaling (HPA)
 
-| Servicio | Puerto | Propósito | Dependencias |
-|----------|--------|-----------|--------------|
-| **auth-service** | 8001 | Autenticación JWT, gestión de sesiones | Redis, PostgreSQL |
-| **user-service** | 8002 | Perfiles de usuario, preferencias | PostgreSQL, auth-service |
-| **game-catalog** | 8003 | Catálogo de juegos, metadata | PostgreSQL, S3 |
-| **score-service** | 8004 | Puntuaciones, logros | PostgreSQL, Redis, auth-service |
-| **ranking-service** | 8005 | Rankings globales, estadísticas | PostgreSQL, score-service |
+| Servicio | Min Pods | Max Pods | Trigger CPU | Trigger Memory |
+|----------|----------|----------|-------------|----------------|
+| Auth Service | 3 | 10 | 70% | 80% |
+| User Service | 2 | 8 | 75% | 85% |
+| Game Catalog | 2 | 6 | 80% | 85% |
+| Score Service | 3 | 12 | 70% | 80% |
+| Ranking Service | 1 | 4 | 80% | 85% |
 
-### 3.3.2. Infraestructura
-
-| Componente | Propósito | Configuración |
-|------------|-----------|---------------|
-| **Kong Gateway** | API Gateway, rate limiting, auth | Puerto 8000/8443 |
-| **PostgreSQL** | Base de datos principal | Cluster multi-master |
-| **Redis** | Cache distribuido, sesiones | Cluster 3 nodos |
-| **AWS S3** | Almacenamiento de assets | Buckets por ambiente |
-
-## 3.4. Patrones de Comunicación
-
-### 3.4.1. Comunicación Síncrona
-
-```mermaid
-sequenceDiagram
-    participant C as Cliente
-    participant G as Gateway
-    participant S as Score Service
-    participant A as Auth Service
-    participant U as User Service
-
-    C->>G: POST /api/scores
-    G->>S: POST /scores
-    S->>A: GET /validate-token
-    A-->>S: Token válido
-    S->>U: GET /users/{id}
-    U-->>S: Datos usuario
-    S-->>G: Score guardado
-    G-->>C: 201 Created
-
-```
-
-### 3.4.2. Manejo de Errores
-
-| Tipo Error | Código HTTP | Acción | Retry |
-|------------|-------------|---------|-------|
-| **Validation** | 400 | Retornar error | No |
-| **Auth** | 401/403 | Redirect login | No |
-| **Not Found** | 404 | Error específico | No |
-| **Rate Limit** | 429 | Backoff | Sí |
-| **Server Error** | 500 | Circuit breaker | Sí |
-
-## 3.5. Configuración de Desarrollo
-
-### 3.5.1. Docker Compose
-
-```yaml
-version: '3.8'
-services:
-  auth-service:
-    build: ./services/auth
-    ports: ['8001:8001']
-    environment:
-      - DATABASE_URL=postgresql://auth_db
-      - REDIS_URL=redis://redis:6379
-
-  user-service:
-    build: ./services/user
-    ports: ['8002:8002']
-    depends_on: [auth-service]
-
-  # ... otros servicios
-
-```
-
-### 3.5.2. Variables de Entorno
-
-| Variable | Servicio | Descripción | Requerida |
-|----------|----------|-------------|-----------|
-| `DATABASE_URL` | Todos | Conexión PostgreSQL | ✅ |
-| `REDIS_URL` | Auth, Score | Conexión Redis | ✅ |
-| `JWT_SECRET` | Auth | Clave para tokens | ✅ |
-| `AWS_S3_BUCKET` | Catalog | Bucket de assets | ✅ |
-| `LOG_LEVEL` | Todos | Nivel de logging | ❌ |
-
-## 3.6. Próximos Pasos
-
-<div className="flex flex-col gap-4">
-
-* *📋 Documentación Detallada**
-
-- [Auth Service](/services/auth) - Autenticación y autorización
-
-- [User Service](/services/user) - Gestión de usuarios
-
-- [Game Catalog](/services/catalog) - Catálogo de juegos
-
-- [Score Service](/services/scores) - Sistema de puntuaciones
-
-- [Ranking Service](/services/rankings) - Rankings y estadísticas
-
-* *🔧 Recursos Técnicos**
-
-- [Guía de Despliegue](/deployment/overview)
-
-- [Monitoreo y Alertas](/monitoring/setup)
-
-- [Desarrollo Local](/development/setup)
-
+<div className="bg-gray-50 p-4 rounded-lg mt-6">
+<h3 className="text-lg font-semibold mb-2">📊 Dashboard de Monitoreo</h3>
+<p>Todos los SLOs se monitorean en tiempo real a través de:</p>
+<ul className="list-disc ml-6 mt-2">
+<li><strong>Grafana:</strong> Dashboards de métricas por servicio</li>
+<li><strong>Prometheus:</strong> Recolección y almacenamiento de métricas</li>
+<li><strong>AlertManager:</strong> Gestión de alertas y notificaciones</li>
+<li><strong>Jaeger:</strong> Distributed tracing para latencia end-to-end</li>
+</ul>
 </div>

@@ -3,7 +3,7 @@ title: 2.1 Arquitectura del Sistema
 description: Visión general de la arquitectura de microservicios cloud-native de Retro
   Game Hub desplegada en AWS EKS, incluyendo decisiones arquitectónicas, infraestructura
   y justificaciones técnicas
-icon: file-lines
+icon: sitemap
 ---
 
 ## Visión General de la Arquitectura
@@ -39,6 +39,10 @@ graph TB
                 subgraph "AZ-1b: 10.0.2.0/24"
                     NAT2[🔄 NAT Gateway<br/>Outbound Internet]
                 end
+
+                subgraph "AZ-1c: 10.0.3.0/24"
+                    NAT3[🔄 NAT Gateway<br/>Outbound Internet]
+                end
             end
 
             subgraph "Private Subnets - Application Tier"
@@ -56,543 +60,262 @@ graph TB
             end
 
             subgraph "Private Subnets - Data Tier"
-                subgraph "DB-AZ-1a: 10.0.100.0/24"
-                    RDS1[(🗄️ RDS PostgreSQL<br/>Primary Instance<br/>db.t3.medium)]
-                    REDIS1[(⚡ ElastiCache Redis<br/>Primary Node<br/>cache.t3.micro)]
+                subgraph "Data-AZ-1a: 10.0.100.0/24"
+                    RDS1[🗄️ RDS Primary<br/>PostgreSQL 14<br/>db.r5.xlarge]
+                    REDIS1[⚡ ElastiCache Primary<br/>Redis 7.0<br/>cache.r6g.large]
                 end
 
-                subgraph "DB-AZ-1b: 10.0.200.0/24"
-                    RDS2[(🗄️ RDS PostgreSQL<br/>Read Replica<br/>db.t3.medium)]
-                    REDIS2[(⚡ ElastiCache Redis<br/>Replica Node<br/>cache.t3.micro)]
+                subgraph "Data-AZ-1b: 10.0.200.0/24"
+                    RDS2[🗄️ RDS Standby<br/>Multi-AZ Failover<br/>Auto Backup]
+                    REDIS2[⚡ ElastiCache Replica<br/>Read Scaling<br/>High Availability]
                 end
+
+                subgraph "Data-AZ-1c: 10.0.300.0/24"
+                    S31[📦 S3 VPC Endpoint<br/>Game Assets Storage<br/>Private Connection]
+                end
+            end
+
+            subgraph "Control Plane"
+                EKSCP[🎛️ EKS Control Plane<br/>Managed by AWS<br/>Multi-AZ HA]
             end
         end
 
-        subgraph "S3 Storage"
-            S3Games[🗂️ S3 Bucket<br/>retro-games-storage<br/>ROM Files & Assets]
-            S3Static[🗂️ S3 Bucket<br/>retro-static-assets<br/>Frontend Static Files]
-            S3Logs[🗂️ S3 Bucket<br/>retro-logs<br/>Application Logs]
-        end
-
-        subgraph "Monitoring & Observability"
-            CW[📊 CloudWatch<br/>Metrics & Alarms]
-            XRay[🔍 X-Ray<br/>Distributed Tracing]
+        subgraph "Additional AWS Services"
+            S3[📦 S3 Buckets<br/>- Game Files<br/>- Static Assets<br/>- Logs & Backups]
+            ACM[🔐 ACM Certificate<br/>SSL/TLS Management<br/>Auto Renewal]
+            WAF[🛡️ AWS WAF<br/>DDoS Protection<br/>Security Rules]
+            SECRETS[🔑 Secrets Manager<br/>Database Credentials<br/>API Keys]
         end
     end
 
-    %% Connections
+    %% Traffic Flow
     Users --> DNS
     DNS --> CDN
     CDN --> ALB1
-    CDN --> S3Static
     ALB1 --> EKS1
     ALB1 --> EKS2
     ALB1 --> EKS3
+    
     EKS1 --> RDS1
-    EKS1 --> REDIS1
     EKS2 --> RDS1
-    EKS2 --> REDIS1
     EKS3 --> RDS1
+    
+    EKS1 --> REDIS1
+    EKS2 --> REDIS1
     EKS3 --> REDIS1
-    RDS1 --> RDS2
-    REDIS1 --> REDIS2
-    EKS1 --> S3Games
-    EKS2 --> S3Games
-    EKS3 --> S3Games
-    EKS1 --> NAT1
-    EKS2 --> NAT2
-    EKS3 --> NAT1
-    EKS1 --> CW
-    EKS1 --> XRay
+    
+    RDS1 -.-> RDS2
+    REDIS1 -.-> REDIS2
+    
+    EKS1 --> S31
+    EKS2 --> S31
+    EKS3 --> S31
+    
+    CDN --> S3
+    ALB1 --> WAF
+    EKSCP --> EKS1
+    EKSCP --> EKS2
+    EKSCP --> EKS3
 
+    %% Styling
+    classDef aws fill:#FF9900,stroke:#FF6600,stroke-width:2px,color:#000
+    classDef k8s fill:#326CE5,stroke:#1E88E5,stroke-width:2px,color:#fff
+    classDef data fill:#4CAF50,stroke:#388E3C,stroke-width:2px,color:#fff
+    classDef network fill:#9C27B0,stroke:#7B1FA2,stroke-width:2px,color:#fff
+    classDef security fill:#F44336,stroke:#D32F2F,stroke-width:2px,color:#fff
+
+    class DNS,CDN,S3,ACM,SECRETS,WAF aws
+    class EKS1,EKS2,EKS3,EKSCP k8s
+    class RDS1,RDS2,REDIS1,REDIS2 data
+    class ALB1,NAT1,NAT2,NAT3,S31 network
+    class WAF,ACM,SECRETS security
 ```
 
-## Arquitectura de Microservicios
+## Flujo de Tráfico Detallado
 
 ```mermaid
-graph TB
-    subgraph "API Gateway Layer"
-        APIGW[🚪 Kong API Gateway<br/>Rate Limiting, Auth, Routing<br/>Namespace: api-gateway]
+sequenceDiagram
+    participant User as 👤 User
+    participant R53 as 🌐 Route 53
+    participant CF as 📡 CloudFront
+    participant WAF as 🛡️ AWS WAF
+    participant ALB as ⚖️ ALB
+    participant ING as 🚪 Ingress Controller
+    participant SVC as 🔄 K8s Service
+    participant POD as 📦 Application Pod
+    participant REDIS as ⚡ ElastiCache
+    participant RDS as 🗄️ PostgreSQL
+    participant S3 as 📦 S3
+
+    User->>R53: 1. DNS Query (retrogamehub.com)
+    R53-->>User: 2. CloudFront Distribution CNAME
+    
+    User->>CF: 3. HTTPS Request
+    CF->>WAF: 4. Security Check
+    WAF-->>CF: 5. Request Approved
+    
+    alt Static Content (CSS, JS, Images)
+        CF->>S3: 6a. Fetch from S3 Origin
+        S3-->>CF: 7a. Static Assets
+        CF-->>User: 8a. Cached Response
+    else Dynamic Content (API Calls)
+        CF->>ALB: 6b. Forward to ALB Origin
+        ALB->>ING: 7b. Route to Ingress
+        ING->>SVC: 8b. Load Balance
+        SVC->>POD: 9b. Forward Request
+        
+        POD->>REDIS: 10. Cache Lookup
+        alt Cache Hit
+            REDIS-->>POD: 11a. Return Cached Data
+        else Cache Miss
+            POD->>RDS: 11b. Database Query
+            RDS-->>POD: 12b. Query Result
+            POD->>REDIS: 13b. Update Cache
+        end
+        
+        POD-->>SVC: 14. Response
+        SVC-->>ING: 15. Response
+        ING-->>ALB: 16. Response
+        ALB-->>CF: 17. Response
+        CF-->>User: 18. Final Response
     end
-
-    subgraph "Core Business Services"
-        USER[👤 User Service<br/>Authentication & Profiles<br/>Port: 8001<br/>Namespace: user-service]
-
-        GAME[🎮 Game Service<br/>Game Catalog & Metadata<br/>Port: 8002<br/>Namespace: game-service]
-
-        EMULATOR[🖥️ Emulator Service<br/>Game Execution Engine<br/>Port: 8003<br/>Namespace: emulator-service]
-
-        COLLECTION[📚 Collection Service<br/>User Game Collections<br/>Port: 8004<br/>Namespace: collection-service]
-
-        ACHIEVEMENT[🏆 Achievement Service<br/>Gaming Achievements<br/>Port: 8005<br/>Namespace: achievement-service]
-
-        SOCIAL[👥 Social Service<br/>Friends & Social Features<br/>Port: 8006<br/>Namespace: social-service]
-
-        NOTIFICATION[📨 Notification Service<br/>Push & Email Notifications<br/>Port: 8007<br/>Namespace: notification-service]
-    end
-
-    subgraph "Supporting Services"
-        FILE[📁 File Service<br/>ROM & Asset Management<br/>Port: 8008<br/>Namespace: file-service]
-
-        ANALYTICS[📊 Analytics Service<br/>Usage & Performance Metrics<br/>Port: 8009<br/>Namespace: analytics-service]
-
-        SEARCH[🔍 Search Service<br/>Game Search & Discovery<br/>Port: 8010<br/>Namespace: search-service]
-    end
-
-    subgraph "Frontend Applications"
-        WEB[🌐 Web Frontend<br/>React SPA<br/>retrogamehub.com]
-
-        MOBILE[📱 Mobile App<br/>React Native<br/>iOS & Android]
-
-        ADMIN[⚙️ Admin Panel<br/>Vue.js Dashboard<br/>admin.retrogamehub.com]
-    end
-
-    %% API Gateway connections
-    WEB --> APIGW
-    MOBILE --> APIGW
-    ADMIN --> APIGW
-
-    %% Service connections
-    APIGW --> USER
-    APIGW --> GAME
-    APIGW --> EMULATOR
-    APIGW --> COLLECTION
-    APIGW --> ACHIEVEMENT
-    APIGW --> SOCIAL
-    APIGW --> NOTIFICATION
-    APIGW --> FILE
-    APIGW --> ANALYTICS
-    APIGW --> SEARCH
-
-    %% Inter-service communication
-    EMULATOR --> GAME
-    COLLECTION --> GAME
-    COLLECTION --> USER
-    ACHIEVEMENT --> USER
-    ACHIEVEMENT --> GAME
-    SOCIAL --> USER
-    NOTIFICATION --> USER
-    FILE --> GAME
-    ANALYTICS --> USER
-    ANALYTICS --> GAME
-    SEARCH --> GAME
-
 ```
 
-## Stack Tecnológico por Capa
-
-### Frontend Layer
-
-- **Web Application**: React 18 con TypeScript, Vite como bundler
-
-- **Mobile Application**: React Native con Expo para desarrollo cross-platform
-
-- **Admin Panel**: Vue.js 3 con Composition API y TypeScript
-
-- **State Management**: Redux Toolkit (React), Zustand (React Native), Pinia (Vue)
-
-- **Styling**: Tailwind CSS, styled-components
-
-### API Gateway & Load Balancing
-
-- **API Gateway**: Kong Gateway con plugins de autenticación y rate limiting
-
-- **Load Balancer**: AWS Application Load Balancer con SSL/TLS termination
-
-- **Service Discovery**: Kubernetes native service discovery
-
-- **DNS**: Amazon Route 53 con health checks
-
-### Backend Services
-
-- **Runtime**: Node.js 18 LTS con TypeScript
-
-- **Framework**: Express.js con arquitectura modular
-
-- **Authentication**: JWT tokens con refresh token rotation
-
-- **Validation**: Joi para validación de esquemas
-
-- **Logging**: Winston con structured logging
-
-- **Monitoring**: Prometheus metrics con Grafana dashboards
-
-### Data Layer
-
-- **Primary Database**: Amazon RDS PostgreSQL 14 con Multi-AZ deployment
-
-- **Caching**: Amazon ElastiCache Redis 6.2 con clustering
-
-- **Search Engine**: Elasticsearch 7.17 para búsqueda de juegos
-
-- **Message Queue**: Amazon SQS para procesamiento asíncrono
-
-- **File Storage**: Amazon S3 con CloudFront CDN
-
-### Infrastructure & DevOps
-
-- **Container Orchestration**: Amazon EKS (Kubernetes 1.24)
-
-- **Container Runtime**: Docker con imágenes multi-stage
-
-- **CI/CD**: GitHub Actions con ArgoCD para GitOps
-
-- **Infrastructure as Code**: Terraform con módulos reutilizables
-
-- **Monitoring**: CloudWatch, X-Ray, Prometheus + Grafana stack
-
-## Patrones Arquitectónicos Implementados
-
-### Microservicios Pattern
-
-- **Separación de responsabilidades**: Cada servicio maneja un dominio específico
-
-- **Independencia de despliegue**: Servicios pueden actualizarse independientemente
-
-- **Escalabilidad horizontal**: Cada servicio escala según su demanda
-
-- **Tecnología agnóstica**: Posibilidad de usar diferentes tecnologías por servicio
-
-### API Gateway Pattern
-
-- **Punto único de entrada**: Centraliza el routing y autenticación
-
-- **Cross-cutting concerns**: Rate limiting, logging, monitoring centralizados
-
-- **Backend for Frontend**: Adaptación de APIs para diferentes clientes
-
-- **Circuit breaker**: Protección contra fallos en cascada
-
-### Database per Service Pattern
-
-- **Aislamiento de datos**: Cada servicio maneja su propia base de datos
-
-- **Autonomía**: Servicios pueden evolucionar su esquema independientemente
-
-- **Fault isolation**: Fallos en una DB no afectan otros servicios
-
-- **Technology diversity**: Diferentes servicios pueden usar diferentes tipos de BD
-
-### Event-Driven Architecture
-
-- **Comunicación asíncrona**: Eventos para operaciones no críticas
-
-- **Desacoplamiento**: Servicios no necesitan conocer consumidores
-
-- **Escalabilidad**: Procesamiento de eventos puede escalar independientemente
-
-- **Audit trail**: Historia completa de eventos del sistema
-
-## Decisiones Arquitectónicas Clave
-
-### 1. Elección de Kubernetes (EKS)
-
-* *Decisión**: Usar Amazon EKS como plataforma de orquestación
-
-* *Justificación**:
-
-- **Escalabilidad automática**: HPA y VPA para escalar pods según demanda
-
-- **Alta disponibilidad**: Multi-AZ deployment con node groups distribuidos
-
-- **Gestión simplificada**: EKS maneja el control plane y actualizaciones
-
-- **Integración nativa**: Excelente integración con servicios AWS
-
-- **Ecosystem maduro**: Amplio ecosistema de herramientas y operadores
-
-* *Alternativas consideradas**:
-
-- AWS ECS: Menos flexible para workloads complejos
-
-- AWS Fargate: Menos control sobre la infraestructura subyacente
-
-- Self-managed Kubernetes: Mayor overhead operacional
-
-### 2. Arquitectura de Microservicios
-
-* *Decisión**: Implementar arquitectura de microservicios en lugar de monolito
-
-* *Justificación**:
-
-- **Escalabilidad independiente**: Cada servicio escala según su carga específica
-
-- **Desarrollo paralelo**: Equipos pueden trabajar independientemente
-
-- **Tecnología diversa**: Flexibilidad para usar la mejor tecnología por dominio
-
-- **Fault isolation**: Fallos localizados no afectan todo el sistema
-
-- **Deployment independence**: Actualizaciones sin downtime del sistema completo
-
-* *Trade-offs aceptados**:
-
-- Mayor complejidad operacional
-
-- Latencia de red entre servicios
-
-- Necesidad de distributed tracing y monitoring robusto
-
-### 3. Node.js como Runtime Principal
-
-* *Decisión**: Usar Node.js 18 LTS para todos los servicios backend
-
-* *Justificación**:
-
-- **Ecosystem JavaScript**: Compartir código y librerías entre frontend y backend
-
-- **Performance**: Event loop no bloqueante ideal para I/O intensivo
-
-- **Desarrollo rápido**: TypeScript para type safety manteniendo productividad
-
-- **Community support**: Amplio ecosistema de paquetes NPM
-
-- **Container friendly**: Excelente soporte para contenedores ligeros
-
-### 4. PostgreSQL como Base de Datos Principal
-
-* *Decisión**: Amazon RDS PostgreSQL para almacenamiento transaccional
-
-* *Justificación**:
-
-- **ACID compliance**: Garantías transaccionales para datos críticos
-
-- **JSON support**: Flexibilidad para datos semi-estructurados
-
-- **Full-text search**: Capacidades de búsqueda nativas
-
-- **Extensibility**: Soporte para extensiones como PostGIS si necesitamos geolocalización
-
-- **AWS integration**: RDS maneja backups, patching y high availability
-
-### 5. Redis para Caching y Sessions
-
-* *Decisión**: ElastiCache Redis para caching distribuido y gestión de sesiones
-
-* *Justificación**:
-
-- **Performance**: Sub-millisecond latency para operaciones de cache
-
-- **Data structures**: Estructuras de datos avanzadas (hashes, sets, sorted sets)
-
-- **Persistence**: Capacidad de persistir datos críticos como sesiones
-
-- **Clustering**: Escalabilidad horizontal con Redis Cluster
-
-- **Pub/Sub**: Capacidades de messaging para eventos en tiempo real
-
-### 6. S3 + CloudFront para Assets Estáticos
-
-* *Decisión**: Amazon S3 con CloudFront CDN para archivos estáticos y ROMs
-
-* *Justificación**:
-
-- **Global distribution**: CloudFront edge locations para baja latencia global
-
-- **Cost effectiveness**: S3 storage classes para optimizar costos según uso
-
-- **Durability**: 99.999999999% (11 9's) durability para archivos de juegos
-
-- **Integration**: Integración nativa con otros servicios AWS
-
-- **Security**: Fine-grained access controls y encryption at rest
-
-## Consideraciones de Seguridad
-
-### Network Security
-
-- **VPC Isolation**: Servicios aislados en subnets privadas
-
-- **Security Groups**: Reglas de firewall granulares por servicio
-
-- **Network ACLs**: Control de tráfico a nivel de subnet
-
-- **NAT Gateways**: Acceso seguro a internet para subnets privadas
-
-### Authentication & Authorization
-
-- **JWT Tokens**: Stateless authentication con short-lived access tokens
-
-- **Refresh Token Rotation**: Tokens de refresh con rotación automática
-
-- **RBAC**: Role-based access control con permisos granulares
-
-- **API Rate Limiting**: Protección contra ataques de fuerza bruta
-
-### Data Protection
-
-- **Encryption at Rest**: RDS y S3 con encryption habilitado
-
-- **Encryption in Transit**: TLS 1.3 para todas las comunicaciones
-
-- **Secrets Management**: AWS Secrets Manager para credenciales
-
-- **Data Masking**: Logs sin información sensible
-
-## Arquitectura de Componentes
-
-```mermaid
-graph LR
-    subgraph Frontend
-        UI[Interfaz Web]
-        JSDOS[JS-DOS Emulator]
-    end
-
-    subgraph Gateway
-        Kong[Kong API Gateway]
-        OAuth[OAuth2 Proxy]
-    end
-
-    subgraph Microservicios
-        Auth[Auth Service]
-        User[User Service]
-        Catalog[Game Catalog]
-        Score[Score Service]
-        Ranking[Ranking Service]
-    end
-
-    subgraph Datos
-        DB[(PostgreSQL)]
-        S3[S3 Storage]
-    end
-
-    UI --> Kong
-    Kong --> OAuth
-    OAuth --> Auth
-    Kong --> User
-    Kong --> Catalog
-    Kong --> Score
-    Kong --> Ranking
-    Auth --> DB
-    User --> DB
-    Catalog --> S3
-    Score --> DB
-    Ranking --> DB
+## Componentes de la Arquitectura
+
+### Capa de Red y CDN
+
+**Route 53**
+- Resolución DNS global con health checks
+- Routing policies para failover automático
+- Subdominios para diferentes servicios (api.retrogamehub.com, cdn.retrogamehub.com)
+
+**CloudFront CDN**
+- 200+ edge locations globales
+- Cache de contenido estático y assets de juegos
+- Compresión automática (Gzip/Brotli)
+- Integración con AWS WAF para protección DDoS
+
+### Capa de Seguridad
+
+**AWS WAF**
+- Protección contra ataques OWASP Top 10
+- Rate limiting personalizado
+- Geo-blocking y IP whitelisting
+- Reglas personalizadas para gaming
+
+**Application Load Balancer (ALB)**
+- SSL/TLS termination con certificados ACM
+- Health checks avanzados
+- Target groups para diferentes servicios
+- WebSocket support para features en tiempo real
+
+### Capa de Aplicación - EKS
+
+**EKS Control Plane**
+- Kubernetes 1.28 gestionado por AWS
+- Multi-AZ para alta disponibilidad
+- Integración nativa con servicios AWS
+- Actualizaciones automáticas disponibles
+
+**Worker Nodes**
+- Auto Scaling Groups en múltiples AZ
+- Instancias c5.large optimizadas para compute
+- Node groups separados por workload type
+- Spot instances para workloads no críticos
+
+**Microservicios Principales**
+```
+🎮 game-service        → Gestión de catálogo y metadatos
+👤 user-service        → Autenticación y perfiles
+🏆 achievement-service → Sistema de logros y progreso
+💬 social-service      → Chat y features sociales
+🔍 search-service      → Búsqueda y recomendaciones
+📊 analytics-service   → Métricas y telemetría
+🚀 emulator-service    → Ejecución de juegos retro
 ```
 
+### Capa de Datos
 
+**Amazon RDS PostgreSQL**
+- Multi-AZ deployment para alta disponibilidad
+- Read replicas para scaling de lectura
+- Automated backups y point-in-time recovery
+- Performance Insights para monitoring
 
-```mermaid
-graph LR
-    subgraph Frontend
-        UI[Interfaz Web]
-        JSDOS[JS-DOS Emulator]
-    end
+**ElastiCache Redis**
+- Cluster mode habilitado para alta disponibilidad
+- Session storage y application caching
+- Pub/Sub para comunicación en tiempo real
+- Automatic failover configurado
 
-    subgraph Gateway
-        Kong[Kong API Gateway]
-        OAuth[OAuth2 Proxy]
-    end
+**Amazon S3**
+- Buckets separados por tipo de contenido:
+  - `retrogamehub-games`: ROMs y archivos de juego
+  - `retrogamehub-assets`: Imágenes, videos, artwork
+  - `retrogamehub-backups`: Backups de base de datos
+  - `retrogamehub-logs`: Logs de aplicación y audit
 
-    subgraph Microservicios
-        Auth[Auth Service]
-        User[User Service]
-        Catalog[Game Catalog]
-        Score[Score Service]
-        Ranking[Ranking Service]
-    end
+### Justificaciones Arquitectónicas
 
-    subgraph Datos
-        DB[(PostgreSQL)]
-        S3[S3 Storage]
-    end
+**¿Por qué EKS sobre EC2 directo?**
+- Orquestación automática de contenedores
+- Auto-scaling basado en métricas personalizadas
+- Declarative configuration con GitOps
+- Mejor utilización de recursos
+- Facilita CI/CD y deployments blue-green
 
-    UI --> Kong
-    Kong --> OAuth
-    OAuth --> Auth
-    Kong --> User
-    Kong --> Catalog
-    Kong --> Score
-    Kong --> Ranking
-    Auth --> DB
-    User --> DB
-    Catalog --> S3
-    Score --> DB
-    Ranking --> DB
+**¿Por qué PostgreSQL sobre DynamoDB?**
+- Relationships complejas entre usuarios, juegos, y achievements
+- ACID compliance para transacciones críticas
+- SQL queries avanzadas para analytics
+- Better tooling y ecosystem maduro
 
+**¿Por qué Redis como cache?**
+- Sub-millisecond latency para gaming
+- Data structures avanzadas (Sets, Sorted Sets)
+- Pub/Sub para features en tiempo real
+- Persistence opcional para session data
+
+**¿Por qué Multi-AZ deployment?**
+- RTO < 2 minutos para database failover
+- RPO < 1 minuto con continuous backup
+- 99.99% availability SLA requirement
+- Disaster recovery automático
+
+## Escalabilidad y Performance
+
+### Horizontal Pod Autoscaler (HPA)
+```yaml
+Métricas de scaling:
+- CPU utilization > 70%
+- Memory utilization > 80%
+- Custom metrics (requests/second)
+- Queue depth para processing jobs
 ```
 
+### Vertical Pod Autoscaler (VPA)
+- Optimización automática de resource requests
+- Historico de usage patterns
+- Right-sizing de containers
 
+### Cluster Autoscaler
+- Escalado automático de worker nodes
+- Scale-down de nodos infrautilizados
+- Spot instance integration para cost optimization
 
-```mermaid
-graph LR
-    subgraph Frontend
-        UI[Interfaz Web]
-        JSDOS[JS-DOS Emulator]
-    end
+## Monitoreo y Observabilidad
 
-    subgraph Gateway
-        Kong[Kong API Gateway]
-        OAuth[OAuth2 Proxy]
-    end
+### CloudWatch Integration
+- Container Insights para métricas EKS
+- Custom metrics desde aplicación
+- Log aggregation centralizado
+- Alertas proactivas configuradas
 
-    subgraph Microservicios
-        Auth[Auth Service]
-        User[User Service]
-        Catalog[Game Catalog]
-        Score[Score Service]
-        Ranking[Ranking Service]
-    end
+### Distributed Tracing
+- AWS X-Ray para request tracing
+- Latency analysis entre microservicios
+- Performance bottleneck identification
+- Error tracking y debugging
 
-    subgraph Datos
-        DB[(PostgreSQL)]
-        S3[S3 Storage]
-    end
-
-    UI --> Kong
-    Kong --> OAuth
-    OAuth --> Auth
-    Kong --> User
-    Kong --> Catalog
-    Kong --> Score
-    Kong --> Ranking
-    Auth --> DB
-    User --> DB
-    Catalog --> S3
-    Score --> DB
-    Ranking --> DB
-
-```
-
-
-
-```mermaid
-graph LR
-    subgraph Frontend
-        UI[Interfaz Web]
-        JSDOS[JS-DOS Emulator]
-    end
-
-    subgraph Gateway
-        Kong[Kong API Gateway]
-        OAuth[OAuth2 Proxy]
-    end
-
-    subgraph Microservicios
-        Auth[Auth Service]
-        User[User Service]
-        Catalog[Game Catalog]
-        Score[Score Service]
-        Ranking[Ranking Service]
-    end
-
-    subgraph Datos
-        DB[(PostgreSQL)]
-        S3[S3 Storage]
-    end
-
-    UI --> Kong
-    Kong --> OAuth
-    OAuth --> Auth
-    Kong --> User
-    Kong --> Catalog
-    Kong --> Score
-    Kong --> Ranking
-    Auth --> DB
-    User --> DB
-    Catalog --> S3
-    Score --> DB
-    Ranking --> DB
-
-```
-
+Esta arquitectura proporciona una base sólida, escalable y mantenible para Retro Game Hub, aprovechando las mejores prácticas de cloud-native development y la robustez de los servicios gestionados de AWS.

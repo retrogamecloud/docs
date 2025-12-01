@@ -1,6 +1,6 @@
 ---
 title: 3.2. Servicio de Usuarios
-description: Gestión de perfiles y datos de usuarios
+description: Gestión completa de perfiles, autenticación y datos de usuarios
 icon: user
 ---
 
@@ -34,40 +34,85 @@ El servicio de usuarios gestiona los perfiles, preferencias y estadísticas de l
 |---------|---------|
 | **Puerto** | 3002 |
 | **Base de Datos** | PostgreSQL (usuarios, perfiles, estadísticas) |
-| **Dependencias** | Auth Service, Game Service |
+| **Dependencias** | Auth Service (3.1), Score Service (3.4) |
 | **Cache** | Redis (sesiones, datos frecuentes) |
+| **Comunicación** | REST API + WebSocket para actualizaciones en tiempo real |
+
+## Arquitectura del Servicio
+
+### Componentes Principales
+
+<CardGroup cols={2}>
+  <Card title="User Manager" icon="users">
+    Gestión central de perfiles y datos de usuario
+  </Card>
+  
+  <Card title="Statistics Engine" icon="chart-bar">
+    Procesamiento y cálculo de métricas de usuario
+  </Card>
+  
+  <Card title="Preferences Controller" icon="gear">
+    Manejo de configuraciones personalizadas
+  </Card>
+  
+  <Card title="Profile Validator" icon="shield-check">
+    Validación y moderación de contenido de perfiles
+  </Card>
+</CardGroup>
+
+### Base de Datos
+
+```sql
+-- Tabla principal de usuarios
+users (
+  id, username, email, created_at, updated_at,
+  is_verified, is_active, last_login
+)
+
+-- Perfiles extendidos
+user_profiles (
+  user_id, display_name, bio, avatar_url,
+  location, website, privacy_level
+)
+
+-- Estadísticas de usuario
+user_statistics (
+  user_id, total_games, total_score,
+  average_score, rank_position, last_game_at
+)
+
+-- Preferencias personalizadas
+user_preferences (
+  user_id, theme, language, timezone,
+  notifications_enabled, privacy_settings
+)
+```
 
 ## Características Principales
 
 ### Gestión de Perfiles
 
-- Creación y actualización de perfiles de usuario
-
-- Subida y gestión de avatares personalizados
-
-- Biografías y información personal
-
-- Sistema de verificación de cuentas
+- **Creación y actualización** de perfiles de usuario
+- **Subida y gestión** de avatares personalizados
+- **Biografías** y información personal
+- **Sistema de verificación** de cuentas
+- **Moderación automática** de contenido
 
 ### Sistema de Estadísticas
 
-- Tracking automático de actividad de juego
-
-- Cálculo de rankings globales y por juego
-
-- Historial detallado de scores y logros
-
-- Métricas de tiempo de juego
+- **Tracking automático** de actividad de juego
+- **Cálculo de rankings** globales y por juego
+- **Historial detallado** de scores y logros
+- **Métricas de tiempo** de juego
+- **Análisis de progreso** personalizado
 
 ### Configuración y Preferencias
 
-- Personalización de interfaz (tema, idioma)
-
-- Configuración de privacidad granular
-
-- Gestión de notificaciones
-
-- Preferencias de juego
+- **Personalización de interfaz** (tema, idioma)
+- **Configuración de privacidad** granular
+- **Gestión de notificaciones** por categorías
+- **Preferencias de juego** avanzadas
+- **Sincronización multi-dispositivo**
 
 ## Endpoints Principales
 
@@ -81,7 +126,7 @@ El servicio de usuarios gestiona los perfiles, preferencias y estadísticas de l
   Actualizar perfil de usuario
 </Card>
 
-<Card title="POST /api/users/avatar" icon="image" href="/api-reference/user-service/upload-avatar">
+<Card title="POST /api/users/:username/avatar" icon="image" href="/api-reference/user-service/upload-avatar">
   Subir avatar de usuario
 </Card>
 
@@ -91,143 +136,106 @@ El servicio de usuarios gestiona los perfiles, preferencias y estadísticas de l
   Obtener estadísticas de usuario
 </Card>
 
-<Card title="GET /api/rankings/:gameType" icon="trophy" href="/api-reference/user-service/get-rankings">
-  Obtener rankings por tipo de juego
+<Card title="GET /api/users/:username/history" icon="clock" href="/api-reference/user-service/get-game-history">
+  Obtener historial de juegos
 </Card>
 
 ### Configuración
 
-<Card title="GET/PUT /api/users/:username/preferences" icon="cog" href="/api-reference/user-service/user-preferences">
-  Gestionar preferencias de usuario
+<Card title="GET /api/users/:username/preferences" icon="sliders" href="/api-reference/user-service/get-preferences">
+  Obtener preferencias de usuario
 </Card>
 
-## Problemas Comunes
+<Card title="PUT /api/users/:username/preferences" icon="gear" href="/api-reference/user-service/update-preferences">
+  Actualizar preferencias
+</Card>
 
-### Error: Usuario no encontrado (404)
+## Integración con Otros Servicios
 
-* *Síntomas:**
-
-- Error al obtener perfil de usuario
-
-- Usuario inexistente en base de datos
-
-* *Logs relevantes:**
-
-```bash
-[ERROR] User not found: username 'player123' does not exist in database
-[WARN] Attempted access to non-existent user profile
-
+### Con Auth Service (3.1)
+```javascript
+// Validación de tokens y permisos
+const validateUserAccess = async (token, userId) => {
+  const authResult = await authService.validateToken(token);
+  return authResult.userId === userId || authResult.role === 'admin';
+};
 ```
 
-* *Soluciones rápidas:**
-1. Verificar que el username sea correcto
-2. Comprobar que la cuenta no haya sido eliminada
-3. Revisar sincronización con Auth Service
-
-### Error: Fallo en subida de avatar
-
-* *Síntomas:**
-
-- Avatar no se actualiza
-
-- Error 413 (archivo muy grande)
-
-- Error de formato de imagen
-
-* *Logs relevantes:**
-
-```bash
-[ERROR] Avatar upload failed: File size exceeds 5MB limit
-[ERROR] Invalid image format: only JPG, PNG, GIF allowed
-[WARN] S3 bucket connection timeout
-
+### Con Score Service (3.4)
+```javascript
+// Actualización automática de estadísticas
+const updateUserStats = async (scoreEvent) => {
+  await userService.updateStatistics(scoreEvent.userId, {
+    lastScore: scoreEvent.score,
+    totalGames: increment(1),
+    totalScore: increment(scoreEvent.score)
+  });
+};
 ```
 
-* *Soluciones rápidas:**
-1. Verificar tamaño del archivo (máximo 5MB)
-2. Confirmar formato válido (JPG, PNG, GIF)
-3. Revisar conexión con almacenamiento S3
-4. Limpiar cache de avatares: `redis-cli DEL avatar:*`
+## Funcionalidades Avanzadas
 
-### Error: Estadísticas desactualizadas
+### Sistema de Notificaciones
 
-* *Síntomas:**
+<CardGroup cols={2}>
+  <Card title="Notificaciones Push" icon="bell">
+    Alertas en tiempo real para logros y eventos
+  </Card>
+  
+  <Card title="Digest por Email" icon="envelope">
+    Resúmenes semanales de actividad
+  </Card>
+</CardGroup>
 
-- Rankings no reflejan juegos recientes
+### Análisis de Comportamiento
 
-- Estadísticas congeladas
+- **Patrones de juego** y horarios de actividad
+- **Preferencias** de tipos de juego
+- **Análisis de progreso** y mejora
+- **Recomendaciones personalizadas**
 
-- Diferencias entre servicios
+### Gestión de Privacidad
 
-* *Logs relevantes:**
-
-```bash
-[ERROR] Stats sync failed: Game Service unreachable
-[WARN] Ranking calculation timeout after 30s
-[INFO] Stats cache invalidated for user: player123
-
+```yaml
+Niveles de Privacidad:
+  PUBLIC: Perfil visible para todos
+  FRIENDS: Solo amigos pueden ver detalles
+  PRIVATE: Perfil completamente privado
+  CUSTOM: Configuración granular por campo
 ```
 
-* *Soluciones rápidas:**
-1. Verificar conexión con Game Service
-2. Forzar recálculo de estadísticas:
-   ```bash
-   curl -X POST http://localhost:3002/api/admin/recalculate-stats
-   ```
+## Monitoreo y Métricas
 
-3. Limpiar cache de rankings: `redis-cli FLUSHDB 2`
-4. Revisar job de sincronización en cola de tareas
+### KPIs del Servicio
 
-### Error: Preferencias no se guardan
+- **Usuarios activos** diarios/semanales/mensuales
+- **Tiempo promedio** de sesión
+- **Tasa de retención** de usuarios
+- **Interacciones** con perfiles
 
-* *Síntomas:**
+### Alertas Configuradas
 
-- Configuración se resetea al recargar
+<Warning>
+  **Alertas críticas** configuradas para:
+  - Caída en registros de usuarios (>20%)
+  - Errores de subida de avatares (>5%)
+  - Fallas en actualización de estadísticas
+  - Problemas de sincronización de preferencias
+</Warning>
 
-- Error 422 en validación
+## Roadmap y Futuras Mejoras
 
-- Preferencias no persisten
+### Próximas Funcionalidades
 
-* *Logs relevantes:**
+1. **Sistema de logros** y badges personalizados
+2. **Perfiles sociales** con seguimiento entre usuarios  
+3. **Personalización avanzada** de interfaz
+4. **Integración con redes sociales** externas
+5. **Sistema de reputación** comunitaria
 
-```bash
-[ERROR] Invalid preference value: theme must be 'light', 'dark', or 'auto'
-[WARN] Database constraint violation on preferences update
-[ERROR] Redis session store unavailable
+### Optimizaciones Técnicas
 
-```
-
-* *Soluciones rápidas:**
-1. Validar formato de preferencias según esquema
-2. Verificar conexión a base de datos PostgreSQL
-3. Revisar disponibilidad de Redis para sesiones
-4. Comprobar permisos de escritura del usuario
-
-### Performance: Consultas lentas en rankings
-
-* *Síntomas:**
-
-- Timeout en carga de rankings
-
-- Alto uso de CPU/memoria
-
-- Respuestas lentas en endpoints de estadísticas
-
-* *Logs relevantes:**
-
-```bash
-[WARN] Slow query detected: ranking calculation took 15.2s
-[INFO] Database connection pool exhausted
-[ERROR] Query timeout: rankings for game_type 'puzzle'
-
-```
-
-* *Soluciones rápidas:**
-1. Verificar índices en tablas de estadísticas
-2. Aumentar pool de conexiones PostgreSQL
-3. Activar cache de rankings:
-   ```bash
-   redis-cli SET "ranking:puzzle:cache" "enabled" EX 3600
-   ```
-
-4. Considerar paginación en rankings grandes
+- Implementación de **GraphQL** para queries flexibles
+- **Microservicios** para estadísticas complejas
+- **CDN** para gestión eficiente de avatares
+- **Machine Learning** para recomendaciones personalizadas

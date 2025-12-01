@@ -1,7 +1,6 @@
 ---
 title: 3.5. Servicio de Rankings
-description: Leaderboards y clasificaciones globales con cache Redis y actualizaciones
-  en tiempo real
+description: Leaderboards y clasificaciones globales con cache Redis y actualizaciones en tiempo real
 icon: ranking-star
 ---
 
@@ -41,7 +40,7 @@ El servicio de rankings proporciona tablas de clasificación (leaderboards) para
   <Card title="Configuración" icon="gear">
     **Puerto**: 3005
 
-    **Dependencias**: Auth Service, Scores Service
+    **Dependencias**: [3.1. Auth Service](auth-service), [3.4. Score Service](score-service)
   </Card>
 </CardGroup>
 
@@ -52,9 +51,9 @@ La sincronización entre scores y rankings es un proceso crítico que involucra 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant Auth as Auth Service
-    participant Scores as Scores Service
-    participant Ranking as Ranking Service
+    participant Auth as Auth Service (3.1)
+    participant Scores as Scores Service (3.4)
+    participant Ranking as Ranking Service (3.5)
     participant Redis
     participant DB as PostgreSQL
 
@@ -77,173 +76,257 @@ sequenceDiagram
     Ranking->>Redis: Store new ranking
     Redis-->>Ranking: Cached
 
-    Scores-->>Client: Success response
-
+    Scores-->>Client: Score registered
+    Ranking-->>Client: Ranking updated
 ```
 
-## Problemas Comunes
+## API Endpoints
 
-<Warning>
-Esta sección cubre los errores más frecuentes del servicio de rankings y sus soluciones rápidas.
-</Warning>
+### Rankings Principales
 
-### Cache Redis Desincronizado
+<CodeGroup>
 
-* *Error**: Los rankings mostrados no coinciden con los datos reales de la base de datos.
+```http GET /rankings/global
+GET /rankings/global
+Authorization: Bearer {jwt_token}
 
-* *Logs relevantes**:
-
-```bash
-[WARN] Cache hit for game:123 but data inconsistent
-[ERROR] Redis key ranking:game:123 contains stale data
-
+Parámetros de consulta:
+- limit: número de resultados (default: 50, max: 100)
+- offset: paginación (default: 0)
 ```
 
-* *Soluciones rápidas**:
-<Steps>
-  <Step title="Limpieza manual del cache">
-    ```bash
-    # Conectar a Redis
-    redis-cli -h localhost -p 6379
+```http GET /rankings/game/{gameId}
+GET /rankings/game/{gameId}
+Authorization: Bearer {jwt_token}
 
-    # Limpiar rankings específicos
-    DEL ranking:game:*
-    DEL ranking:global
-    ```
-
-  </Step>
-  <Step title="Recálculo forzado">
-    ```bash
-    curl -X POST http://localhost:3005/admin/recalculate-rankings \
-      -H "Authorization: Bearer $ADMIN_TOKEN" \
-      -H "Content-Type: application/json" \
-      -d '{"gameId": "all"}'
-    ```
-
-  </Step>
-</Steps>
-
-### Eventos Perdidos de Scores
-
-* *Error**: Los nuevos scores no actualizan automáticamente los rankings.
-
-* *Logs relevantes**:
-
-```bash
-[ERROR] Failed to process score event: Connection refused
-[WARN] Event queue backup detected: 15 pending events
-[ERROR] RabbitMQ connection lost, events not processed
-
+Parámetros de consulta:
+- limit: número de resultados (default: 50, max: 100)
+- offset: paginación (default: 0)
+- timeframe: all|today|week|month (default: all)
 ```
 
-* *Soluciones rápidas**:
-<Steps>
-  <Step title="Verificar cola de eventos">
-    ```bash
-    # Revisar estado de RabbitMQ
-    rabbitmqctl list_queues name messages
+</CodeGroup>
 
-    # Buscar cola de rankings
-    rabbitmqctl list_queues | grep ranking
-    ```
+### Rankings de Usuario
 
-  </Step>
-  <Step title="Procesar eventos pendientes">
-    ```bash
-    # Endpoint para procesar eventos pendientes
-    curl -X POST http://localhost:3005/admin/process-pending-events \
-      -H "Authorization: Bearer $ADMIN_TOKEN"
-    ```
+<CodeGroup>
 
-  </Step>
-</Steps>
+```http GET /rankings/user/{userId}/position
+GET /rankings/user/{userId}/position
+Authorization: Bearer {jwt_token}
 
-### Performance Degradada
-
-* *Error**: Consultas de rankings muy lentas, timeouts frecuentes.
-
-* *Logs relevantes**:
-
-```bash
-[WARN] Ranking query took 5.2s for game:456
-[ERROR] Database connection pool exhausted
-[SLOW] SELECT from rankings WHERE game_id=? took 8934ms
-
+Obtiene la posición actual del usuario en rankings globales y por juego
 ```
 
-* *Soluciones rápidas**:
-<Steps>
-  <Step title="Verificar índices de base de datos">
+```http GET /rankings/user/{userId}/history
+GET /rankings/user/{userId}/history
+Authorization: Bearer {jwt_token}
+
+Historial de posiciones del usuario a lo largo del tiempo
+```
+
+</CodeGroup>
+
+## Estrategias de Cache
+
+### Niveles de Cache
+
+<Tabs>
+  <Tab title="Cache L1 - Redis">
+    ```javascript
+    // Rankings más consultados
+    const cacheKeys = {
+      globalTop100: 'ranking:global:top:100',
+      gameTop50: 'ranking:game:{gameId}:top:50',
+      userPosition: 'ranking:user:{userId}:position'
+    }
+
+    // TTL diferenciado
+    const cacheTTL = {
+      topRankings: 300, // 5 minutos
+      userPositions: 600, // 10 minutos
+      gameRankings: 180 // 3 minutos
+    }
+    ```
+  </Tab>
+
+  <Tab title="Invalidación Inteligente">
+    ```javascript
+    // Solo invalida rankings afectados
+    async function invalidateRankingCache(userId, gameId, newScore) {
+      const affectedKeys = [
+        `ranking:global:*`,
+        `ranking:game:${gameId}:*`,
+        `ranking:user:${userId}:*`
+      ]
+      
+      await redis.del(affectedKeys)
+      
+      // Pre-calcula rankings más consultados
+      await precomputeTopRankings(gameId)
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Modelos de Datos
+
+### Estructura de Rankings
+
+```javascript
+// Ranking Entry
+{
+  id: "uuid",
+  userId: "user_uuid",
+  gameId: "game_uuid",
+  score: 95000,
+  position: 1,
+  username: "player_name",
+  avatar: "avatar_url",
+  achievedAt: "2024-01-15T10:30:00Z",
+  gameMetadata: {
+    level: 10,
+    difficulty: "hard",
+    playTime: "00:15:30"
+  }
+}
+
+// Ranking Response
+{
+  rankings: [RankingEntry],
+  pagination: {
+    total: 1500,
+    limit: 50,
+    offset: 0,
+    hasNext: true
+  },
+  metadata: {
+    lastUpdated: "2024-01-15T10:35:00Z",
+    gameTitle: "Space Shooter",
+    timeframe: "all"
+  }
+}
+```
+
+## Performance y Optimizaciones
+
+### Consultas Optimizadas
+
+<CardGroup cols={2}>
+  <Card title="Índices de Base de Datos" icon="database">
     ```sql
-    -- Verificar índices existentes
-    SELECT indexname FROM pg_indexes WHERE tablename = 'rankings';
-
-    -- Crear índices faltantes si es necesario
-    CREATE INDEX CONCURRENTLY idx_rankings_game_score
-    ON rankings(game_id, score DESC);
+    -- Índices compuestos para rankings
+    CREATE INDEX idx_rankings_game_score 
+      ON rankings(game_id, score DESC, created_at);
+    
+    CREATE INDEX idx_rankings_user_game 
+      ON rankings(user_id, game_id, score DESC);
+    
+    CREATE INDEX idx_rankings_global 
+      ON rankings(score DESC, created_at DESC);
     ```
+  </Card>
 
-  </Step>
-  <Step title="Optimizar cache">
-    ```bash
-    # Verificar uso de memoria Redis
-    redis-cli info memory
-
-    # Establecer TTL apropiado
-    redis-cli EXPIRE ranking:game:popular_game 3600
+  <Card title="Batch Processing" icon="layers">
+    ```javascript
+    // Actualización en lotes para mejor performance
+    async function batchUpdateRankings(scores) {
+      const updates = scores.map(score => ({
+        userId: score.userId,
+        gameId: score.gameId,
+        newPosition: calculatePosition(score)
+      }))
+      
+      await db.batchUpdate('rankings', updates)
+    }
     ```
+  </Card>
+</CardGroup>
 
-  </Step>
-</Steps>
+## Eventos y Notificaciones
 
-### Datos Corruptos en Rankings
+### Sistema de Eventos
 
-* *Error**: Rankings muestran puntuaciones imposibles o jugadores duplicados.
+```javascript
+// Event: Ranking Position Changed
+{
+  event: 'ranking.position.changed',
+  data: {
+    userId: 'user_uuid',
+    gameId: 'game_uuid',
+    previousPosition: 5,
+    newPosition: 3,
+    improvement: 2,
+    timestamp: '2024-01-15T10:30:00Z'
+  }
+}
 
-* *Logs relevantes**:
-
-```bash
-[ERROR] Duplicate player_id in ranking calculation
-[WARN] Score validation failed: negative score detected
-[ERROR] Ranking integrity check failed for game:789
-
+// Event: New High Score in Rankings
+{
+  event: 'ranking.new.record',
+  data: {
+    userId: 'user_uuid',
+    gameId: 'game_uuid',
+    score: 98500,
+    previousRecord: 95000,
+    isGlobalRecord: false,
+    isGameRecord: true
+  }
+}
 ```
 
-* *Soluciones rápidas**:
-<Steps>
-  <Step title="Validación de integridad">
-    ```sql
-    -- Buscar duplicados
-    SELECT player_id, game_id, COUNT(*)
-    FROM rankings
-    GROUP BY player_id, game_id
-    HAVING COUNT(*) > 1;
+## Métricas y Monitoreo
 
-    -- Buscar scores inválidos
-    SELECT * FROM rankings WHERE score < 0 OR score > 999999;
+<CardGroup cols={2}>
+  <Card title="Métricas de Performance" icon="chart-line">
+    - Tiempo de respuesta de rankings
+    - Hit rate del cache Redis
+    - Frecuencia de actualización de rankings
+    - Latencia de sincronización con scores
+  </Card>
+
+  <Card title="Métricas de Negocio" icon="users">
+    - Jugadores en top rankings
+    - Competitividad por juego
+    - Evolución de rankings en el tiempo
+    - Engagement basado en posiciones
+  </Card>
+</CardGroup>
+
+## Escalabilidad
+
+### Estrategias de Scaling
+
+<Tabs>
+  <Tab title="Particionamiento">
+    ```javascript
+    // Particionamiento por juego para mejor distribución
+    const getShardKey = (gameId) => {
+      return `ranking_shard_${gameId % SHARD_COUNT}`
+    }
+
+    // Rankings globales agregados desde shards
+    const getGlobalRankings = async () => {
+      const shardResults = await Promise.all(
+        shards.map(shard => shard.getTopRankings(100))
+      )
+      
+      return mergeAndSortRankings(shardResults)
+    }
     ```
+  </Tab>
 
-  </Step>
-  <Step title="Limpieza y reconstrucción">
-    ```bash
-    # API para reconstruir rankings desde scores válidos
-    curl -X POST http://localhost:3005/admin/rebuild-rankings \
-      -H "Authorization: Bearer $ADMIN_TOKEN" \
-      -d '{"gameId": "789", "validateScores": true}'
+  <Tab title="Cache Distribuido">
+    ```javascript
+    // Múltiples instancias Redis para alta disponibilidad
+    const cacheCluster = new Redis.Cluster([
+      { host: 'redis-1', port: 6379 },
+      { host: 'redis-2', port: 6379 },
+      { host: 'redis-3', port: 6379 }
+    ])
+
+    // Replicación maestro-esclavo para lecturas
+    const readReplicas = ['redis-read-1', 'redis-read-2']
     ```
-
-  </Step>
-</Steps>
-
-<Tip>
-
-* *Monitoreo proactivo**: Configura alertas para detectar estos problemas antes de que afecten a los usuarios:
-
-- Cache hit ratio < 80%
-
-- Tiempo de respuesta > 2 segundos
-
-- Eventos pendientes > 10
-
-- Discrepancias entre cache y DB
-</Tip>
+  </Tab>
+</Tabs>

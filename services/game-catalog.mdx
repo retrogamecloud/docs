@@ -98,15 +98,15 @@ El servicio de catálogo gestiona el inventario de juegos retro disponibles en l
       <td>Puzzle</td>
     </tr>
     <tr>
-      <td>**Prince of Persia**</td>
-      <td>prince-of-persia</td>
-      <td>1989</td>
+      <td>**Commander Keen**</td>
+      <td>commanderkeen</td>
+      <td>1990</td>
       <td>Platform</td>
     </tr>
     <tr>
-      <td>**Commander Keen**</td>
-      <td>commander-keen</td>
-      <td>1990</td>
+      <td>**Prince of Persia**</td>
+      <td>princeofpersia</td>
+      <td>1989</td>
       <td>Platform</td>
     </tr>
     <tr>
@@ -124,131 +124,71 @@ El servicio de catálogo gestiona el inventario de juegos retro disponibles en l
   </tbody>
 </Table>
 
-## Problemas Comunes
+## Endpoints API
 
-<AccordionGroup>
-  <Accordion title="Juego no se encuentra en búsqueda">
-    **Síntomas:**
-    - La API devuelve array vacío
-    - Búsqueda por slug no funciona
+### GET /games
+Obtiene lista de todos los juegos disponibles.
 
-    **Logs Relevantes:**
-    ```bash
-    [WARN] Game not found: invalid-slug
-    [ERROR] Database query failed: games.title ILIKE '%undefined%'
-    ```
+```json
+{
+  "games": [
+    {
+      "id": 1,
+      "title": "DOOM",
+      "slug": "doom",
+      "description": "Legendary FPS game",
+      "year": 1993,
+      "genre": "FPS",
+      "developer": "id Software",
+      "image_url": "/images/doom.jpg",
+      "jsdos_file": "/games/doom.jsdos",
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
+```
 
-    **Soluciones Rápidas:**
-    - Verificar que el slug existe en base de datos
-    - Comprobar parámetros de búsqueda
-    - Revisar conexión a PostgreSQL
-    ```bash
-    # Verificar juego específico
-    curl http://localhost:3003/api/games/doom
+### GET /games/:slug
+Obtiene detalles de un juego específico.
 
-    # Listar todos los slugs
-    curl http://localhost:3003/api/games?fields=slug
-    ```
+### GET /games/search?q=:query
+Búsqueda de juegos por nombre.
 
-  </Accordion>
+### POST /games
+Agrega un nuevo juego al catálogo.
 
-  <Accordion title="Archivos .jsdos corruptos o faltantes">
-    **Síntomas:**
-    - Error 404 al solicitar archivo de juego
-    - Metadata sin URL de descarga
+### PUT /games/:id
+Actualiza información de un juego.
 
-    **Logs Relevantes:**
-    ```bash
-    [ERROR] File not found: /storage/games/doom.jsdos
-    [WARN] Missing jsdos_url for game ID: 1
-    ```
+### DELETE /games/:id
+Elimina un juego del catálogo.
 
-    **Soluciones Rápidas:**
-    - Verificar integridad de archivos en storage
-    - Re-subir archivos .jsdos faltantes
-    - Actualizar metadata en base de datos
-    ```bash
-    # Verificar archivos
-    ls -la /storage/games/*.jsdos
+## Base de Datos
 
-    # Verificar metadata
-    curl http://localhost:3003/api/games/doom | jq '.jsdos_url'
-    ```
+### Tabla: games
 
-  </Accordion>
+```sql
+CREATE TABLE games (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  slug VARCHAR(255) UNIQUE NOT NULL,
+  description TEXT,
+  year INTEGER,
+  genre VARCHAR(100),
+  developer VARCHAR(255),
+  image_url VARCHAR(500),
+  jsdos_file VARCHAR(500),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
 
-  <Accordion title="Base de datos desactualizada">
-    **Síntomas:**
-    - Juegos nuevos no aparecen
-    - Metadata inconsistente
+## Integración con Otros Servicios
 
-    **Logs Relevantes:**
-    ```bash
-    [ERROR] PostgreSQL connection failed
-    [WARN] Table 'games' migration pending
-    ```
+- **Servicio de Puntuaciones (3.4)**: Proporciona información de juegos
+- **Servicio de Rankings (3.5)**: Datos de popularidad y mejores juegos
+- **Frontend**: Catálogo visual y búsqueda
 
-    **Soluciones Rápidas:**
-    - Ejecutar migraciones pendientes
-    - Reindexar catálogo
-    - Verificar permisos de base de datos
-    ```bash
-    # Ejecutar migraciones
-    npm run migrate
-
-    # Reindexar catálogo
-    curl -X POST http://localhost:3003/api/admin/reindex
-    ```
-
-  </Accordion>
-
-  <Accordion title="Búsqueda lenta o timeout">
-    **Síntomas:**
-    - Respuestas lentas en endpoints de búsqueda
-    - Timeout en consultas complejas
-
-    **Logs Relevantes:**
-    ```bash
-    [WARN] Query took 5.2s: SELECT * FROM games WHERE...
-    [ERROR] Database timeout after 10s
-    ```
-
-    **Soluciones Rápidas:**
-    - Verificar índices de base de datos
-    - Optimizar consultas SQL
-    - Implementar caché de resultados
-    ```bash
-    # Verificar performance
-    curl -w "Time: %{time_total}s\n" http://localhost:3003/api/games/search?q=doom
-
-    # Limpiar caché
-    curl -X DELETE http://localhost:3003/api/cache
-    ```
-
-  </Accordion>
-
-  <Accordion title="Imágenes y capturas no cargan">
-    **Síntomas:**
-    - URLs de imágenes devuelven 404
-    - Metadata sin screenshots
-
-    **Logs Relevantes:**
-    ```bash
-    [ERROR] Image not found: /assets/screenshots/doom_1.jpg
-    [WARN] Missing thumbnail for game: duke3d
-    ```
-
-    **Soluciones Rápidas:**
-    - Verificar directorio de assets
-    - Re-generar thumbnails faltantes
-    - Actualizar URLs en base de datos
-    ```bash
-    # Verificar assets
-    ls -la /assets/screenshots/
-
-    # Regenerar thumbnails
-    curl -X POST http://localhost:3003/api/admin/generate-thumbnails
-    ```
-
-  </Accordion>
-</AccordionGroup>
+<Note>
+El catálogo es el núcleo de información para toda la plataforma de juegos retro.
+</Note>
