@@ -250,7 +250,7 @@ jobs:
             gh pr create \
               --title "🤖 Mejoras y reorganización automática ($(date +%Y-%m-%d))" \
               --body "Análisis automático de documentación y reorganización estructural. Ver archivos IMPROVEMENTS.md y STRUCTURE_CHANGELOG.md" \
-              --label "documentation,enhancement" \
+              --label "documentation,enhancement,auto" \
               --base main || echo "⚠️  No se pudo crear PR automáticamente"
           fi
         env:
