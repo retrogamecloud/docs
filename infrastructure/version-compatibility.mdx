@@ -43,296 +43,214 @@ Esta documentación proporciona una matriz completa de compatibilidad entre las 
 
 ## Matriz de Compatibilidad Cruzada
 
-### Kubernetes y Herramientas Asociadas
+### Componentes Principales con Fechas de Soporte
 
-<Note>
-La regla general es que kubectl debe estar dentro de ±1 versión menor de la versión del clúster de Kubernetes.
-</Note>
+<Tabs>
+<Tab title="Kubernetes Ecosistema">
+| Kubernetes | ArgoCD | Istio | Helm | Fecha Soporte Hasta | Estado |
+|------------|---------|-------|------|---------------------|--------|
+| 1.30.x | 2.10.x ✅ | 1.20.x ✅ | 3.14.x ✅ | Abril 2025 | 🟢 Recomendado |
+| 1.29.x | 2.10.x ✅ | 1.20.x ✅ | 3.14.x ✅ | Febrero 2025 | 🟢 Soportado |
+| 1.28.x | 2.8.x+ ✅ | 1.18.x+ ✅ | 3.12.x+ ✅ | Enero 2025 | 🟡 Mínimo |
+| 1.27.x | 2.8.x ⚠️ | 1.18.x ⚠️ | 3.12.x ⚠️ | Junio 2024 | 🔴 Deprecado |
+</Tab>
+<Tab title="Aplicaciones y Datos">
+| Node.js | PostgreSQL | Redis | Kong Gateway | Fecha Soporte Hasta | Estado |
+|---------|------------|-------|--------------|---------------------|--------|
+| 20.11.x | 15.6 | 7.2.x | 3.6.x | Abril 2026 (Node LTS) | 🟢 Recomendado |
+| 20.x | 15.x | 7.2.x | 3.5.x | Abril 2026 | 🟢 Soportado |
+| 18.19.x | 14.11 | 7.0.x | 3.4.x | Abril 2025 | 🟡 Mínimo |
+| 18.17.x | 14.9 | 7.0.x | 3.4.x | Abril 2025 | 🟡 Mínimo |
+| 18.x | 13.x | 6.x | 3.3.x | Noviembre 2025 (PostgreSQL) | 🔴 Deprecado |
+</Tab>
+<Tab title="Frontend y Build">
+| React | Vite | js-dos | Docker | Fecha Soporte Hasta | Estado |
+|-------|------|--------|--------|---------------------|--------|
+| 18.2.x | 5.1.x | 6.22.x | 25.0.x | Continuo | 🟢 Recomendado |
+| 18.2.0 | 5.0.x | 6.22.x | 24.0.x | Continuo | 🟢 Soportado |
+| 18.0.x | 4.5.x | 6.22.74 | 24.0.0 | Continuo | 🟡 Mínimo |
+| 17.x | 4.4.x | 6.21.x | 23.x | Marzo 2024 | 🔴 Deprecado |
+</Tab>
+</Tabs>
 
-| Kubernetes | kubectl | Helm | ArgoCD | Istio | Compatibilidad |
-|------------|---------|------|--------|-------|----------------|
-| 1.28.x | 1.27-1.29 | 3.12+ | 2.8+ | 1.18+ | ✅ Completa |
-| 1.29.x | 1.28-1.30 | 3.12+ | 2.8+ | 1.19+ | ✅ Completa |
-| 1.30.x | 1.29-1.31 | 3.13+ | 2.9+ | 1.20+ | ✅ Completa |
+### Calendarios de Vida Útil (EOL)
 
-### Node.js y Dependencias
+<Warning>
+**Fechas críticas próximas:**
+- **Node.js 18.x**: EOL Abril 2025 - Migrar a Node.js 20.x LTS
+- **PostgreSQL 13.x**: EOL Noviembre 2025 - Actualizar a PostgreSQL 15.x
+- **Kubernetes 1.27.x**: Ya deprecado - Actualizar inmediatamente
+</Warning>
 
-| Node.js | npm | PostgreSQL Client | Redis Client | Kubernetes | Estado |
-|---------|-----|-------------------|--------------|------------|---------|
-| 18.17+ | 9.0+ | pg@8.11+ | redis@4.6+ | 1.28+ | ✅ LTS |
-| 20.9+ | 10.0+ | pg@8.11+ | redis@4.6+ | 1.28+ | ✅ Recomendado |
-| 21.x | 10.0+ | pg@8.11+ | redis@4.6+ | 1.29+ | ⚠️ Current |
-
-### Base de Datos y Persistencia
-
-| PostgreSQL | pgAdmin | Redis | Kong | Backup Tool | Compatibilidad |
-|------------|---------|-------|------|-------------|----------------|
-| 14.9+ | 4.30+ | 7.0+ | 3.4+ | pg_dump 14+ | ✅ Producción |
-| 15.6+ | 4.30+ | 7.2+ | 3.6+ | pg_dump 15+ | ✅ Recomendado |
-
-## Proceso de Actualización entre Versiones Mayores
+## Proceso de Actualización Entre Versiones Mayores
 
 ### 1. Planificación Pre-Actualización
 
-<Warning>
-Las actualizaciones entre versiones mayores requieren planificación cuidadosa y pueden incluir cambios incompatibles.
-</Warning>
-
-#### Lista de Verificación Previa
+<Steps>
+<Step title="Análisis de Compatibilidad">
+Revisar la matriz de compatibilidad para identificar dependencias críticas:
 
 ```bash
-
 # Verificar versiones actuales
-kubectl version --short
+kubectl version --client --short
+helm version --short
+argocd version --client
 node --version
 psql --version
-redis-server --version
-kong version
-
-# Backup completo antes de la actualización
-./scripts/backup-full-system.sh
-
-# Verificar estado del clúster
-kubectl get nodes -o wide
-kubectl get pods --all-namespaces | grep -v Running
-
 ```
+</Step>
 
-#### Ventanas de Mantenimiento Estimadas
+<Step title="Backup Completo">
+Crear respaldos de todos los datos críticos:
 
-<Tabs>
-<Tab title="Kubernetes">
+```bash
+# Backup de PostgreSQL
+kubectl exec -n database postgresql-0 -- \
+  pg_dumpall -U postgres > backup-$(date +%Y%m%d).sql
 
-- **Minor Version** (1.29 → 1.30): 2-4 horas
+# Backup de configuraciones
+kubectl get all,cm,secrets -o yaml > k8s-backup-$(date +%Y%m%d).yaml
+```
+</Step>
 
-- **Patch Version** (1.30.1 → 1.30.2): 30-60 minutos
-
-- **Rollback**: 15-30 minutos
-
-- **Validación Post-upgrade**: 1 hora
-</Tab>
-<Tab title="Node.js">
-
-- **Major Version** (18 → 20): 4-6 horas
-
-- **Minor Version** (20.9 → 20.11): 1-2 horas
-
-- **Rollback**: 30-45 minutos
-
-- **Testing completo**: 2 horas
-</Tab>
-<Tab title="PostgreSQL">
-
-- **Major Version** (14 → 15): 6-8 horas
-
-- **Minor Version** (15.5 → 15.6): 2-3 horas
-
-- **Rollback**: 4-6 horas (restauración backup)
-
-- **Migración de datos**: Variable según tamaño
-</Tab>
-</Tabs>
+<Step title="Entorno de Pruebas">
+Validar actualizaciones en staging con datos representativos
+</Step>
+</Steps>
 
 ### 2. Secuencia de Actualización Recomendada
 
-#### Fase 1: Componentes de Infraestructura
-
-```mermaid
-graph LR
-    A[Backup Completo] --> B[kubectl/Helm]
-    B --> C[Kubernetes Control Plane]
-    C --> D[Worker Nodes]
-    D --> E[ArgoCD]
-    E --> F[Istio/Kong]
-    F --> G[Verificación K8s]
-
-```
-
-#### Fase 2: Servicios de Datos
-
-```bash
-
-# 1. PostgreSQL (requiere downtime)
-kubectl scale deployment auth-service --replicas=0
-kubectl scale deployment user-service --replicas=0
-
-# Actualizar PostgreSQL
-./scripts/upgrade-postgresql.sh
-
-# Verificar migración de datos
-./scripts/verify-db-migration.sh
-
-# 2. Redis (rolling update)
-helm upgrade redis-cluster ./charts/redis \
-  --set image.tag=7.2.4-alpine \
-  --wait --timeout=600s
-
-```
-
-#### Fase 3: Aplicaciones
-
-```bash
-
-# 1. Actualizar imágenes base de microservicios
-docker build --build-arg NODE_VERSION=20.11 \
-  -t retrogame/auth-service:v2.1.0 .
-
-# 2. Deploy gradual con ArgoCD
-kubectl patch application auth-service \
-  --type='merge' \
-  -p='{"spec":{"source":{"targetRevision":"v2.1.0"}}}'
-
-# 3. Verificar health checks
-kubectl get pods -l app=auth-service -w
-
-```
-
-### 3. Plan de Rollback
-
-<Warning>
-Siempre ten preparado un plan de rollback antes de iniciar cualquier actualización mayor.
-</Warning>
-
-#### Rollback Automático
-
-```yaml
-
-# rollback-playbook.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: rollback-procedures
-data:
-  kubernetes: |
-    kubectl rollout undo deployment/auth-service
-    kubectl rollout undo deployment/user-service
-    kubectl rollout undo deployment/game-catalog-service
-
-  database: |
-    # Restaurar desde backup automático
-    pg_restore -h postgres-primary -U postgres \
-      --clean --create /backups/pre-upgrade-backup.sql
-
-  applications: |
-    argocd app rollback auth-service
-    argocd app rollback user-service
-    argocd app sync game-catalog-service
-
-```
-
-#### Tiempos de Rollback por Componente
-
-| Componente | Tiempo de Rollback | Pérdida de Datos | Complejidad |
-|------------|-------------------|------------------|-------------|
-| Kubernetes Pods | 2-5 minutos | Ninguna | Baja |
-| Kong Gateway | 1-2 minutos | Configuración | Baja |
-| PostgreSQL | 30-60 minutos | Posible* | Alta |
-| Redis | 5-10 minutos | Cache únicamente | Media |
-| Frontend | 2-5 minutos | Ninguna | Baja |
-
-<Note>
-
-* La pérdida de datos en PostgreSQL durante rollback depende del tiempo transcurrido y los cambios de esquema realizados.
-</Note>
-
-### 4. Validación Post-Actualización
-
-#### Tests Automatizados
-
-```bash
-#!/bin/bash
-
-# post-upgrade-validation.sh
-
-echo "=== Validación de Infraestructura ==="
-kubectl cluster-info
-kubectl get nodes | grep Ready
-
-echo "=== Validación de Servicios ==="
-kubectl get pods --all-namespaces | grep -v Running
-kubectl get services --all-namespaces
-
-echo "=== Tests de Conectividad ==="
-curl -f http://api.retrogamecloud.com/health
-curl -f http://api.retrogamecloud.com/v1/auth/health
-curl -f http://api.retrogamecloud.com/v1/games/health
-
-echo "=== Validación de Base de Datos ==="
-psql -h postgres-primary -U postgres -c "SELECT version();"
-redis-cli -h redis-primary ping
-
-echo "=== Tests E2E Críticos ==="
-npm run test:e2e:smoke
-
-```
-
-#### Métricas de Validación
-
 <Tabs>
-<Tab title="SLA Targets">
+<Tab title="Fase 1: Infraestructura Base">
+**Orden recomendado:**
 
-- **Tiempo de respuesta API**: < 200ms (p95)
+1. **Kubernetes Control Plane** (siempre primero)
+2. **kubectl y Helm** (herramientas de gestión)
+3. **Istio Service Mesh** (después de K8s)
+4. **ArgoCD** (gestión de aplicaciones)
 
-- **Disponibilidad**: > 99.9%
+```bash
+# Actualización de Kubernetes (ejemplo EKS)
+eksctl upgrade cluster --name retrogame-prod --version 1.30
 
-- **Error rate**: < 0.1%
-
-- **Tiempo de inicio pods**: < 60s
+# Actualización de nodos
+eksctl upgrade nodegroup --cluster retrogame-prod --name main-nodes
+```
 </Tab>
-<Tab title="Métricas de Recursos">
 
-- **CPU usage**: < 70% (promedio)
+<Tab title="Fase 2: Datos y Runtime">
+**Actualización de bases de datos:**
 
-- **Memory usage**: < 80% (promedio)
+```bash
+# PostgreSQL - Actualización menor primero
+kubectl patch postgresql postgresql-cluster \
+  --type='merge' -p='{"spec":{"postgresqlVersion":"15.6"}}'
 
-- **Disk I/O**: < 80% capacidad
+# Redis - Rolling update
+kubectl set image deployment/redis redis=redis:7.2-alpine
+```
 
-- **Network latency**: < 10ms (interno)
+**Node.js Runtime:**
+```bash
+# Actualización gradual de aplicaciones
+kubectl set image deployment/api-gateway \
+  app=retrogame/api-gateway:node20-latest
+```
+</Tab>
+
+<Tab title="Fase 3: Aplicaciones">
+**Actualización de servicios de aplicación:**
+
+```bash
+# Frontend
+kubectl set image deployment/frontend \
+  app=retrogame/frontend:react18-latest
+
+# Game Engine
+kubectl set image deployment/game-engine \
+  engine=retrogame/game-engine:jsdos6.22-latest
+```
 </Tab>
 </Tabs>
 
-## Matriz de Incompatibilidades Conocidas
+### 3. Validación Post-Actualización
 
-### Combinaciones No Soportadas
+<Callout type="info">
+**Checklist de Validación:**
+</Callout>
 
-<Warning>
-Estas combinaciones pueden causar fallos o comportamientos inesperados.
-</Warning>
+- [ ] ✅ Todos los pods están en estado `Running`
+- [ ] ✅ Servicios responden correctamente a health checks
+- [ ] ✅ Base de datos accesible y datos íntegros
+- [ ] ✅ Autenticación y autorización funcionando
+- [ ] ✅ Juegos se cargan y ejecutan correctamente
+- [ ] ✅ Métricas y logs se generan normalmente
 
-| Componente A | Versión | Componente B | Versión | Problema |
-|--------------|---------|--------------|---------|----------|
-| Kubernetes | < 1.28 | Istio | 1.20+ | CRDs incompatibles |
-| Node.js | 16.x | PostgreSQL | 15+ | Driver compatibility |
-| Kong | < 3.4 | Kubernetes | 1.30+ | API deprecations |
-| ArgoCD | < 2.8 | Kubernetes | 1.30+ | RBAC changes |
+```bash
+# Script de validación rápida
+#!/bin/bash
+echo "🔍 Validando estado del cluster..."
+kubectl get nodes,pods --all-namespaces | grep -E "(NotReady|Error|CrashLoop)"
 
-### Dependencias Transitivas Críticas
+echo "🎮 Probando endpoint de juegos..."
+curl -f http://retrogame.cloud/api/health
 
-```mermaid
-graph TD
-    K8s[Kubernetes 1.30] --> A[ArgoCD 2.9+]
-    K8s --> I[Istio 1.20+]
-    K8s --> H[Helm 3.13+]
-
-    N[Node.js 20.x] --> P[pg driver 8.11+]
-    N --> R[redis driver 4.6+]
-    N --> E[Express 4.18+]
-
-    PG[PostgreSQL 15] --> B[Backup tools 15+]
-    PG --> M[Migration tools 15+]
-
+echo "📊 Verificando métricas..."
+kubectl top nodes
+kubectl top pods --all-namespaces
 ```
 
-## Calendario de Actualizaciones 2024
+## Procedimientos de Rollback
 
-| Mes | Componente | Acción | Versión Objetivo | Impacto |
-|-----|------------|--------|------------------|---------|
-| Q2 2024 | Node.js | Migración 18→20 | 20.11.x | Alto |
-| Q2 2024 | Kubernetes | Upgrade | 1.30.x | Medio |
-| Q3 2024 | PostgreSQL | Upgrade | 15.6 | Alto |
-| Q3 2024 | Kong | Upgrade | 3.6.x | Bajo |
-| Q4 2024 | Redis | Upgrade | 7.2.x | Medio |
+### Rollback Automático
 
-<Note>
-Este calendario está sujeto a cambios basados en la disponibilidad de versiones estables y ventanas de mantenimiento del negocio.
-</Note>
+```yaml
+# Configuración en deployment
+spec:
+  progressDeadlineSeconds: 600
+  revisionHistoryLimit: 10
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+    type: RollingUpdate
+```
+
+### Rollback Manual
+
+```bash
+# Ver historial de deployments
+kubectl rollout history deployment/api-gateway
+
+# Rollback a versión anterior
+kubectl rollout undo deployment/api-gateway
+
+# Rollback a versión específica
+kubectl rollout undo deployment/api-gateway --to-revision=3
+
+# Verificar estado del rollback
+kubectl rollout status deployment/api-gateway
+```
+
+## Alertas y Monitoreo de Versiones
+
+### Configuración de Alertas
+
+```yaml
+# AlertManager rule para versiones obsoletas
+groups:
+  - name: version-compatibility
+    rules:
+      - alert: KubernetesVersionDeprecated
+        expr: kubernetes_build_info{version=~"1.27.*"}
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kubernetes version deprecated"
+          description: "Kubernetes {{ $labels.version }} is deprecated and should be upgraded"
+```
+
+<Info>
+Esta matriz se actualiza mensualmente. Última revisión: Enero 2024
+</Info>

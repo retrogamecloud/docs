@@ -1,30 +1,30 @@
 {
   "version": "1.0",
-  "last_full_analysis": "2025-11-23T13:45:27.741382",
+  "last_full_analysis": "2025-12-02T03:43:41.104774",
   "files": {
     "troubleshooting.mdx": {
       "hash": "1928c08c72ecd1984536d695f1593fe189a9a3cd15fe0a5a0590aa3478bed178",
-      "last_analyzed": "2025-11-23T19:10:18.114111",
+      "last_analyzed": "2025-12-02T03:43:41.104828",
       "size": 11873
     },
     "sequence-diagrams.mdx": {
       "hash": "537402f36aff40d02e899d686af354a6f9016e1f3238b03e8f4c70e84577e286",
-      "last_analyzed": "2025-11-23T18:43:41.613825",
+      "last_analyzed": "2025-12-02T03:43:41.104878",
       "size": 10181
     },
     "architecture.mdx": {
-      "hash": "39ad63a52dcb1350d07ecac0106e8fb678490a4e2d0c98c6fa1793dca6a20fb7",
-      "last_analyzed": "2025-11-23T19:46:19.797175",
-      "size": 16152
+      "hash": "c531caa71ba62017fec6c3edf0f943673daaea451055143341deb5ca9a92f1e8",
+      "last_analyzed": "2025-12-02T03:43:41.104928",
+      "size": 16835
     },
     "configuration.mdx": {
       "hash": "277c8e966a3b2f2802c98460e0d3cb0510db94d142db12579928997264c8be49",
-      "last_analyzed": "2025-11-23T18:43:41.613922",
+      "last_analyzed": "2025-12-02T03:43:41.104969",
       "size": 12073
     },
     "desarrollo-local.mdx": {
       "hash": "82c405e4873174bb556e492806a7835f8263ffe7227d772a0218fd31da84f275",
-      "last_analyzed": "2025-11-23T16:47:13.911696",
+      "last_analyzed": "2025-12-02T03:43:41.105013",
       "size": 21370
     },
     "development.mdx": {
@@ -34,47 +34,47 @@
     },
     "quickstart.mdx": {
       "hash": "1c786e0a2354473b6dd504432afb764ba7e1c015f3ea30731b96ae84dd056a93",
-      "last_analyzed": "2025-11-23T18:43:41.613985",
+      "last_analyzed": "2025-12-02T03:43:41.105045",
       "size": 4260
     },
     "deployment.mdx": {
       "hash": "5a47866393bc956b8d88041943909d23dbdad2425b27d237b7577136899b9436",
-      "last_analyzed": "2025-11-23T18:31:11.450632",
+      "last_analyzed": "2025-12-02T03:43:41.105083",
       "size": 12336
     },
     "index.mdx": {
       "hash": "33b6ec31cbb30026a23109b1ae1253bddfe8accb50d1a1fdf902c29df74fa1f8",
-      "last_analyzed": "2025-11-23T18:31:11.451169",
+      "last_analyzed": "2025-12-02T03:43:41.105124",
       "size": 3229
     },
     "services/game-catalog.mdx": {
       "hash": "275f0845391208ef0a20247c7db839e7256be71039ba56db92c79b6d9b553e55",
-      "last_analyzed": "2025-11-23T19:39:17.392491",
+      "last_analyzed": "2025-12-02T03:43:41.105159",
       "size": 5736
     },
     "services/ranking-service.mdx": {
       "hash": "0650e197548e17aba1b53f9f76b2064448a057882a40789aee529e7f1561b037",
-      "last_analyzed": "2025-11-23T19:39:17.392654",
+      "last_analyzed": "2025-12-02T03:43:41.105193",
       "size": 5848
     },
     "services/auth-service.mdx": {
       "hash": "d31cf03937b5d111c65be60d8a86002c85165bc0fe760ce7936e95bc9a0dabcc",
-      "last_analyzed": "2025-11-23T19:39:17.393263",
+      "last_analyzed": "2025-12-02T03:43:41.105226",
       "size": 6301
     },
     "services/score-service.mdx": {
       "hash": "55d5a281daadef76a44770668028da686853774d263660e7b207d12451dc60a8",
-      "last_analyzed": "2025-11-23T19:39:17.393061",
+      "last_analyzed": "2025-12-02T03:43:41.105257",
       "size": 5960
     },
     "services/user-service.mdx": {
       "hash": "093b8a9725f6a37d64172cba65184c36cd5bd4af89931e28e53fbc8cfb8fcd44",
-      "last_analyzed": "2025-11-23T19:39:17.392623",
+      "last_analyzed": "2025-12-02T03:43:41.105288",
       "size": 5642
     },
     "docs/api/auth-register.mdx": {
       "hash": "00af92c24320854bcadb4dcd1ce35667a63309a4c73724b0b79f68f18183ef74",
-      "last_analyzed": "2025-11-23T13:45:27.741996",
+      "last_analyzed": "2025-12-02T03:43:41.105415",
       "size": 1299
     },
     "snippets/snippet-intro.mdx": {
@@ -84,72 +84,72 @@
     },
     "infrastructure/route53-ssl.mdx": {
       "hash": "a35a6773b73b79b6a1c56fd80f295d1f13806fe63106cf884e5b31dc3ef30c15",
-      "last_analyzed": "2025-11-23T16:47:13.911487",
+      "last_analyzed": "2025-12-02T03:43:41.105737",
       "size": 20787
     },
     "infrastructure/cdn-cloudfront.mdx": {
       "hash": "116d409f31ce6a95246e642dff957aea92e71c1a1852d09d8d0c286623a554bd",
-      "last_analyzed": "2025-11-23T16:47:13.912437",
+      "last_analyzed": "2025-12-02T03:43:41.105820",
       "size": 18107
     },
     "infrastructure/networking.mdx": {
       "hash": "a5e8db09cef6c9aa64270f4d1a51b1dbd3354b71bd61f9496e69a0598a978ef4",
-      "last_analyzed": "2025-11-23T19:10:18.113583",
+      "last_analyzed": "2025-12-02T03:43:41.105852",
       "size": 5749
     },
     "infrastructure/eks-cluster.mdx": {
       "hash": "8cf6f58b8a519d78a2b4af655f37abed08ec335e5b6111c2d02ce3e47c8da2e9",
-      "last_analyzed": "2025-11-23T19:10:18.113881",
+      "last_analyzed": "2025-12-02T03:43:41.105913",
       "size": 8897
     },
     "infrastructure/oauth2-authentication.mdx": {
       "hash": "86ebc359cda96a36ebe7c5fc3ff1b1c8fc4e9bdfc7f047bf9a9a55ff5c704826",
-      "last_analyzed": "2025-11-23T18:10:10.952741",
+      "last_analyzed": "2025-12-02T03:43:41.105946",
       "size": 9047
     },
     "infrastructure/monitoring.mdx": {
       "hash": "ddc3548f220e1e7796c85dc2573bae6be6b604c425f3bcc0c4f61b088a224b47",
-      "last_analyzed": "2025-11-23T19:10:18.114007",
+      "last_analyzed": "2025-12-02T03:43:41.106272",
       "size": 12725
     },
     "infrastructure/argocd-gitops.mdx": {
       "hash": "8c4258fe29d9650d351f2a753336d002fabf96b127ae17dfc61c70d0e7ccee95",
-      "last_analyzed": "2025-11-23T13:45:27.742328",
+      "last_analyzed": "2025-12-02T03:43:41.106367",
       "size": 10770
     },
     "infrastructure/overview.mdx": {
       "hash": "8c9c774b688b10fe5f4e04bc1df3b1f9542d014765b7aa5b473cab939512362b",
-      "last_analyzed": "2025-11-23T19:10:18.113685",
+      "last_analyzed": "2025-12-02T03:43:41.106463",
       "size": 6799
     },
     "cicd/github-actions.mdx": {
       "hash": "6c7b403b5c24f8b18ea397a1efefcf4daded35e465b8fbfd1c6c9aff68f14a5d",
-      "last_analyzed": "2025-11-23T19:39:17.392388",
+      "last_analyzed": "2025-12-02T03:43:41.106529",
       "size": 7214
     },
     "cicd/gitops-workflow.mdx": {
       "hash": "de44deeadada57842d07e4498a52e8f0a9787f01a9396ce0a917b71e902128eb",
-      "last_analyzed": "2025-11-23T16:47:13.912031",
+      "last_analyzed": "2025-12-02T03:43:41.106561",
       "size": 9900
     },
     "cicd/overview.mdx": {
       "hash": "d86587e8f4253dd7b8c91d1bd13fe87110d5d19298f2f89b1e2d3dafaf6c5f82",
-      "last_analyzed": "2025-11-23T18:31:11.451141",
+      "last_analyzed": "2025-12-02T03:43:41.106592",
       "size": 7450
     },
     "frontend/jsdos-integration.mdx": {
       "hash": "e5ef979ef6aee0abfefec011e8eed1a3bf2b2cf1876c3e9a93b7adc2ce271ad9",
-      "last_analyzed": "2025-11-23T19:39:17.392592",
+      "last_analyzed": "2025-12-02T03:43:41.106623",
       "size": 7077
     },
     "frontend/overview.mdx": {
       "hash": "7be12b444bf87429ade8d09385646498838dd56d32289afa3156e27dfb83556d",
-      "last_analyzed": "2025-11-23T19:39:17.392795",
+      "last_analyzed": "2025-12-02T03:43:41.106654",
       "size": 7570
     },
     "ai-tools/claude-code.mdx": {
       "hash": "50f4b43eb3fade8d7f7d9a030a0caa81967ae277306053b6e9f7955d0b7bfef7",
-      "last_analyzed": "2025-11-23T19:39:17.392825",
+      "last_analyzed": "2025-12-02T03:43:41.106917",
       "size": 4673
     },
     "ai-tools/cursor.mdx": {
@@ -189,227 +189,227 @@
     },
     "api-reference/kubernetes.mdx": {
       "hash": "742e3506fd1c853980a39474d484ee02c5eb791f06f3c855aba013f59520e888",
-      "last_analyzed": "2025-11-23T15:40:25.435179",
+      "last_analyzed": "2025-12-02T03:43:41.106960",
       "size": 26300
     },
     "api-reference/infrastructure-docs.mdx": {
       "hash": "6ef46f94af1005d8e2b7fa3d250a2b71953129d5f69a2193e42f6d4a3cbddc5d",
-      "last_analyzed": "2025-11-23T13:45:27.742909",
+      "last_analyzed": "2025-12-02T03:43:41.107007",
       "size": 29018
     },
     "api-reference/introduction.mdx": {
       "hash": "ebe82f840e8cb5f63f615e1f15736b6d6b546e0bef78eb65a0c2caf5b48f9610",
-      "last_analyzed": "2025-11-23T19:10:18.113814",
+      "last_analyzed": "2025-12-02T03:43:41.107040",
       "size": 8346
     },
     "api-reference/backend-main.mdx": {
       "hash": "5776cf18475bae3210621e464ef53204eecc475fc0ae1e518ca24da92d7ea6a4",
-      "last_analyzed": "2025-11-23T13:45:27.742961",
+      "last_analyzed": "2025-12-02T03:43:41.107067",
       "size": 463
     },
     "api-reference/frontend.mdx": {
       "hash": "46375ca3b505791be5eec21038b9aa173d20a23e95a2c8c08cb026f426620243",
-      "last_analyzed": "2025-11-23T13:45:27.742990",
+      "last_analyzed": "2025-12-02T03:43:41.107097",
       "size": 436
     },
     "api-reference/kubernetes-manifests.mdx": {
       "hash": "3e0aa80604749a8fb3bbeef302e2a2e56728a4dbb2543c417c3cd9a5e121cf61",
-      "last_analyzed": "2025-11-23T13:45:27.743037",
+      "last_analyzed": "2025-12-02T03:43:41.107144",
       "size": 28026
     },
     "api-reference/kong-config.mdx": {
       "hash": "76b2bff63c6070c5bbf370f295d2e517d02b46567d477537f0dfe4af3ee24c9f",
-      "last_analyzed": "2025-11-23T13:45:27.743081",
+      "last_analyzed": "2025-12-02T03:43:41.107187",
       "size": 22149
     },
     "api-reference/kong.mdx": {
       "hash": "f3e3b585f6107875f48b84f2e7aff4f0bd4d7392090ecf8b56ae9c79d58ae949",
-      "last_analyzed": "2025-11-23T13:45:27.743121",
+      "last_analyzed": "2025-12-02T03:43:41.107226",
       "size": 19831
     },
     "api-reference/ranking-service.mdx": {
       "hash": "b2880da5f26acaab69bb7ca36d71348b717db2cde58d684f27f7a1dbab53407e",
-      "last_analyzed": "2025-11-23T13:45:27.743156",
+      "last_analyzed": "2025-12-02T03:43:41.107262",
       "size": 13059
     },
     "api-reference/auth-service.mdx": {
       "hash": "17e987e2483d5f123f1a5f023d0124416689c057ffdf2eaff054cdae73c97ce5",
-      "last_analyzed": "2025-11-23T19:39:17.392317",
+      "last_analyzed": "2025-12-02T03:43:41.107292",
       "size": 7002
     },
     "api-reference/infrastructure.mdx": {
       "hash": "6d0fe5d30ea93700daa4d3947b287f22a52c616907c6b3eeb0b14264c3283c76",
-      "last_analyzed": "2025-11-23T13:45:27.743251",
+      "last_analyzed": "2025-12-02T03:43:41.107318",
       "size": 1103
     },
     "api-reference/game-catalog-service.mdx": {
       "hash": "2a7a7c62d2aa79fbba0c1b25fec6d32db8ee0b8c99de3894c07f7e6e8251f9cd",
-      "last_analyzed": "2025-11-23T13:45:27.743283",
+      "last_analyzed": "2025-12-02T03:43:41.107349",
       "size": 7638
     },
     "api-reference/score-service.mdx": {
       "hash": "4dc94f0e69d6377c5099e4ff7857f40796d8999643a9fb97d4c3de153513e06d",
-      "last_analyzed": "2025-11-23T13:45:27.743316",
+      "last_analyzed": "2025-12-02T03:43:41.107382",
       "size": 9631
     },
     "api-reference/user-service.mdx": {
       "hash": "1f2dd867156f135ed90ba695da2e6e624ad321c03d0ac935f8ab145654dfff0a",
-      "last_analyzed": "2025-11-23T15:40:25.436250",
+      "last_analyzed": "2025-12-02T03:43:41.107415",
       "size": 10650
     },
     "api-reference/scores/get.mdx": {
       "hash": "694a1c2fedc378e29f54bf791bc585e5ea28ca3b1aa828be31e851697a2d08e1",
-      "last_analyzed": "2025-11-23T13:45:27.743379",
+      "last_analyzed": "2025-12-02T03:43:41.107446",
       "size": 7151
     },
     "api-reference/scores/submit.mdx": {
       "hash": "5f666783586f85ef148746cd6e506ce2574675d4f17c5d7f783d19bbab324538",
-      "last_analyzed": "2025-11-23T13:45:27.743411",
+      "last_analyzed": "2025-12-02T03:43:41.107479",
       "size": 9826
     },
     "api-reference/games/list.mdx": {
       "hash": "99ac40de809314031d537d1e97ff6ed19c1de622b194ead057f4227b4a2081db",
-      "last_analyzed": "2025-11-23T13:45:27.743442",
+      "last_analyzed": "2025-12-02T03:43:41.107511",
       "size": 7171
     },
     "api-reference/games/get.mdx": {
       "hash": "14646e331943d4863f2a93a0e6542dceabc9e687da3f0c8fe39af701b618b8a3",
-      "last_analyzed": "2025-11-23T13:45:27.743474",
+      "last_analyzed": "2025-12-02T03:43:41.107543",
       "size": 8599
     },
     "api-reference/auth/login.mdx": {
       "hash": "de1fbf490028d788dbaa2a9cca9bdef851dac5e3addcd7ee41072ec49f07fd48",
-      "last_analyzed": "2025-11-23T13:45:27.743502",
+      "last_analyzed": "2025-12-02T03:43:41.107572",
       "size": 3474
     },
     "api-reference/auth/register.mdx": {
       "hash": "2d6de14f3bb0b080105451cd96c17d8b6e2eb209b7e816665073ed496fefc2d3",
-      "last_analyzed": "2025-11-23T13:45:27.743531",
+      "last_analyzed": "2025-12-02T03:43:41.107601",
       "size": 4419
     },
     "api-reference/auth/verify.mdx": {
       "hash": "d425369cbac417b3095512d20c90d0734d4ddb10369693bec3e020cb79f4d84a",
-      "last_analyzed": "2025-11-23T13:45:27.743566",
+      "last_analyzed": "2025-12-02T03:43:41.107631",
       "size": 5296
     },
     "api-reference/endpoint/get.mdx": {
       "hash": "034b93f4111ef4b8b95558a492e6c67d3988ba13819b9d316d030544f0097cb5",
-      "last_analyzed": "2025-11-23T13:45:27.743592",
+      "last_analyzed": "2025-12-02T03:43:41.107656",
       "size": 103
     },
     "api-reference/endpoint/create.mdx": {
       "hash": "6f3d8a932c3ba8c1ab6aeff9d2020203363c21ae5a637674d7dd6fe819bc13a5",
-      "last_analyzed": "2025-11-23T13:45:27.743618",
+      "last_analyzed": "2025-12-02T03:43:41.107682",
       "size": 108
     },
     "api-reference/endpoint/delete.mdx": {
       "hash": "295499c2a7cb55da40409e2583da34caea696f7e5f21bc8d15a5be33a6c667a9",
-      "last_analyzed": "2025-11-23T13:45:27.743643",
+      "last_analyzed": "2025-12-02T03:43:41.107707",
       "size": 115
     },
     "api-reference/endpoint/webhook.mdx": {
       "hash": "6c47d2649635b90508bda60c8a7d65bb195212299ff828a152f2399be97b5a44",
-      "last_analyzed": "2025-11-23T13:45:27.743668",
+      "last_analyzed": "2025-12-02T03:43:41.107760",
       "size": 112
     },
     "api-reference/rankings/by-game.mdx": {
       "hash": "dcaaee6bfcd8515311ece0d778d2a0b290b1edfe6ad4b19717d702bdd9437be6",
-      "last_analyzed": "2025-11-23T13:45:27.743703",
+      "last_analyzed": "2025-12-02T03:43:41.107797",
       "size": 13085
     },
     "api-reference/rankings/global.mdx": {
       "hash": "8460e4e975087edab5388b669fa09b7091fd59be2a00639bc5e81bb154c4a3d2",
-      "last_analyzed": "2025-11-23T13:45:27.743736",
+      "last_analyzed": "2025-12-02T03:43:41.107831",
       "size": 10236
     },
     "AUTO_FIXES_REPORT.md": {
-      "hash": "be114aeaca6082148ae4d54043791ac296fc7e2eb5734e410de197c552b51f67",
-      "last_analyzed": "2025-11-23T19:46:19.797305",
-      "size": 534
+      "hash": "bdfc9378639373694080991c93aaaa871e6a201fb82a3240582e525be7d4638b",
+      "last_analyzed": "2025-12-02T03:43:41.107858",
+      "size": 1849
     },
     "STRUCTURE_CHANGELOG.md": {
       "hash": "d03a05297512e82dfeb7ed16d3efdcb5361d1b71934dd06c811f92939bf37fe5",
-      "last_analyzed": "2025-11-23T19:39:17.392713",
+      "last_analyzed": "2025-12-02T03:43:41.107884",
       "size": 1524
     },
     "CHANGELOG_WIKI_2025-11-20.md": {
       "hash": "d13877754ef905f75e10e04599d08786c84a78b89b5a478d17f4b058a96099e0",
-      "last_analyzed": "2025-11-23T19:46:19.796983",
+      "last_analyzed": "2025-12-02T03:43:41.107918",
       "size": 12710
     },
     "README.md": {
       "hash": "024bf7c7673705356f681d02d8192dcae1115ccbdf621307bae295c7f89abb0b",
-      "last_analyzed": "2025-11-23T19:46:19.797272",
+      "last_analyzed": "2025-12-02T03:43:41.107973",
       "size": 1394
     },
     "BROKEN_LINKS_REPORT.md": {
-      "hash": "192bfc2fdcc1f55c0d52e7efd9dfe64316f85f30dad10b7f9cc5e7d0c31974a2",
-      "last_analyzed": "2025-11-23T19:46:19.796835",
-      "size": 4620
+      "hash": "825b4929a1677b9b8e2f59d0e0e5b1cbbeb11baa326b39916f719471d024d935",
+      "last_analyzed": "2025-12-02T03:43:41.108006",
+      "size": 4263
     },
     "IMPROVEMENTS.md": {
       "hash": "033a0e4818ac7ce67c6a82d1a656c429be1a7daf84d9a464379167df5c57b14b",
-      "last_analyzed": "2025-11-23T19:39:17.392523",
+      "last_analyzed": "2025-12-02T03:43:41.108040",
       "size": 4831
     },
     "infrastructure/backup-recovery.mdx": {
-      "hash": "80eee5f4e8a79bed76c3bc489d276fbd4df76860dc755d93c3e6ed65c32d8963",
-      "last_analyzed": "2025-11-23T19:46:19.797103",
-      "size": 12420
+      "hash": "290a0c58dd5f256e639b01d7e5cb34f8e3628b25eb42ba6caf54b0d526c3e28f",
+      "last_analyzed": "2025-12-02T03:43:41.105613",
+      "size": 3852
     },
     "infrastructure/database-schema.mdx": {
       "hash": "ca6f88280504b0034ec0687586749979f0609600afa65608d75d7d682097dd1f",
-      "last_analyzed": "2025-11-23T15:40:25.435955",
+      "last_analyzed": "2025-12-02T03:43:41.105779",
       "size": 12851
     },
     "infrastructure/secrets-management.mdx": {
       "hash": "0314170fac489c81a10038f1fbc7012af6ea6e0802fa509e851fc6a84cb8108b",
-      "last_analyzed": "2025-11-23T19:10:18.114177",
+      "last_analyzed": "2025-12-02T03:43:41.106237",
       "size": 12305
     },
     "infrastructure/security.mdx": {
       "hash": "265103269d7d1f2cffaeb83213cd40a571bb64230d4934a49bfa56d7f96f4ee0",
-      "last_analyzed": "2025-11-23T19:10:18.113619",
+      "last_analyzed": "2025-12-02T03:43:41.106306",
       "size": 12403
     },
     "infrastructure/database.mdx": {
-      "hash": "bed3966d0471d7c6f0569c5f6a34351d2ef9f3a3ef8698f3bfd37fde0f37e6b3",
-      "last_analyzed": "2025-11-23T19:46:19.797245",
-      "size": 13254
+      "hash": "3e971ce92ecdabf1668d795720eb233c904887d4b8d17b0b4f6d5304e10e17bf",
+      "last_analyzed": "2025-12-02T03:43:41.106134",
+      "size": 2840
     },
     "development/contributing.mdx": {
       "hash": "dadd2f4227fb6fd730ad296e47e902e78e626a79cc89eabf563ba507e902d6eb",
-      "last_analyzed": "2025-11-23T18:31:11.451042",
+      "last_analyzed": "2025-12-02T03:43:41.106887",
       "size": 11217
     },
     "services/overview.mdx": {
       "hash": "f7988800ebd95c63ae9452dd7e223b7dbff6bcb213e11c739790751056bfb4e3",
-      "last_analyzed": "2025-11-23T19:39:17.392351",
+      "last_analyzed": "2025-12-02T03:43:41.105319",
       "size": 7378
     },
     "development/new-microservice-guide.mdx": {
       "hash": "931eac37507786d5f6a805bca5de6ad9331db98cce935c2e49e2ffa8d85e7ce8",
-      "last_analyzed": "2025-11-23T16:47:13.911847",
+      "last_analyzed": "2025-12-02T03:43:41.106778",
       "size": 12507
     },
     "development/testing-guide.mdx": {
-      "hash": "ce117d3a4654cddefcbac0166d0666821d0080c70a7ab9c0a1b387afc24c6152",
-      "last_analyzed": "2025-11-23T19:46:19.797210",
-      "size": 13589
+      "hash": "854ee3f832b5d6ef322845ed0753ad989ba908671321bf6173f17819593e5382",
+      "last_analyzed": "2025-12-02T03:43:41.106817",
+      "size": 16946
     },
     "development/code-standards.mdx": {
-      "hash": "1006e0257976b1d8c9030bbc81a07abdb3274eab66db8e0e80155a3eca74571e",
-      "last_analyzed": "2025-11-23T18:10:10.952677",
-      "size": 13151
+      "hash": "da281417c75292137be203cdd0c519d1dee5cb7083a8069ef5cc7155e51cf8a2",
+      "last_analyzed": "2025-12-02T03:43:41.106853",
+      "size": 13292
     },
     "guides/end-to-end-examples.mdx": {
       "hash": "5c14e97688351f8686f5f6dd34b03c772d44ac8e5a65c50e968e230d2848b18b",
-      "last_analyzed": "2025-11-23T15:40:25.435683",
+      "last_analyzed": "2025-12-02T03:43:41.105388",
       "size": 11604
     },
     "performance/optimization-guide.mdx": {
       "hash": "2787a4ae0062bdb575467e473d912786c263184613b0503ca106a52d07801a71",
-      "last_analyzed": "2025-11-23T15:40:25.435752",
+      "last_analyzed": "2025-12-02T03:43:41.105353",
       "size": 12240
     },
     "troubleshooting-production.mdx": {
@@ -418,109 +418,114 @@
       "size": 8829
     },
     "infrastructure/alerting.mdx": {
-      "hash": "0bce6b717d1ac62e6b397ea061ec7a577e94133dc2a514fed74f432015aa3caf",
-      "last_analyzed": "2025-11-23T19:46:19.796946",
-      "size": 11723
+      "hash": "88306f69cbea1e9cf6dd1ce6560c923ab499fd86ee3058084e5fd0a82a509eac",
+      "last_analyzed": "2025-12-02T03:43:41.106499",
+      "size": 12972
     },
     "infrastructure/logging.mdx": {
-      "hash": "3d1825863b43196adea482e5f6e5879c44fe22bd259f2011bf69706663c0cbcc",
-      "last_analyzed": "2025-11-23T19:46:19.796910",
-      "size": 12567
+      "hash": "88c7f8f0ddd6735ca62d2e1da36f42b10ab4435f8291ce3c607c771ecd6ac18e",
+      "last_analyzed": "2025-12-02T03:43:41.106045",
+      "size": 2864
     },
     "infrastructure/disaster-recovery-playbook.mdx": {
       "hash": "77c249c9b292754adcba8442993f08406ee432949b5f4d02d62b0f0675ef9dd8",
-      "last_analyzed": "2025-11-23T19:46:19.796873",
+      "last_analyzed": "2025-12-02T03:43:41.105647",
       "size": 11821
     },
     "infrastructure/database-migrations.mdx": {
       "hash": "d49508e9529c5b5369cbd0a3522de21343a3c6050225c0bffa9c6cd9c793e56b",
-      "last_analyzed": "2025-11-23T19:10:18.113849",
+      "last_analyzed": "2025-12-02T03:43:41.106401",
       "size": 12851
     },
     "development/e2e-testing.mdx": {
       "hash": "663b738f0ad48756e948a6b8027822a98f0371b057ecf438b1ad5be94370d0ce",
-      "last_analyzed": "2025-11-23T19:46:19.797028",
+      "last_analyzed": "2025-12-02T03:43:41.106738",
       "size": 12796
     },
     "infrastructure/aws-topology.mdx": {
       "hash": "6f13a6acb0d85c291914f2b148f54ff3768887f53b63fa04995a7dfb2d77f970",
-      "last_analyzed": "2025-11-23T19:39:17.392998",
+      "last_analyzed": "2025-12-02T03:43:41.106202",
       "size": 10759
     },
     "infrastructure/redis-troubleshooting.mdx": {
       "hash": "93775a20e1acc3b428be9e939d7ab7577b4314154baecc4a9bd6925034fe3c9e",
-      "last_analyzed": "2025-11-23T18:10:10.952499",
+      "last_analyzed": "2025-12-02T03:43:41.106016",
       "size": 8294
     },
     "troubleshooting/servicios.mdx": {
       "hash": "3f1f6d2ca62ba02f085630e02885495972589b4880f767c40c31c123c5e6196e",
-      "last_analyzed": "2025-11-23T18:10:10.952054",
+      "last_analyzed": "2025-12-02T03:43:41.105488",
       "size": 12163
     },
     "troubleshooting/index.mdx": {
       "hash": "32407da9f006941907b34c63ea4171635bd825a7126c51e2cc7b9e3ffc0e62e8",
-      "last_analyzed": "2025-11-23T19:10:18.113973",
+      "last_analyzed": "2025-12-02T03:43:41.105584",
       "size": 8073
     },
     "infrastructure/database-migrations-guide.mdx": {
       "hash": "9ea306fc112a9067d2b6ff86513cfb29f72549aed670f3aaed312e1d2e29bb6c",
-      "last_analyzed": "2025-11-23T19:10:18.113916",
+      "last_analyzed": "2025-12-02T03:43:41.105982",
       "size": 13801
     },
     "infrastructure/cost-optimization.mdx": {
       "hash": "dea9a83fd4fbfd2c14d0a784d9674fa6b0dffee4b9d5ec3e1cee6a72175b79ad",
-      "last_analyzed": "2025-11-23T19:10:18.113344",
+      "last_analyzed": "2025-12-02T03:43:41.106106",
       "size": 9883
     },
     "troubleshooting/base-datos.mdx": {
       "hash": "ad440243beecd2ccebe991c73819b02f5428439245b076da907522f01bd9c5b2",
-      "last_analyzed": "2025-11-23T18:10:10.952431",
+      "last_analyzed": "2025-12-02T03:43:41.105553",
       "size": 12499
     },
     "infrastructure/observabilidad.mdx": {
-      "hash": "6f8ac59ca0288b3cfc45f4dcd0566c98158f0c0bd9a294faf7630accb676f2de",
-      "last_analyzed": "2025-11-23T19:46:19.797137",
-      "size": 11624
+      "hash": "8f9a8c1bf64e87cdb904298372a7f0376a7e1dcfa8ac92d28933a39253ed4bd1",
+      "last_analyzed": "2025-12-02T03:43:41.106073",
+      "size": 2126
     },
     "infrastructure/scaling-guide.mdx": {
-      "hash": "5f7e8d7d822a7f44ddb052741408ddf7b4bba0e0f95c26bda6ea5c1d1e07e1f8",
-      "last_analyzed": "2025-11-23T19:46:19.797067",
-      "size": 12310
+      "hash": "1122d1042a858ccfdd9dc9207b05d966e112826491c86d8b2bdd316f0e1db463",
+      "last_analyzed": "2025-12-02T03:43:41.105880",
+      "size": 3146
     },
     "infrastructure/version-compatibility.mdx": {
       "hash": "d4532836c647749b44ec0389361cfc18151dd2713ad8c66c6b23c1027a32aa80",
-      "last_analyzed": "2025-11-23T18:10:10.952840",
+      "last_analyzed": "2025-12-02T03:43:41.106433",
       "size": 9494
     },
     "troubleshooting/kubernetes.mdx": {
       "hash": "874fcce4a94cbe78a2cf14ee0ff71a2d486dfd83aed30ebdf518e3327361ea84",
-      "last_analyzed": "2025-11-23T18:10:10.952893",
+      "last_analyzed": "2025-12-02T03:43:41.105452",
       "size": 13175
     },
     "troubleshooting/red-conectividad.mdx": {
-      "hash": "c30a53e32c5ae69c0412664e0bb7cd2a7bb5cbd767dd5df53c79c412263e5713",
-      "last_analyzed": "2025-11-23T19:46:19.796746",
-      "size": 12808
+      "hash": "9b75ef576fd23f7050c53064cc53e3ff90f309a285eb514ac4b1d8cd962596ba",
+      "last_analyzed": "2025-12-02T03:43:41.105518",
+      "size": 4941
     },
     "infrastructure/security-policies.mdx": {
       "hash": "213b26cabfe838abe466aee5c4c0a0a4a63bcd0946b14955af08ec134d592060",
-      "last_analyzed": "2025-11-23T18:31:11.450488",
+      "last_analyzed": "2025-12-02T03:43:41.106169",
       "size": 12341
     },
     "infrastructure/runbooks.mdx": {
       "hash": "ce877b8409242f93662f37f93b6cf96da98c6bb47a7209c384cebb5b5d39e51f",
-      "last_analyzed": "2025-11-23T19:10:18.114143",
+      "last_analyzed": "2025-12-02T03:43:41.105680",
       "size": 10794
     },
     "infrastructure/database-complete.mdx": {
-      "hash": "38a65dd96f5244b483778e1a8b663c88e8d034f16a6adbe2d0a4d581ed6ea9af",
-      "last_analyzed": "2025-11-23T19:46:19.796799",
-      "size": 13731
+      "hash": "b0e905a61ece6930b57cdddfe9ac1eb662ad114cc62ef31f3eacad891ec5d34d",
+      "last_analyzed": "2025-12-02T03:43:41.106334",
+      "size": 3446
     },
     "development/onboarding-guide.mdx": {
       "hash": "3a09b6b8ee7415b54345f9fb38d8277e4074e986bceb846c038dd9374f60f52c",
-      "last_analyzed": "2025-11-23T19:10:18.113755",
+      "last_analyzed": "2025-12-02T03:43:41.106689",
       "size": 13087
+    },
+    "FIX_WORKFLOW_TRUNCATION.md": {
+      "hash": "6e28a3c7dc04cd950a1279e2834a2d9e3c037434599518f1c5b32a83076f36ef",
+      "last_analyzed": "2025-12-02T03:43:41.107946",
+      "size": 2512
     }
   },
   "analysis_results": {
@@ -834,6 +839,9 @@
       "analyzed": true
     },
     "development/onboarding-guide.mdx": {
+      "analyzed": true
+    },
+    "FIX_WORKFLOW_TRUNCATION.md": {
       "analyzed": true
     }
   }
