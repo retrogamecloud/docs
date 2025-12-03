@@ -110,6 +110,7 @@ graph TB
     class EKS,DEPLOY,PODS,SVC,INGRESS k8s
     class RDS,S3,CF,ALB aws
     class READINESS,LIVENESS,METRICS,ALERTS health
+
 ```
 
 ## 🔧 Pre-requisitos
@@ -117,6 +118,7 @@ graph TB
 ### Herramientas Requeridas
 
 ```bash
+
 # AWS CLI
 aws --version  # >= 2.x
 
@@ -134,11 +136,13 @@ docker --version  # >= 24.0
 
 # ArgoCD CLI
 argocd version  # >= 2.9
+
 ```
 
 ### Credenciales y Configuración
 
 ```bash
+
 # Configurar credenciales AWS
 aws configure
 
@@ -150,6 +154,7 @@ export AWS_REGION="eu-west-1"
 export CLUSTER_NAME="retrogame-eks-cluster"
 export DOMAIN="retrogamehub.games"
 export ARGOCD_NAMESPACE="argocd"
+
 ```
 
 ### Permisos AWS Necesarios
@@ -176,6 +181,7 @@ export ARGOCD_NAMESPACE="argocd"
     }
   ]
 }
+
 ```
 
 ## 🏗️ Configuración de Infraestructura
@@ -183,6 +189,7 @@ export ARGOCD_NAMESPACE="argocd"
 ### 1. Terraform - Infraestructura Base
 
 ```hcl
+
 # terraform/main.tf
 terraform {
   required_version = ">= 1.5.0"
@@ -200,7 +207,7 @@ terraform {
       version = "~> 2.10"
     }
   }
-  
+
   backend "s3" {
     bucket = "retrogame-terraform-state"
     key    = "infrastructure/terraform.tfstate"
@@ -224,28 +231,28 @@ variable "environment" {
 # EKS Cluster
 module "eks" {
   source = "terraform-aws-modules/eks/aws"
-  
+
   cluster_name    = var.cluster_name
   cluster_version = "1.28"
-  
+
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
-  
+
   node_groups = {
     main = {
       desired_capacity = 3
       max_capacity     = 10
       min_capacity     = 2
-      
+
       instance_types = ["t3.medium"]
-      
+
       k8s_labels = {
         Environment = var.environment
         Application = "retrogame-hub"
       }
     }
   }
-  
+
   tags = {
     Environment = var.environment
     Project     = "retrogame-hub"
@@ -259,10 +266,10 @@ resource "aws_ecr_repository" "app_repos" {
     "retrogame-backend",
     "retrogame-game-service"
   ])
-  
+
   name                 = each.value
   image_tag_mutability = "MUTABLE"
-  
+
   image_scanning_configuration {
     scan_on_push = true
   }
@@ -271,29 +278,29 @@ resource "aws_ecr_repository" "app_repos" {
 # RDS Database
 resource "aws_db_instance" "postgres" {
   identifier = "retrogame-db"
-  
+
   engine         = "postgres"
   engine_version = "15.4"
   instance_class = "db.t3.micro"
-  
+
   allocated_storage     = 20
   max_allocated_storage = 100
   storage_encrypted     = true
-  
+
   db_name  = "retrogame"
   username = "retrogame_user"
   password = random_password.db_password.result
-  
+
   vpc_security_group_ids = [aws_security_group.rds.id]
   db_subnet_group_name   = aws_db_subnet_group.main.name
-  
+
   backup_retention_period = 7
   backup_window          = "03:00-04:00"
   maintenance_window     = "sun:04:00-sun:05:00"
-  
+
   skip_final_snapshot = false
   final_snapshot_identifier = "retrogame-db-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
-  
+
   tags = {
     Name        = "retrogame-database"
     Environment = var.environment
@@ -307,17 +314,19 @@ resource "aws_s3_bucket" "assets" {
 
 resource "aws_s3_bucket_public_access_block" "assets" {
   bucket = aws_s3_bucket.assets.id
-  
+
   block_public_acls       = false
   block_public_policy     = false
   ignore_public_acls      = false
   restrict_public_buckets = false
 }
+
 ```
 
 ### 2. Desplegar Infraestructura
 
 ```bash
+
 # Inicializar Terraform
 cd terraform
 terraform init
@@ -330,6 +339,7 @@ terraform apply -var="environment=production" -auto-approve
 
 # Configurar kubectl
 aws eks update-kubeconfig --region eu-west-1 --name retrogame-eks-cluster
+
 ```
 
 ## 🔄 Configuración de CI/CD
@@ -337,6 +347,7 @@ aws eks update-kubeconfig --region eu-west-1 --name retrogame-eks-cluster
 ### 1. GitHub Actions - Pipeline Principal
 
 ```yaml
+
 # .github/workflows/deploy.yml
 name: Deploy to Production
 
@@ -358,33 +369,33 @@ jobs:
   test:
     name: Tests y Quality Gates
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout código
       uses: actions/checkout@v4
-      
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
-        
+
     - name: Instalar dependencias
       run: |
         npm ci
         cd backend && npm ci
-        
+
     - name: Ejecutar tests
       run: |
         npm run test:coverage
         cd backend && npm run test:coverage
-        
+
     - name: SonarCloud Scan
       uses: SonarSource/sonarcloud-github-action@master
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
 
@@ -392,11 +403,11 @@ jobs:
     name: Security Scanning
     runs-on: ubuntu-latest
     needs: test
-    
+
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-      
+
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
       with:
@@ -404,7 +415,7 @@ jobs:
         scan-ref: '.'
         format: 'sarif'
         output: 'trivy-results.sarif'
-        
+
     - name: Upload Trivy scan results
       uses: github/codeql-action/upload-sarif@v2
       with:
@@ -415,26 +426,26 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, security]
     if: github.ref == 'refs/heads/main'
-    
+
     strategy:
       matrix:
         service: [frontend, backend, game-service]
-        
+
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-      
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
-        
+
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
-      
+
     - name: Build, tag, and push image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -444,22 +455,22 @@ jobs:
         # Build Docker image
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
           -f docker/${{ matrix.service }}/Dockerfile .
-          
+
         # Tag as latest
         docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
           $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          
+
         # Push images
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        
+
     - name: Scan image with Trivy
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: '${{ steps.login-ecr.outputs.registry }}/retrogame-${{ matrix.service }}:${{ github.sha }}'
         format: 'sarif'
         output: 'trivy-image-results.sarif'
-        
+
     outputs:
       image-tag: ${{ github.sha }}
 
@@ -467,7 +478,7 @@ jobs:
     name: Update Kubernetes Manifests
     runs-on: ubuntu-latest
     needs: build-and-push
-    
+
     steps:
     - name: Checkout GitOps repo
       uses: actions/checkout@v4
@@ -475,18 +486,18 @@ jobs:
         repository: your-org/retrogame-gitops
         token: ${{ secrets.GITOPS_TOKEN }}
         path: gitops
-        
+
     - name: Update image tags
       env:
         IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
       run: |
         cd gitops
-        
+
         # Update Helm values
         yq eval '.frontend.image.tag = env(IMAGE_TAG)' -i environments/production/values.yaml
         yq eval '.backend.image.tag = env(IMAGE_TAG)' -i environments/production/values.yaml
         yq eval '.gameService.image.tag = env(IMAGE_TAG)' -i environments/production/values.yaml
-        
+
     - name: Commit and push changes
       run: |
         cd gitops
@@ -501,7 +512,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: update-manifests
     if: always()
-    
+
     steps:
     - name: Slack Notification
       uses: 8398a7/action-slack@v3
@@ -509,11 +520,13 @@ jobs:
         status: ${{ job.status }}
         channel: '#deployments'
         webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
 ```
 
 ### 2. Pipeline de Rollback
 
 ```yaml
+
 # .github/workflows/rollback.yml
 name: Rollback Deployment
 
@@ -537,7 +550,7 @@ jobs:
   rollback:
     name: Rollback to Previous Version
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
@@ -545,27 +558,28 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
-        
+
     - name: Update kubeconfig
       run: |
         aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER }}
-        
+
     - name: Rollback deployment
       run: |
         kubectl rollout undo deployment/retrogame-frontend -n retrogame-${{ inputs.environment }}
         kubectl rollout undo deployment/retrogame-backend -n retrogame-${{ inputs.environment }}
         kubectl rollout undo deployment/retrogame-game-service -n retrogame-${{ inputs.environment }}
-        
+
     - name: Wait for rollback completion
       run: |
         kubectl rollout status deployment/retrogame-frontend -n retrogame-${{ inputs.environment }} --timeout=300s
         kubectl rollout status deployment/retrogame-backend -n retrogame-${{ inputs.environment }} --timeout=300s
         kubectl rollout status deployment/retrogame-game-service -n retrogame-${{ inputs.environment }} --timeout=300s
-        
+
     - name: Verify rollback
       run: |
         kubectl get pods -n retrogame-${{ inputs.environment }}
         kubectl get services -n retrogame-${{ inputs.environment }}
+
 ```
 
 ## 🚀 ArgoCD - GitOps Setup
@@ -573,6 +587,7 @@ jobs:
 ### 1. Instalar ArgoCD
 
 ```bash
+
 # Crear namespace
 kubectl create namespace argocd
 
@@ -587,11 +602,13 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 
 # Port forward para acceso web
 kubectl port-forward svc/argocd-server -n argocd 8080:443
+
 ```
 
 ### 2. Configurar ArgoCD
 
 ```yaml
+
 # argocd/application.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -602,7 +619,7 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
-  
+
   source:
     repoURL: https://github.com/your-org/retrogame-gitops
     targetRevision: HEAD
@@ -610,11 +627,11 @@ spec:
     helm:
       valueFiles:
       - values.yaml
-      
+
   destination:
     server: https://kubernetes.default.svc
     namespace: retrogame-production
-    
+
   syncPolicy:
     automated:
       prune: true
@@ -631,7 +648,7 @@ spec:
         factor: 2
         maxDuration: 3m
 
----
+- --
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
@@ -639,21 +656,21 @@ metadata:
   namespace: argocd
 spec:
   description: Retro Game Hub Project
-  
+
   sourceRepos:
   - 'https://github.com/your-org/retrogame-gitops'
   - 'https://charts.bitnami.com/bitnami'
-  
+
   destinations:
   - namespace: 'retrogame-*'
     server: https://kubernetes.default.svc
-    
+
   clusterResourceWhitelist:
   - group: ''
     kind: Namespace
   - group: 'networking.k8s.io'
     kind: Ingress
-    
+
   namespaceResourceWhitelist:
   - group: ''
     kind: '*'
@@ -661,11 +678,13 @@ spec:
     kind: '*'
   - group: 'networking.k8s.io'
     kind: '*'
+
 ```
 
 ### 3. Aplicar Configuración ArgoCD
 
 ```bash
+
 # Aplicar configuración
 kubectl apply -f argocd/application.yaml
 
@@ -675,6 +694,7 @@ argocd app get retrogame-hub
 
 # Sincronizar manualmente (primera vez)
 argocd app sync retrogame-hub
+
 ```
 
 ## ☸️ Helm Charts y Manifiestos
@@ -682,6 +702,7 @@ argocd app sync retrogame-hub
 ### 1. Estructura de Helm Chart
 
 ```
+
 helm/
 ├── Chart.yaml
 ├── values.yaml
@@ -707,11 +728,13 @@ helm/
     │   └── values.yaml
     └── staging/
         └── values.yaml
+
 ```
 
 ### 2. Chart.yaml
 
 ```yaml
+
 # helm/Chart.yaml
 apiVersion: v2
 name: retrogame-hub
@@ -720,6 +743,7 @@ version: 1.0.0
 appVersion: "1.0.0"
 
 dependencies:
+
 - name: postgresql
   version: 12.1.9
   repository: https://charts.bitnami.com/bitnami
@@ -731,13 +755,16 @@ dependencies:
   condition: redis.enabled
 
 maintainers:
+
 - name: Retro Game Hub Team
   email: devops@retrogamehub.games
+
 ```
 
 ### 3. Values.yaml Principal
 
 ```yaml
+
 # helm/values.yaml
 global:
   imageRegistry: "123456789012.dkr.ecr.eu-west-1.amazonaws.com"
@@ -752,12 +779,12 @@ frontend:
     repository: retrogame-frontend
     tag: "latest"
     pullPolicy: IfNotPresent
-  
+
   service:
     type: ClusterIP
     port: 80
     targetPort: 3000
-    
+
   resources:
     requests:
       cpu: 100m
@@ -765,13 +792,13 @@ frontend:
     limits:
       cpu: 500m
       memory: 512Mi
-      
+
   autoscaling:
     enabled: true
     minReplicas: 2
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
-    
+
   probes:
     liveness:
       httpGet:
@@ -791,19 +818,19 @@ backend:
   image:
     repository: retrogame-backend
     tag: "latest"
-    
+
   service:
     type: ClusterIP
     port: 8080
-    
+
   config:
     nodeEnv: production
     logLevel: info
-    
+
   secrets:
     dbPassword: ""
     jwtSecret: ""
-    
+
   resources:
     requests:
       cpu: 200m
@@ -811,7 +838,7 @@ backend:
     limits:
       cpu: 1000m
       memory: 1Gi
-      
+
   autoscaling:
     enabled: true
     minReplicas: 3
@@ -823,11 +850,11 @@ gameService:
   image:
     repository: retrogame-game-service
     tag: "latest"
-    
+
   service:
     type: ClusterIP
     port: 8081
-    
+
   resources:
     requests:
       cpu: 500m
@@ -845,7 +872,7 @@ ingress:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/ssl-redirect: '443'
     alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:eu-west-1:123456789012:certificate/your-cert-id"
-    
+
   hosts:
   - host: retrogamehub.games
     paths:
@@ -870,7 +897,7 @@ ingress:
           name: retrogame-game-service
           port:
             number: 8081
-            
+
   tls:
   - secretName: retrogame-tls
     hosts:
@@ -879,7 +906,7 @@ ingress:
 # Database externa (RDS)
 postgresql:
   enabled: false
-  
+
 externalDatabase:
   host: "retrogame-db.cluster-xyz.eu-west-1.rds.amazonaws.com"
   port: 5432
@@ -905,11 +932,13 @@ monitoring:
     namespace: monitoring
   prometheusRule:
     enabled: true
+
 ```
 
 ### 4. Deployment Templates
 
 ```yaml
+
 # helm/templates/backend/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -986,6 +1015,7 @@ spec:
             - ALL
       securityContext:
         fsGroup: 1001
+
 ```
 
 ## 🔍 Health Checks y Monitoring
@@ -1025,11 +1055,13 @@ export class HealthController {
     return { status: 'ok', timestamp: new Date().toISOString() };
   }
 }
+
 ```
 
 ### 2. Prometheus ServiceMonitor
 
 ```yaml
+
 # helm/templates/monitoring/servicemonitor.yaml
 {{- if .Values.monitoring.enabled }}
 apiVersion: monitoring.coreos.com/v1
@@ -1053,11 +1085,13 @@ spec:
     interval: 10s
     scrapeTimeout: 5s
 {{- end }}
+
 ```
 
 ### 3. Alerting Rules
 
 ```yaml
+
 # helm/templates/monitoring/prometheusrule.yaml
 {{- if .Values.monitoring.prometheusRule.enabled }}
 apiVersion: monitoring.coreos.com/v1
@@ -1083,7 +1117,7 @@ spec:
       annotations:
         summary: "High error rate detected"
         description: "Error rate is {{ $value | humanizePercentage }} for {{ $labels.service }}"
-        
+
     - alert: HighMemoryUsage
       expr: |
         (
@@ -1096,7 +1130,7 @@ spec:
       annotations:
         summary: "High memory usage"
         description: "Memory usage is {{ $value | humanizePercentage }} for {{ $labels.pod }}"
-        
+
     - alert: PodCrashLooping
       expr: |
         rate(kube_pod_container_status_restarts_total{pod=~"retrogame-.*"}[15m]) > 0
@@ -1106,7 +1140,7 @@ spec:
       annotations:
         summary: "Pod is crash looping"
         description: "Pod {{ $labels.pod }} is restarting frequently"
-        
+
     - alert: DatabaseConnectionFailure
       expr: |
         up{job="retrogame-hub"} == 0
@@ -1117,6 +1151,7 @@ spec:
         summary: "Cannot connect to database"
         description: "Database connection is failing for {{ $labels.instance }}"
 {{- end }}
+
 ```
 
 ## 🔒 Security y Secrets
@@ -1124,6 +1159,7 @@ spec:
 ### 1. Secrets Management
 
 ```yaml
+
 # helm/templates/database/secret.yaml
 apiVersion: v1
 kind: Secret
@@ -1137,7 +1173,7 @@ data:
   username: {{ .Values.externalDatabase.username | b64enc }}
   password: {{ .Values.backend.secrets.dbPassword | b64enc }}
 
----
+- --
 apiVersion: v1
 kind: Secret
 metadata:
@@ -1147,11 +1183,13 @@ metadata:
 type: Opaque
 data:
   jwt-secret: {{ .Values.backend.secrets.jwtSecret | b64enc }}
+
 ```
 
 ### 2. AWS Secrets Manager Integration
 
 ```bash
+
 # Instalar External Secrets Operator
 helm repo add external-secrets https://charts.external-secrets.io
 helm install external-secrets external-secrets/external-secrets -n external-secrets-system --create-namespace
@@ -1173,11 +1211,13 @@ spec:
             name: external-secrets-sa
             namespace: external-secrets-system
 EOF
+
 ```
 
 ### 3. ExternalSecret para Database
 
 ```yaml
+
 # helm/templates/database/externalsecret.yaml
 {{- if .Values.externalSecrets.enabled }}
 apiVersion: external-secrets.io/v1beta1
@@ -1207,6 +1247,7 @@ spec:
       key: retrogame/database
       property: password
 {{- end }}
+
 ```
 
 ## 📊 Monitoreo y Observabilidad
@@ -1257,11 +1298,13 @@ spec:
     ]
   }
 }
+
 ```
 
 ### 2. Logging con Fluentd
 
 ```yaml
+
 # monitoring/fluentd-configmap.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -1280,11 +1323,11 @@ data:
         @type kubernetes
       </parse>
     </source>
-    
+
     <filter kubernetes.**>
       @type kubernetes_metadata
     </filter>
-    
+
     <match kubernetes.**>
       @type cloudwatch_logs
       region eu-west-1
@@ -1292,6 +1335,7 @@ data:
       log_stream_name ${tag}
       auto_create_stream true
     </match>
+
 ```
 
 ## 🚦 Testing en Producción
@@ -1300,6 +1344,7 @@ data:
 
 ```bash
 #!/bin/bash
+
 # scripts/smoke-tests.sh
 
 set -e
@@ -1355,11 +1400,13 @@ fi
 echo "✅ Game loading works"
 
 echo "🎉 All smoke tests passed!"
+
 ```
 
 ### 2. Canary Deployment Strategy
 
 ```yaml
+
 # helm/templates/frontend/canary-deployment.yaml
 {{- if .Values.canary.enabled }}
 apiVersion: apps/v1
@@ -1390,7 +1437,7 @@ spec:
         # ... resto de la configuración igual
 {{- end }}
 
----
+- --
 {{- if .Values.canary.enabled }}
 apiVersion: v1
 kind: Service
@@ -1412,11 +1459,13 @@ spec:
     app.kubernetes.io/component: frontend
     deployment-type: canary
 {{- end }}
+
 ```
 
 ### 3. Ingress con Traffic Splitting
 
 ```yaml
+
 # helm/templates/frontend/ingress-canary.yaml
 {{- if and .Values.ingress.enabled .Values.canary.enabled }}
 apiVersion: networking.k8s.io/v1
@@ -1461,6 +1510,7 @@ spec:
           {{- end }}
     {{- end }}
 {{- end }}
+
 ```
 
 ## 🔄 Operaciones de Mantenimiento
@@ -1469,6 +1519,7 @@ spec:
 
 ```bash
 #!/bin/bash
+
 # scripts/backup.sh
 
 set -e
@@ -1495,12 +1546,14 @@ kubectl get configmaps,secrets -n $NAMESPACE -o yaml | \
   aws s3 cp - s3://$S3_BUCKET/config/config-$BACKUP_DATE.yaml
 
 echo "✅ Backup completed: $BACKUP_DATE"
+
 ```
 
 ### 2. Scaling Operations
 
 ```bash
 #!/bin/bash
+
 # scripts/scale.sh
 
 NAMESPACE="retrogame-production"
@@ -1510,7 +1563,7 @@ echo "🔄 Scaling application by factor: $SCALE_FACTOR"
 
 # Scale deployments
 kubectl scale deployment retrogame-frontend --replicas=$((3 * $SCALE_FACTOR)) -n $NAMESPACE
-kubectl scale deployment retrogame-backend --replicas=$((5 * $SCALE_FACTOR)) -n $NAMESPACE  
+kubectl scale deployment retrogame-backend --replicas=$((5 * $SCALE_FACTOR)) -n $NAMESPACE
 kubectl scale deployment retrogame-game-service --replicas=$((2 * $SCALE_FACTOR)) -n $NAMESPACE
 
 # Wait for rollout
@@ -1519,11 +1572,13 @@ kubectl rollout status deployment/retrogame-backend -n $NAMESPACE
 kubectl rollout status deployment/retrogame-game-service -n $NAMESPACE
 
 echo "✅ Scaling completed"
+
 ```
 
 ### 3. Disaster Recovery
 
 ```yaml
+
 # disaster-recovery/restore-procedure.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -1533,46 +1588,47 @@ data:
   restore.sh: |
     #!/bin/bash
     set -e
-    
+
     BACKUP_DATE=$1
     S3_BUCKET="retrogame-backups"
     NAMESPACE="retrogame-production"
-    
+
     if [ -z "$BACKUP_DATE" ]; then
         echo "Usage: $0 <backup-date>"
         echo "Available backups:"
         aws s3 ls s3://$S3_BUCKET/database/ | grep backup-
         exit 1
     fi
-    
+
     echo "🔄 Starting disaster recovery for backup: $BACKUP_DATE"
-    
+
     # Scale down applications
     kubectl scale deployment retrogame-frontend --replicas=0 -n $NAMESPACE
     kubectl scale deployment retrogame-backend --replicas=0 -n $NAMESPACE
     kubectl scale deployment retrogame-game-service --replicas=0 -n $NAMESPACE
-    
+
     # Restore database
     echo "Restoring database..."
     aws s3 cp s3://$S3_BUCKET/database/backup-$BACKUP_DATE.sql - | \
       kubectl exec -i -n $NAMESPACE deployment/postgresql -- psql -U postgres -d retrogame
-    
+
     # Restore configurations
     echo "Restoring configurations..."
     aws s3 cp s3://$S3_BUCKET/config/config-$BACKUP_DATE.yaml - | \
       kubectl apply -f -
-    
+
     # Scale up applications
     kubectl scale deployment retrogame-frontend --replicas=3 -n $NAMESPACE
     kubectl scale deployment retrogame-backend --replicas=5 -n $NAMESPACE
     kubectl scale deployment retrogame-game-service --replicas=2 -n $NAMESPACE
-    
+
     # Wait for readiness
     kubectl rollout status deployment/retrogame-frontend -n $NAMESPACE
     kubectl rollout status deployment/retrogame-backend -n $NAMESPACE
     kubectl rollout status deployment/retrogame-game-service -n $NAMESPACE
-    
+
     echo "✅ Disaster recovery completed"
+
 ```
 
 ## 🚀 Comandos de Despliegue
@@ -1580,6 +1636,7 @@ data:
 ### Setup Inicial Completo
 
 ```bash
+
 # 1. Clonar repositorios
 git clone https://github.com/your-org/retrogame-hub.git
 git clone https://github.com/your-org/retrogame-gitops.git
@@ -1622,11 +1679,13 @@ kubectl get ingress -n retrogame-production
 
 # 9. Ejecutar smoke tests
 ./scripts/smoke-tests.sh
+
 ```
 
 ### Deploy de Actualización
 
 ```bash
+
 # Trigger desde GitHub Actions o manual
 git add .
 git commit -m "feat: new game feature"
@@ -1635,31 +1694,42 @@ git push origin main
 # Monitorear progreso
 argocd app get retrogame-hub
 kubectl rollout status deployment/retrogame-frontend -n retrogame-production
+
 ```
 
 ### Rollback de Emergencia
 
 ```bash
+
 # Rollback automático vía GitHub Actions
 gh workflow run rollback.yml -f environment=production -f previous_version=v1.2.3
 
 # O rollback manual
 kubectl rollout undo deployment/retrogame-frontend -n retrogame-production
 kubectl rollout undo deployment/retrogame-backend -n retrogame-production
+
 ```
 
 ## 📈 Métricas y KPIs
 
 ### Métricas de Despliegue
+
 - **Deployment Frequency**: Frecuencia de despliegues
-- **Lead Time**: Tiempo desde commit hasta producción  
+
+- **Lead Time**: Tiempo desde commit hasta producción
+
 - **MTTR (Mean Time To Recovery)**: Tiempo promedio de recuperación
+
 - **Change Failure Rate**: Tasa de fallos en cambios
 
 ### Dashboards Recomendados
+
 - **ArgoCD**: Estado de sincronización GitOps
+
 - **Grafana**: Métricas de aplicación y infraestructura
+
 - **Prometheus**: Alertas y monitoreo de salud
+
 - **Jaeger**: Tracing distribuido de requests
 
 Esta guía proporciona una base sólida para implementar un pipeline de CI/CD robusto y escalable para Retro Game Hub, siguiendo las mejores prácticas de la industria y asegurando alta disponibilidad y confiabilidad en producción.
