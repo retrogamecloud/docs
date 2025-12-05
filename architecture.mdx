@@ -95,7 +95,7 @@ graph TB
     ALB1 --> EKS1
     ALB1 --> EKS2
     ALB1 --> EKS3
-    
+
     %% Data Flow
     EKS1 --> RDS1
     EKS1 --> REDIS1
@@ -118,7 +118,7 @@ graph TB
     EKS1 -.-> S3
     EKS1 -.-> SECRETS
     EKS1 -.-> ECR
-    
+
     CDN -.-> S3
 
     %% Styling
@@ -133,6 +133,7 @@ graph TB
     class RDS1,RDS2,RDS3,REDIS1,REDIS2,REDIS3 dataSubnet
     class S3,SECRETS,ECR,CDN,DNS awsService
     class EKSCP eksService
+
 ```
 
 ## Flujo de Tráfico y Conectividad
@@ -152,10 +153,10 @@ sequenceDiagram
 
     U->>R53: DNS Query (retrogamehub.com)
     R53->>U: CloudFront IP Address
-    
+
     U->>CF: HTTPS Request
     Note over CF: Edge Location Cache Check
-    
+
     alt Static Assets (CSS/JS/Images)
         CF->>S3: Fetch from Origin (if cache miss)
         S3->>CF: Static Content
@@ -163,9 +164,9 @@ sequenceDiagram
     else Dynamic API Requests
         CF->>ALB: Forward to Origin
         ALB->>EKS: Route to Available Pod
-        
+
         Note over EKS: Microservice Processing
-        
+
         EKS->>REDIS: Check Cache
         alt Cache Hit
             REDIS->>EKS: Return Cached Data
@@ -174,7 +175,7 @@ sequenceDiagram
             RDS->>EKS: Query Results
             EKS->>REDIS: Update Cache
         end
-        
+
         EKS->>ALB: API Response
         ALB->>CF: Forward Response
         CF->>U: Dynamic Content
@@ -185,6 +186,7 @@ sequenceDiagram
     CF->>S3: Fetch Game Files (if not cached)
     S3->>CF: Game File Content
     CF->>U: Optimized Delivery
+
 ```
 
 ## Componentes Principales
@@ -192,7 +194,8 @@ sequenceDiagram
 ### Capa de Red y Conectividad
 
 - **Route 53**: DNS global con health checks y routing policies
-- **CloudFront CDN**: 
+
+- **CloudFront CDN**:
   - 200+ edge locations globales
   - Caché de assets estáticos y archivos de juegos
   - Compresión automática y optimización
@@ -204,7 +207,7 @@ sequenceDiagram
   - Worker nodes distribuidos en 3 AZs
   - Auto Scaling Groups para elasticidad
   - Spot instances para cargas no críticas
-  - **Application Load Balancer**: 
+  - **Application Load Balancer**:
     - SSL termination con AWS Certificate Manager
     - Target groups para microservicios
     - Health checks y routing inteligente
@@ -231,8 +234,11 @@ sequenceDiagram
 ### Seguridad y Secrets Management
 
 - **AWS Secrets Manager**: Rotación automática de credenciales
+
 - **IAM Roles**: Service accounts con OIDC integration
+
 - **Security Groups**: Microsegmentación de red
+
 - **NACLs**: Capa adicional de seguridad de subnet
 
 ## Decisiones Arquitectónicas Clave
@@ -240,16 +246,21 @@ sequenceDiagram
 ### Multi-AZ para Alta Disponibilidad
 
 Todos los componentes críticos están distribuidos en múltiples AZs:
+
 - **RTO objetivo**: < 1 minuto para fallos de AZ
+
 - **RPO objetivo**: < 5 minutos para pérdida de datos
+
 - **Disponibilidad objetivo**: 99.9% uptime
 
 ### Separación de Capas de Red
 
 ```
+
 Public Subnets (10.0.1-3.0/24)     -> Internet-facing resources
-Private App Subnets (10.0.10-30.0/24) -> EKS worker nodes  
+Private App Subnets (10.0.10-30.0/24) -> EKS worker nodes
 Private Data Subnets (10.0.100-300.0/24) -> Databases
+
 ```
 
 ### Estrategia de Caché Multi-Nivel
@@ -261,8 +272,11 @@ Private Data Subnets (10.0.100-300.0/24) -> Databases
 ### Escalabilidad Automática
 
 - **Cluster Autoscaler**: Nodos EKS basado en pod scheduling
+
 - **HPA**: Pods basado en CPU/memoria
+
 - **VPA**: Vertical scaling para optimización de recursos
+
 - **Aurora Auto Scaling**: Read replicas basado en conexiones/CPU
 
 ## Justificaciones Técnicas
@@ -293,21 +307,71 @@ Private Data Subnets (10.0.100-300.0/24) -> Databases
 ### Métricas Clave (CloudWatch)
 
 - **Infrastructure**: CPU, memoria, network, disk de EKS nodes
+
 - **Application**: Request latency, error rates, throughput
+
 - **Database**: Aurora connections, query performance, lag
+
 - **Cache**: Redis hit/miss ratios, memory usage
 
 ### Logging Strategy
 
 - **Application Logs**: Fluent Bit -> CloudWatch Logs
+
 - **Access Logs**: ALB -> S3 para analysis
+
 - **Audit Logs**: EKS API calls -> CloudTrail
+
 - **Database Logs**: Aurora slow query logs
 
 ### Alerting (CloudWatch Alarms)
 
 - **Critical**: Database failover, EKS node failures
-- **Warning**: High CPU/memory, elevated error rates  
+
+- **Warning**: High CPU/memory, elevated error rates
+
 - **Info**: Scaling events, deployment status
 
 Esta arquitectura proporciona una base sólida y escalable para Retro Game Hub, balanceando performance, disponibilidad y costos mientras mantiene la flexibilidad para evolucionar con los requerimientos del negocio.
+
+## Arquitectura de Componentes
+
+```mermaid
+graph LR
+    subgraph Frontend
+        UI[Interfaz Web]
+        JSDOS[JS-DOS Emulator]
+    end
+
+    subgraph Gateway
+        Kong[Kong API Gateway]
+        OAuth[OAuth2 Proxy]
+    end
+
+    subgraph Microservicios
+        Auth[Auth Service]
+        User[User Service]
+        Catalog[Game Catalog]
+        Score[Score Service]
+        Ranking[Ranking Service]
+    end
+
+    subgraph Datos
+        DB[(PostgreSQL)]
+        S3[S3 Storage]
+    end
+
+    UI --> Kong
+    Kong --> OAuth
+    OAuth --> Auth
+    Kong --> User
+    Kong --> Catalog
+    Kong --> Score
+    Kong --> Ranking
+    Auth --> DB
+    User --> DB
+    Catalog --> S3
+    Score --> DB
+    Ranking --> DB
+```
+
