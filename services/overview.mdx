@@ -57,6 +57,7 @@ graph TB
     class AuthDB,UserDB,CatalogDB,ScoreDB,RankingDB database
     class S3,CDN external
     class Redis cache
+
 ```
 
 </div>
@@ -171,13 +172,17 @@ Los Service Level Objectives (SLOs) definen los niveles de servicio esperados pa
 ### Niveles de Criticidad
 
 - **🔴 Crítico**: Violación de SLO > 5 minutos
+
 - **🟡 Warning**: Violación de SLO < 5 minutos
+
 - **🟢 Info**: Métricas dentro de SLO
 
 ### Canales de Notificación
 
 - **Slack**: `#alerts-production`
+
 - **PagerDuty**: Para servicios críticos
+
 - **Email**: Resumen diario de métricas
 
 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-6">
