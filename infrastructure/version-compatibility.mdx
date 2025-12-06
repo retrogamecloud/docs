@@ -76,9 +76,13 @@ Esta documentación proporciona una matriz completa de compatibilidad entre las 
 ### Calendarios de Vida Útil (EOL)
 
 <Warning>
-**Fechas críticas próximas:**
+
+* *Fechas críticas próximas:**
+
 - **Node.js 18.x**: EOL Abril 2025 - Migrar a Node.js 20.x LTS
+
 - **PostgreSQL 13.x**: EOL Noviembre 2025 - Actualizar a PostgreSQL 15.x
+
 - **Kubernetes 1.27.x**: Ya deprecado - Actualizar inmediatamente
 </Warning>
 
@@ -91,26 +95,32 @@ Esta documentación proporciona una matriz completa de compatibilidad entre las 
 Revisar la matriz de compatibilidad para identificar dependencias críticas:
 
 ```bash
+
 # Verificar versiones actuales
 kubectl version --client --short
 helm version --short
 argocd version --client
 node --version
 psql --version
+
 ```
+
 </Step>
 
 <Step title="Backup Completo">
 Crear respaldos de todos los datos críticos:
 
 ```bash
+
 # Backup de PostgreSQL
 kubectl exec -n database postgresql-0 -- \
   pg_dumpall -U postgres > backup-$(date +%Y%m%d).sql
 
 # Backup de configuraciones
 kubectl get all,cm,secrets -o yaml > k8s-backup-$(date +%Y%m%d).yaml
+
 ```
+
 </Step>
 
 <Step title="Entorno de Pruebas">
@@ -122,7 +132,8 @@ Validar actualizaciones en staging con datos representativos
 
 <Tabs>
 <Tab title="Fase 1: Infraestructura Base">
-**Orden recomendado:**
+
+* *Orden recomendado:**
 
 1. **Kubernetes Control Plane** (siempre primero)
 2. **kubectl y Helm** (herramientas de gestión)
@@ -130,38 +141,50 @@ Validar actualizaciones en staging con datos representativos
 4. **ArgoCD** (gestión de aplicaciones)
 
 ```bash
+
 # Actualización de Kubernetes (ejemplo EKS)
 eksctl upgrade cluster --name retrogame-prod --version 1.30
 
 # Actualización de nodos
 eksctl upgrade nodegroup --cluster retrogame-prod --name main-nodes
+
 ```
+
 </Tab>
 
 <Tab title="Fase 2: Datos y Runtime">
-**Actualización de bases de datos:**
+
+* *Actualización de bases de datos:**
 
 ```bash
+
 # PostgreSQL - Actualización menor primero
 kubectl patch postgresql postgresql-cluster \
   --type='merge' -p='{"spec":{"postgresqlVersion":"15.6"}}'
 
 # Redis - Rolling update
 kubectl set image deployment/redis redis=redis:7.2-alpine
+
 ```
 
-**Node.js Runtime:**
+* *Node.js Runtime:**
+
 ```bash
+
 # Actualización gradual de aplicaciones
 kubectl set image deployment/api-gateway \
   app=retrogame/api-gateway:node20-latest
+
 ```
+
 </Tab>
 
 <Tab title="Fase 3: Aplicaciones">
-**Actualización de servicios de aplicación:**
+
+* *Actualización de servicios de aplicación:**
 
 ```bash
+
 # Frontend
 kubectl set image deployment/frontend \
   app=retrogame/frontend:react18-latest
@@ -169,24 +192,33 @@ kubectl set image deployment/frontend \
 # Game Engine
 kubectl set image deployment/game-engine \
   engine=retrogame/game-engine:jsdos6.22-latest
+
 ```
+
 </Tab>
 </Tabs>
 
 ### 3. Validación Post-Actualización
 
 <Callout type="info">
-**Checklist de Validación:**
+
+* *Checklist de Validación:**
 </Callout>
 
 - [ ] ✅ Todos los pods están en estado `Running`
+
 - [ ] ✅ Servicios responden correctamente a health checks
+
 - [ ] ✅ Base de datos accesible y datos íntegros
+
 - [ ] ✅ Autenticación y autorización funcionando
+
 - [ ] ✅ Juegos se cargan y ejecutan correctamente
+
 - [ ] ✅ Métricas y logs se generan normalmente
 
 ```bash
+
 # Script de validación rápida
 #!/bin/bash
 echo "🔍 Validando estado del cluster..."
@@ -198,6 +230,7 @@ curl -f http://retrogame.cloud/api/health
 echo "📊 Verificando métricas..."
 kubectl top nodes
 kubectl top pods --all-namespaces
+
 ```
 
 ## Procedimientos de Rollback
@@ -205,6 +238,7 @@ kubectl top pods --all-namespaces
 ### Rollback Automático
 
 ```yaml
+
 # Configuración en deployment
 spec:
   progressDeadlineSeconds: 600
@@ -214,11 +248,13 @@ spec:
       maxUnavailable: 1
       maxSurge: 1
     type: RollingUpdate
+
 ```
 
 ### Rollback Manual
 
 ```bash
+
 # Ver historial de deployments
 kubectl rollout history deployment/api-gateway
 
@@ -230,6 +266,7 @@ kubectl rollout undo deployment/api-gateway --to-revision=3
 
 # Verificar estado del rollback
 kubectl rollout status deployment/api-gateway
+
 ```
 
 ## Alertas y Monitoreo de Versiones
@@ -237,6 +274,7 @@ kubectl rollout status deployment/api-gateway
 ### Configuración de Alertas
 
 ```yaml
+
 # AlertManager rule para versiones obsoletas
 groups:
   - name: version-compatibility
@@ -249,6 +287,7 @@ groups:
         annotations:
           summary: "Kubernetes version deprecated"
           description: "Kubernetes {{ $labels.version }} is deprecated and should be upgraded"
+
 ```
 
 <Info>

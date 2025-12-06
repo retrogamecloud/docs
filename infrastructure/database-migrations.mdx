@@ -20,8 +20,11 @@ Todas las migraciones deben probarse exhaustivamente en entornos locales y stagi
 Utilizamos **Flyway** como herramienta principal para el versionado y ejecución de migraciones de esquema:
 
 - Versionado automático de scripts SQL
+
 - Seguimiento del estado de migraciones
+
 - Validación de checksums
+
 - Soporte para rollbacks
 
 ### Configuración Docker
@@ -40,6 +43,7 @@ services:
     environment:
       - FLYWAY_BASELINE_ON_MIGRATE=true
       - FLYWAY_VALIDATE_ON_MIGRATE=true
+
 ```
 
 ### Configuración AWS RDS
@@ -57,6 +61,7 @@ flyway:
   validate-on-migrate: true
   out-of-order: false
   mixed: false
+
 ```
 
 ## Estructura de Migraciones
@@ -67,29 +72,43 @@ Las migraciones siguen una estructura estricta:
 
 <Tabs>
 <Tab title="Migraciones hacia adelante">
+
 ```
+
 V{version}__{descripción}.sql
 
 Ejemplos:
+
 - V001__initial_schema.sql
+
 - V002__add_user_achievements.sql
+
 - V003__create_game_scores_index.sql
+
 ```
+
 </Tab>
 <Tab title="Migraciones de rollback">
+
 ```
+
 U{version}__{descripción}.sql
 
 Ejemplos:
+
 - U002__remove_user_achievements.sql
+
 - U003__drop_game_scores_index.sql
+
 ```
+
 </Tab>
 </Tabs>
 
 ### Estructura de Directorios
 
 ```
+
 migrations/
 ├── schema/
 │   ├── V001__initial_schema.sql
@@ -108,6 +127,7 @@ migrations/
 └── procedures/
     ├── V020__backup_user_progress.sql
     └── V021__cleanup_expired_sessions.sql
+
 ```
 
 ## Tipos de Migraciones
@@ -116,8 +136,10 @@ migrations/
 
 <Tabs>
 <Tab title="Crear Tabla">
+
 ```sql
--- V001__create_users_table.sql
+
+- - V001__create_users_table.sql
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -133,7 +155,7 @@ CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_created_at ON users(created_at);
 
--- Trigger para updated_at
+- - Trigger para updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -142,18 +164,22 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-CREATE TRIGGER update_users_updated_at 
-    BEFORE UPDATE ON users 
+CREATE TRIGGER update_users_updated_at
+    BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 ```
+
 </Tab>
 <Tab title="Agregar Columna">
+
 ```sql
--- V005__add_user_level_column.sql
+
+- - V005__add_user_level_column.sql
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'users' AND column_name = 'level'
     ) THEN
         ALTER TABLE users ADD COLUMN level INTEGER DEFAULT 1 CHECK (level >= 1 AND level <= 100);
@@ -162,29 +188,36 @@ BEGIN
 END
 $$;
 
--- Comentario para documentación
+- - Comentario para documentación
 COMMENT ON COLUMN users.level IS 'Nivel del usuario basado en experiencia acumulada (1-100)';
+
 ```
+
 </Tab>
 <Tab title="Crear Índice">
+
 ```sql
--- V008__create_game_performance_indexes.sql
--- Índices para optimizar consultas de rendimiento de juegos
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_game_sessions_user_game 
-    ON game_sessions(user_id, game_id) 
+
+- - V008__create_game_performance_indexes.sql
+
+- - Índices para optimizar consultas de rendimiento de juegos
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_game_sessions_user_game
+    ON game_sessions(user_id, game_id)
     WHERE ended_at IS NOT NULL;
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_game_sessions_duration 
-    ON game_sessions(duration) 
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_game_sessions_duration
+    ON game_sessions(duration)
     WHERE duration > INTERVAL '1 minute';
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_scores_composite 
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_scores_composite
     ON user_scores(game_id, score DESC, created_at DESC);
 
--- Estadísticas para el optimizador
+- - Estadísticas para el optimizador
 ANALYZE game_sessions;
 ANALYZE user_scores;
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -192,8 +225,10 @@ ANALYZE user_scores;
 
 <Tabs>
 <Tab title="Seed Data">
+
 ```sql
--- R001__seed_game_categories.sql
+
+- - R001__seed_game_categories.sql
 INSERT INTO game_categories (name, slug, description, icon, sort_order) VALUES
     ('Arcade', 'arcade', 'Juegos clásicos de arcade', 'joystick', 1),
     ('Puzzle', 'puzzle', 'Juegos de lógica y rompecabezas', 'puzzle-piece', 2),
@@ -205,22 +240,27 @@ ON CONFLICT (slug) DO UPDATE SET
     description = EXCLUDED.description,
     icon = EXCLUDED.icon,
     updated_at = NOW();
+
 ```
+
 </Tab>
 <Tab title="Data Migration">
+
 ```sql
--- V015__migrate_user_preferences.sql
--- Migrar preferencias de usuario del formato legacy al nuevo esquema
+
+- - V015__migrate_user_preferences.sql
+
+- - Migrar preferencias de usuario del formato legacy al nuevo esquema
 
 DO $$
 DECLARE
     user_record RECORD;
     new_preferences JSONB;
 BEGIN
-    FOR user_record IN 
-        SELECT id, legacy_preferences 
-        FROM users 
-        WHERE legacy_preferences IS NOT NULL 
+    FOR user_record IN
+        SELECT id, legacy_preferences
+        FROM users
+        WHERE legacy_preferences IS NOT NULL
         AND preferences IS NULL
     LOOP
         -- Convertir formato legacy a nuevo esquema
@@ -240,17 +280,19 @@ BEGIN
             )
         );
 
-        UPDATE users 
+        UPDATE users
         SET preferences = new_preferences,
             updated_at = NOW()
         WHERE id = user_record.id;
     END LOOP;
 
-    RAISE NOTICE 'Migradas preferencias para % usuarios', 
+    RAISE NOTICE 'Migradas preferencias para % usuarios',
         (SELECT COUNT(*) FROM users WHERE preferences IS NOT NULL AND legacy_preferences IS NOT NULL);
 END
 $$;
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -262,17 +304,20 @@ $$;
 
 <Tabs>
 <Tab title="Fase 1: Preparación">
+
 ```sql
--- V020__prepare_user_avatar_migration.sql
--- Agregar nueva columna sin eliminar la antigua
+
+- - V020__prepare_user_avatar_migration.sql
+
+- - Agregar nueva columna sin eliminar la antigua
 ALTER TABLE users ADD COLUMN avatar_url_v2 TEXT;
 ALTER TABLE users ADD COLUMN avatar_metadata JSONB DEFAULT '{}';
 
--- Crear índice para nueva columna
-CREATE INDEX CONCURRENTLY idx_users_avatar_v2 ON users(avatar_url_v2) 
+- - Crear índice para nueva columna
+CREATE INDEX CONCURRENTLY idx_users_avatar_v2 ON users(avatar_url_v2)
 WHERE avatar_url_v2 IS NOT NULL;
 
--- Función para migración gradual
+- - Función para migración gradual
 CREATE OR REPLACE FUNCTION migrate_user_avatar(user_uuid UUID)
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -281,36 +326,41 @@ DECLARE
     metadata JSONB;
 BEGIN
     SELECT avatar_url INTO old_avatar FROM users WHERE id = user_uuid;
-    
+
     IF old_avatar IS NOT NULL AND old_avatar != '' THEN
         -- Convertir URL antigua al nuevo formato
-        new_avatar := 'https://cdn.retrogamecloud.com/avatars/' || 
+        new_avatar := 'https://cdn.retrogamecloud.com/avatars/' ||
                      encode(digest(old_avatar, 'sha256'), 'hex') || '.webp';
-        
+
         metadata := jsonb_build_object(
             'original_url', old_avatar,
             'format', 'webp',
             'migrated_at', NOW()
         );
-        
-        UPDATE users 
+
+        UPDATE users
         SET avatar_url_v2 = new_avatar,
             avatar_metadata = metadata,
             updated_at = NOW()
         WHERE id = user_uuid;
-        
+
         RETURN TRUE;
     END IF;
-    
+
     RETURN FALSE;
 END;
 $$ LANGUAGE plpgsql;
+
 ```
+
 </Tab>
 <Tab title="Fase 2: Migración">
+
 ```sql
--- V021__execute_user_avatar_migration.sql
--- Ejecutar migración en lotes para evitar locks largos
+
+- - V021__execute_user_avatar_migration.sql
+
+- - Ejecutar migración en lotes para evitar locks largos
 
 DO $$
 DECLARE
@@ -321,68 +371,73 @@ DECLARE
 BEGIN
     SELECT COUNT(*) INTO total_users FROM users WHERE avatar_url IS NOT NULL;
     RAISE NOTICE 'Iniciando migración de % avatares de usuario', total_users;
-    
+
     WHILE processed < total_users LOOP
         -- Procesar en lotes
         SELECT ARRAY_AGG(id) INTO user_batch
         FROM (
-            SELECT id FROM users 
-            WHERE avatar_url IS NOT NULL 
+            SELECT id FROM users
+            WHERE avatar_url IS NOT NULL
             AND avatar_url_v2 IS NULL
             LIMIT batch_size
         ) batch;
-        
+
         -- Si no hay más registros, salir
         IF user_batch IS NULL OR array_length(user_batch, 1) = 0 THEN
             EXIT;
         END IF;
-        
+
         -- Migrar lote actual
         PERFORM migrate_user_avatar(user_id) FROM unnest(user_batch) AS user_id;
-        
+
         processed := processed + array_length(user_batch, 1);
-        
-        RAISE NOTICE 'Procesados % de % avatares (%.2f%%)', 
+
+        RAISE NOTICE 'Procesados % de % avatares (%.2f%%)',
             processed, total_users, (processed::float / total_users * 100);
-        
+
         -- Pausa para evitar saturar la base de datos
         PERFORM pg_sleep(0.1);
     END LOOP;
-    
+
     RAISE NOTICE 'Migración completada: % avatares procesados', processed;
 END
 $$;
+
 ```
+
 </Tab>
 <Tab title="Fase 3: Limpieza">
-```sql
--- V022__cleanup_user_avatar_migration.sql
--- Solo ejecutar después de verificar que la aplicación funciona correctamente
 
--- Verificar que la migración fue exitosa
+```sql
+
+- - V022__cleanup_user_avatar_migration.sql
+
+- - Solo ejecutar después de verificar que la aplicación funciona correctamente
+
+- - Verificar que la migración fue exitosa
 DO $$
 DECLARE
     unmigrated_count INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO unmigrated_count 
-    FROM users 
+    SELECT COUNT(*) INTO unmigrated_count
+    FROM users
     WHERE avatar_url IS NOT NULL AND avatar_url_v2 IS NULL;
-    
+
     IF unmigrated_count > 0 THEN
         RAISE EXCEPTION 'Aún hay % usuarios sin migrar. Abortar limpieza.', unmigrated_count;
     END IF;
-    
+
     RAISE NOTICE 'Verificación exitosa. Procediendo con limpieza.';
 END
 $$;
 
--- Renombrar columnas
+- - Renombrar columnas
 ALTER TABLE users RENAME COLUMN avatar_url TO avatar_url_legacy;
 ALTER TABLE users RENAME COLUMN avatar_url_v2 TO avatar_url;
 
--- Crear vista temporal para compatibilidad durante transición
+- - Crear vista temporal para compatibilidad durante transición
 CREATE OR REPLACE VIEW users_with_legacy_avatar AS
-SELECT 
+SELECT
     id,
     username,
     email,
@@ -393,9 +448,12 @@ SELECT
     is_active
 FROM users;
 
--- Programar eliminación de columna legacy (ejecutar en próximo release)
--- ALTER TABLE users DROP COLUMN avatar_url_legacy;
+- - Programar eliminación de columna legacy (ejecutar en próximo release)
+
+- - ALTER TABLE users DROP COLUMN avatar_url_legacy;
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -404,8 +462,10 @@ FROM users;
 Para cambios críticos que requieren validación completa:
 
 ```sql
--- V025__create_blue_green_switch.sql
--- Sistema de switch para despliegues blue-green
+
+- - V025__create_blue_green_switch.sql
+
+- - Sistema de switch para despliegues blue-green
 
 CREATE TABLE IF NOT EXISTS deployment_config (
     key VARCHAR(50) PRIMARY KEY,
@@ -415,22 +475,22 @@ CREATE TABLE IF NOT EXISTS deployment_config (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Configuración inicial
+- - Configuración inicial
 INSERT INTO deployment_config (key, value, environment) VALUES
     ('database_version', 'blue', 'production'),
     ('schema_compatibility', 'v1.0', 'production'),
     ('feature_flags', '{"new_scoring_system": false}', 'production')
 ON CONFLICT (key) DO NOTHING;
 
--- Función para cambiar entre entornos
+- - Función para cambiar entre entornos
 CREATE OR REPLACE FUNCTION switch_deployment_environment(
     target_env TEXT DEFAULT 'green'
 ) RETURNS TABLE(key TEXT, old_value TEXT, new_value TEXT) AS $$
 BEGIN
     RETURN QUERY
     WITH updates AS (
-        UPDATE deployment_config 
-        SET value = CASE 
+        UPDATE deployment_config
+        SET value = CASE
             WHEN value = 'blue' THEN 'green'
             WHEN value = 'green' THEN 'blue'
             ELSE target_env
@@ -442,6 +502,7 @@ BEGIN
     SELECT u.key::TEXT, 'switched'::TEXT, u.value::TEXT FROM updates u;
 END;
 $$ LANGUAGE plpgsql;
+
 ```
 
 ## Procedimientos de Rollback
@@ -450,60 +511,68 @@ $$ LANGUAGE plpgsql;
 
 <Tabs>
 <Tab title="Script de Rollback">
+
 ```sql
--- U010__rollback_user_achievements.sql
--- Rollback para V010__add_user_achievements.sql
+
+- - U010__rollback_user_achievements.sql
+
+- - Rollback para V010__add_user_achievements.sql
 
 DO $$
 BEGIN
     -- Verificar si existen dependencias
     IF EXISTS (
-        SELECT 1 FROM information_schema.table_constraints 
-        WHERE constraint_name LIKE '%achievements%' 
+        SELECT 1 FROM information_schema.table_constraints
+        WHERE constraint_name LIKE '%achievements%'
         AND constraint_type = 'FOREIGN KEY'
     ) THEN
         RAISE EXCEPTION 'No se puede hacer rollback: existen dependencias en user_achievements';
     END IF;
-    
+
     -- Backup de datos antes del rollback
-    CREATE TEMP TABLE achievements_backup AS 
+    CREATE TEMP TABLE achievements_backup AS
     SELECT * FROM user_achievements;
-    
-    RAISE NOTICE 'Backup creado con % registros', 
+
+    RAISE NOTICE 'Backup creado con % registros',
         (SELECT COUNT(*) FROM achievements_backup);
-    
+
     -- Eliminar triggers
     DROP TRIGGER IF EXISTS update_user_achievements_updated_at ON user_achievements;
-    
+
     -- Eliminar índices
     DROP INDEX IF EXISTS idx_user_achievements_user_id;
     DROP INDEX IF EXISTS idx_user_achievements_achievement_type;
     DROP INDEX IF EXISTS idx_user_achievements_earned_date;
-    
+
     -- Eliminar tabla
     DROP TABLE IF EXISTS user_achievements CASCADE;
-    
+
     RAISE NOTICE 'Rollback completado para user_achievements';
-    
+
 EXCEPTION
     WHEN OTHERS THEN
         RAISE EXCEPTION 'Error en rollback: %', SQLERRM;
 END
 $$;
+
 ```
+
 </Tab>
 <Tab title="Rollback de Datos">
+
 ```sql
--- U015__rollback_user_preferences_migration.sql
--- Restaurar formato legacy de preferencias de usuario
+
+- - U015__rollback_user_preferences_migration.sql
+
+- - Restaurar formato legacy de preferencias de usuario
 
 DO $$
 DECLARE
     affected_count INTEGER := 0;
 BEGIN
     -- Restaurar preferencias al formato legacy
-    UPDATE users 
-    SET legacy_preferences = CASE 
+    UPDATE users
+    SET legacy_preferences = CASE
         WHEN preferences IS NOT NULL THEN
             jsonb_build_object(
                 'graphics_quality', preferences->'graphics'->>'quality',
@@ -519,18 +588,20 @@ BEGIN
     preferences = NULL,
     updated_at = NOW()
     WHERE preferences IS NOT NULL;
-    
+
     GET DIAGNOSTICS affected_count = ROW_COUNT;
-    
-    RAISE NOTICE 'Rollback completado: % usuarios restaurados al formato legacy', 
+
+    RAISE NOTICE 'Rollback completado: % usuarios restaurados al formato legacy',
         affected_count;
-    
+
 EXCEPTION
     WHEN OTHERS THEN
         RAISE EXCEPTION 'Error en rollback de preferencias: %', SQLERRM;
 END
 $$;
+
 ```
+
 </Tab>
 </Tabs>
 
@@ -538,6 +609,7 @@ $$;
 
 ```bash
 #!/bin/bash
+
 # rollback-emergency.sh - Script de rollback de emergencia
 
 set -e
@@ -589,6 +661,7 @@ docker run --rm \
 
 echo "✅ Rollback de emergencia completado"
 echo "📋 Backup disponible en: $BACKUP_FILE"
+
 ```
 
 ## Validación y Testing
@@ -596,10 +669,12 @@ echo "📋 Backup disponible en: $BACKUP_FILE"
 ### Tests de Migración
 
 ```sql
--- tests/migration_tests.sql
--- Suite de tests para validar migraciones
 
--- Test 1: Verificar integridad de esquema
+- - tests/migration_tests.sql
+
+- - Suite de tests para validar migraciones
+
+- - Test 1: Verificar integridad de esquema
 CREATE OR REPLACE FUNCTION test_schema_integrity()
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -609,46 +684,46 @@ DECLARE
 BEGIN
     -- Verificar tablas críticas
     SELECT ARRAY_AGG(table_name) INTO missing_tables
-    FROM (VALUES 
+    FROM (VALUES
         ('users'),
-        ('games'), 
+        ('games'),
         ('user_scores'),
         ('game_sessions')
     ) AS required_tables(table_name)
     WHERE table_name NOT IN (
-        SELECT table_name 
-        FROM information_schema.tables 
+        SELECT table_name
+        FROM information_schema.tables
         WHERE table_schema = 'public'
     );
-    
+
     IF array_length(missing_tables, 1) > 0 THEN
         RAISE WARNING 'Tablas faltantes: %', missing_tables;
         result := FALSE;
     END IF;
-    
+
     -- Verificar índices críticos
     SELECT ARRAY_AGG(indexname) INTO missing_indexes
-    FROM (VALUES 
+    FROM (VALUES
         ('idx_users_email'),
         ('idx_user_scores_composite'),
         ('idx_game_sessions_user_game')
     ) AS required_indexes(indexname)
     WHERE indexname NOT IN (
-        SELECT indexname 
-        FROM pg_indexes 
+        SELECT indexname
+        FROM pg_indexes
         WHERE schemaname = 'public'
     );
-    
+
     IF array_length(missing_indexes, 1) > 0 THEN
         RAISE WARNING 'Índices faltantes: %', missing_indexes;
         result := FALSE;
     END IF;
-    
+
     RETURN result;
 END;
 $$ LANGUAGE plpgsql;
 
--- Test 2: Verificar integridad de datos
+- - Test 2: Verificar integridad de datos
 CREATE OR REPLACE FUNCTION test_data_integrity()
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -661,28 +736,28 @@ BEGIN
     FROM user_scores us
     LEFT JOIN users u ON us.user_id = u.id
     WHERE u.id IS NULL;
-    
+
     IF orphaned_scores > 0 THEN
         RAISE WARNING 'Scores huérfanos detectados: %', orphaned_scores;
         result := FALSE;
     END IF;
-    
+
     -- Verificar usuarios inválidos
     SELECT COUNT(*) INTO invalid_users
     FROM users
-    WHERE email IS NULL OR email = '' 
+    WHERE email IS NULL OR email = ''
     OR username IS NULL OR username = '';
-    
+
     IF invalid_users > 0 THEN
         RAISE WARNING 'Usuarios con datos inválidos: %', invalid_users;
         result := FALSE;
     END IF;
-    
+
     RETURN result;
 END;
 $$ LANGUAGE plpgsql;
 
--- Test 3: Performance de consultas críticas
+- - Test 3: Performance de consultas críticas
 CREATE OR REPLACE FUNCTION test_query_performance()
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -693,29 +768,31 @@ DECLARE
 BEGIN
     -- Test consulta de leaderboard
     start_time := clock_timestamp();
-    
-    PERFORM game_id, user_id, score 
-    FROM user_scores 
-    ORDER BY score DESC 
+
+    PERFORM game_id, user_id, score
+    FROM user_scores
+    ORDER BY score DESC
     LIMIT 100;
-    
+
     end_time := clock_timestamp();
     duration := end_time - start_time;
-    
+
     IF duration > INTERVAL '100 milliseconds' THEN
         RAISE WARNING 'Query de leaderboard lenta: %', duration;
         result := FALSE;
     END IF;
-    
+
     RETURN result;
 END;
 $$ LANGUAGE plpgsql;
+
 ```
 
 ### Validación Automática
 
 ```bash
 #!/bin/bash
+
 # validate-migration.sh - Script de validación post-migración
 
 set -e
@@ -725,15 +802,15 @@ echo "🔍 Iniciando validación de migración..."
 # Ejecutar tests de validación
 echo "📊 Ejecutando tests de integridad..."
 docker exec postgres psql -U postgres -d retrogame -c "
-    SELECT 
+    SELECT
         'Schema Integrity' as test_name,
         test_schema_integrity() as result;
-        
-    SELECT 
+
+    SELECT
         'Data Integrity' as test_name,
         test_data_integrity() as result;
-        
-    SELECT 
+
+    SELECT
         'Query Performance' as test_name,
         test_query_performance() as result;
 "
@@ -751,7 +828,7 @@ docker run --rm \
 # Verificar métricas de rendimiento
 echo "⚡ Verificando métricas de rendimiento..."
 docker exec postgres psql -U postgres -d retrogame -c "
-    SELECT 
+    SELECT
         schemaname,
         tablename,
         n_tup_ins as inserts,
@@ -767,6 +844,7 @@ docker exec postgres psql -U postgres -d retrogame -c "
 "
 
 echo "✅ Validación completada"
+
 ```
 
 ## Monitoreo y Alertas
@@ -774,11 +852,13 @@ echo "✅ Validación completada"
 ### Métricas de Migración
 
 ```sql
--- monitoring/migration_metrics.sql
--- Vistas para monitoreo de migraciones
+
+- - monitoring/migration_metrics.sql
+
+- - Vistas para monitoreo de migraciones
 
 CREATE OR REPLACE VIEW migration_status AS
-SELECT 
+SELECT
     installed_rank,
     version,
     description,
@@ -792,38 +872,40 @@ FROM flyway_schema_history
 ORDER BY installed_rank DESC;
 
 CREATE OR REPLACE VIEW database_health_check AS
-SELECT 
+SELECT
     'Tables' as metric_type,
     COUNT(*)::TEXT as value
-FROM information_schema.tables 
+FROM information_schema.tables
 WHERE table_schema = 'public'
 
 UNION ALL
 
-SELECT 
+SELECT
     'Indexes' as metric_type,
     COUNT(*)::TEXT as value
-FROM pg_indexes 
+FROM pg_indexes
 WHERE schemaname = 'public'
 
 UNION ALL
 
-SELECT 
+SELECT
     'Functions' as metric_type,
     COUNT(*)::TEXT as value
-FROM information_schema.routines 
+FROM information_schema.routines
 WHERE routine_schema = 'public'
 
 UNION ALL
 
-SELECT 
+SELECT
     'Database Size' as metric_type,
     pg_size_pretty(pg_database_size(current_database())) as value;
+
 ```
 
 ### Alertas CloudWatch
 
 ```yaml
+
 # cloudwatch-migration-alarms.yml
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'CloudWatch alarms para migraciones de base de datos'
@@ -873,6 +955,7 @@ Resources:
       EvaluationPeriods: 1
       Threshold: 600  # 10 minutos
       ComparisonOperator: GreaterThanThreshold
+
 ```
 
 <Warning>
@@ -884,27 +967,41 @@ Las migraciones de producción siempre deben ser ejecutadas durante ventanas de 
 ### Checklist Pre-Migración
 
 - [ ] **Backup completo** de la base de datos
+
 - [ ] **Tests exhaustivos** en staging
+
 - [ ] **Validación de rollback** preparada
+
 - [ ] **Ventana de mantenimiento** programada
+
 - [ ] **Equipo de respaldo** disponible
+
 - [ ] **Monitoreo activo** configurado
+
 - [ ] **Comunicación stakeholders** enviada
 
 ### Durante la Migración
 
 - [ ] **Logs en tiempo real** activos
+
 - [ ] **Métricas de performance** monitoreadas
+
 - [ ] **Rollback plan** listo para ejecutar
+
 - [ ] **Status updates** regulares
+
 - [ ] **Health checks** funcionando
 
 ### Post-Migración
 
 - [ ] **Validación completa** ejecutada
+
 - [ ] **Performance testing** completado
+
 - [ ] **Cleanup de temporales** realizado
+
 - [ ] **Documentación** actualizada
+
 - [ ] **Lessons learned** documentadas
 
 Esta guía consolidada proporciona un framework completo para manejar migraciones de base de datos de forma segura y eficiente en RetroGameCloud, desde el desarrollo hasta producción.
