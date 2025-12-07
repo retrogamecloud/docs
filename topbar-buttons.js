@@ -62,11 +62,10 @@
       playBtn.rel = 'noopener noreferrer';
       
       if (isMobile) {
-        // Mobile: icon only with gradient - ensure SVG is visible
-        playBtn.className = 'w-7 h-7 flex items-center justify-center rounded-lg';
-        playBtn.style.cssText = 'background: linear-gradient(135deg, #00ff88 0%, #00aa55 100%); padding: 6px;';
+        // Mobile: icon only without background, same style as GitHub
+        playBtn.className = 'text-gray-500 w-7 h-7 flex items-center justify-center hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300';
         playBtn.innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" style="width: 100%; height: 100%;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 16px; height: 16px;">
             <polygon points="8 5 19 12 8 19"></polygon>
           </svg>
         `;

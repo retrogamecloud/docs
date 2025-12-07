@@ -45,6 +45,14 @@ div:has(> img[alt*="Logo"]) {
     display: none !important;
   }
   
+  /* Force search button SVG to work with mask-image - very specific selector */
+  button[id="search-bar-entry-mobile"] svg[class*="bg-gray"] {
+    width: 1rem !important;
+    height: 1rem !important;
+    stroke: none !important;
+    fill: none !important;
+  }
+  
   /* Prevent button overlap in mobile header */
   .flex.lg\:hidden.items-center.gap-3 {
     gap: 0.5rem !important;
@@ -52,8 +60,8 @@ div:has(> img[alt*="Logo"]) {
   }
   
   /* Force all header buttons to be compact */
-  .flex.lg\:hidden.items-center.gap-3 button,
-  .flex.lg\:hidden.items-center.gap-3 a {
+  .flex.lg\:hidden.items-center.gap-3 > button:not(#search-bar-entry-mobile),
+  .flex.lg\:hidden.items-center.gap-3 > a {
     flex-shrink: 0 !important;
   }
   
@@ -795,12 +803,12 @@ header button[aria-label*="dark"]:hover {
   border-color: var(--border-light) !important;
 }
 
-header button svg {
+header button:not(#search-bar-entry-mobile) svg {
   stroke: var(--text-secondary) !important;
   transition: all 0.2s ease !important;
 }
 
-header button:hover svg {
+header button:not(#search-bar-entry-mobile):hover svg {
   stroke: var(--text-primary) !important;
 }
 
@@ -810,7 +818,7 @@ header button:hover svg {
   overflow: hidden !important;
 }
 
-header button,
+header button:not(#search-bar-entry-mobile),
 #page-context-menu button,
 #page-context-menu-button {
   background: transparent !important;
@@ -853,14 +861,14 @@ button#page-context-menu-button {
   justify-content: center !important;
 }
 
-header button:hover {
+header button:not(#search-bar-entry-mobile):hover {
   background: var(--bg-tertiary) !important;
   border-color: var(--border-light) !important;
   color: var(--text-primary) !important;
 }
 
 /* SVG icons in header */
-header svg,
+header svg:not(#search-bar-entry-mobile svg),
 #page-context-menu svg {
   stroke: var(--text-secondary) !important;
   width: 16px !important;
@@ -868,7 +876,7 @@ header svg,
   transition: all 0.2s ease !important;
 }
 
-header button:hover svg {
+header button:not(#search-bar-entry-mobile):hover svg {
   stroke: var(--text-primary) !important;
 }
 
