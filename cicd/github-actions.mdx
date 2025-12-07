@@ -627,6 +627,276 @@ Nunca elimina:
 - Branches con PRs abiertos
 - Branches con commits recientes (< 7 días)
 
+## Documentación: Intelligent Docs Review
+
+**Archivo**: `docs/.github/workflows/intelligent-docs-review.yml`
+
+Workflow automatizado para revisar cambios en la documentación utilizando **GitHub Copilot** para análisis inteligente de calidad, consistencia y precisión técnica.
+
+### Triggers
+
+```yaml
+on:
+  pull_request:
+    paths:
+      - '**.mdx'
+      - '**.md'
+      - 'docs.json'
+      - 'mint.json'
+```
+
+Se ejecuta automáticamente cuando:
+- Se crea o actualiza un Pull Request
+- Los cambios afectan archivos de documentación (`.mdx`, `.md`)
+- Se modifican archivos de configuración (`docs.json`, `mint.json`)
+
+### Proceso del Workflow
+
+#### 1. Setup y Checkout
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0  # Histórico completo para diff
+```
+
+Clona el repositorio completo incluyendo el historial para poder comparar cambios.
+
+#### 2. Análisis Inteligente con GitHub Copilot
+
+```yaml
+- uses: copilot-docs-review@v1
+  with:
+    review-type: 'comprehensive'
+    check-grammar: true
+    check-consistency: true
+    check-technical-accuracy: true
+```
+
+**GitHub Copilot analiza**:
+
+<AccordionGroup>
+  <Accordion title="Gramática y Estilo" icon="spell-check">
+    - Ortografía y gramática en español
+    - Consistencia en terminología técnica
+    - Claridad y legibilidad del contenido
+    - Uso correcto de mayúsculas y puntuación
+  </Accordion>
+
+  <Accordion title="Consistencia Técnica" icon="code">
+    - Comandos y ejemplos de código funcionales
+    - Rutas de archivos correctas
+    - Referencias a servicios existentes
+    - Coherencia con la arquitectura real
+  </Accordion>
+
+  <Accordion title="Estructura y Formato" icon="sitemap">
+    - Formato MDX válido (frontmatter, componentes)
+    - Jerarquía de headings correcta
+    - Links internos y externos válidos
+    - Bloques de código con sintaxis correcta
+  </Accordion>
+
+  <Accordion title="Precisión de Contenido" icon="bullseye">
+    - Información técnica actualizada
+    - Configuraciones y versiones correctas
+    - Procedimientos paso a paso completos
+    - Advertencias de seguridad relevantes
+  </Accordion>
+</AccordionGroup>
+
+#### 3. Generación de Comentarios
+
+El workflow genera comentarios automáticos en el PR con:
+
+**Formato del comentario**:
+```markdown
+## 📚 Intelligent Docs Review
+
+### ✅ Validaciones Exitosas
+- Sintaxis MDX válida
+- Links internos correctos
+- Estructura de archivos consistente
+
+### ⚠️ Sugerencias de Mejora
+- **archivo.mdx:45** - Considerar añadir ejemplo de código
+- **otro.mdx:23** - Verificar versión de dependencia mencionada
+
+### 🔍 Observaciones Técnicas
+- Detectado cambio en arquitectura (microservicios → backend unificado)
+- Actualizar referencias en archivos relacionados
+```
+
+#### 4. Status Check
+
+El workflow establece un status check en el PR:
+
+- ✅ **Success**: Documentación pasa todas las validaciones
+- ⚠️ **Warning**: Sugerencias opcionales detectadas
+- ❌ **Failure**: Errores críticos encontrados (sintaxis, links rotos)
+
+### Configuración del Workflow
+
+#### Secretos Requeridos
+
+```bash
+# GitHub token automático (no requiere configuración)
+GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+El token se proporciona automáticamente por GitHub Actions con permisos:
+- `pull-requests: write` - Comentar en PRs
+- `contents: read` - Leer archivos del repositorio
+
+#### Variables de Entorno
+
+```yaml
+env:
+  NODE_ENV: production
+  DOCS_PATH: ./
+  REVIEW_LEVEL: comprehensive  # basic | standard | comprehensive
+```
+
+### Niveles de Review
+
+<CardGroup cols={3}>
+  <Card title="Basic" icon="1">
+    **Validaciones rápidas**
+    - Sintaxis MDX
+    - Links rotos
+    - Formato básico
+    
+    **Tiempo**: ~30s
+  </Card>
+  
+  <Card title="Standard" icon="2">
+    **Análisis medio**
+    - Basic +
+    - Gramática
+    - Consistencia terminológica
+    
+    **Tiempo**: ~1-2 min
+  </Card>
+  
+  <Card title="Comprehensive" icon="3">
+    **Análisis completo**
+    - Standard +
+    - Precisión técnica
+    - Sugerencias de mejora
+    - Análisis contextual
+    
+    **Tiempo**: ~2-5 min
+  </Card>
+</CardGroup>
+
+### Ejemplo de Uso en PR
+
+1. **Desarrollador crea PR** con cambios en documentación:
+   ```bash
+   git checkout -b docs/update-architecture
+   # Editar architecture.mdx
+   git add architecture.mdx
+   git commit -m "docs: Actualizar diagrama de arquitectura"
+   git push origin docs/update-architecture
+   ```
+
+2. **Workflow se ejecuta automáticamente**:
+   - Analiza `architecture.mdx`
+   - Detecta cambios en diagramas Mermaid
+   - Valida sintaxis y referencias
+
+3. **Copilot comenta en el PR**:
+   ```markdown
+   ## 📚 Review: architecture.mdx
+   
+   ✅ Sintaxis Mermaid válida
+   ⚠️ Línea 45: Considerar añadir leyenda al diagrama
+   💡 Sugerencia: Mencionar alta disponibilidad multi-AZ
+   ```
+
+4. **Desarrollador responde**:
+   - Aplica sugerencias
+   - Push adicional → workflow re-ejecuta
+   - Aprobación final → merge
+
+### Beneficios
+
+<Card title="Ventajas del Intelligent Docs Review" icon="star">
+  - **Calidad Consistente**: Mantiene estándares en toda la documentación
+  - **Detección Temprana**: Identifica errores antes del merge
+  - **Ahorro de Tiempo**: Revisiones automatizadas liberan tiempo de reviewers
+  - **Aprendizaje Continuo**: Sugerencias educativas para el equipo
+  - **Documentación Actualizada**: Detecta información obsoleta automáticamente
+</Card>
+
+### Integración con Mintlify
+
+El workflow valida específicamente:
+
+```yaml
+mintlify-specific:
+  - Frontmatter válido (title, description, icon)
+  - SidebarTitle con numeración correcta (1.1, 2.3, etc.)
+  - Componentes Mintlify (<Card>, <Accordion>, <CodeGroup>)
+  - Configuración docs.json/mint.json válida
+  - Paths en navigation correctos
+```
+
+### Bypass del Review (casos especiales)
+
+Para saltarse el review en commits menores:
+
+```bash
+git commit -m "docs: Fix typo [skip review]"
+```
+
+Añadir `[skip review]` en el mensaje del commit omite el workflow.
+
+### Métricas y Monitoreo
+
+El workflow genera métricas accesibles en GitHub Actions:
+
+- **Success Rate**: % de PRs que pasan sin errores
+- **Average Review Time**: Tiempo promedio de análisis
+- **Common Issues**: Tipos de errores más frecuentes
+- **Files Modified**: Archivos más editados
+
+### Troubleshooting
+
+#### Review Falla Inesperadamente
+
+```bash
+# Verificar sintaxis MDX localmente
+npx prettier --check "**/*.mdx"
+
+# Validar frontmatter
+grep -r "^---$" *.mdx
+```
+
+#### Comentarios No Aparecen en PR
+
+Verificar permisos en `.github/workflows/intelligent-docs-review.yml`:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write  # Requerido para comentar
+```
+
+#### Análisis Muy Lento
+
+Reducir nivel de review:
+
+```yaml
+with:
+  review-level: 'standard'  # En vez de comprehensive
+```
+
+### Referencias
+
+- [GitHub Copilot for Docs](https://github.com/features/copilot)
+- [Mintlify Documentation](https://mintlify.com/docs)
+- [MDX Specification](https://mdxjs.com/)
+
 ## Mejores Prácticas
 
 ### Concurrency Control
