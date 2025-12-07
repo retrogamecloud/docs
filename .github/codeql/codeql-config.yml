@@ -7,14 +7,14 @@ name: "CodeQL Config for Docs Repository"
 queries:
   - uses: security-and-quality
 
-# Paths a ignorar durante el análisis
+# Paths a ignorar durante el análisis (sintaxis correcta de globs)
 paths-ignore:
-  - '**.mdx'
-  - '**.md'
-  - '**.json'
-  - 'logo/**'
-  - 'images/**'
+  - '**/*.mdx'
+  - '**/*.md'
+  - '**/*.json'
+  - 'logo/'
+  - 'images/'
 
 # Paths a incluir (solo workflows)
 paths:
-  - '.github/workflows/**'
+  - '.github/workflows/'
