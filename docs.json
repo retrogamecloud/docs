@@ -8,6 +8,13 @@
     "dark": "#00aa55"
   },
   "customCss": ["retro-theme.css"],
+  "analytics": {
+    "customScripts": [
+      {
+        "src": "/topbar-buttons.js"
+      }
+    ]
+  },
   "favicon": "/logo/favicon.svg",
   "logo": {
     "light": "/logo/light.svg",
