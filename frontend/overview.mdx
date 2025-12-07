@@ -1,28 +1,28 @@
 ---
-title: 4.1. Visión General del Frontend
-description: Interfaz de usuario retro para jugar juegos clásicos de DOS con arquitectura
-  de componentes moderna
+title: Frontend Overview
+sidebarTitle: 3.1. Frontend
+description: Interfaz de usuario retro para jugar juegos clásicos de DOS con HTML/CSS/JS vanilla
 icon: display
 ---
 
 ## Arquitectura del Frontend
 
-El frontend de Retro Game Hub es una aplicación web estática con diseño retro años 80, enfocada en proporcionar una experiencia nostálgica de terminal para jugar juegos clásicos de DOS.
+El frontend de Retro Game Hub es una aplicación web estática con diseño retro años 80, construida con HTML/CSS/JS vanilla, enfocada en proporcionar una experiencia nostálgica de terminal para jugar juegos clásicos de DOS.
 
 ### Características Principales
 
 <CardGroup cols={2}>
   <Card title="Diseño Retro" icon="terminal">
-    Estética de terminal CRT años 80
+    Estética de terminal CRT años 80 con CSS personalizado
   </Card>
   <Card title="js-dos Integration" icon="gamepad">
-    Emulador DOSBox en el navegador
+    Emulador DOSBox WebAssembly en el navegador
   </Card>
   <Card title="Autenticación JWT" icon="key">
-    Sistema seguro de login/registro
+    Sistema seguro de login/registro con tokens
   </Card>
   <Card title="Rankings en Vivo" icon="trophy">
-    Leaderboards actualizados en tiempo real
+    Leaderboards actualizados dinámicamente
   </Card>
 </CardGroup>
 
@@ -30,22 +30,22 @@ El frontend de Retro Game Hub es una aplicación web estática con diseño retro
 
 ```yaml
 Frontend:
-  - HTML5/CSS3/JavaScript vanilla
-  - js-dos 7.xx (DOSBox WebAssembly)
-  - Font: VT323 (Google Fonts)
-  - Sin frameworks: Máximo rendimiento
+  - HTML5/CSS3/JavaScript vanilla (sin frameworks)
+  - js-dos 7.x (DOSBox WebAssembly)
+  - Font: VT323 (Google Fonts) para estética retro
+  - Score tracker modular (score-tracker.js)
 
-Servidor:
+Servidor Frontend:
   - Node.js + Express
-  - Puerto: 3001
+  - Puerto: 8080
   - Sirve archivos estáticos
-  - Proxy a servicios backend
+  - Proxy requests a Kong Gateway
 
-CDN:
+CDN Local:
   - Nginx para juegos (.jsdos)
-  - CloudFront para distribución global
-  - Cache agresivo de assets
-
+  - Puerto: 80
+  - Sirve ROMs e imágenes
+  - Cache de assets estáticos
 ```
 
 ## Arquitectura de Componentes
@@ -53,31 +53,30 @@ CDN:
 ```mermaid
 graph TB
     subgraph "Frontend Architecture"
-        A[index.html - Landing Page] --> B[AuthManager]
-        A --> C[UIComponents]
+        A[index.html - Landing Page] --> B[AuthManager.js]
+        A --> C[retro.css]
 
-        D[games.html - Game Selection] --> E[GameGrid]
-        D --> F[GameFilters]
+        D[games.html - Game Selection] --> E[GameGrid Display]
+        D --> F[Game Metadata]
 
-        G[Game Player] --> H[js-dos Integration]
-        G --> I[ScoreTracker]
+        G[health.html - Game Player] --> H[js-dos Integration]
+        G --> I[score-tracker.js]
 
-        B --> J[API Client]
+        B --> J[API Client - Fetch]
         I --> J
         E --> J
 
-        J --> K[Auth Service API]
-        J --> L[Games Service API]
-        J --> M[Scores Service API]
+        J --> K[Kong Gateway :8000]
+        K --> L[Backend API :3000]
 
         H --> N[DOSBox WebAssembly]
-        H --> O[Game ROMs CDN]
+        H --> O[Nginx CDN :80]
     end
 
     subgraph "State Management"
-        P[LocalStorage]
-        Q[SessionStorage]
-        R[Memory State]
+        P[LocalStorage - JWT Tokens]
+        Q[SessionStorage - Game State]
+        R[Memory - UI State]
 
         B --> P
         I --> Q
@@ -85,14 +84,13 @@ graph TB
     end
 
     subgraph "Routing"
-        S[Hash-based Router]
-        T[Page Navigation]
-        U[Game Loading]
+        S[Page-based Navigation]
+        T[index.html → games.html]
+        U[games.html → health.html]
 
         S --> T
         S --> U
     end
-
 ```
 
 ## Flujo de Datos y API Calls

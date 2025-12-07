@@ -1,5 +1,6 @@
 ---
 title: 8.5. Troubleshooting
+sidebarTitle: 8.2. Troubleshooting Kubernetes
 description: Guía completa de resolución de problemas en RetroGameCloud con diagnósticos
   específicos y soluciones paso a paso
 icon: bug
@@ -494,8 +495,8 @@ kubectl logs -l app=score-service | grep ERROR
 kubectl port-forward svc/score-service 8081:8080 &
 curl -H "Authorization: Bearer <token>" http://localhost:8081/api/scores
 
-# Verificar Redis (si se usa para caching)
-kubectl exec -it <redis-pod> -- redis-cli
+# Verificar backend
+kubectl exec -it deployment/backend-deployment -n retrogame -- wget -O- http://localhost:3000/health
 
 # INFO memory
 
@@ -518,7 +519,7 @@ kubectl exec -it <postgres-pod> -- psql -U postgres -d retrogamecloud
 ```bash
 
 # 1. Limpiar cache si está corrupto
-kubectl exec -it <redis-pod> -- redis-cli FLUSHDB
+kubectl rollout restart deployment/backend-deployment -n retrogame
 
 # 2. Reiniciar servicio
 kubectl rollout restart deployment score-service
@@ -590,8 +591,8 @@ kubectl logs -l app=ranking-service --tail=50
 kubectl port-forward svc/ranking-service 8082:8080 &
 curl http://localhost:8082/api/ranking/game/123
 
-# Verificar cache Redis
-kubectl exec -it <redis-pod> -- redis-cli
+# Verificar estado del backend
+kubectl logs deployment/backend-deployment -n retrogame --tail=50
 
 # KEYS ranking:*
 

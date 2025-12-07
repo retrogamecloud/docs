@@ -1,5 +1,6 @@
 ---
 title: 4.3. Cluster EKS
+sidebarTitle: 5.3. Cluster EKS
 description: Configuración detallada del cluster de Kubernetes en AWS
 icon: dharmachakra
 ---
@@ -352,7 +353,7 @@ spec:
     spec:
       serviceAccountName: cluster-autoscaler
       containers:
-      - image: k8s.gcr.io/autoscaling/cluster-autoscaler:v1.34.0
+      - image: registry.k8s.io/autoscaling/cluster-autoscaler:v1.34.0
         name: cluster-autoscaler
         resources:
           limits:

@@ -1,0 +1,301 @@
+---
+title: Backend Unificado
+sidebarTitle: 2.1. Backend Unificado
+description: Servicio backend consolidado con autenticación, usuarios, puntuaciones y rankings
+icon: server
+---
+
+## Descripción
+
+Servicio backend **unificado** para RetroGameCloud que consolida toda la lógica de negocio en una única aplicación Node.js/Express. Este servicio reemplaza la arquitectura de microservicios anterior, proporcionando autenticación JWT, gestión de usuarios, catálogo de juegos, puntuaciones y rankings desde una sola base de datos PostgreSQL.
+
+<CardGroup cols={3}>
+  <Card title="API Unificada" icon="code">
+    Todos los endpoints en un solo servicio
+  </Card>
+  <Card title="PostgreSQL Único" icon="database">
+    Una sola base de datos para todo
+  </Card>
+  <Card title="JWT Bearer" icon="shield">
+    Autenticación con tokens seguros
+  </Card>
+</CardGroup>
+
+## Arquitectura del Sistema
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        FRONTEND                              │
+│                    (Puerto 8081)                             │
+│         HTML/CSS/JS + localStorage para tokens               │
+└──────────────────┬──────────────────────────────────────────┘
+                   │
+                   │ HTTP/REST
+                   ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    KONG API GATEWAY                          │
+│                      (Puerto 8000)                           │
+│         Enrutamiento + CORS + Rate Limiting                  │
+└──────────────────┬──────────────────────────────────────────┘
+                   │
+                   │ /api/auth/*
+                   │ /api/scores/*
+                   │ /api/rankings/*
+                   ▼
+┌─────────────────────────────────────────────────────────────┐
+│              BACKEND SERVICE (Puerto 3000)                   │
+│                    Node.js + Express                         │
+│                                                              │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │  • Autenticación (JWT + bcrypt)                    │    │
+│  │  • Gestión de Usuarios                             │    │
+│  │  • Registro de Puntuaciones                        │    │
+│  │  • Rankings y Estadísticas                         │    │
+│  │  • Catálogo de Juegos                              │    │
+│  └────────────────────────────────────────────────────┘    │
+└──────────────────┬──────────────────────────────────────────┘
+                   │
+                   │ PostgreSQL Protocol
+                   ▼
+┌─────────────────────────────────────────────────────────────┐
+│              POSTGRESQL DATABASE                             │
+│                   (Puerto 5432)                              │
+│                                                              │
+│  Tablas:                                                     │
+│  ├── users (autenticación y perfiles)                       │
+│  ├── games (catálogo de juegos)                             │
+│  ├── scores (puntuaciones actuales)                         │
+│  ├── score_history (historial de cambios)                   │
+│  ├── user_stats (estadísticas agregadas)                    │
+│  └── refresh_tokens (gestión de sesiones)                   │
+│                                                              │
+│  🔧 Auto-inicialización de esquema al primer arranque       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Stack Tecnológico
+
+| Componente | Versión | Descripción |
+|-----------|---------|-------------|
+| **Node.js** | 20 LTS Alpine | Runtime JavaScript |
+| **Express** | 4.18+ | Framework web |
+| **PostgreSQL** | 15 | Base de datos única |
+| **jsonwebtoken** | 9.0+ | JWT para autenticación |
+| **bcrypt** | 5.1+ | Hashing de contraseñas |
+| **pg** | 8.11+ | Cliente PostgreSQL |
+
+## Consolidación de Microservicios
+
+Este servicio **consolida** lo que antes eran 5 microservicios separados:
+
+| Antes (Microservicio) | Ahora (Módulo) |
+|-------|-------|
+| `auth-service` :3001 | `/src/services/authService.js` |
+| `user-service` :3002 | `/src/services/userService.js` |
+| `game-catalog-service` :3003 | `/src/services/gameService.js` |
+| `score-service` :3004 | `/src/services/scoreService.js` |
+| `ranking-service` :3005 | `/src/services/rankingService.js` |
+
+### Ventajas de la Consolidación
+
+<AccordionGroup>
+  <Accordion title="✅ Menor Complejidad Operacional">
+    - Un solo servicio para desplegar
+    - Sin orquestación compleja de microservicios
+    - Deployment simplificado
+    - Menos configuración de red
+  </Accordion>
+
+  <Accordion title="✅ Transacciones ACID">
+    - Operaciones atómicas entre tablas
+    - Consistencia garantizada
+    - Sin eventual consistency
+    - Rollbacks completos
+  </Accordion>
+
+  <Accordion title="✅ Reducción de Latencia">
+    - Sin llamadas HTTP entre servicios
+    - Todo en memoria (misma aplicación)
+    - Queries directos a PostgreSQL
+    - Menor overhead de red
+  </Accordion>
+
+  <Accordion title="✅ Base de Datos Única">
+    - Esquema coherente
+    - Foreign keys reales
+    - Joins eficientes
+    - Sin sincronización de datos
+  </Accordion>
+</AccordionGroup>
+
+## Estructura del Proyecto
+
+```
+backend/
+├── src/
+│   ├── index.js              # Entry point del servidor
+│   ├── config/
+│   │   └── database.js       # Conexión PostgreSQL
+│   ├── controllers/
+│   │   ├── authController.js    # Lógica de autenticación
+│   │   ├── scoreController.js   # Lógica de puntuaciones
+│   │   └── rankingController.js # Lógica de rankings
+│   ├── middleware/
+│   │   └── authMiddleware.js    # Verificación de JWT
+│   ├── repositories/
+│   │   ├── authRepository.js    # DB queries para users
+│   │   └── scoreRepository.js   # DB queries para scores
+│   ├── services/
+│   │   ├── authService.js       # Lógica de negocio auth
+│   │   ├── userService.js       # Lógica de negocio users
+│   │   ├── scoreService.js      # Lógica de negocio scores
+│   │   └── rankingService.js    # Lógica de negocio rankings
+│   └── routes/
+│       └── authRoutes.js        # Definición de rutas API
+├── tests/
+│   ├── auth.test.js
+│   ├── score.test.js
+│   └── ranking.test.js
+├── Dockerfile
+├── package.json
+└── .env.example
+```
+
+## Variables de Entorno
+
+```bash
+# Puerto del servicio
+PORT=3000
+
+# Base de datos PostgreSQL
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/retrogamedb
+
+# JWT Configuration
+JWT_SECRET=your-super-secret-key-change-in-production
+JWT_EXPIRATION=24h
+
+# Bcrypt
+BCRYPT_SALT_ROUNDS=10
+
+# Entorno
+NODE_ENV=production
+```
+
+## Endpoints Principales
+
+### Autenticación
+```
+POST   /api/auth/register     # Registro de usuario
+POST   /api/auth/login        # Login y obtención de JWT
+GET    /api/auth/verify       # Verificar token válido
+```
+
+### Usuarios
+```
+GET    /api/users/:id         # Obtener perfil de usuario
+PUT    /api/users/:id         # Actualizar perfil
+GET    /api/users/:id/stats   # Estadísticas de usuario
+```
+
+### Juegos
+```
+GET    /api/games             # Listar todos los juegos
+GET    /api/games/:id         # Detalles de un juego
+```
+
+### Puntuaciones
+```
+POST   /api/scores            # Guardar puntuación (requiere JWT)
+GET    /api/scores/user/:id   # Puntuaciones de un usuario
+GET    /api/scores/game/:id   # Puntuaciones de un juego
+```
+
+### Rankings
+```
+GET    /api/rankings/global   # Ranking global
+GET    /api/rankings/game/:id # Ranking por juego
+```
+
+## Despliegue
+
+### Docker Compose
+
+```yaml
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: retrogamedb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@postgres:5432/retrogamedb
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: 3000
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+```
+
+### Kubernetes
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: ghcr.io/retrogamecloud/backend:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: backend-secrets
+              key: database-url
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: backend-secrets
+              key: jwt-secret
+```
+
+## Próximos Pasos
+
+<CardGroup cols={2}>
+  <Card title="Esquema de Base de Datos" icon="database" href="/backend/database-schema">
+    Tablas, relaciones y migrations
+  </Card>
+  <Card title="API Endpoints" icon="code" href="/backend/api-endpoints">
+    Documentación completa de la API
+  </Card>
+  <Card title="Frontend" icon="browser" href="/frontend/overview">
+    Cómo consumir la API desde el frontend
+  </Card>
+  <Card title="Kong Gateway" icon="shield" href="/kong/overview">
+    Configuración del API Gateway
+  </Card>
+</CardGroup>

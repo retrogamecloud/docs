@@ -1,306 +1,771 @@
 ---
-title: 7.2. GitHub Actions
-description: Workflows automatizados de CI/CD con tests end-to-end y despliegue continuo
+title: GitHub Actions Workflows
+sidebarTitle: 7.2. GitHub Actions
+description: Pipelines CI/CD automatizados para build, test, deploy y rollback
 icon: github
 ---
 
-## Flujo Completo CI/CD
+## Visión General
 
-RetroGame Cloud implementa un pipeline completo de CI/CD que automatiza desde el commit hasta el despliegue en producción, incluyendo validación exhaustiva y tests end-to-end.
-
-```mermaid
-graph TB
-    A[📝 Commit to main] --> B[🔨 GitHub Actions Build]
-    B --> C[🧪 Unit Tests]
-    C --> D[🎭 E2E Tests]
-    D --> E[🔍 Security Scan]
-    E --> F[🐳 Build Docker Image]
-    F --> G[📦 Push to ECR]
-    G --> H[📋 Update K8s Manifests]
-    H --> I[🔄 ArgoCD Sync]
-    I --> J[🚀 Deploy to EKS]
-    J --> K[💨 Smoke Tests]
-    K --> L[✅ Production Ready]
-
-    C -->|❌ Fail| M[🚫 Stop Pipeline]
-    D -->|❌ Fail| M
-    E -->|🚨 Vulnerabilities| M
-    K -->|❌ Fail| N[🔄 Rollback]
-
-    style A fill:#e1f5fe
-    style L fill:#e8f5e8
-    style M fill:#ffebee
-    style N fill:#fff3e0
-
-```
-
-## Workflows Implementados
-
-<CardGroup cols={3}>
-  <Card title="docker-publish-and-update-k8s.yml" icon="docker">
-    **Pipeline principal CI/CD**
-
-    Build, test E2E, push Docker y actualizar manifiestos K8s
-
-    *En todos los servicios*
-  </Card>
-
-  <Card title="ci.yml" icon="check">
-    **Validación de manifiestos**
-
-    Tests y validación de YAMLs de Kubernetes
-
-    *Repo: kubernetes/*
-  </Card>
-
-  <Card title="e2e-tests.yml" icon="play">
-    **Tests End-to-End**
-
-    Validación de flujos completos de usuario
-
-    *Todos los repos de servicios*
-  </Card>
-
-  <Card title="update-docs-with-claude.yml" icon="robot">
-    **Actualización automática de docs**
-
-    Claude AI actualiza la wiki/documentación
-
-    *Repo: docs/*
-  </Card>
-
-  <Card title="deploy-mintlify-docs.yml" icon="book">
-    **Despliegue de documentación**
-
-    Deploy automático a Mintlify
-
-    *Repo: docs/*
-  </Card>
-
-  <Card title="terraform-plan.yml" icon="code">
-    **Validación de Terraform**
-
-    Plan y validación de infraestructura
-
-    *Repo: infrastructure/*
-  </Card>
-
-  <Card title="terraform-apply.yml" icon="rocket">
-    **Despliegue de infraestructura**
-
-    Apply de Terraform en producción
-
-    *Repo: infrastructure/*
-  </Card>
-</CardGroup>
-
-- --
-
-## Workflow Principal: Build & Deploy
-
-Este es el workflow que se ejecuta en cada repositorio de servicio (frontend, auth, game-catalog, score, ranking, user).
-
-### Estructura del Workflow
-
-<CodeGroup>
-
-```yaml Configuración
-name: Compilar, Publicar y Actualizar Kubernetes
-
-on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-  pull_request:
-    branches:
-      - main
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-
-env:
-  REGISTRY: 471112987599.dkr.ecr.us-east-1.amazonaws.com
-  IMAGE_NAME: retrogame-cloud-auth
-  AWS_REGION: us-east-1
-
-```
-
-```yaml Jobs - Build y Test
-jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-
-    - name: Install dependencies
-      run: npm ci
-
-    - name: Run unit tests
-      run: npm test
-
-    - name: Run E2E tests
-      run: npm run test:e2e
-
-```
-
-```yaml Security y Docker
-    - name: Run security audit
-      run: npm audit --audit-level high
-
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
-
-    - name: Login to Amazon ECR
-      uses: aws-actions/amazon-ecr-login@v2
-
-    - name: Build Docker image
-      run: |
-        docker build -t $REGISTRY/$IMAGE_NAME:$GITHUB_SHA .
-        docker build -t $REGISTRY/$IMAGE_NAME:latest .
-
-    - name: Push to ECR
-      run: |
-        docker push $REGISTRY/$IMAGE_NAME:$GITHUB_SHA
-        docker push $REGISTRY/$IMAGE_NAME:latest
-
-```
-
-```yaml Update Kubernetes
-    - name: Update Kubernetes manifests
-      run: |
-        git clone https://github.com/cuervolu/retrogame-cloud-kubernetes.git
-        cd retrogame-cloud-kubernetes
-
-        # Update image tag in deployment
-        sed -i "s|image: $REGISTRY/$IMAGE_NAME:.*|image: $REGISTRY/$IMAGE_NAME:$GITHUB_SHA|g" \
-          manifests/auth/deployment.yaml
-
-        # Commit and push changes
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add .
-        git commit -m "Update $IMAGE_NAME to $GITHUB_SHA" || exit 0
-        git push
-
-```
-
-</CodeGroup>
-
-### Características Clave
+Retro Game Hub utiliza **GitHub Actions** como sistema de CI/CD para automatizar el ciclo completo de desarrollo: linting, testing, build de imágenes Docker, publicación a registros, actualización de manifiestos Kubernetes y despliegues con ArgoCD.
 
 <CardGroup cols={2}>
-  <Card title="Tests Automáticos" icon="vial">
-    - Unit tests con Jest
-    - E2E tests con Playwright
-    - Security audit con npm
-    - Smoke tests post-deploy
+  <Card title="Backend CI/CD" icon="server">
+    Build, test, Docker publish y actualización automática de K8s
   </Card>
-
-  <Card title="Integración GitOps" icon="git-branch">
-    - Push automático a ECR
-    - Update de manifiestos K8s
-    - ArgoCD detecta cambios
-    - Deploy automático a EKS
+  <Card title="Frontend CI/CD" icon="display">
+    Linting, build, publicación y PR a repositorio kubernetes
   </Card>
-
-  <Card title="Seguridad" icon="shield-check">
-    - Scan de vulnerabilidades
-    - Secrets en GitHub Secrets
-    - RBAC en EKS
-    - Network policies
+  <Card title="Infrastructure Validation" icon="cloud">
+    Validación de Terraform, escaneo de seguridad Trivy
   </Card>
-
-  <Card title="Rollback Automático" icon="arrow-rotate-left">
-    - Health checks fallan → rollback
-    - Smoke tests fallan → rollback
-    - Preserva versión anterior
-    - Notificación a equipo
+  <Card title="Kubernetes CI" icon="dharmachakra">
+    Validación de manifiestos y análisis de seguridad
   </Card>
 </CardGroup>
 
-- --
+## Backend: CI/CD Pipeline Completo
 
-## Smoke Tests Post-Deploy
+**Archivo**: `backend/.github/workflows/docker-publish-and-update-k8s.yml`
 
-Después de cada despliegue, se ejecutan smoke tests para validar la funcionalidad básica:
+Pipeline completo para el backend unificado Node.js/Express con 8 jobs secuenciales:
 
-<CodeGroup>
+### Triggers
 
-```yaml Smoke Tests Workflow
-name: Post-Deploy Smoke Tests
-
+```yaml
 on:
-  repository_dispatch:
-    types: [deployment-complete]
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', '.gitignore']
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag personalizado (ej: v1.0.75)'
+        required: false
+```
+
+- **Push a main**: Despliega automáticamente cambios de código
+- **Tags semánticos**: Triggers en tags `v*.*.*` (ej: v1.0.75)
+- **Pull Requests**: Ejecuta tests y validación
+- **Manual dispatch**: Permite ejecución manual con tag customizado
+
+### Jobs del Pipeline
+
+<Steps>
+  <Step title="1. ESLint y Prettier">
+    **Job**: `eslint-prettier`
+    
+    Verificación de calidad de código:
+    - Ejecuta ESLint para detectar errores de sintaxis y estilo
+    - Ejecuta Prettier para verificar formato de código
+    - Continue-on-error: No bloquea el pipeline, solo advierte
+    - Genera resumen con warnings si hay problemas
+    
+    ```bash
+    npm ci
+    npm run lint
+    npm run format:check
+    ```
+  </Step>
+
+  <Step title="2. Detección de Cambios">
+    **Job**: `check-changes`
+    
+    Decide si ejecutar tests basándose en:
+    - Mensaje del commit contiene `[no-test]` o `[skip-tests]` → Skip tests
+    - Solo cambios en archivos `.md`, `.txt`, docs, `.gitignore` → Skip tests
+    - Cambios en código fuente → Ejecutar tests
+    
+    Output: `should-test=true/false`
+  </Step>
+
+  <Step title="3. Tests Unitarios">
+    **Job**: `tests`
+    
+    Ejecuta tests si `should-test=true`:
+    - Levanta PostgreSQL en Docker para tests de integración
+    - Instala dependencias con `npm ci`
+    - Ejecuta `npm test` con Jest
+    - Genera reporte de cobertura
+    - Sube resultados a GitHub Actions artifacts
+  </Step>
+
+  <Step title="4. Build Imagen Docker">
+    **Job**: `build-docker`
+    
+    Construye imagen Docker multi-stage:
+    - Usa Dockerfile con build stages optimizados
+    - Genera tag basado en SHA del commit o tag semántico
+    - Build con BuildKit para cache layers
+    - Tagging: `sha-abc1234`, `v1.0.75`, `latest`
+  </Step>
+
+  <Step title="5. Publicar a Registros">
+    **Job**: `publish`
+    
+    Publica imagen a dos registros:
+    - **Docker Hub**: `retrogamehub/backend:v1.0.75`
+    - **GitHub Container Registry**: `ghcr.io/retrogamecloud/backend:v1.0.75`
+    
+    Tags publicados:
+    - Tag específico (SHA o semántico)
+    - `latest` (solo en push a main)
+    
+    ```bash
+    docker push retrogamehub/backend:v1.0.75
+    docker push retrogamehub/backend:latest
+    docker push ghcr.io/retrogamecloud/backend:v1.0.75
+    ```
+  </Step>
+
+  <Step title="6. Actualizar Kubernetes">
+    **Job**: `update-k8s`
+    
+    Actualiza manifiestos de Kubernetes:
+    - Clona repositorio `retrogamecloud/kubernetes`
+    - Actualiza `02-backend.yaml` con nueva imagen
+    - Commit y push a `main` con `[skip ci]`
+    - ArgoCD detecta cambio y despliega automáticamente
+    
+    ```yaml
+    # Cambio en 02-backend.yaml
+    spec:
+      containers:
+      - name: backend
+        image: retrogamehub/backend:sha-abc1234
+    ```
+  </Step>
+
+  <Step title="7. Escaneo de Seguridad (Opcional)">
+    **Job**: `snyk-security`
+    
+    Escanea vulnerabilidades con Snyk (si `ENABLE_SNYK=true`):
+    - Escanea dependencias NPM
+    - Escanea imagen Docker construida
+    - Reporta vulnerabilidades críticas/altas
+    - No bloquea pipeline, solo informa
+  </Step>
+
+  <Step title="8. Notificaciones Slack (Opcional)">
+    **Job**: `slack-notification`
+    
+    Envía notificación a Slack con:
+    - Estado del pipeline (success/failure)
+    - Tag de imagen desplegada
+    - Link al workflow run
+    - Link al commit
+  </Step>
+</Steps>
+
+### Variables de Entorno
+
+```yaml
+env:
+  REGISTRY_GHCR: ghcr.io
+  REGISTRY_DOCKERHUB: docker.io
+  DOCKERHUB_ORG: retrogamehub
+  K8S_REPO: retrogamecloud/kubernetes
+  K8S_MANIFEST_FILE: 02-backend.yaml
+  ENABLE_SNYK: false
+  ENABLE_SLACK_NOTIFICATIONS: true
+```
+
+### Secrets Requeridos
+
+- `DOCKERHUB_USERNAME`: Usuario de Docker Hub
+- `DOCKERHUB_TOKEN`: Token de acceso Docker Hub
+- `GHCR_TOKEN`: Token GitHub Container Registry
+- `K8S_UPDATE_TOKEN`: PAT con permisos al repo kubernetes
+- `SNYK_TOKEN`: Token Snyk (opcional)
+- `SLACK_WEBHOOK_URL`: Webhook Slack (opcional)
+
+## Backend: Rollback Workflow
+
+**Archivo**: `backend/.github/workflows/rollback-backend.yml`
+
+Workflow manual para hacer rollback del backend a una versión anterior:
+
+### Ejecución Manual
+
+```yaml
+workflow_dispatch:
+  inputs:
+    version:
+      description: 'Versión o tag de imagen a restaurar (ej: v1.0.123 o sha-abc1234)'
+      required: true
+    reason:
+      description: 'Razón del rollback'
+      required: true
+    emergency:
+      description: 'Rollback de emergencia (auto-merge sin PR para ArgoCD)'
+      type: boolean
+      default: false
+```
+
+### Proceso de Rollback
+
+<Tabs>
+  <Tab title="Rollback Normal">
+    **Modo Normal** (`emergency=false`):
+    
+    1. Valida que la imagen existe en Docker Hub
+    2. Clona repositorio `kubernetes`
+    3. Crea branch `rollback/backend-v1.0.123-<timestamp>`
+    4. Actualiza `02-backend.yaml` con imagen anterior
+    5. Crea Pull Request para revisión
+    6. Requiere aprobación manual
+    7. Merge → ArgoCD despliega
+    
+    **Uso**: Rollbacks planificados con revisión
+  </Tab>
+  
+  <Tab title="Rollback Emergencia">
+    **Modo Emergencia** (`emergency=true`):
+    
+    1. Valida que la imagen existe en Docker Hub
+    2. Clona repositorio `kubernetes`
+    3. **Commit directo a main** sin PR
+    4. Push con mensaje `[skip ci]`
+    5. ArgoCD detecta y despliega inmediatamente (< 3 minutos)
+    
+    **Uso**: Incidentes críticos en producción
+    
+    <Warning>
+      **Cuidado**: El rollback de emergencia bypassa revisión. Usar solo en incidentes P0/P1.
+    </Warning>
+  </Tab>
+</Tabs>
+
+### Ejemplo de Uso
+
+```bash
+# Desde GitHub UI: Actions → Rollback Backend → Run workflow
+
+# Inputs:
+# version: v1.0.120
+# reason: "Bug crítico en autenticación JWT causa 500 errors"
+# emergency: true  # Para despliegue inmediato
+
+# Resultado: Backend restaurado a v1.0.120 en < 3 minutos
+```
+
+## Frontend: CI/CD Pipeline
+
+**Archivo**: `frontend/.github/workflows/cicd.yml`
+
+Pipeline similar al backend pero adaptado al frontend:
+
+### Diferencias Clave
+
+<CardGroup cols={2}>
+  <Card title="Linting Frontend" icon="code">
+    - ESLint para JavaScript vanilla
+    - Prettier para HTML/CSS/JS
+    - Validación de sintaxis
+  </Card>
+  
+  <Card title="Build Frontend" icon="box">
+    - Dockerfile optimizado para Node.js Express
+    - Archivos estáticos HTML/CSS/JS incluidos
+    - js-dos integrado en imagen
+  </Card>
+  
+  <Card title="Tests Frontend" icon="vial">
+    - Tests de servidor Express (si existen)
+    - Validación de estructura de archivos
+    - Sin tests de integración complejos
+  </Card>
+  
+  <Card title="Deploy Frontend" icon="rocket">
+    - Actualiza `04-frontend.yaml` en kubernetes repo
+    - Tag: `retrogamehub/frontend:sha-xyz`
+    - ArgoCD despliega automáticamente
+  </Card>
+</CardGroup>
+
+### Manifiesto Actualizado
+
+```yaml
+# 04-frontend.yaml
+spec:
+  containers:
+  - name: frontend
+    image: retrogamehub/frontend:sha-def5678
+    ports:
+    - containerPort: 8080
+```
+
+## Frontend: Rollback Workflow
+
+**Archivo**: `frontend/.github/workflows/rollback-frontend.yml`
+
+Workflow manual para rollback del frontend (solo modo PR, sin emergencia):
+
+### Ejecución Manual
+
+```yaml
+workflow_dispatch:
+  inputs:
+    version:
+      description: 'Versión o tag de imagen a restaurar (ej: v1.0.123 o sha-abc1234)'
+      required: true
+    reason:
+      description: 'Razón del rollback'
+      required: true
+```
+
+<Note>
+  **Diferencia con Backend**: El frontend NO tiene modo emergencia. Todos los rollbacks requieren PR y aprobación manual.
+</Note>
+
+### Proceso de Rollback
+
+1. Valida que la imagen existe en Docker Hub
+2. Clona repositorio `kubernetes`
+3. Actualiza **dos manifiestos**:
+   - `04-frontend.yaml` (manifiesto K8s base)
+   - `argocd/base/frontend-deployment.yaml` (manifiesto ArgoCD)
+4. Crea branch `rollback/frontend-v1.0.123-<timestamp>`
+5. Crea Pull Request con label `rollback` y `urgent`
+6. **Requiere aprobación manual**
+7. Merge → ArgoCD sincroniza y despliega
+
+### Ejemplo de Uso
+
+```bash
+# Desde GitHub UI: Actions → Rollback Frontend → Run workflow
+
+# Inputs:
+# version: v1.0.95
+# reason: "CSS roto en games.html, página no carga"
+
+# Resultado:
+# - PR creado automáticamente
+# - Requiere aprobación de mantenedor
+# - Una vez aprobado, ArgoCD despliega en ~3 minutos
+```
+
+### ¿Por qué No Tiene Modo Emergencia?
+
+El frontend es **menos crítico** que el backend:
+- No maneja autenticación
+- No tiene base de datos
+- Fallas no causan pérdida de datos
+- El tiempo de revisión (5-10 min) es aceptable
+
+## Kubernetes: Validación de Manifiestos
+
+**Archivo**: `kubernetes/.github/workflows/ci.yml`
+
+Pipeline para validar manifiestos YAML antes de despliegue:
+
+### Jobs de Validación
+
+<Steps>
+  <Step title="kubectl Dry-run Validation">
+    Valida sintaxis de manifiestos:
+    - Levanta cluster Kind local
+    - Ejecuta `kubectl apply --dry-run=client` en todos los YAMLs
+    - Detecta errores de sintaxis, campos inválidos, referencias rotas
+    
+    ```bash
+    kubectl apply --dry-run=client -f 02-backend.yaml
+    kubectl apply --dry-run=client -f 03-kong.yaml
+    kubectl apply --dry-run=client -f 04-frontend.yaml
+    ```
+  </Step>
+  
+  <Step title="Trivy Security Scan">
+    Escanea vulnerabilidades en configuraciones:
+    - Analiza manifiestos Kubernetes con Trivy
+    - Detecta: privileged containers, missing securityContext, exposed secrets
+    - Severidad: CRITICAL, HIGH, MEDIUM
+    - Sube resultados a GitHub Security
+    
+    ```bash
+    trivy config . --severity CRITICAL,HIGH,MEDIUM --format sarif
+    ```
+  </Step>
+  
+  <Step title="Kubesec Security Analysis">
+    Análisis de seguridad con Kubesec:
+    - Puntúa manifiestos (0-100)
+    - Detecta: runAsNonRoot missing, capabilities no dropeadas, readOnlyRootFilesystem
+    - Recomendaciones de hardening
+    
+    ```bash
+    kubesec scan 02-backend.yaml
+    ```
+  </Step>
+  
+  <Step title="Kustomize Build Test">
+    Valida overlays de Kustomize (si existen):
+    - Ejecuta `kustomize build` en directorios overlay
+    - Verifica que patches se aplican correctamente
+    - Detecta referencias rotas
+  </Step>
+</Steps>
+
+### GitHub Security Integration
+
+Los resultados de Trivy y Kubesec se suben a **GitHub Security** → **Code scanning alerts**:
+
+- Alertas automáticas en PRs
+- Dashboard centralizado de vulnerabilidades
+- Tracking de remediación
+
+## Infrastructure: Validación de Terraform
+
+**Archivo**: `infrastructure/.github/workflows/validate-and-scan.yml`
+
+Pipeline para validar código de Terraform:
+
+### Validación de Terraform
+
+<Steps>
+  <Step title="Terraform Format">
+    Verifica formato de código:
+    ```bash
+    terraform fmt -check -recursive
+    ```
+    Falla si archivos no están formateados correctamente
+  </Step>
+  
+  <Step title="Terraform Init">
+    Inicializa providers y módulos:
+    ```bash
+    cd terraform/bootstrap && terraform init
+    cd terraform/ && terraform init
+    ```
+  </Step>
+  
+  <Step title="Terraform Validate">
+    Valida sintaxis y referencias:
+    ```bash
+    terraform validate
+    ```
+    Detecta:
+    - Variables no declaradas
+    - Recursos con sintaxis incorrecta
+    - Referencias rotas entre módulos
+  </Step>
+  
+  <Step title="Terraform Plan">
+    Genera plan de cambios:
+    ```bash
+    terraform plan -out=tfplan
+    ```
+    Muestra qué recursos se crearán/modificarán/destruirán
+  </Step>
+</Steps>
+
+### Escaneo de Seguridad
+
+<CardGroup cols={2}>
+  <Card title="Trivy IaC Scan" icon="shield">
+    Escanea Terraform con Trivy:
+    - Detecta: security groups abiertos, IAM policies permisivas
+    - Analiza: módulos, variables, outputs
+    - Severidad: CRITICAL, HIGH, MEDIUM
+  </Card>
+  
+  <Card title="Checkov" icon="check">
+    Análisis de compliance:
+    - Verifica: encryption at rest, public access
+    - CIS AWS Foundations Benchmark
+    - HIPAA, PCI-DSS compliance checks
+  </Card>
+</CardGroup>
+
+### Validación de ArgoCD Manifests
+
+Valida configuraciones de ArgoCD:
+
+```bash
+# Validar applications
+kubectl apply --dry-run=client -f argocd/applications/backend.yaml
+
+# Validar estructura
+cat argocd/applications/backend.yaml | yq eval '.spec.source.repoURL'
+```
+
+## Docs: Revisión Inteligente de Documentación
+
+**Archivo**: `docs/.github/workflows/intelligent-docs-review.yml`
+
+Workflow automatizado que analiza y reorganiza la documentación usando IA:
+
+### Triggers
+
+```yaml
+on:
+  push:
+    branches: [main]
+    paths: ['**.mdx', 'docs.json']
+  schedule:
+    - cron: '0 0 * * *'  # Diariamente a medianoche
+  workflow_dispatch:
+```
+
+### Proceso Inteligente
+
+<Steps>
+  <Step title="1. Clonar Repos Fuente">
+    Clona todos los repositorios para análisis:
+    ```bash
+    git clone backend frontend kong infrastructure kubernetes
+    ```
+    Analiza READMEs, código, configuraciones
+  </Step>
+  
+  <Step title="2. Auto-fix Quick Wins">
+    Correcciones automáticas:
+    - Links rotos → actualizados
+    - Formato inconsistente → corregido
+    - Duplicados detectados → eliminados
+    
+    Script: `.github/scripts/auto-fix-quick-wins.py`
+  </Step>
+  
+  <Step title="3. Validar Links">
+    Valida todos los links:
+    - Links internos entre MDX files
+    - Links externos (HTTP status)
+    - Anchors dentro de documentos
+    
+    Script: `.github/scripts/validate-links.py`
+  </Step>
+  
+  <Step title="4. Análisis con Claude AI">
+    Usa Claude Sonnet 4 para analizar:
+    - Documentación obsoleta vs código real
+    - Gaps en la documentación
+    - Información incorrecta o desactualizada
+    - Estructura de navegación subóptima
+    
+    Script: `.github/scripts/intelligent-doc-analyzer.py`
+    
+    Output: `IMPROVEMENTS.md` con recomendaciones
+  </Step>
+  
+  <Step title="5. Reorganización Automática">
+    Reorganiza `docs.json`:
+    - Agrupa secciones relacionadas
+    - Elimina duplicados
+    - Optimiza orden de navegación
+    - Actualiza links automáticamente
+    
+    Script: `.github/scripts/reorganize-docs-structure.py`
+    
+    Output: `STRUCTURE_CHANGELOG.md`
+  </Step>
+  
+  <Step title="6. Crear Pull Request">
+    Crea PR con cambios:
+    - Branch: `auto/docs-improvements-<timestamp>`
+    - Incluye: fixes, reorganización, análisis
+    - Label: `documentation`, `automated`
+    - Asigna a mantenedores para revisión
+  </Step>
+</Steps>
+
+### Análisis Diario
+
+Cada noche a las 00:00 UTC:
+
+1. Workflow se ejecuta automáticamente
+2. Analiza todos los 88+ archivos MDX
+3. Compara con código fuente actual de repos
+4. Detecta discrepancias y genera PR si hay cambios
+5. Envía notificación si se encuentra contenido obsoleto
+
+### Profundidad de Análisis
+
+```yaml
+workflow_dispatch:
+  inputs:
+    analysis_depth:
+      options: [quick, full, deep]
+```
+
+- **Quick**: Solo links rotos y formato
+- **Full**: Análisis completo con IA (default)
+- **Deep**: Análisis exhaustivo + generación de diagramas
+
+## Kubernetes: Limpieza de Branches Antiguas
+
+**Archivo**: `kubernetes/.github/workflows/delete-old-branchs.yml`
+
+Limpia branches de PRs mergeadas automáticamente:
+
+### Ejecución
+
+```yaml
+on:
+  schedule:
+    - cron: '0 2 * * 0'  # Domingos a las 2 AM
+  workflow_dispatch:
+```
+
+### Proceso
+
+1. Lista todas las branches remotas
+2. Identifica branches de PRs mergeadas:
+   - `auto/*` (generadas por workflows)
+   - `rollback/*` (rollbacks completados)
+   - Branches con PR mergeado hace > 7 días
+3. Elimina branches automáticamente
+4. Genera reporte de branches eliminadas
+
+### Exclusiones
+
+Nunca elimina:
+- `main`, `develop`, `staging`
+- Branches con PRs abiertos
+- Branches con commits recientes (< 7 días)
+
+## Mejores Prácticas
+
+### Concurrency Control
+
+Todos los workflows usan concurrency para evitar ejecuciones paralelas:
+
+```yaml
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+```
+
+Si se hace push mientras el workflow corre, cancela el anterior.
+
+### Skip CI
+
+Para commits que no requieren CI:
+
+```bash
+git commit -m "docs: actualizar README [skip ci]"
+```
+
+Patrones que skipean CI:
+- `[skip ci]`, `[ci skip]`, `[no ci]`
+- Solo cambios en `**.md`, `.gitignore`
+
+### Secrets Management
+
+Secrets almacenados en **GitHub Settings → Secrets and variables → Actions**:
+
+- `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
+- `GHCR_TOKEN` (GitHub PAT con `write:packages`)
+- `K8S_UPDATE_TOKEN` (PAT con `repo` scope)
+- `PAT_TOKEN` (PAT para clonar repos privados)
+- `SNYK_TOKEN` (opcional)
+- `SLACK_WEBHOOK_URL` (opcional)
+
+### Permisos Mínimos
+
+Workflows usan **permisos mínimos** por defecto:
+
+```yaml
+permissions:
+  contents: read  # Solo lectura por defecto
 
 jobs:
-  smoke-tests:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Health Check API
-      run: |
-        curl -f https://api.retrogame-cloud.com/health || exit 1
-
-    - name: Test Authentication
-      run: |
-        response=$(curl -s -X POST https://api.retrogame-cloud.com/auth/login \
-          -H "Content-Type: application/json" \
-          -d '{"email":"test@example.com","password":"test123"}')
-        echo $response | jq '.token' || exit 1
-
-    - name: Test Game Catalog
-      run: |
-        curl -f https://api.retrogame-cloud.com/games || exit 1
-
+  build:
+    permissions:
+      contents: read
+      packages: write  # Solo cuando necesita publicar
 ```
 
-```bash Rollback on Failure
-    - name: Rollback on failure
-      if: failure()
-      run: |
-        # Trigger ArgoCD rollback
-        argocd app rollback retrogame-cloud --revision HEAD~1
+### Artifacts y Cache
 
-        # Notify team
-        curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
-          -d '{"text":"🚨 Smoke tests failed. Rolling back deployment."}'
+- **Cache NPM**: Acelera instalación de dependencias
+  ```yaml
+  uses: actions/setup-node@v6
+  with:
+    cache: 'npm'
+  ```
 
+- **Artifacts**: Resultados de tests, reportes de seguridad
+  ```yaml
+  uses: actions/upload-artifact@v4
+  with:
+    name: coverage-report
+    path: coverage/
+  ```
+
+## Monitoreo de Workflows
+
+### GitHub Actions Dashboard
+
+Accede a: `https://github.com/RetroGameCloud/<repo>/actions`
+
+- Ver estado de workflows en tiempo real
+- Logs detallados de cada job
+- Re-ejecutar workflows fallidos
+- Cancelar workflows en progreso
+
+### Notificaciones
+
+Configura notificaciones en **Settings → Notifications**:
+
+- Email en workflow failures
+- Slack/Discord webhooks
+- GitHub mobile app notifications
+
+### Métricas
+
+GitHub Actions proporciona métricas:
+
+- Duración promedio de workflows
+- Success rate
+- Uso de minutos de CI/CD
+- Concurrency limits
+
+## Troubleshooting
+
+### Workflow Falla en Tests
+
+```bash
+# Verificar logs
+gh run view <run-id> --log
+
+# Re-ejecutar solo job fallido
+gh run rerun <run-id> --job <job-id>
+
+# Ejecutar tests localmente
+npm test
 ```
 
-</CodeGroup>
+### Imagen Docker No Publica
 
-## Métricas y Monitoring
+Verificar:
+1. Secrets `DOCKERHUB_TOKEN` y `GHCR_TOKEN` válidos
+2. Permisos `packages: write` en job
+3. Nombre de imagen correcto (`retrogamehub/<service>`)
+4. Autenticación exitosa antes de push
 
-El pipeline reporta métricas clave para visibilidad del proceso:
+### Kubernetes Update Falla
 
-- **Build time**: Tiempo total del pipeline
+Verificar:
+1. `K8S_UPDATE_TOKEN` tiene scope `repo`
+2. Token no expirado
+3. Repositorio `kubernetes` existe
+4. Branch `main` no protegido (o bypass con PAT de admin)
 
-- **Test coverage**: Cobertura de tests unitarios y E2E
+### ArgoCD No Sincroniza
 
-- **Security score**: Resultado del análisis de vulnerabilidades
+Verificar:
+1. Commit tiene mensaje `[skip ci]` para evitar loops
+2. ArgoCD Application configurada con `automated: {}`
+3. Polling interval (default 3 minutos)
+4. Logs de ArgoCD: `kubectl logs -n argocd deployment/argocd-application-controller`
 
-- **Deploy frequency**: Frecuencia de despliegues exitosos
+## Referencias
 
-- **Mean time to recovery**: Tiempo promedio de recuperación ante fallos
-
-<Tip>
-Todas las métricas se envían a CloudWatch para análisis y alertas automáticas.
-</Tip>
+- [GitHub Actions Documentation](https://docs.github.com/en/actions)
+- [Docker Build Push Action](https://github.com/docker/build-push-action)
+- [Trivy Action](https://github.com/aquasecurity/trivy-action)
+- [ArgoCD GitOps](https://argo-cd.readthedocs.io/)

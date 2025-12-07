@@ -1,16 +1,16 @@
 ---
 title: 4.7. Monitoreo y Observabilidad
-description: Stack completo de observabilidad con Prometheus, Grafana, AlertManager
-  y CloudWatch. Golden Signals, correlación de trazas y debugging distribuido para
-  Retro Game Hub
+sidebarTitle: 5.8. Monitoreo y Observabilidad
+description: Stack completo de observabilidad con Prometheus y Grafana.
+  Golden Signals y dashboards pre-configurados para Retro Game Hub
 icon: chart-line
 ---
 
 ## 4.7.1. Stack de Monitoreo y Observabilidad
 
-Retro Game Hub implementa observabilidad completa siguiendo las mejores prácticas SRE con Golden Signals, logging estructurado y correlación distribuida para debugging eficiente.
+Retro Game Hub implementa observabilidad completa siguiendo las mejores prácticas SRE con Golden Signals y logging estructurado.
 
-<CardGroup cols={4}>
+<CardGroup cols={3}>
   <Card title="Prometheus" icon="chart-line">
     **Métricas**
 
@@ -20,19 +20,13 @@ Retro Game Hub implementa observabilidad completa siguiendo las mejores práctic
   <Card title="Grafana" icon="chart-area">
     **Visualización**
 
-    Dashboards SLI/SLO y análisis de correlación
-  </Card>
-
-  <Card title="CloudWatch" icon="cloud">
-    **AWS Native**
-
-    Logs estructurados centralizados con retention policies
+    Dashboards SLI/SLO y análisis de métricas
   </Card>
 
   <Card title="AlertManager" icon="bell">
-    **Notificaciones**
+    **Alertas**
 
-    Alertas inteligentes basadas en umbrales críticos
+    Notificaciones a Slack para eventos críticos
   </Card>
 </CardGroup>
 
@@ -40,7 +34,7 @@ Retro Game Hub implementa observabilidad completa siguiendo las mejores práctic
 
 ```mermaid
 graph TD
-    A[Route53 DNS<br/>monitoring.retrogamecloud.com] --> B[Application Load Balancer<br/>SSL/TLS Termination]
+    A[Route53 DNS<br/>retrogamehub.games] --> B[Application Load Balancer<br/>SSL/TLS Termination]
     B --> C[Grafana Pod<br/>:3000]
     B --> D[Prometheus Pod<br/>:9090]
     B --> E[AlertManager Pod<br/>:9093]
@@ -48,31 +42,11 @@ graph TD
     D --> F[Service Discovery]
     F --> G[node-exporter<br/>Node Metrics]
     F --> H[kube-state-metrics<br/>K8s Metrics]
-    F --> I[Application Pods<br/>/metrics endpoints]
+    F --> I[Backend Pods<br/>/metrics endpoints]
 
-    J[CloudWatch Logs] --> K[Log Groups - 30d retention]
-    K --> L[user-service logs]
-    K --> M[game-service logs]
-    K --> N[multiplayer-service logs]
-
+    D --> E
+    E --> J[Slack<br/>#notificacionesrgh]
     C --> D
-    E --> D
-    E --> O[SNS Topics]
-    O --> P[Email/Slack Alerts]
-
-    Q[CloudWatch Alarms] --> O
-    I --> J
-
-    R[Redis Exporter] --> D
-    S[Redis Cluster] --> R
-
-    T[Jaeger] --> U[Distributed Traces]
-    I --> T
-    V[Correlation Engine] --> J
-    V --> D
-    V --> T
-
-    style V fill:#f9f,stroke:#333,stroke-width:2px
 
 ```
 
@@ -81,7 +55,6 @@ graph TD
 ### 4.7.3.1. Latencia (Latency)
 
 ```yaml
-
 # prometheus-rules.yaml
 groups:
   - name: golden-signals-latency
@@ -349,9 +322,6 @@ const sdk = new NodeSDK({
   traceExporter: jaegerExporter,
   instrumentations: [
     getNodeAutoInstrumentations({
-      '@opentelemetry/instrumentation-redis': {
-        enabled: true,
-      },
       '@opentelemetry/instrumentation-http': {
         enabled: true,
         requestHook: (span, request) => {
@@ -458,7 +428,324 @@ module.exports = logger;
 
 ```
 
-## 4.7.7. Dashboards Grafana
+---
+
+## 4.7.7. AlertManager - Sistema de Alertas
+
+### 4.7.7.1. Descripción
+
+AlertManager gestiona las alertas generadas por Prometheus, agrupándolas, deduplicándolas y enviando notificaciones a **Slack** en el canal `#notificacionesrgh`.
+
+<CardGroup cols={3}>
+  <Card title="Agrupación" icon="layer-group">
+    Agrupa alertas similares para evitar spam
+  </Card>
+
+  <Card title="Inhibición" icon="ban">
+    Suprime alertas de baja severidad cuando hay críticas
+  </Card>
+
+  <Card title="Enrutamiento" icon="route">
+    Diferentes canales según severidad
+  </Card>
+</CardGroup>
+
+### 4.7.7.2. Configuración de Rutas
+
+```yaml
+route:
+  receiver: default
+  group_by: ['alertname', 'cluster', 'namespace', 'pod']
+  group_wait: 10s        # Espera antes de enviar grupo
+  group_interval: 5m     # Tiempo entre grupos
+  repeat_interval: 4h    # Tiempo antes de reenviar
+
+  routes:
+    # Alertas críticas - atención inmediata
+    - receiver: critical-alerts
+      match:
+        severity: critical
+      group_wait: 10s
+      repeat_interval: 1h
+    
+    # Alertas de advertencia
+    - receiver: warning-alerts
+      match:
+        severity: warning
+      group_wait: 30s
+      repeat_interval: 4h
+    
+    # Alertas de aplicación
+    - receiver: app-alerts
+      match_re:
+        namespace: retrogame
+      group_wait: 10s
+      repeat_interval: 2h
+```
+
+### 4.7.7.3. Receptores Slack
+
+#### Canal: `#notificacionesrgh`
+
+Todos los receptores envían notificaciones al mismo canal de Slack usando el **Slack Bot Token** almacenado en AWS Secrets Manager.
+
+<Tabs>
+  <Tab title="Critical Alerts">
+```yaml
+receivers:
+  - name: critical-alerts
+    slack_configs:
+      - api_url: https://slack.com/api/chat.postMessage
+        http_config:
+          authorization:
+            credentials: <SLACK_BOT_TOKEN>
+        channel: "#notificacionesrgh"
+        title: "🚨 [CRÍTICO] {{ .GroupLabels.alertname }}"
+        text: |
+          {{ range .Alerts }}
+          *Alerta:* {{ .Annotations.summary }}
+          *Descripción:* {{ .Annotations.description }}
+          *Namespace:* {{ .Labels.namespace }}
+          *Pod:* {{ .Labels.pod }}
+          {{ end }}
+        send_resolved: true
+        color: danger
+```
+
+**Ejemplo de mensaje:**
+> 🚨 **[CRÍTICO] PodCrashLooping**
+> 
+> **Alerta:** Backend pod está reiniciando constantemente
+> **Descripción:** Pod backend-deployment-abc123 ha reiniciado 5 veces en 5 minutos
+> **Namespace:** retrogame
+> **Pod:** backend-deployment-abc123
+  </Tab>
+
+  <Tab title="Warning Alerts">
+```yaml
+  - name: warning-alerts
+    slack_configs:
+      - api_url: https://slack.com/api/chat.postMessage
+        http_config:
+          authorization:
+            credentials: <SLACK_BOT_TOKEN>
+        channel: "#notificacionesrgh"
+        title: "⚠️ [ADVERTENCIA] {{ .GroupLabels.alertname }}"
+        text: |
+          {{ range .Alerts }}
+          *Alerta:* {{ .Annotations.summary }}
+          *Descripción:* {{ .Annotations.description }}
+          {{ end }}
+        send_resolved: true
+        color: warning
+```
+
+**Ejemplo de mensaje:**
+> ⚠️ **[ADVERTENCIA] HighMemoryUsage**
+> 
+> **Alerta:** Uso de memoria elevado
+> **Descripción:** Backend usando 85% de memoria asignada
+  </Tab>
+
+  <Tab title="App Alerts">
+```yaml
+  - name: app-alerts
+    slack_configs:
+      - api_url: https://slack.com/api/chat.postMessage
+        http_config:
+          authorization:
+            credentials: <SLACK_BOT_TOKEN>
+        channel: "#notificacionesrgh"
+        title: "🎮 [RETROGAME] {{ .GroupLabels.alertname }}"
+        text: |
+          {{ range .Alerts }}
+          *Servicio:* {{ .Labels.service }}
+          *Alerta:* {{ .Annotations.summary }}
+          *Descripción:* {{ .Annotations.description }}
+          {{ end }}
+        send_resolved: true
+        color: "#FF6B6B"
+```
+
+**Ejemplo de mensaje:**
+> 🎮 **[RETROGAME] HighErrorRate**
+> 
+> **Servicio:** backend
+> **Alerta:** Tasa de error elevada
+> **Descripción:** 5% de requests devuelven errores 5xx
+  </Tab>
+</Tabs>
+
+### 4.7.7.4. Reglas de Inhibición
+
+Las alertas críticas **suprimen** las de menor severidad para evitar ruido:
+
+```yaml
+inhibit_rules:
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: ['alertname', 'namespace', 'pod']
+```
+
+**Ejemplo:**
+- Si `PodCrashLooping` (critical) está activa
+- Se suprime `HighMemoryUsage` (warning) del mismo pod
+- **Razón:** El crash es más urgente que el uso de memoria
+
+### 4.7.7.5. Configuración de Secretos
+
+#### AWS Secrets Manager
+
+El Slack Bot Token se almacena en Secrets Manager:
+
+```bash
+# Crear secret
+aws secretsmanager create-secret \
+  --name prod/retrogame/slack-bot-token \
+  --description "Slack Bot Token para AlertManager" \
+  --secret-string "YOUR_SLACK_BOT_TOKEN_HERE"
+
+# Verificar
+aws secretsmanager get-secret-value \
+  --secret-id prod/retrogame/slack-bot-token \
+  --query SecretString \
+  --output text
+```
+
+#### Kubernetes Secret
+
+El token se sincroniza automáticamente desde Secrets Manager:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alertmanager-slack-webhook
+  namespace: monitoring
+type: Opaque
+data:
+  webhook_url: <base64-encoded-token>
+```
+
+### 4.7.7.6. Ejemplos de Alertas Comunes
+
+<AccordionGroup>
+  <Accordion title="🚨 PodCrashLooping (Critical)">
+    **Condición:**
+    ```promql
+    rate(kube_pod_container_status_restarts_total[15m]) > 0
+    ```
+
+    **Notificación Slack:**
+    > 🚨 **[CRÍTICO] PodCrashLooping**
+    > 
+    > **Alerta:** Pod reiniciando constantemente
+    > **Descripción:** backend-deployment-abc123 ha reiniciado 5 veces en 15 minutos
+    > **Namespace:** retrogame
+    > **Pod:** backend-deployment-abc123
+    > 
+    > **Acciones:**
+    > ```bash
+    > kubectl logs -n retrogame backend-deployment-abc123 --previous
+    > kubectl describe pod -n retrogame backend-deployment-abc123
+    > ```
+  </Accordion>
+
+  <Accordion title="⚠️ HighErrorRate (Warning)">
+    **Condición:**
+    ```promql
+    (
+      sum(rate(http_requests_total{status=~"5.."}[5m]))
+      /
+      sum(rate(http_requests_total[5m]))
+    ) > 0.05
+    ```
+
+    **Notificación Slack:**
+    > ⚠️ **[ADVERTENCIA] HighErrorRate**
+    > 
+    > **Alerta:** Tasa de error elevada en backend
+    > **Descripción:** 7.3% de requests devuelven errores 5xx
+    > 
+    > **Dashboard:** https://retrogamehub.games/grafana/d/errors
+  </Accordion>
+
+  <Accordion title="🎮 DatabaseConnectionPoolExhausted (App)">
+    **Condición:**
+    ```promql
+    pg_pool_waiting_count > 5
+    ```
+
+    **Notificación Slack:**
+    > 🎮 **[RETROGAME] DatabaseConnectionPoolExhausted**
+    > 
+    > **Servicio:** backend
+    > **Alerta:** Connection pool de PostgreSQL agotado
+    > **Descripción:** 8 conexiones esperando en cola
+    > 
+    > **Solución:** Escalar replicas o aumentar pool size
+  </Accordion>
+</AccordionGroup>
+
+### 4.7.7.7. Testing de Alertas
+
+#### Silenciar Alerta Temporalmente
+
+```bash
+# Silenciar por 1 hora
+curl -X POST https://retrogamehub.games/alertmanager/api/v1/silences \
+  -H "Content-Type: application/json" \
+  -d '{
+    "matchers": [
+      {"name": "alertname", "value": "HighMemoryUsage", "isRegex": false}
+    ],
+    "startsAt": "2025-12-07T10:00:00Z",
+    "endsAt": "2025-12-07T11:00:00Z",
+    "createdBy": "sre-team",
+    "comment": "Mantenimiento programado"
+  }'
+```
+
+#### Generar Alerta de Prueba
+
+```bash
+# Escalar backend a 0 replicas para generar alerta
+kubectl scale deployment/backend-deployment -n retrogame --replicas=0
+
+# Esperar ~2 minutos
+# AlertManager enviará: "🚨 [CRÍTICO] PodNotReady"
+
+# Restaurar
+kubectl scale deployment/backend-deployment -n retrogame --replicas=2
+```
+
+#### Verificar Estado
+
+```bash
+# Ver alertas activas
+curl https://retrogamehub.games/alertmanager/api/v1/alerts | jq
+
+# Ver silencios activos
+curl https://retrogamehub.games/alertmanager/api/v1/silences | jq
+```
+
+### 4.7.7.8. Acceso Web
+
+**URL:** `https://retrogamehub.games/alertmanager`
+
+**Autenticación:** OAuth2-Proxy (GitHub)
+
+**Funcionalidades:**
+- Ver alertas activas y resueltas
+- Crear silencios temporales
+- Ver configuración de rutas
+- Historial de notificaciones
+
+---
+
+## 4.7.8. Dashboards Grafana
 
 ### 4.7.7.1. Service Overview Dashboard
 

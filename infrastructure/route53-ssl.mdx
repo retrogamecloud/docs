@@ -1,5 +1,6 @@
 ---
 title: 6.6. Route53 y Certificados SSL
+sidebarTitle: 5.6. Route53 y SSL
 description: Configuración de DNS, dominios personalizados y certificados HTTPS
 icon: globe
 ---
@@ -584,7 +585,7 @@ resource "aws_cloudfront_distribution" "games_cdn" {
 ```
 
 <Warning>
-  Para usar custom domain en CloudFront, el certificado ACM **debe estar en us-east-1** (región de CloudFront).
+  Para usar custom domain en CloudFront, el certificado ACM **debe estar en us-east-1** (región global de CloudFront, independiente de la región eu-west-1 del resto de recursos).
 </Warning>
 
 ### Subdominio para API (opcional)

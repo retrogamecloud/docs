@@ -1,0 +1,515 @@
+---
+title: API Endpoints
+sidebarTitle: 2.3. API Endpoints
+description: Documentación completa de todos los endpoints del backend unificado
+icon: code
+---
+
+## Convenciones de la API
+
+<Info>
+Todos los endpoints están prefijados con `/api` y enrutados a través de Kong Gateway en el puerto 8000.
+</Info>
+
+### Autenticación
+
+Los endpoints protegidos requieren un header de autenticación JWT:
+
+```bash
+Authorization: Bearer <jwt_token>
+```
+
+### Códigos de Estado HTTP
+
+| Código | Significado |
+|--------|-------------|
+| 200 | Éxito |
+| 201 | Creado exitosamente |
+| 400 | Error en la petición (validación) |
+| 401 | No autenticado (token inválido/faltante) |
+| 403 | No autorizado (permisos insuficientes) |
+| 404 | Recurso no encontrado |
+| 409 | Conflicto (username/email duplicado) |
+| 500 | Error interno del servidor |
+
+## Autenticación
+
+### POST /api/auth/register
+
+Registra un nuevo usuario en la plataforma.
+
+**Request:**
+```json
+{
+  "username": "player1",
+  "email": "player1@example.com",
+  "password": "securePassword123"
+}
+```
+
+**Response (201):**
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": 1,
+    "username": "player1",
+    "email": "player1@example.com",
+    "display_name": "player1",
+    "created_at": "2024-12-07T10:30:00Z"
+  }
+}
+```
+
+**Errores:**
+- `400`: Validación fallida (username/password muy corto)
+- `409`: Username o email ya existe
+
+### POST /api/auth/login
+
+Inicia sesión y obtiene un JWT válido por 24 horas.
+
+**Request:**
+```json
+{
+  "username": "player1",
+  "password": "securePassword123"
+}
+```
+
+**Response (200):**
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": 1,
+    "username": "player1",
+    "display_name": "player1"
+  }
+}
+```
+
+**Errores:**
+- `400`: Credenciales faltantes
+- `401`: Credenciales incorrectas
+
+### GET /api/auth/verify
+
+Verifica si un token JWT es válido.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response (200):**
+```json
+{
+  "valid": true,
+  "user": {
+    "id": 1,
+    "username": "player1"
+  }
+}
+```
+
+**Errores:**
+- `401`: Token inválido o expirado
+
+## Usuarios
+
+### GET /api/users/:id
+
+Obtiene el perfil de un usuario.
+
+**Response (200):**
+```json
+{
+  "id": 1,
+  "username": "player1",
+  "display_name": "Player One",
+  "avatar_url": "https://cdn.retrogamehub.games/avatars/player1.png",
+  "created_at": "2024-12-01T10:00:00Z"
+}
+```
+
+### PUT /api/users/:id
+
+Actualiza el perfil del usuario autenticado.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Request:**
+```json
+{
+  "display_name": "Pro Gamer",
+  "email": "newmail@example.com",
+  "avatar_url": "https://cdn.retrogamehub.games/avatars/new.png"
+}
+```
+
+**Response (200):**
+```json
+{
+  "id": 1,
+  "username": "player1",
+  "display_name": "Pro Gamer",
+  "email": "newmail@example.com",
+  "avatar_url": "https://cdn.retrogamehub.games/avatars/new.png"
+}
+```
+
+**Errores:**
+- `401`: Token inválido
+- `403`: Intentando editar otro usuario
+
+### GET /api/users/:id/stats
+
+Obtiene estadísticas del usuario.
+
+**Response (200):**
+```json
+{
+  "user_id": 1,
+  "username": "player1",
+  "games_played": 15,
+  "total_score": 45000,
+  "avg_score": 3000,
+  "best_score": 12000,
+  "global_rank": 5
+}
+```
+
+## Juegos
+
+### GET /api/games
+
+Lista todos los juegos disponibles.
+
+**Query Parameters:**
+- `search` (string): Filtrar por nombre
+- `limit` (int): Cantidad de resultados (default: 50)
+- `offset` (int): Paginación (default: 0)
+
+**Response (200):**
+```json
+{
+  "games": [
+    {
+      "id": 1,
+      "name": "DOOM",
+      "description": "Shooter clásico de id Software",
+      "file_path": "/cdn/juegos/doom.jsdos",
+      "thumbnail_url": "/cdn/img/doom.png",
+      "downloads": 1523
+    },
+    {
+      "id": 2,
+      "name": "Duke Nukem 3D",
+      "description": "Acción en primera persona",
+      "file_path": "/cdn/juegos/duke3d.jsdos",
+      "thumbnail_url": "/cdn/img/duke3d.png",
+      "downloads": 987
+    }
+  ],
+  "total": 45,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+### GET /api/games/:id
+
+Obtiene detalles de un juego específico.
+
+**Response (200):**
+```json
+{
+  "id": 1,
+  "name": "DOOM",
+  "description": "Shooter clásico de id Software desarrollado en 1993",
+  "file_path": "/cdn/juegos/doom.jsdos",
+  "thumbnail_url": "/cdn/img/doom.png",
+  "downloads": 1523,
+  "created_at": "2024-11-01T00:00:00Z",
+  "top_score": 15000,
+  "total_players": 342
+}
+```
+
+## Puntuaciones
+
+### POST /api/scores
+
+Guarda o actualiza la puntuación del usuario en un juego (solo si es mayor que la anterior).
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Request:**
+```json
+{
+  "game_id": 1,
+  "score": 12000,
+  "metadata": {
+    "level": 8,
+    "time": "15:30",
+    "difficulty": "hard"
+  }
+}
+```
+
+**Response (201):**
+```json
+{
+  "id": 42,
+  "user_id": 1,
+  "game_id": 1,
+  "score": 12000,
+  "metadata": {
+    "level": 8,
+    "time": "15:30",
+    "difficulty": "hard"
+  },
+  "created_at": "2024-12-07T14:30:00Z",
+  "updated_at": "2024-12-07T14:30:00Z",
+  "improved": true,
+  "previous_score": 10000
+}
+```
+
+**Respuesta si NO mejoró:**
+```json
+{
+  "improved": false,
+  "current_score": 12000,
+  "submitted_score": 10000,
+  "message": "Score not improved"
+}
+```
+
+**Errores:**
+- `400`: game_id o score faltante
+- `401`: Token inválido
+- `404`: Juego no encontrado
+
+### GET /api/scores/user/:userId
+
+Obtiene todas las puntuaciones de un usuario.
+
+**Query Parameters:**
+- `limit` (int): Cantidad de resultados (default: 20)
+- `offset` (int): Paginación (default: 0)
+
+**Response (200):**
+```json
+{
+  "scores": [
+    {
+      "game_id": 1,
+      "game_name": "DOOM",
+      "score": 12000,
+      "updated_at": "2024-12-07T14:30:00Z",
+      "rank_in_game": 5
+    },
+    {
+      "game_id": 3,
+      "game_name": "Mortal Kombat",
+      "score": 8500,
+      "updated_at": "2024-12-06T18:00:00Z",
+      "rank_in_game": 12
+    }
+  ],
+  "total": 15
+}
+```
+
+### GET /api/scores/game/:gameId
+
+Obtiene todas las puntuaciones de un juego específico.
+
+**Query Parameters:**
+- `limit` (int): Cantidad de resultados (default: 100)
+- `offset` (int): Paginación (default: 0)
+
+**Response (200):**
+```json
+{
+  "game_id": 1,
+  "game_name": "DOOM",
+  "scores": [
+    {
+      "user_id": 42,
+      "username": "progamer",
+      "display_name": "Pro Gamer",
+      "score": 15000,
+      "updated_at": "2024-12-07T10:00:00Z"
+    },
+    {
+      "user_id": 1,
+      "username": "player1",
+      "display_name": "Player One",
+      "score": 12000,
+      "updated_at": "2024-12-07T14:30:00Z"
+    }
+  ],
+  "total": 342
+}
+```
+
+## Rankings
+
+### GET /api/rankings/global
+
+Obtiene el ranking global de todos los jugadores (suma de todas las puntuaciones).
+
+**Query Parameters:**
+- `limit` (int): Cantidad de jugadores (default: 100, max: 500)
+- `offset` (int): Paginación (default: 0)
+
+**Response (200):**
+```json
+{
+  "rankings": [
+    {
+      "position": 1,
+      "user_id": 42,
+      "username": "progamer",
+      "display_name": "Pro Gamer",
+      "total_score": 125000,
+      "games_played": 25,
+      "avg_score": 5000
+    },
+    {
+      "position": 2,
+      "user_id": 15,
+      "username": "retro_fan",
+      "display_name": "Retro Fan",
+      "total_score": 98000,
+      "games_played": 30,
+      "avg_score": 3266
+    }
+  ],
+  "total_players": 1523,
+  "limit": 100,
+  "offset": 0
+}
+```
+
+### GET /api/rankings/game/:gameId
+
+Obtiene el ranking (leaderboard) de un juego específico.
+
+**Query Parameters:**
+- `limit` (int): Cantidad de jugadores (default: 100, max: 500)
+- `offset` (int): Paginación (default: 0)
+
+**Response (200):**
+```json
+{
+  "game_id": 1,
+  "game_name": "DOOM",
+  "rankings": [
+    {
+      "position": 1,
+      "user_id": 42,
+      "username": "progamer",
+      "display_name": "Pro Gamer",
+      "score": 15000,
+      "updated_at": "2024-12-07T10:00:00Z"
+    },
+    {
+      "position": 2,
+      "user_id": 1,
+      "username": "player1",
+      "display_name": "Player One",
+      "score": 12000,
+      "updated_at": "2024-12-07T14:30:00Z"
+    }
+  ],
+  "total_players": 342
+}
+```
+
+## Health Check
+
+### GET /health
+
+Verifica el estado del servicio y la conexión a la base de datos.
+
+**Response (200):**
+```json
+{
+  "status": "healthy",
+  "timestamp": "2024-12-07T15:00:00Z",
+  "database": "connected",
+  "uptime": 86400
+}
+```
+
+## Ejemplos de Uso
+
+### Flujo Completo de Autenticación
+
+```bash
+# 1. Registro
+curl -X POST http://localhost:8000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "player1",
+    "email": "player1@example.com",
+    "password": "securePassword123"
+  }'
+
+# Respuesta: { "accessToken": "eyJ...", "user": {...} }
+
+# 2. Guardar el token
+TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+# 3. Enviar puntuación
+curl -X POST http://localhost:8000/api/scores \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "game_id": 1,
+    "score": 12000
+  }'
+
+# 4. Ver ranking del juego
+curl http://localhost:8000/api/rankings/game/1
+```
+
+### Obtener Perfil y Estadísticas
+
+```bash
+# Obtener perfil
+curl http://localhost:8000/api/users/1
+
+# Obtener estadísticas
+curl http://localhost:8000/api/users/1/stats
+
+# Obtener todas las puntuaciones del usuario
+curl http://localhost:8000/api/scores/user/1
+```
+
+## Próximos Pasos
+
+<CardGroup cols={2}>
+  <Card title="Backend Overview" icon="server" href="/backend/overview">
+    Arquitectura del backend unificado
+  </Card>
+  <Card title="Database Schema" icon="database" href="/backend/database-schema">
+    Esquema de base de datos PostgreSQL
+  </Card>
+  <Card title="Kong Gateway" icon="shield" href="/kong/overview">
+    Configuración del API Gateway
+  </Card>
+  <Card title="Frontend Integration" icon="browser" href="/frontend/overview">
+    Consumir la API desde el frontend
+  </Card>
+</CardGroup>

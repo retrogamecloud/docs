@@ -1,0 +1,976 @@
+---
+title: RDS PostgreSQL Database
+sidebarTitle: 5.4. RDS Database
+description: Configuración y administración de Amazon RDS PostgreSQL para producción
+icon: database
+---
+
+## Visión General
+
+Retro Game Hub utiliza **Amazon RDS PostgreSQL 15.x** como base de datos principal en producción. RDS proporciona una base de datos completamente gestionada con alta disponibilidad, backups automáticos y escalabilidad.
+
+<CardGroup cols={2}>
+  <Card title="PostgreSQL 15.x" icon="elephant">
+    Motor de base de datos relacional
+  </Card>
+  <Card title="Multi-AZ" icon="shield-halved">
+    Alta disponibilidad automática
+  </Card>
+  <Card title="Backups Diarios" icon="clock-rotate-left">
+    Retención de 7 días
+  </Card>
+  <Card title="Terraform Managed" icon="code">
+    Infraestructura como código
+  </Card>
+</CardGroup>
+
+## Arquitectura
+
+```mermaid
+graph TB
+    subgraph "VPC - eu-west-1"
+        subgraph "Private Subnets"
+            PrimaryDB[(RDS Primary<br/>eu-west-1a)]
+            StandbyDB[(RDS Standby<br/>eu-west-1b)]
+        end
+        
+        subgraph "Public Subnets"
+            EKS[EKS Nodes]
+        end
+        
+        SG1[Security Group<br/>RDS]
+        SG2[Security Group<br/>EKS]
+    end
+    
+    EKS -->|PostgreSQL 5432| SG1
+    SG1 --> PrimaryDB
+    PrimaryDB -.->|Sincronización| StandbyDB
+    
+    PrimaryDB -->|Backup| S3[(S3 Backups)]
+    
+    style PrimaryDB fill:#4CAF50
+    style StandbyDB fill:#FFC107
+    style S3 fill:#2196F3
+```
+
+**Características**:
+- **Instancia**: db.t3.medium (2 vCPU, 4 GB RAM)
+- **Almacenamiento**: 100 GB gp3 (3000 IOPS baseline)
+- **Multi-AZ**: Failover automático a standby
+- **Encriptación**: At-rest (KMS) y in-transit (SSL/TLS)
+- **Backups**: Diarios con ventana de mantenimiento
+
+## Configuración Terraform
+
+### Módulo RDS
+
+**Archivo**: `infrastructure/terraform/modules/rds/main.tf`
+
+```hcl
+resource "aws_db_subnet_group" "rds" {
+  name       = "${var.project_name}-rds-subnet-group"
+  subnet_ids = var.private_subnet_ids
+
+  tags = {
+    Name        = "${var.project_name}-rds-subnet-group"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+resource "aws_security_group" "rds" {
+  name_prefix = "${var.project_name}-rds-"
+  vpc_id      = var.vpc_id
+  description = "Security group for RDS PostgreSQL"
+
+  ingress {
+    description     = "PostgreSQL from EKS"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [var.eks_security_group_id]
+  }
+
+  egress {
+    description = "Allow all outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "${var.project_name}-rds-sg"
+    Environment = var.environment
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_db_instance" "postgresql" {
+  identifier     = "${var.project_name}-postgres"
+  engine         = "postgres"
+  engine_version = "15.4"
+  instance_class = var.db_instance_class
+
+  # Storage
+  allocated_storage     = var.db_allocated_storage
+  max_allocated_storage = var.db_max_allocated_storage
+  storage_type          = "gp3"
+  storage_encrypted     = true
+  kms_key_id            = aws_kms_key.rds.arn
+
+  # Database
+  db_name  = var.db_name
+  username = var.db_username
+  password = var.db_password
+  port     = 5432
+
+  # Network
+  db_subnet_group_name   = aws_db_subnet_group.rds.name
+  vpc_security_group_ids = [aws_security_group.rds.id]
+  publicly_accessible    = false
+
+  # High Availability
+  multi_az               = var.multi_az
+  availability_zone      = var.multi_az ? null : var.availability_zone
+
+  # Backup
+  backup_retention_period = var.backup_retention_period
+  backup_window           = var.backup_window
+  maintenance_window      = var.maintenance_window
+  copy_tags_to_snapshot   = true
+  skip_final_snapshot     = false
+  final_snapshot_identifier = "${var.project_name}-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
+
+  # Performance Insights
+  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
+  performance_insights_enabled    = true
+  performance_insights_retention_period = 7
+
+  # Monitoring
+  monitoring_interval = 60
+  monitoring_role_arn = aws_iam_role.rds_monitoring.arn
+
+  # Parameters
+  parameter_group_name = aws_db_parameter_group.postgresql.name
+
+  # Deletion protection
+  deletion_protection = var.deletion_protection
+
+  tags = {
+    Name        = "${var.project_name}-postgres"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+resource "aws_db_parameter_group" "postgresql" {
+  name   = "${var.project_name}-postgres15-params"
+  family = "postgres15"
+
+  parameter {
+    name  = "shared_preload_libraries"
+    value = "pg_stat_statements"
+  }
+
+  parameter {
+    name  = "log_statement"
+    value = "all"
+    apply_method = "pending-reboot"
+  }
+
+  parameter {
+    name  = "log_min_duration_statement"
+    value = "1000"  # Log queries > 1s
+  }
+
+  parameter {
+    name  = "max_connections"
+    value = "200"
+  }
+
+  tags = {
+    Name        = "${var.project_name}-postgres-params"
+    Environment = var.environment
+  }
+}
+
+resource "aws_kms_key" "rds" {
+  description             = "KMS key for RDS encryption"
+  deletion_window_in_days = 10
+  enable_key_rotation     = true
+
+  tags = {
+    Name        = "${var.project_name}-rds-kms"
+    Environment = var.environment
+  }
+}
+
+resource "aws_kms_alias" "rds" {
+  name          = "alias/${var.project_name}-rds"
+  target_key_id = aws_kms_key.rds.key_id
+}
+
+# IAM Role for Enhanced Monitoring
+resource "aws_iam_role" "rds_monitoring" {
+  name = "${var.project_name}-rds-monitoring-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "monitoring.rds.amazonaws.com"
+      }
+    }]
+  })
+
+  tags = {
+    Name        = "${var.project_name}-rds-monitoring"
+    Environment = var.environment
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "rds_monitoring" {
+  role       = aws_iam_role.rds_monitoring.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
+}
+```
+
+### Variables
+
+**Archivo**: `infrastructure/terraform/modules/rds/variables.tf`
+
+```hcl
+variable "project_name" {
+  description = "Project name"
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment (prod, staging, dev)"
+  type        = string
+}
+
+variable "vpc_id" {
+  description = "VPC ID"
+  type        = string
+}
+
+variable "private_subnet_ids" {
+  description = "Private subnet IDs for RDS"
+  type        = list(string)
+}
+
+variable "eks_security_group_id" {
+  description = "EKS security group ID for access"
+  type        = string
+}
+
+variable "db_instance_class" {
+  description = "RDS instance class"
+  type        = string
+  default     = "db.t3.medium"
+}
+
+variable "db_allocated_storage" {
+  description = "Initial storage size in GB"
+  type        = number
+  default     = 100
+}
+
+variable "db_max_allocated_storage" {
+  description = "Maximum storage for autoscaling"
+  type        = number
+  default     = 500
+}
+
+variable "db_name" {
+  description = "Database name"
+  type        = string
+  default     = "retrogamehub"
+}
+
+variable "db_username" {
+  description = "Master username"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_password" {
+  description = "Master password"
+  type        = string
+  sensitive   = true
+}
+
+variable "multi_az" {
+  description = "Enable Multi-AZ deployment"
+  type        = bool
+  default     = true
+}
+
+variable "backup_retention_period" {
+  description = "Backup retention in days"
+  type        = number
+  default     = 7
+}
+
+variable "backup_window" {
+  description = "Backup window (UTC)"
+  type        = string
+  default     = "03:00-04:00"
+}
+
+variable "maintenance_window" {
+  description = "Maintenance window (UTC)"
+  type        = string
+  default     = "sun:04:00-sun:05:00"
+}
+
+variable "deletion_protection" {
+  description = "Enable deletion protection"
+  type        = bool
+  default     = true
+}
+```
+
+### Outputs
+
+**Archivo**: `infrastructure/terraform/modules/rds/outputs.tf`
+
+```hcl
+output "db_instance_id" {
+  description = "RDS instance ID"
+  value       = aws_db_instance.postgresql.id
+}
+
+output "db_endpoint" {
+  description = "RDS instance endpoint"
+  value       = aws_db_instance.postgresql.endpoint
+}
+
+output "db_address" {
+  description = "RDS instance address"
+  value       = aws_db_instance.postgresql.address
+}
+
+output "db_port" {
+  description = "RDS instance port"
+  value       = aws_db_instance.postgresql.port
+}
+
+output "db_name" {
+  description = "Database name"
+  value       = aws_db_instance.postgresql.db_name
+}
+
+output "security_group_id" {
+  description = "RDS security group ID"
+  value       = aws_security_group.rds.id
+}
+
+output "connection_string" {
+  description = "Database connection string (without password)"
+  value       = "postgresql://${var.db_username}@${aws_db_instance.postgresql.address}:${aws_db_instance.postgresql.port}/${aws_db_instance.postgresql.db_name}"
+  sensitive   = true
+}
+```
+
+## Despliegue
+
+### 1. Configurar Secrets
+
+Crear archivo `terraform.tfvars`:
+
+```hcl
+# Database credentials
+db_username = "admin_retrogamehub"
+db_password = "CHANGE-ME-STRONG-PASSWORD-32-CHARS"
+
+# Instance configuration
+db_instance_class       = "db.t3.medium"
+db_allocated_storage    = 100
+db_max_allocated_storage = 500
+multi_az                = true
+deletion_protection     = true
+
+# Backup configuration
+backup_retention_period = 7
+backup_window           = "03:00-04:00"        # UTC
+maintenance_window      = "sun:04:00-sun:05:00" # UTC
+```
+
+**⚠️ IMPORTANTE**: NO commitear `terraform.tfvars` a Git. Agregarlo a `.gitignore`.
+
+### 2. Generar Password Seguro
+
+```bash
+# Generar password de 32 caracteres
+openssl rand -base64 32
+
+# O con pwgen
+pwgen -s 32 1
+
+# Guardar en tfvars
+echo "db_password = \"$(openssl rand -base64 32)\"" >> terraform.tfvars
+```
+
+### 3. Desplegar RDS
+
+```bash
+cd infrastructure/terraform
+
+# Inicializar
+terraform init
+
+# Planificar
+terraform plan -out=tfplan
+
+# Aplicar
+terraform apply tfplan
+```
+
+**Tiempo de despliegue**: ~15-20 minutos para instancia Multi-AZ.
+
+### 4. Obtener Endpoint
+
+```bash
+# Ver outputs
+terraform output
+
+# Endpoint específico
+terraform output db_endpoint
+# retrogamehub-postgres.c9abc123xyz.eu-west-1.rds.amazonaws.com:5432
+
+# Connection string
+terraform output -raw connection_string
+```
+
+## Inicializar Base de Datos
+
+### 1. Conectar desde EKS
+
+Crear pod temporal con psql:
+
+```bash
+kubectl run psql-client \
+  --rm -it \
+  --image=postgres:15-alpine \
+  --restart=Never \
+  -- psql "postgresql://admin_retrogamehub:PASSWORD@ENDPOINT:5432/retrogamehub"
+```
+
+### 2. Ejecutar Script de Inicialización
+
+```sql
+-- Crear extensiones
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";
+
+-- Crear tablas
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  username VARCHAR(50) UNIQUE NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255),
+  github_id VARCHAR(100) UNIQUE,
+  avatar_url VARCHAR(500),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE games (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  slug VARCHAR(100) UNIQUE NOT NULL,
+  description TEXT,
+  image_url VARCHAR(500),
+  file_url VARCHAR(500) NOT NULL,
+  release_year INTEGER,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE scores (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  score INTEGER NOT NULL CHECK (score >= 0),
+  timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  metadata JSONB
+);
+
+CREATE TABLE score_history (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  score INTEGER NOT NULL,
+  timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE user_stats (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  total_games_played INTEGER DEFAULT 0,
+  total_score BIGINT DEFAULT 0,
+  avg_score DECIMAL(10,2) DEFAULT 0,
+  highest_score INTEGER DEFAULT 0,
+  last_played_at TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE refresh_tokens (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token VARCHAR(500) NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Crear índices
+CREATE INDEX idx_scores_user_id ON scores(user_id);
+CREATE INDEX idx_scores_game_id ON scores(game_id);
+CREATE INDEX idx_scores_timestamp ON scores(timestamp DESC);
+CREATE INDEX idx_score_history_user_game ON score_history(user_id, game_id);
+CREATE INDEX idx_user_stats_total_score ON user_stats(total_score DESC);
+CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
+CREATE INDEX idx_refresh_tokens_expires ON refresh_tokens(expires_at);
+
+-- Crear triggers
+CREATE OR REPLACE FUNCTION update_user_stats()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO user_stats (user_id, total_games_played, total_score, avg_score, highest_score, last_played_at, updated_at)
+  VALUES (
+    NEW.user_id,
+    1,
+    NEW.score,
+    NEW.score,
+    NEW.score,
+    NEW.timestamp,
+    CURRENT_TIMESTAMP
+  )
+  ON CONFLICT (user_id) DO UPDATE SET
+    total_games_played = user_stats.total_games_played + 1,
+    total_score = user_stats.total_score + NEW.score,
+    avg_score = (user_stats.total_score + NEW.score) / (user_stats.total_games_played + 1),
+    highest_score = GREATEST(user_stats.highest_score, NEW.score),
+    last_played_at = NEW.timestamp,
+    updated_at = CURRENT_TIMESTAMP;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_user_stats
+AFTER INSERT ON scores
+FOR EACH ROW EXECUTE FUNCTION update_user_stats();
+
+-- Insertar datos iniciales
+INSERT INTO games (name, slug, description, image_url, file_url, release_year) VALUES
+('DOOM', 'doom', 'Classic FPS', '/img/doom.jpg', '/juegos/doom.jsdos', 1993),
+('Wolfenstein 3D', 'wolf', 'First 3D shooter', '/img/wolf.jpg', '/juegos/wolf.jsdos', 1992),
+('Duke Nukem 3D', 'duke3d', 'Action packed FPS', '/img/duke3d.jpg', '/juegos/duke3d.jsdos', 1996),
+('Mortal Kombat', 'mortalkombat', 'Fighting classic', '/img/mk.jpg', '/juegos/mortalkombat.jsdos', 1992),
+('Street Fighter II', 'streetfighter2', 'Fighting legend', '/img/sf2.jpg', '/juegos/streetfighter2.jsdos', 1991),
+('Tetris', 'tetris', 'Puzzle game', '/img/tetris.jpg', '/juegos/tetris.jsdos', 1984),
+('The Lost Vikings', 'lostvikings', 'Puzzle platformer', '/img/vikings.jpg', '/juegos/lostvikings.jsdos', 1992),
+('Dangerous Dave 2', 'dangerousdave2', 'Platform game', '/img/dave.jpg', '/juegos/dangerousdave2.jsdos', 1990),
+('Digger', 'digger', 'Arcade classic', '/img/digger.jpg', '/juegos/digger.jsdos', 1983),
+('Heroes of Might and Magic II', 'heroesofmightandmagic2', 'Turn-based strategy', '/img/homm2.jpg', '/juegos/heroesofmightandmagic2.jsdos', 1996);
+
+\q
+```
+
+O desde archivo:
+
+```bash
+# Desde local (requiere túnel)
+psql -h ENDPOINT -U admin_retrogamehub -d retrogamehub -f init.sql
+
+# Desde pod
+kubectl cp init.sql psql-client:/tmp/init.sql
+kubectl exec -it psql-client -- psql "postgresql://..." -f /tmp/init.sql
+```
+
+## Conexión desde Backend
+
+### Kubernetes Secret
+
+Crear secret con credenciales:
+
+```bash
+kubectl create secret generic rds-credentials \
+  --from-literal=DB_HOST="retrogamehub-postgres.c9abc123xyz.eu-west-1.rds.amazonaws.com" \
+  --from-literal=DB_PORT="5432" \
+  --from-literal=DB_NAME="retrogamehub" \
+  --from-literal=DB_USER="admin_retrogamehub" \
+  --from-literal=DB_PASSWORD="YOUR-STRONG-PASSWORD" \
+  --namespace=default
+```
+
+### Deployment Backend
+
+Referenciar secret en deployment:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  template:
+    spec:
+      containers:
+      - name: backend
+        image: retrogamecloud/backend:latest
+        env:
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: rds-credentials
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: rds-credentials
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: rds-credentials
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: rds-credentials
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rds-credentials
+              key: DB_PASSWORD
+        - name: DB_SSL
+          value: "true"
+```
+
+### Código Backend
+
+**Archivo**: `backend/src/config/database.js`
+
+```javascript
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT || 5432,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  ssl: process.env.DB_SSL === 'true' ? {
+    rejectUnauthorized: true,
+    ca: fs.readFileSync('./rds-ca-2019-root.pem').toString() // AWS RDS CA cert
+  } : false,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
+
+module.exports = pool;
+```
+
+## Monitoreo
+
+### CloudWatch Metrics
+
+RDS exporta métricas automáticamente:
+
+- **CPUUtilization**: Uso de CPU
+- **DatabaseConnections**: Conexiones activas
+- **FreeableMemory**: Memoria disponible
+- **ReadLatency / WriteLatency**: Latencia I/O
+- **ReadThroughput / WriteThroughput**: Throughput I/O
+- **FreeStorageSpace**: Espacio libre
+
+Ver en AWS Console: CloudWatch → Metrics → RDS
+
+### Performance Insights
+
+Habilitado automáticamente en el código Terraform:
+
+```hcl
+performance_insights_enabled = true
+performance_insights_retention_period = 7
+```
+
+**Acceso**: RDS Console → Instance → Performance Insights
+
+Muestra:
+- Top SQL queries por tiempo de ejecución
+- Wait events
+- Database load
+
+### Logs
+
+Exportados a CloudWatch Logs:
+
+```hcl
+enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
+```
+
+Ver logs:
+
+```bash
+# AWS CLI
+aws logs tail /aws/rds/instance/retrogamehub-postgres/postgresql --follow
+
+# O en AWS Console
+CloudWatch → Logs → Log groups → /aws/rds/instance/retrogamehub-postgres/postgresql
+```
+
+## Backups y Recuperación
+
+### Backups Automáticos
+
+Configurado en Terraform:
+
+```hcl
+backup_retention_period = 7  # 7 días
+backup_window = "03:00-04:00"  # UTC
+```
+
+**Verificar backups**:
+
+```bash
+aws rds describe-db-snapshots \
+  --db-instance-identifier retrogamehub-postgres \
+  --query 'DBSnapshots[*].[DBSnapshotIdentifier,SnapshotCreateTime,Status]' \
+  --output table
+```
+
+### Manual Snapshot
+
+```bash
+aws rds create-db-snapshot \
+  --db-instance-identifier retrogamehub-postgres \
+  --db-snapshot-identifier retrogamehub-manual-$(date +%Y%m%d-%H%M%S)
+```
+
+### Restore desde Snapshot
+
+```bash
+# Listar snapshots
+aws rds describe-db-snapshots \
+  --db-instance-identifier retrogamehub-postgres
+
+# Restore
+aws rds restore-db-instance-from-db-snapshot \
+  --db-instance-identifier retrogamehub-postgres-restored \
+  --db-snapshot-identifier rds:retrogamehub-postgres-2025-01-07-03-00
+```
+
+### Point-in-Time Recovery (PITR)
+
+```bash
+# Restore a tiempo específico
+aws rds restore-db-instance-to-point-in-time \
+  --source-db-instance-identifier retrogamehub-postgres \
+  --target-db-instance-identifier retrogamehub-pitr-restored \
+  --restore-time 2025-01-07T10:00:00Z
+```
+
+## Escalabilidad
+
+### Vertical Scaling (Instance Class)
+
+```hcl
+# Cambiar en terraform.tfvars
+db_instance_class = "db.r5.large"  # 2 vCPU → 8 GB RAM
+```
+
+Aplicar:
+
+```bash
+terraform apply
+```
+
+**Downtime**: ~5-10 minutos durante cambio de instancia.
+
+### Horizontal Scaling (Read Replicas)
+
+Agregar en Terraform:
+
+```hcl
+resource "aws_db_instance" "read_replica" {
+  identifier             = "${var.project_name}-postgres-replica"
+  replicate_source_db    = aws_db_instance.postgresql.id
+  instance_class         = var.db_instance_class
+  publicly_accessible    = false
+  skip_final_snapshot    = true
+  
+  tags = {
+    Name = "${var.project_name}-postgres-replica"
+    Type = "read-replica"
+  }
+}
+```
+
+### Storage Autoscaling
+
+Ya configurado en Terraform:
+
+```hcl
+allocated_storage     = 100  # Inicial
+max_allocated_storage = 500  # Máximo
+```
+
+RDS escala automáticamente cuando:
+- Espacio libre < 10%
+- Condición persiste 5 minutos
+- Han pasado 6 horas desde última modificación
+
+## Seguridad
+
+### Encryption at Rest
+
+Habilitado con KMS:
+
+```hcl
+storage_encrypted = true
+kms_key_id        = aws_kms_key.rds.arn
+```
+
+### Encryption in Transit
+
+Forzar SSL en PostgreSQL:
+
+```sql
+-- Como superuser
+ALTER SYSTEM SET ssl = on;
+ALTER SYSTEM SET ssl_min_protocol_version = 'TLSv1.2';
+SELECT pg_reload_conf();
+```
+
+Verificar:
+
+```sql
+SHOW ssl;
+-- on
+```
+
+### Network Isolation
+
+- RDS en **private subnets** (no IP pública)
+- Security Group permite solo tráfico desde EKS
+- No acceso desde Internet
+
+### IAM Authentication (Opcional)
+
+Habilitar:
+
+```hcl
+iam_database_authentication_enabled = true
+```
+
+Conectar:
+
+```bash
+TOKEN=$(aws rds generate-db-auth-token \
+  --hostname $DB_HOST \
+  --port 5432 \
+  --username iamuser)
+
+psql "host=$DB_HOST port=5432 dbname=retrogamehub user=iamuser password=$TOKEN"
+```
+
+## Costos
+
+### Estimación Mensual (eu-west-1)
+
+| Componente | Configuración | Costo Mensual |
+|------------|---------------|---------------|
+| **RDS Instance** | db.t3.medium Multi-AZ | ~$130 |
+| **Storage** | 100 GB gp3 | ~$25 |
+| **Backup Storage** | 100 GB (7 días) | ~$10 |
+| **Data Transfer** | 10 GB/mes | ~$1 |
+| **Enhanced Monitoring** | 60s interval | ~$3 |
+| **Performance Insights** | 7 días retención | Gratis |
+| **TOTAL** | | **~$169/mes** |
+
+**Optimizaciones**:
+- Usar db.t3.micro en staging (~$30/mes)
+- Single-AZ en dev (~$65/mes)
+- Reducir backup retention a 1 día
+
+### Calculadora
+
+[AWS Pricing Calculator](https://calculator.aws/#/addService/RDS)
+
+## Troubleshooting
+
+### No Connection from EKS
+
+```bash
+# Verificar security group
+aws ec2 describe-security-groups --group-ids sg-xxxxx
+
+# Verificar subnet group
+aws rds describe-db-subnet-groups
+
+# Test de conectividad desde pod
+kubectl run netcat --rm -it --image=busybox --restart=Never -- nc -zv ENDPOINT 5432
+```
+
+### High CPU Utilization
+
+```sql
+-- Ver queries activas
+SELECT pid, usename, application_name, state, query 
+FROM pg_stat_activity 
+WHERE state != 'idle';
+
+-- Matar query lenta
+SELECT pg_terminate_backend(12345);
+
+-- Ver queries lentas en logs
+SELECT * FROM pg_stat_statements 
+ORDER BY total_exec_time DESC 
+LIMIT 10;
+```
+
+### Storage Full
+
+```bash
+# Ver uso actual
+aws rds describe-db-instances \
+  --db-instance-identifier retrogamehub-postgres \
+  --query 'DBInstances[0].[AllocatedStorage,DBInstanceStatus]'
+
+# Aumentar storage (sin downtime)
+terraform apply -var="db_allocated_storage=200"
+```
+
+### Connection Pool Exhausted
+
+```sql
+-- Ver conexiones activas
+SELECT COUNT(*) FROM pg_stat_activity;
+
+-- Ver por usuario
+SELECT usename, COUNT(*) 
+FROM pg_stat_activity 
+GROUP BY usename;
+
+-- Aumentar max_connections
+ALTER SYSTEM SET max_connections = 300;
+SELECT pg_reload_conf();
+```
+
+## Referencias
+
+- [AWS RDS PostgreSQL Documentation](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_PostgreSQL.html)
+- [PostgreSQL 15 Release Notes](https://www.postgresql.org/docs/15/release-15.html)
+- [RDS Best Practices](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_BestPractices.html)
+- [Terraform AWS RDS Module](https://registry.terraform.io/modules/terraform-aws-modules/rds/aws/latest)

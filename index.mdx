@@ -1,132 +1,109 @@
 ---
-title: 1. Documentación Retro Game Hub
-description: Juega juegos clásicos de DOS en la nube con infraestructura moderna
-icon: file-lines
+title: Documentación Retro Game Hub
+sidebarTitle: 1.1. Documentación Retro Game Hub
+description: Plataforma cloud-native para jugar juegos clásicos de DOS con infraestructura moderna
+icon: gamepad
 ---
 
 ## Bienvenido a Retro Game Hub
 
-Una plataforma cloud-native para jugar juegos clásicos de DOS usando el emulador js-dos, construida con prácticas modernas de DevOps y arquitectura de microservicios.
+Una plataforma cloud-native para jugar juegos clásicos de DOS usando el emulador js-dos, construida con arquitectura moderna, backend unificado Node.js/Express y desplegada en AWS EKS con GitOps.
 
 <Card
-  title="Inicio Rápido"
+  title="🚀 Inicio Rápido"
   icon="rocket"
-  href="/2-inicio/quickstart"
+  href="quickstart"
   horizontal
 >
   Comienza con Retro Game Hub en minutos.
 </Card>
 
-## Estructura de la Documentación
+## Arquitectura del Sistema
 
-Esta documentación está organizada de manera lógica siguiendo el flujo de desarrollo y operación de la plataforma:
+RetroGameHub utiliza un **backend unificado** que consolida toda la lógica de negocio en un solo servicio Node.js/Express, conectado a una única base de datos PostgreSQL.
 
-<Columns cols={2}>
-  <Card
-    title="1. Inicio"
-    icon="home"
-    href="/1-inicio"
-  >
-    Introducción, instalación y configuración inicial del proyecto.
+```
+Usuario → Kong Gateway → Backend Unificado → PostgreSQL
+                      ↓
+                   Frontend (HTML/JS/js-dos)
+                      ↓
+                   CDN Nginx (juegos .jsdos)
+```
+
+## Componentes Principales
+
+<CardGroup cols={3}>
+  <Card title="Backend Unificado" icon="server" href="backend/overview">
+    Servicio Node.js consolidado con auth, users, scores, rankings
   </Card>
-  <Card
-    title="2. Arquitectura"
-    icon="sitemap"
-    href="/2-arquitectura/overview"
-  >
-    Diseño general, patrones y decisiones arquitectónicas.
+  <Card title="Frontend" icon="browser" href="frontend/overview">
+    Aplicación web HTML/CSS/JS vanilla con emulador js-dos
   </Card>
-  <Card
-    title="3. Servicios"
-    icon="cubes"
-    href="/3-servicios/auth-service"
-  >
-    Microservicios: auth, games, scores, rankings y usuarios.
+  <Card title="Kong Gateway" icon="shield" href="kong/overview">
+    API Gateway con CORS, rate limiting y enrutamiento
   </Card>
-  <Card
-    title="4. Infraestructura"
-    icon="server"
-    href="/4-infraestructura/overview"
-  >
-    AWS EKS, Terraform, Kubernetes e infraestructura cloud.
+  <Card title="Infraestructura AWS" icon="cloud" href="infrastructure/overview">
+    AWS EKS, Terraform, Kubernetes e infraestructura cloud
   </Card>
-  <Card
-    title="5. Desarrollo"
-    icon="code"
-    href="/5-desarrollo/setup"
-  >
-    Entorno de desarrollo, herramientas y buenas prácticas.
+  <Card title="Desarrollo" icon="code" href="development/local-setup">
+    Entorno de desarrollo, herramientas y buenas prácticas
   </Card>
-  <Card
-    title="6. CI/CD"
-    icon="infinity"
-    href="/6-cicd/pipeline"
-  >
-    Pipelines de integración continua y despliegue automatizado.
+  <Card title="CI/CD" icon="infinity" href="cicd/github-actions">
+    Pipelines de integración continua y despliegue automatizado
   </Card>
-  <Card
-    title="7. API"
-    icon="terminal"
-    href="/7-api/auth/login"
-  >
-    Documentación completa de la API REST y endpoints.
-  </Card>
-  <Card
-    title="8. Operaciones"
-    icon="chart-line"
-    href="/8-operaciones/monitoring"
-  >
-    Monitoreo, observabilidad, troubleshooting y mantenimiento.
-  </Card>
-</Columns>
+</CardGroup>
 
 ## Características Principales
 
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card
     title="Emulación js-dos"
     icon="gamepad"
-    href="/3-servicios/frontend/jsdos-integration"
+    href="/frontend/jsdos-integration"
   >
     Juega juegos clásicos de DOS directamente en tu navegador.
   </Card>
   <Card
     title="Autenticación de Usuarios"
     icon="shield"
-    href="/3-servicios/auth-service"
+    href="/backend/api-endpoints"
   >
-    Autenticación basada en JWT con backend PostgreSQL.
+    Autenticación JWT con backend unificado y PostgreSQL.
   </Card>
   <Card
     title="Seguimiento de Puntuaciones"
     icon="trophy"
-    href="/3-servicios/score-service"
+    href="/backend/api-endpoints"
   >
     Registra y envía puntuaciones de juegos con rankings en tiempo real.
   </Card>
   <Card
-    title="Rankings Globales"
-    icon="ranking-star"
-    href="/3-servicios/ranking-service"
+    title="Kong API Gateway"
+    icon="shield-halved"
+    href="/kong/overview"
   >
-    Tablas de clasificación con caché Redis para rendimiento óptimo.
+    Gateway con CORS, rate limiting, JWT y enrutamiento inteligente.
   </Card>
-</Columns>
+</CardGroup>
 
 ## Tecnologías Utilizadas
 
-- **Frontend**: React, js-dos emulator
+- **Frontend**: HTML/CSS/JS vanilla, js-dos emulator
 
-- **Backend**: Node.js, Express, microservicios
+- **Backend**: Node.js, Express (servicio unificado)
 
-- **Base de Datos**: PostgreSQL, Redis
+- **Base de Datos**: PostgreSQL con auto-inicialización
 
-- **Infraestructura**: AWS EKS, Terraform
+- **API Gateway**: Kong 3.3 (DB-less mode)
 
-- **Monitoreo**: Prometheus, Grafana
+- **Infraestructura**: AWS EKS, Terraform, RDS
 
-- **CI/CD**: GitHub Actions, ArgoCD
+- **Monitoreo**: Prometheus, Grafana, Kong Logging
+
+- **CI/CD**: GitHub Actions, ArgoCD GitOps
 
 - **Autenticación**: JWT, GitHub OAuth
 
-¿Nuevo en la plataforma? Comienza con la [guía de inicio rápido](/1-inicio/quickstart) para configurar tu entorno de desarrollo en pocos minutos.
+<Card title="🚀 Guía de Inicio Rápido" icon="rocket" href="quickstart">
+  ¿Nuevo en la plataforma? Configura tu entorno de desarrollo en pocos minutos.
+</Card>

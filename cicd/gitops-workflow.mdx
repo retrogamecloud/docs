@@ -1,5 +1,6 @@
 ---
 title: 7.3. Flujo de Trabajo GitOps
+sidebarTitle: 7.3. GitOps Workflow
 description: Flujo de trabajo GitOps completo con ArgoCD y gestión de base de datos
 icon: code-branch
 ---
@@ -51,16 +52,10 @@ kubernetes/
 │   └── flyway.conf                   # Configuración Flyway
 ├── 00-namespace.yaml                 # Namespace retrogame
 ├── 01-postgres.yaml                  # Base de datos PostgreSQL
-├── 02-backend.yaml                   # Servicios backend (monolito)
+├── 02-backend.yaml                   # Backend unificado (API)
 ├── 03-cdn.yaml                       # CDN de juegos (Nginx)
 ├── 04-frontend.yaml                  # Frontend web
 ├── 05-kong.yaml                      # API Gateway Kong
-├── 06-auth-service.yaml              # Servicio de autenticación
-├── 07-game-catalog.yaml             # Catálogo de juegos
-├── 08-score-service.yaml            # Servicio de puntuaciones
-├── 09-ranking-service.yaml          # Servicio de rankings
-├── 10-user-service.yaml             # Servicio de usuarios
-├── 11-flyway-migration-job.yaml     # Job para ejecutar migraciones
 ├── README.md
 └── package.json
 

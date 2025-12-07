@@ -1,5 +1,6 @@
 ---
 title: 4.10. Optimización de Costos AWS
+sidebarTitle: 5.11. Optimización de Costos
 description: Guía completa para monitorizar y optimizar los costos operativos de RetroGameCloud
   en AWS
 icon: coins
@@ -268,7 +269,7 @@ def identify_unused_instances(ec2_client):
         ],
         "period": 86400,
         "stat": "Maximum",
-        "region": "us-east-1",
+        "region": "eu-west-1",
         "title": "Estimated Monthly Charges"
       }
     },
@@ -280,7 +281,7 @@ def identify_unused_instances(ec2_client):
         ],
         "period": 300,
         "stat": "Sum",
-        "region": "us-west-2",
+        "region": "eu-central-1",
         "title": "EKS Cluster Health"
       }
     }

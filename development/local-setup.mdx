@@ -1,0 +1,682 @@
+---
+title: Configuración de Entorno Local
+sidebarTitle: 6.1. Configuración Local
+description: Guía completa para configurar el entorno de desarrollo local sin Docker
+icon: laptop-code
+---
+
+## Visión General
+
+Esta guía te ayudará a configurar un **entorno de desarrollo local nativo** (sin Docker) para Retro Game Hub. Ideal si prefieres ejecutar servicios directamente en tu máquina o tienes limitaciones con Docker.
+
+<CardGroup cols={2}>
+  <Card title="Node.js 20 LTS" icon="node-js">
+    Runtime para backend y frontend
+  </Card>
+  <Card title="PostgreSQL 15" icon="database">
+    Base de datos local
+  </Card>
+  <Card title="Kong Gateway" icon="shield">
+    API Gateway (opcional local)
+  </Card>
+  <Card title="Git + VSCode" icon="code">
+    Control de versiones e IDE
+  </Card>
+</CardGroup>
+
+## Requisitos del Sistema
+
+### Hardware Mínimo
+
+- **CPU**: 2 cores / 4 threads
+- **RAM**: 8 GB (16 GB recomendado)
+- **Disco**: 10 GB libres
+- **SO**: Linux, macOS, Windows (con WSL2)
+
+### Software Requerido
+
+| Software | Versión | Propósito |
+|----------|---------|-----------|
+| Node.js | 20.x LTS | Runtime JavaScript |
+| npm | 10.x | Gestor de paquetes |
+| PostgreSQL | 15.x | Base de datos |
+| Git | 2.x | Control de versiones |
+| VS Code | Latest | Editor de código |
+
+## Instalación de Dependencias
+
+### 1. Node.js 20 LTS
+
+<Tabs>
+  <Tab title="Linux (Ubuntu/Debian)">
+    ```bash
+    # Instalar desde NodeSource
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+    
+    # Verificar instalación
+    node --version  # v20.x.x
+    npm --version   # 10.x.x
+    ```
+  </Tab>
+  
+  <Tab title="macOS">
+    ```bash
+    # Con Homebrew
+    brew install node@20
+    
+    # O con nvm (recomendado)
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+    nvm install 20
+    nvm use 20
+    
+    # Verificar
+    node --version
+    ```
+  </Tab>
+  
+  <Tab title="Windows">
+    1. Descargar instalador: [nodejs.org/en/download](https://nodejs.org/en/download/)
+    2. Ejecutar instalador (`node-v20.x.x-x64.msi`)
+    3. Verificar en PowerShell:
+    ```powershell
+    node --version
+    npm --version
+    ```
+    
+    **O con WSL2** (recomendado):
+    ```bash
+    wsl --install  # Si no tienes WSL2
+    wsl
+    # Luego seguir pasos de Linux
+    ```
+  </Tab>
+</Tabs>
+
+### 2. PostgreSQL 15
+
+<Tabs>
+  <Tab title="Linux (Ubuntu/Debian)">
+    ```bash
+    # Agregar repositorio oficial
+    sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+    wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /etc/apt/trusted.gpg.d/pgdg.asc &>/dev/null
+    
+    # Instalar
+    sudo apt update
+    sudo apt install postgresql-15 postgresql-contrib-15
+    
+    # Iniciar servicio
+    sudo systemctl start postgresql
+    sudo systemctl enable postgresql
+    
+    # Crear usuario y base de datos
+    sudo -u postgres psql
+    ```
+    
+    En psql:
+    ```sql
+    CREATE DATABASE retrogamehub;
+    CREATE USER devuser WITH PASSWORD 'devpassword';
+    GRANT ALL PRIVILEGES ON DATABASE retrogamehub TO devuser;
+    \q
+    ```
+  </Tab>
+  
+  <Tab title="macOS">
+    ```bash
+    # Con Homebrew
+    brew install postgresql@15
+    
+    # Iniciar servicio
+    brew services start postgresql@15
+    
+    # Crear base de datos
+    createdb retrogamehub
+    
+    # Conectar
+    psql retrogamehub
+    ```
+    
+    En psql:
+    ```sql
+    CREATE USER devuser WITH PASSWORD 'devpassword';
+    GRANT ALL PRIVILEGES ON DATABASE retrogamehub TO devuser;
+    ```
+  </Tab>
+  
+  <Tab title="Windows">
+    1. Descargar instalador: [postgresql.org/download/windows](https://www.postgresql.org/download/windows/)
+    2. Ejecutar instalador (incluye pgAdmin)
+    3. Durante instalación, configurar password para usuario `postgres`
+    4. Abrir pgAdmin:
+       - Crear base de datos `retrogamehub`
+       - Crear usuario `devuser` con password `devpassword`
+       - Grant privilegios
+    
+    **O con WSL2**:
+    ```bash
+    # En WSL2
+    sudo apt install postgresql-15
+    sudo service postgresql start
+    ```
+  </Tab>
+</Tabs>
+
+### 3. Git
+
+<Tabs>
+  <Tab title="Linux">
+    ```bash
+    sudo apt install git
+    git --version
+    ```
+  </Tab>
+  
+  <Tab title="macOS">
+    ```bash
+    brew install git
+    # O viene pre-instalado con Xcode Command Line Tools
+    ```
+  </Tab>
+  
+  <Tab title="Windows">
+    Descargar: [git-scm.com/download/win](https://git-scm.com/download/win)
+    
+    O con WSL2:
+    ```bash
+    sudo apt install git
+    ```
+  </Tab>
+</Tabs>
+
+### 4. Visual Studio Code
+
+Descargar: [code.visualstudio.com](https://code.visualstudio.com/)
+
+**Extensiones recomendadas**:
+
+```bash
+# Instalar desde terminal
+code --install-extension dbaeumer.vscode-eslint
+code --install-extension esbenp.prettier-vscode
+code --install-extension ms-azuretools.vscode-docker
+code --install-extension ms-vscode.vscode-typescript-next
+code --install-extension rangav.vscode-thunder-client
+code --install-extension cweijan.vscode-postgresql-client2
+```
+
+## Configuración del Proyecto
+
+### 1. Clonar Repositorio
+
+```bash
+git clone https://github.com/RetroGameCloud/retro-game-hub.git
+cd retro-game-hub
+```
+
+### 2. Configurar Backend
+
+```bash
+cd backend
+
+# Instalar dependencias
+npm install
+
+# Crear archivo .env
+cp .env.example .env
+nano .env
+```
+
+**Archivo `.env`**:
+
+```bash
+# Server
+NODE_ENV=development
+PORT=3000
+
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=retrogamehub
+DB_USER=devuser
+DB_PASSWORD=devpassword
+DB_SSL=false
+
+# JWT
+JWT_SECRET=dev-jwt-secret-change-in-production
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_SECRET=dev-refresh-secret-change-in-production
+JWT_REFRESH_EXPIRES_IN=7d
+
+# GitHub OAuth (opcional)
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+GITHUB_CALLBACK_URL=http://localhost:3000/api/auth/github/callback
+
+# CORS
+CORS_ORIGIN=http://localhost:8080
+
+# Logging
+LOG_LEVEL=debug
+```
+
+### 3. Inicializar Base de Datos
+
+```bash
+# Ejecutar script de inicialización
+psql -h localhost -U devuser -d retrogamehub -f src/config/init.sql
+
+# O desde Node.js
+node src/config/initDatabase.js
+```
+
+El script crea:
+- 6 tablas (users, games, scores, score_history, user_stats, refresh_tokens)
+- Triggers automáticos
+- Índices optimizados
+- Datos de prueba (10 juegos, 2 usuarios)
+
+### 4. Configurar Frontend
+
+```bash
+cd ../frontend
+
+# Instalar dependencias
+npm install
+
+# Crear .env
+cp .env.example .env
+nano .env
+```
+
+**Archivo `.env`**:
+
+```bash
+NODE_ENV=development
+PORT=8080
+API_URL=http://localhost:3000
+```
+
+### 5. Configurar Kong (Opcional)
+
+Kong local es opcional. Si no lo instalas, puedes acceder directamente al backend en `localhost:3000`.
+
+<Tabs>
+  <Tab title="Docker (Recomendado)">
+    ```bash
+    # Kong con Docker
+    docker run -d \
+      --name kong-dev \
+      -p 8000:8000 \
+      -p 8001:8001 \
+      -e KONG_DATABASE=off \
+      -e KONG_DECLARATIVE_CONFIG=/usr/local/kong/declarative/kong.yml \
+      -v $(pwd)/kong/kong.yml:/usr/local/kong/declarative/kong.yml:ro \
+      kong:3.3-alpine
+    ```
+  </Tab>
+  
+  <Tab title="Instalación Nativa">
+    **Linux**:
+    ```bash
+    curl -Lo kong.deb "https://download.konghq.com/gateway-3.x-ubuntu-$(lsb_release -cs)/pool/all/k/kong/kong_3.3.0_amd64.deb"
+    sudo dpkg -i kong.deb
+    
+    # Configurar
+    sudo cp /etc/kong/kong.conf.default /etc/kong/kong.conf
+    nano /etc/kong/kong.conf
+    ```
+    
+    **macOS**:
+    ```bash
+    brew tap kong/kong
+    brew install kong
+    ```
+  </Tab>
+</Tabs>
+
+## Ejecutar Servicios
+
+### Terminal 1: PostgreSQL
+
+Si no configuraste como servicio:
+
+```bash
+# Linux/macOS
+postgres -D /usr/local/var/postgres
+
+# Windows
+pg_ctl -D "C:\Program Files\PostgreSQL\15\data" start
+```
+
+### Terminal 2: Backend
+
+```bash
+cd backend
+npm run dev
+```
+
+Output esperado:
+```
+[2025-12-07 10:30:00] INFO: Server running on http://localhost:3000
+[2025-12-07 10:30:00] INFO: Database connected successfully
+[2025-12-07 10:30:00] INFO: Environment: development
+```
+
+### Terminal 3: Frontend
+
+```bash
+cd frontend
+npm run dev
+```
+
+Output:
+```
+[2025-12-07 10:30:05] INFO: Frontend server running on http://localhost:8080
+```
+
+### Terminal 4: Kong (Opcional)
+
+```bash
+kong start -c /etc/kong/kong.conf
+```
+
+## Verificación
+
+### 1. Healthchecks
+
+```bash
+# Backend
+curl http://localhost:3000/health
+# {"status":"ok","database":"connected"}
+
+# Frontend
+curl http://localhost:8080
+# <!DOCTYPE html>...
+
+# Kong (si instalado)
+curl http://localhost:8001/status
+```
+
+### 2. Test de Base de Datos
+
+```bash
+psql -h localhost -U devuser -d retrogamehub -c "SELECT COUNT(*) FROM users;"
+#  count 
+# -------
+#      2
+```
+
+### 3. Test de API
+
+```bash
+# Registrar usuario
+curl -X POST http://localhost:3000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"testdev","email":"test@dev.local","password":"test123"}'
+
+# Login
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@dev.local","password":"test123"}'
+```
+
+### 4. Abrir en Navegador
+
+- Frontend: [http://localhost:8080](http://localhost:8080)
+- Backend API docs: [http://localhost:3000/api-docs](http://localhost:3000/api-docs) (si configuraste Swagger)
+
+## Desarrollo con Hot-Reload
+
+### Backend (nodemon)
+
+El backend usa **nodemon** para detectar cambios:
+
+```bash
+# Ya incluido en npm run dev
+# Edita cualquier archivo .js en src/
+# Nodemon reinicia automáticamente
+```
+
+**Configuración** en `nodemon.json`:
+
+```json
+{
+  "watch": ["src"],
+  "ext": "js,json",
+  "ignore": ["src/tests/**", "node_modules/**"],
+  "exec": "node src/index.js"
+}
+```
+
+### Frontend (live-server o similar)
+
+```bash
+# Opción 1: live-server
+npm install -g live-server
+cd frontend
+live-server --port=8080
+
+# Opción 2: browser-sync
+npm install -g browser-sync
+browser-sync start --server --files "*.html, *.css, *.js"
+```
+
+## Debugging
+
+### VS Code Launch Configuration
+
+**Archivo**: `.vscode/launch.json`
+
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Backend",
+      "program": "${workspaceFolder}/backend/src/index.js",
+      "cwd": "${workspaceFolder}/backend",
+      "envFile": "${workspaceFolder}/backend/.env",
+      "console": "integratedTerminal",
+      "restart": true,
+      "runtimeExecutable": "nodemon",
+      "runtimeArgs": ["--inspect"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Tests",
+      "program": "${workspaceFolder}/backend/node_modules/.bin/jest",
+      "args": ["--runInBand", "--detectOpenHandles"],
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal"
+    }
+  ]
+}
+```
+
+**Uso**:
+1. Abrir archivo en VS Code
+2. Poner breakpoint (click izquierda del número de línea)
+3. F5 o "Run → Start Debugging"
+4. Hacer request que ejecute ese código
+5. VS Code para en el breakpoint
+
+### Database Debugging
+
+```bash
+# pgAdmin (GUI)
+# Descargar: https://www.pgadmin.org/
+
+# O psql (CLI)
+psql -h localhost -U devuser -d retrogamehub
+
+# Ver query plan
+EXPLAIN ANALYZE SELECT * FROM scores WHERE game_id = 1;
+
+# Ver índices
+\di
+
+# Ver tamaño de tablas
+SELECT 
+  schemaname,
+  tablename,
+  pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+```
+
+## Testing
+
+### Backend Tests
+
+```bash
+cd backend
+
+# Unit tests
+npm test
+
+# Coverage
+npm run test:coverage
+
+# Watch mode
+npm run test:watch
+
+# Specific file
+npm test -- authController.test.js
+```
+
+### Frontend Tests (si configurado)
+
+```bash
+cd frontend
+npm test
+```
+
+## Herramientas Útiles
+
+### 1. Thunder Client (VS Code)
+
+Extensión para testing de APIs (alternativa a Postman):
+
+```bash
+code --install-extension rangav.vscode-thunder-client
+```
+
+Crear colección con requests pre-configurados.
+
+### 2. PostgreSQL Client (VS Code)
+
+```bash
+code --install-extension cweijan.vscode-postgresql-client2
+```
+
+Conectar a `localhost:5432` con usuario `devuser`.
+
+### 3. ESLint + Prettier
+
+```bash
+# Backend
+cd backend
+npm run lint
+npm run format
+
+# Frontend
+cd frontend
+npm run lint
+npm run format
+```
+
+## Troubleshooting
+
+### Puerto Ocupado
+
+```bash
+# Ver qué proceso usa el puerto 3000
+lsof -i :3000  # macOS/Linux
+netstat -ano | findstr :3000  # Windows
+
+# Matar proceso
+kill -9 <PID>  # macOS/Linux
+taskkill /PID <PID> /F  # Windows
+```
+
+### PostgreSQL No Conecta
+
+```bash
+# Verificar servicio
+sudo systemctl status postgresql  # Linux
+brew services list  # macOS
+sc query postgresql-x64-15  # Windows
+
+# Ver logs
+sudo tail -f /var/log/postgresql/postgresql-15-main.log  # Linux
+tail -f /usr/local/var/log/postgres.log  # macOS
+```
+
+### Dependencias No Instalan
+
+```bash
+# Limpiar cache
+npm cache clean --force
+
+# Eliminar node_modules
+rm -rf node_modules package-lock.json
+
+# Reinstalar
+npm install
+```
+
+### Error de Permisos (Linux)
+
+```bash
+# Cambiar dueño de carpeta
+sudo chown -R $USER:$USER ~/retro-game-hub
+
+# O usar nvm (recomendado)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+```
+
+## Scripts NPM Útiles
+
+### Backend
+
+```json
+{
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.js",
+    "format": "prettier --write src/**/*.js",
+    "db:init": "node src/config/initDatabase.js",
+    "db:seed": "node src/config/seedDatabase.js"
+  }
+}
+```
+
+### Frontend
+
+```json
+{
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "lint": "eslint *.js",
+    "format": "prettier --write *.{html,css,js}"
+  }
+}
+```
+
+## Referencias
+
+- [Node.js Documentation](https://nodejs.org/docs/)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [VS Code Debugging](https://code.visualstudio.com/docs/editor/debugging)
+- [nodemon Documentation](https://nodemon.io/)

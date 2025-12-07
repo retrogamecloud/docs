@@ -1,5 +1,6 @@
 ---
 title: 4. Seguridad y Gestión de Secretos
+sidebarTitle: 5.9. Seguridad
 description: Guía completa para la gestión segura de secretos, políticas de seguridad,
   OWASP Top 10 y mejores prácticas en RetroGameCloud
 icon: shield-check
@@ -28,15 +29,11 @@ graph TB
         subgraph "Private Subnets"
             subgraph "EKS Cluster"
                 API[API Gateway Kong]
-                AUTH[Auth Service]
-                USER[User Service]
-                GAME[Game Catalog]
-                SCORE[Score Service]
-                RANK[Ranking Service]
+                BACKEND[Backend Service]
+                FRONTEND[Frontend]
             end
 
             RDS[(PostgreSQL RDS)]
-            REDIS[(ElastiCache Redis)]
         end
 
         subgraph "Security Services"
@@ -61,11 +58,9 @@ graph TB
     CDN --> WAF
     WAF --> ALB
     ALB --> API
-    API --> AUTH
-    API --> USER
-    API --> GAME
-    API --> SCORE
-    API --> RANK
+    API --> BACKEND
+    API --> FRONTEND
+    BACKEND --> RDS
 
     ATTACKER -.-> WAF
     WAF -.-> GUARD
@@ -110,7 +105,7 @@ resource "aws_secretsmanager_secret" "database_credentials" {
   description = "Database credentials for RetroGameCloud"
 
   replica {
-    region = "us-west-2"
+    region = "eu-central-1"
   }
 
   tags = {
@@ -139,7 +134,7 @@ Para configuraciones no sensibles y parámetros de aplicación:
 resource "aws_ssm_parameter" "api_config" {
   name  = "/retrogame/api/config"
   type  = "StringList"
-  value = "production,us-east-1,443"
+  value = "production,eu-west-1,443"
 
   tags = {
     Environment = var.environment

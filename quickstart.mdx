@@ -1,18 +1,19 @@
 ---
-title: 1.1 Inicio Rápido
-description: Despliega Retro Game Hub en AWS en menos de 30 minutos
+title: Inicio Rápido
+sidebarTitle: 1.2. Inicio Rápido
+description: Despliega Retro Game Hub en AWS o localmente en menos de 30 minutos
 icon: rocket
 ---
 
 <img
   className="block dark:hidden"
-  src="/images/hero-light.png"
-  alt="Retro Game Hub Hero"
+  src="/logo/logo.png"
+  alt="Retro Game Hub Logo"
 />
 <img
   className="hidden dark:block"
-  src="/images/hero-dark.png"
-  alt="Retro Game Hub Hero"
+  src="/logo/logo.png"
+  alt="Retro Game Hub Logo"
 />
 
 ## ¿Qué es Retro Game Hub?
@@ -23,8 +24,8 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
   <Card title="Kubernetes" icon="dharmachakra">
     Orquestación en AWS EKS
   </Card>
-  <Card title="Microservicios" icon="cubes">
-    5 servicios independientes
+  <Card title="Backend Unificado" icon="server">
+    Node.js + PostgreSQL
   </Card>
   <Card title="Terraform" icon="code">
     Infraestructura como código
@@ -37,10 +38,10 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
   <Accordion icon="aws" title="Cuenta de AWS">
     - Cuenta AWS activa con permisos de administrador
     - AWS CLI v2 configurado con tus credenciales
-    - Región recomendada: `eu-west-1` (Irlanda)
+    - Región recomendada: `us-east-1`
 
     <Tip>
-      **Costos estimados**: ~$135-160/mes (EKS $72 + instancias + RDS + NAT Gateway)
+      **Costos estimados**: ~$80-100/mes (EKS $72 + instancias t3.medium + RDS t3.micro + NAT Gateway)
     </Tip>
   </Accordion>
 
@@ -48,9 +49,9 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
     Instala las siguientes herramientas en tu máquina:
 
     ```bash
-    # Terraform
-    wget https://releases.hashicorp.com/terraform/1.6.0/terraform_1.6.0_linux_amd64.zip
-    unzip terraform_1.6.0_linux_amd64.zip
+    # Terraform 1.9+
+    wget https://releases.hashicorp.com/terraform/1.9.0/terraform_1.9.0_linux_amd64.zip
+    unzip terraform_1.9.0_linux_amd64.zip
     sudo mv terraform /usr/local/bin/
 
     # kubectl
@@ -61,134 +62,454 @@ Una plataforma completa para jugar **juegos clásicos de DOS** en la nube, const
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
     unzip awscliv2.zip
     sudo ./aws/install
+
+    # ArgoCD CLI
+    curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+    sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
     ```
 
   </Accordion>
 
-  <Accordion icon="globe" title="Dominio (Opcional)">
+  <Accordion icon="globe" title="Dominio (Requerido)">
     Si quieres usar tu propio dominio:
     - Dominio registrado (ej: Namecheap, GoDaddy)
-    - Acceso para cambiar nameservers
+    - Acceso para cambiar nameservers a Route53
 
     <Note>
-      El proyecto usa Route53 para gestión de DNS. Si no tienes dominio, se creará uno automáticamente usando xip.io
+      El proyecto usa Route53 para gestión de DNS. Necesitas configurar los nameservers de Route53 en tu registrador de dominios.
     </Note>
   </Accordion>
 </AccordionGroup>
 
-## Despliegue en 3 Pasos
+## Despliegue en AWS con Terraform
+
+La infraestructura completa se despliega desde el repositorio `/infrastructure/terraform` en dos fases:
+
+### Fase 1: Bootstrap (Servicios Base)
+
+El **Terraform Bootstrap** (`/infrastructure/terraform/bootstrap`) crea los servicios fundamentales necesarios para el resto de la infraestructura:
+
+<CardGroup cols={2}>
+  <Card title="S3 Backend" icon="database">
+    Bucket S3 para almacenar el state de Terraform de forma remota y compartida
+  </Card>
+  <Card title="DynamoDB Lock" icon="lock">
+    Tabla DynamoDB para bloqueo de state y prevenir conflictos
+  </Card>
+  <Card title="Route53 Zone" icon="globe">
+    Hosted Zone permanente con nameservers fijos para tu dominio
+  </Card>
+  <Card title="IAM Roles" icon="user-shield">
+    Roles y políticas base para EKS y servicios AWS
+  </Card>
+</CardGroup>
+
+```bash
+# 1. Desplegar Bootstrap
+cd infrastructure/terraform/bootstrap
+terraform init
+terraform apply -auto-approve
+
+# Guarda los outputs (S3 bucket, nameservers de Route53)
+terraform output
+```
+
+<Warning>
+  **Importante**: Los nameservers de Route53 mostrados deben configurarse en tu registrador de dominio (Namecheap, GoDaddy, etc.) para que el DNS funcione correctamente.
+</Warning>
+
+### Fase 2: Infraestructura Principal en EKS
+
+El **Terraform Principal** (`/infrastructure/terraform/`) despliega toda la infraestructura de aplicación en AWS EKS:
+
+<Steps>
+  <Step title="VPC y Networking">
+    - VPC 10.0.0.0/16 con subnets públicas y privadas en 3 AZs
+    - NAT Gateways para acceso a internet desde subnets privadas
+    - Security Groups para EKS, RDS, ALB
+  </Step>
+  
+  <Step title="EKS Cluster">
+    - Amazon EKS 1.34 con managed control plane
+    - Managed Node Groups (t3.medium) con 2-4 nodos
+    - AWS Load Balancer Controller
+    - EBS CSI Driver para volúmenes persistentes
+  </Step>
+  
+  <Step title="RDS PostgreSQL">
+    - RDS PostgreSQL 15 (db.t3.micro)
+    - Multi-AZ para alta disponibilidad
+    - Automated backups (7 días retención)
+    - Encryption at rest habilitado
+  </Step>
+  
+  <Step title="Monitoring Stack (Helm)">
+    - **Prometheus Operator** desplegado como Helm chart
+    - **Grafana** con dashboards preconfigurrados
+    - **AlertManager** para notificaciones
+    - ServiceMonitors para backend, Kong, PostgreSQL
+    - Todo gestionado por Terraform con helm provider
+  </Step>
+  
+  <Step title="ArgoCD GitOps">
+    - **ArgoCD** instalado vía Helm chart en Terraform
+    - Applications configuradas desde `/infrastructure/argocd/`
+    - Sincronización automática con repositorio Git
+    - Despliegue continuo de backend, Kong, frontend, CDN
+  </Step>
+</Steps>
+
+```bash
+# 2. Configurar backend remoto (usar output del bootstrap)
+cd ../
+cat > backend.tf <<EOF
+terraform {
+  backend "s3" {
+    bucket         = "retro-game-hub-terraform-state"
+    key            = "eks/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-state-lock"
+    encrypt        = true
+  }
+}
+EOF
+
+# 3. Desplegar infraestructura principal
+terraform init
+terraform apply -auto-approve
+```
+
+<Note>
+  Este despliegue toma **20-30 minutos**. Terraform creará: VPC, EKS cluster, RDS, instala Prometheus/Grafana vía Helm, y despliega ArgoCD con las aplicaciones configuradas.
+</Note>
+
+### ¿Qué hace ArgoCD?
+
+ArgoCD se configura desde `/infrastructure/argocd/` y gestiona el despliegue declarativo de todas las aplicaciones:
+
+<CardGroup cols={2}>
+  <Card title="Backend Application" icon="server">
+    **Archivo**: `applications/backend.yaml`
+    
+    Despliega el backend unificado Node.js desde `kubernetes/backend/` con:
+    - Deployment con 2 réplicas
+    - ConfigMap con variables de entorno
+    - Secret con credenciales PostgreSQL
+    - Service para comunicación interna
+  </Card>
+  
+  <Card title="Kong Gateway" icon="shield">
+    **Archivo**: `applications/kong.yaml`
+    
+    Despliega Kong Gateway desde `kubernetes/kong/` con:
+    - Deployment con configuración declarativa
+    - ConfigMap con kong.yml
+    - Service tipo LoadBalancer
+    - Plugins: CORS, JWT, Rate Limiting
+  </Card>
+  
+  <Card title="Frontend" icon="display">
+    **Archivo**: `applications/frontend.yaml`
+    
+    Despliega frontend desde `kubernetes/frontend/` con:
+    - Deployment Node.js Express
+    - Service exponiendo puerto 8080
+    - Archivos estáticos HTML/CSS/JS
+  </Card>
+  
+  <Card title="CDN (Nginx)" icon="globe">
+    **Archivo**: `applications/cdn.yaml`
+    
+    Despliega CDN local desde `kubernetes/cdn/` con:
+    - Deployment Nginx
+    - PersistentVolumeClaim para ROMs
+    - Service para servir .jsdos files
+  </Card>
+</CardGroup>
+
+**Sincronización Automática**: ArgoCD monitorea el repositorio Git cada 3 minutos. Cualquier cambio en `/kubernetes/*` se despliega automáticamente en EKS.
+
+```bash
+# Ver estado de aplicaciones ArgoCD
+argocd app list
+
+# Sincronizar manualmente una aplicación
+argocd app sync backend
+
+# Ver logs de una aplicación
+argocd app logs backend --follow
+```
+
+### Stack de Monitorización
+
+El stack completo **Prometheus + Grafana** se despliega como un **Helm chart** desde Terraform:
+
+```hcl
+# En infrastructure/terraform/monitoring.tf
+resource "helm_release" "kube_prometheus_stack" {
+  name       = "kube-prometheus-stack"
+  repository = "https://prometheus-community.github.io/helm-charts"
+  chart      = "kube-prometheus-stack"
+  namespace  = "monitoring"
+  
+  values = [
+    file("${path.module}/helm-values/prometheus-values.yaml")
+  ]
+}
+```
+
+**Componentes desplegados**:
+
+- **Prometheus Operator**: Gestiona instancias de Prometheus
+- **Prometheus**: Recolecta métricas de pods, nodos, servicios
+- **Grafana**: Dashboards visuales (CPU, memoria, latencia, requests)
+- **AlertManager**: Alertas configurables (High CPU, Pod CrashLooping, etc.)
+- **Node Exporter**: Métricas a nivel de nodo
+- **Kube State Metrics**: Métricas de recursos Kubernetes
+
+**ServiceMonitors configurados**:
+- Backend: métricas de Express (response time, error rate)
+- Kong: métricas de gateway (requests/sec, latency)
+- PostgreSQL: conexiones, queries, cache hit rate
+
+```bash
+# Acceder a Grafana
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+
+# Usuario: admin
+# Password: (obtener con)
+kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 -d
+```
+
+## Despliegue Rápido: 3 Pasos
 
 ### Paso 1: Clonar el Repositorio
 
 ```bash
-git clone https://github.com/tu-usuario/retro-game-hub.git
-cd retro-game-hub/infrastructure
-
+git clone https://github.com/RetroGameCloud/retro-game-hub.git
+cd retro-game-hub/infrastructure/terraform
 ```
 
 ### Paso 2: Configurar Variables
 
 ```bash
-
 # Copiar archivo de configuración
 cp terraform.tfvars.example terraform.tfvars
 
 # Editar con tus valores
 nano terraform.tfvars
-
 ```
 
 <CodeGroup>
 
 ```hcl terraform.tfvars
-
 # Configuración básica
-region = "eu-west-1"
+region = "us-east-1"
 project_name = "retro-game-hub"
 environment = "prod"
 
-# Dominio (opcional)
-domain_name = "tudominio.com"  # o déjalo vacío
+# Dominio (requerido para Route53)
+domain_name = "tudominio.com"
 
-# Base de datos
-db_password = "tu-password-seguro"
+# Base de datos PostgreSQL RDS
+db_name = "retrogamehub"
+db_username = "admin"
+db_password = "tu-password-seguro-aqui"
 
 # Configuración EKS
-cluster_name = "retro-game-hub-cluster"
+cluster_name = "retro-game-hub-eks"
+cluster_version = "1.34"
 node_group_instance_types = ["t3.medium"]
 node_group_desired_size = 2
 node_group_max_size = 4
 node_group_min_size = 1
-
 ```
 
 </CodeGroup>
 
-### Paso 3: Desplegar Infraestructura
+### Paso 3: Desplegar Bootstrap
 
 ```bash
-
-# Inicializar Terraform
+# Primero, desplegar servicios base
+cd bootstrap
 terraform init
-
-# Planificar despliegue
-terraform plan
-
-# Aplicar cambios
 terraform apply -auto-approve
 
+# Guardar outputs importantes
+terraform output -json > ../bootstrap-outputs.json
+```
+
+<Note>
+  **Configura los nameservers**: Copia los 4 nameservers de Route53 mostrados en el output y configúralos en tu registrador de dominio. Esto puede tardar hasta 48h en propagarse.
+</Note>
+
+### Paso 4: Desplegar Infraestructura Principal
+
+```bash
+# Volver al directorio principal
+cd ..
+
+# Inicializar con backend remoto (S3)
+terraform init
+
+# Planificar despliegue (revisa cambios)
+terraform plan
+
+# Aplicar cambios (despliega todo: VPC, EKS, RDS, Prometheus/Grafana, ArgoCD)
+terraform apply -auto-approve
 ```
 
 <Warning>
-  El despliegue toma aproximadamente **20-25 minutos**. No interrumpas el proceso.
+  El despliegue principal toma **20-30 minutos**. Terraform desplegará:
+  - VPC con subnets públicas/privadas en 3 AZs
+  - EKS 1.34 cluster con managed node groups
+  - RDS PostgreSQL 15 Multi-AZ
+  - Helm chart kube-prometheus-stack (Prometheus + Grafana)
+  - ArgoCD instalado y configurado con aplicaciones
 </Warning>
-
-## Configurar kubectl
-
-Una vez completado el despliegue:
-
-```bash
-
-# Configurar acceso al cluster
-aws eks update-kubeconfig --region eu-west-1 --name retro-game-hub-cluster
-
-# Verificar conexión
-kubectl get nodes
-
-```
 
 ## Verificar Despliegue
 
-```bash
+### 1. Configurar kubectl
 
-# Ver todos los pods
-kubectl get pods -A
+```bash
+# Configurar acceso al cluster EKS
+aws eks update-kubeconfig --region us-east-1 --name retro-game-hub-eks
+
+# Verificar nodos del cluster
+kubectl get nodes
+# Debe mostrar 2-4 nodos en estado Ready
+```
+
+### 2. Verificar ArgoCD
+
+```bash
+# Ver aplicaciones ArgoCD (desplegadas automáticamente por Terraform)
+kubectl get applications -n argocd
+
+# Debe mostrar: backend, kong, frontend, cdn
+
+# Obtener password de ArgoCD
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+
+# Port-forward para acceder a ArgoCD UI
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+# Accede a https://localhost:8080 (user: admin)
+```
+
+### 3. Verificar Monitorización
+
+```bash
+# Ver pods del stack de monitorización
+kubectl get pods -n monitoring
+
+# Debe mostrar: prometheus, grafana, alertmanager, node-exporter, kube-state-metrics
+
+# Acceder a Grafana
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+
+# Obtener password de Grafana
+kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 -d
+# Accede a http://localhost:3000 (user: admin)
+```
+
+### 4. Verificar Aplicaciones
+
+```bash
+# Ver pods de aplicaciones
+kubectl get pods
+
+# Debe mostrar: backend, kong, frontend, cdn pods en estado Running
 
 # Ver servicios
-kubectl get svc -n retro-game-hub
+kubectl get svc
 
-# Obtener URL de acceso
-kubectl get ingress -n retro-game-hub
-
+# Obtener URL del Load Balancer (Kong)
+kubectl get svc kong-gateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
 ```
 
 <Tip>
-  **¡Listo!** Tu plataforma Retro Game Hub está funcionando. Accede usando la URL mostrada en el ingress.
+  **¡Listo!** Tu plataforma está funcionando:
+  - **Frontend**: Configura tu dominio apuntando al Load Balancer de Kong
+  - **ArgoCD**: Sincroniza automáticamente cambios del repo cada 3 minutos
+  - **Grafana**: Dashboards con métricas de backend, Kong, PostgreSQL
+  - **Prometheus**: Recolectando métricas y alertas configuradas
 </Tip>
+
+## Flujo de Despliegue Continuo
+
+Una vez desplegado, el flujo GitOps funciona así:
+
+1. **Desarrollador** hace push a `/kubernetes/backend/deployment.yaml`
+
+2. **ArgoCD** detecta el cambio (polling cada 3 minutos)
+
+3. **ArgoCD** sincroniza automáticamente el nuevo deployment en EKS
+
+4. **Kubernetes** hace rolling update del backend sin downtime
+
+5. **Prometheus** monitorea el despliegue y métricas
+
+6. **Grafana** muestra en tiempo real el estado del nuevo deployment
+
+```bash
+# Ver sincronización en tiempo real
+argocd app sync backend --async
+
+# Ver progreso del despliegue
+kubectl rollout status deployment/backend
+
+# Ver métricas en tiempo real
+kubectl top pods
+```
+
+```
+
+## Desarrollo Local (Alternativa Rápida)
+
+Si prefieres probar localmente sin AWS:
+
+```bash
+# Clonar repositorio
+git clone https://github.com/RetroGameCloud/retro-game-hub.git
+cd retro-game-hub
+
+# Iniciar con Docker Compose (backend + Kong + PostgreSQL)
+docker-compose up -d
+
+# Verificar servicios
+docker-compose ps
+
+# Accede a:
+# - Frontend: http://localhost:8080
+# - Backend API: http://localhost:3000
+# - Kong Gateway: http://localhost:8000
+# - PostgreSQL: localhost:5432 (user: postgres, pass: postgres)
+```
+
+<Note>
+  El entorno local usa los mismos contenedores Docker que producción, garantizando paridad entre ambientes.
+</Note>
 
 ## Próximos Pasos
 
 <CardGroup cols={2}>
-  <Card title="Configuración Avanzada" icon="gear" href="/configuration">
-    Personaliza tu instalación
+  <Card title="Backend API" icon="server" href="/backend/overview">
+    Explora los endpoints del backend unificado
   </Card>
-  <Card title="Añadir Juegos" icon="gamepad" href="/games/adding-games">
-    Subir tus ROMs favoritas
+  <Card title="Kong Gateway" icon="shield" href="/kong/overview">
+    Configura plugins y routing
   </Card>
-  <Card title="Monitoreo" icon="chart-line" href="/monitoring">
-    Dashboard de métricas
+  <Card title="Infraestructura AWS" icon="cloud" href="/infrastructure/overview">
+    Aprende sobre Terraform y arquitectura AWS
   </Card>
-  <Card title="Troubleshooting" icon="wrench" href="/troubleshooting">
+  <Card title="ArgoCD GitOps" icon="arrows-rotate" href="/cicd/argocd-gitops">
+    Configuración de despliegue continuo
+  </Card>
+  <Card title="Monitoreo" icon="chart-line" href="/infrastructure/monitoring">
+    Dashboards Grafana y alertas Prometheus
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/troubleshooting/common-issues">
     Resolver problemas comunes
   </Card>
 </CardGroup>

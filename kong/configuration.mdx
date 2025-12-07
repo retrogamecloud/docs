@@ -1,0 +1,474 @@
+---
+title: Configuración de Kong
+sidebarTitle: 4.2. Configuración
+description: Configuración detallada del archivo kong.yml declarativo
+icon: gear
+---
+
+## Configuración Declarativa
+
+Kong utiliza un archivo YAML declarativo (`kong.yml`) en modo DB-less, lo que significa que toda la configuración está en el archivo y no necesita base de datos externa.
+
+<Info>
+El archivo `kong.yml` se monta como volumen de solo lectura en el contenedor de Kong. Cualquier cambio requiere reiniciar el servicio.
+</Info>
+
+## Estructura del Archivo
+
+```yaml
+_format_version: "3.0"
+_info:
+  title: RetroGameCloud API Gateway
+  version: "1.0.0"
+  
+# Servicios upstream (destinos)
+services:
+  - name: backend
+    # ... configuración del servicio
+    
+# Rutas (paths que matchean requests)
+routes:
+  - name: api-route
+    # ... configuración de ruta
+    
+# Plugins globales
+plugins:
+  - name: cors
+    # ... configuración del plugin
+```
+
+## Servicios (Upstreams)
+
+### Backend Service
+
+```yaml
+services:
+  - name: backend
+    url: http://backend:3000
+    protocol: http
+    connect_timeout: 60000
+    write_timeout: 60000
+    read_timeout: 60000
+    retries: 5
+    
+    routes:
+      # Auth endpoints (sin JWT)
+      - name: api-auth
+        paths:
+          - /api/auth
+        methods:
+          - GET
+          - POST
+        strip_path: false
+        preserve_host: false
+      
+      # User endpoints (con JWT)
+      - name: api-users
+        paths:
+          - /api/users
+        methods:
+          - GET
+          - PUT
+          - DELETE
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+      
+      # Scores endpoints (con JWT)
+      - name: api-scores
+        paths:
+          - /api/scores
+        methods:
+          - GET
+          - POST
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+      
+      # Rankings endpoints (público)
+      - name: api-rankings
+        paths:
+          - /api/rankings
+        methods:
+          - GET
+        strip_path: false
+      
+      # Games endpoints (público)
+      - name: api-games
+        paths:
+          - /api/games
+        methods:
+          - GET
+        strip_path: false
+```
+
+### Frontend Service
+
+```yaml
+services:
+  - name: frontend
+    url: http://frontend:8081
+    protocol: http
+    
+    routes:
+      - name: frontend-root
+        paths:
+          - /
+        methods:
+          - GET
+        strip_path: false
+        preserve_host: true
+      
+      - name: frontend-pages
+        paths:
+          - /index.html
+          - /games.html
+          - /health.html
+        methods:
+          - GET
+        strip_path: false
+```
+
+### CDN Service
+
+```yaml
+services:
+  - name: cdn
+    url: http://cdn:8086
+    protocol: http
+    
+    routes:
+      - name: cdn-games
+        paths:
+          - /cdn/juegos
+        methods:
+          - GET
+        strip_path: true  # /cdn/juegos/doom.jsdos -> /juegos/doom.jsdos
+        
+      - name: cdn-images
+        paths:
+          - /cdn/img
+        methods:
+          - GET
+        strip_path: true
+```
+
+## Parámetros de Servicios
+
+### Timeouts
+
+```yaml
+connect_timeout: 60000  # Tiempo para conectar (ms)
+write_timeout: 60000    # Tiempo para enviar request (ms)
+read_timeout: 60000     # Tiempo para recibir response (ms)
+```
+
+<Tip>
+Para archivos grandes (.jsdos de 50MB+), aumentar `read_timeout` a 120000ms (2 minutos)
+</Tip>
+
+### Retries
+
+```yaml
+retries: 5  # Intentos antes de devolver error
+```
+
+### Path Handling
+
+```yaml
+strip_path: false       # NO eliminar el path del request
+preserve_host: false    # Usar hostname del upstream (backend:3000)
+```
+
+**Ejemplo:**
+
+```
+Request:  GET /api/games
+Kong:     GET http://backend:3000/api/games (strip_path: false)
+
+Request:  GET /cdn/juegos/doom.jsdos
+Kong:     GET http://cdn:8086/juegos/doom.jsdos (strip_path: true)
+```
+
+## Plugins Globales
+
+### CORS Plugin
+
+```yaml
+plugins:
+  - name: cors
+    config:
+      origins:
+        - https://retrogamehub.games
+        - http://localhost:3000  # Desarrollo
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+        - HEAD
+      headers:
+        - Accept
+        - Accept-Version
+        - Content-Length
+        - Content-MD5
+        - Content-Type
+        - Date
+        - Authorization
+        - X-Auth-Token
+      exposed_headers:
+        - X-Auth-Token
+        - X-RateLimit-Limit
+        - X-RateLimit-Remaining
+        - X-RateLimit-Reset
+      credentials: true
+      max_age: 3600
+      preflight_continue: false
+```
+
+**Parámetros:**
+- `origins`: Dominios permitidos para CORS
+- `credentials: true`: Permite cookies y Authorization header
+- `max_age: 3600`: Cachea preflight OPTIONS por 1 hora
+- `preflight_continue: false`: Kong responde OPTIONS directamente
+
+### Rate Limiting Plugin
+
+```yaml
+plugins:
+  - name: rate-limiting
+    config:
+      second: null
+      minute: 100
+      hour: null
+      day: null
+      month: null
+      day: null
+      policy: local
+      fault_tolerant: true
+      hide_client_headers: false
+```
+
+**Parámetros:**
+- `minute: 100`: Límite de 100 requests/minuto
+- `policy: local`: Almacena contadores en memoria de Kong
+- `fault_tolerant: true`: Si falla, permite el request
+- `hide_client_headers: false`: Incluye headers `X-RateLimit-*`
+
+**Headers de respuesta:**
+```
+X-RateLimit-Limit-Minute: 100
+X-RateLimit-Remaining-Minute: 87
+```
+
+### JWT Plugin (por ruta)
+
+```yaml
+routes:
+  - name: api-scores
+    paths:
+      - /api/scores
+    plugins:
+      - name: jwt
+        config:
+          uri_param_names:
+            - jwt
+          cookie_names: []
+          key_claim_name: iss
+          secret_is_base64: false
+          claims_to_verify:
+            - exp
+          maximum_expiration: 0
+          header_names:
+            - authorization
+          anonymous: null
+          run_on_preflight: false
+```
+
+**Parámetros:**
+- `header_names: [authorization]`: Busca token en header `Authorization: Bearer <token>`
+- `claims_to_verify: [exp]`: Verifica que el token no esté expirado
+- `secret_is_base64: false`: El JWT_SECRET no está en base64
+- `run_on_preflight: false`: No validar en requests OPTIONS
+
+### Compression Plugin
+
+```yaml
+plugins:
+  - name: response-transformer
+    config:
+      add:
+        headers:
+          - "Content-Encoding: gzip"
+```
+
+## Logging Plugins
+
+### Request Logging
+
+```yaml
+plugins:
+  - name: file-log
+    config:
+      path: /dev/stdout
+      reopen: true
+```
+
+### HTTP Log (enviar a servicio externo)
+
+```yaml
+plugins:
+  - name: http-log
+    config:
+      http_endpoint: https://logs.retrogamehub.games/collect
+      method: POST
+      timeout: 10000
+      keepalive: 60000
+      flush_timeout: 2
+      retry_count: 10
+```
+
+## Variables de Entorno
+
+Kong soporta variables de entorno en el archivo de configuración:
+
+```yaml
+services:
+  - name: backend
+    url: ${BACKEND_URL}  # Variable de entorno
+    
+plugins:
+  - name: cors
+    config:
+      origins:
+        - ${CORS_ORIGIN}
+```
+
+**Docker Compose:**
+```yaml
+environment:
+  BACKEND_URL: "http://backend:3000"
+  CORS_ORIGIN: "https://retrogamehub.games"
+  KONG_DECLARATIVE_CONFIG: /kong/kong.yml
+```
+
+## Consumers y Credentials
+
+Para autenticación con Kong (NO usado actualmente):
+
+```yaml
+consumers:
+  - username: frontend-app
+    custom_id: app_001
+    
+credentials:
+  - consumer: frontend-app
+    jwt_secrets:
+      - key: frontend_jwt_key
+        secret: super-secret-jwt-key-here
+```
+
+<Warning>
+Actualmente NO usamos consumers de Kong. La autenticación JWT se valida en el backend, Kong solo verifica la presencia del token.
+</Warning>
+
+## Recargar Configuración
+
+### Docker Compose
+
+```bash
+# Reiniciar Kong con nueva configuración
+docker-compose restart kong
+
+# Verificar configuración
+docker-compose exec kong kong config db_import /kong/kong.yml
+```
+
+### Kubernetes
+
+```bash
+# Actualizar ConfigMap
+kubectl create configmap kong-config \
+  --from-file=kong.yml=./kong.yml \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Reiniciar pods de Kong
+kubectl rollout restart deployment/kong -n retrogamecloud
+```
+
+## Validación de Configuración
+
+```bash
+# Validar sintaxis del archivo kong.yml
+docker run --rm -v $(pwd)/kong.yml:/kong/kong.yml kong:3.3-alpine \
+  kong config db_import /kong/kong.yml --dry-run
+
+# Salida esperada:
+# parse config file /kong/kong.yml
+# OK
+```
+
+## Ejemplo Completo
+
+```yaml
+_format_version: "3.0"
+_info:
+  title: RetroGameCloud API Gateway
+  version: "1.0.0"
+
+services:
+  - name: backend
+    url: http://backend:3000
+    routes:
+      - name: api-auth
+        paths: [/api/auth]
+        strip_path: false
+      - name: api-scores
+        paths: [/api/scores]
+        strip_path: false
+        plugins:
+          - name: jwt
+
+  - name: frontend
+    url: http://frontend:8081
+    routes:
+      - name: root
+        paths: [/]
+
+  - name: cdn
+    url: http://cdn:8086
+    routes:
+      - name: cdn
+        paths: [/cdn]
+        strip_path: true
+
+plugins:
+  - name: cors
+    config:
+      origins: ["https://retrogamehub.games"]
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+      credentials: true
+  
+  - name: rate-limiting
+    config:
+      minute: 100
+      policy: local
+```
+
+## Próximos Pasos
+
+<CardGroup cols={2}>
+  <Card title="Plugins" icon="puzzle-piece" href="/kong/plugins">
+    Documentación detallada de plugins
+  </Card>
+  <Card title="Kong Overview" icon="shield" href="/kong/overview">
+    Arquitectura del API Gateway
+  </Card>
+</CardGroup>
