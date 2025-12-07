@@ -41,16 +41,34 @@ div:has(> img[alt*="Logo"]) {
 @media (max-width: 1024px) {
   /* Prevent button overlap in mobile header */
   .flex.lg\:hidden.items-center.gap-3 {
-    gap: 0.5rem !important;
+    gap: 0.25rem !important;
     flex-wrap: nowrap !important;
   }
   
-  /* Ensure logo image is centered in mobile */
+  /* Force all header buttons to be smaller */
+  .flex.lg\:hidden.items-center.gap-3 button,
+  .flex.lg\:hidden.items-center.gap-3 a {
+    width: 28px !important;
+    height: 28px !important;
+    flex-shrink: 0 !important;
+  }
+  
+  /* Ensure logo image is centered in mobile - target the actual rendered img */
   img[data-path*="logo.png"],
-  img[alt*="Retro Game Hub Logo"] {
+  img[alt*="Retro Game Hub Logo"],
+  .object-contain[alt*="Logo"] {
     margin-left: auto !important;
     margin-right: auto !important;
     display: block !important;
+  }
+  
+  /* Center the div container of the logo */
+  div:has(> img[data-path*="logo.png"]),
+  div:has(> img[alt*="Retro Game Hub Logo"]) {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
   }
 }
 
