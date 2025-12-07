@@ -1,8 +1,7 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "RetroGame Cloud",
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "RetroGame Hub",
   "theme": "mint",
-  "version": "2.0",
   "colors": {
     "primary": "#00ff88",
     "light": "#55ffaa",
@@ -13,208 +12,102 @@
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
   },
-  "navbar": {
-    "links": [
-      {
-        "label": "GitHub",
-        "href": "https://github.com/retrogamecloud"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Jugar Ahora",
-      "href": "https://retrogamehub.games"
+  "topbarLinks": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/retrogamecloud"
     }
+  ],
+  "topbarCtaButton": {
+    "name": "Jugar Ahora",
+    "url": "https://retrogamehub.games"
   },
-  "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "perplexity",
-      "mcp",
-      "cursor",
-      "vscode"
-    ]
+  "footerSocials": {
+    "github": "https://github.com/retrogamecloud"
   },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/retrogamecloud"
+  "anchors": [
+    {
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/retrogamecloud"
     }
-  },
+  ],
   "navigation": {
-    "tabs": [
+    "pages": [
       {
-        "tab": "Documentación",
-        "groups": [
-          {
-            "group": "1. Introducción",
-            "icon": "book-open",
-            "pages": [
-              "index",
-              "quickstart"
-            ],
-            "description": "Visión general del proyecto RetroGameHub y guía de inicio rápido para comenzar a utilizar la plataforma"
-          },
-          {
-            "group": "2. Conceptos y Arquitectura",
-            "icon": "diagram-project",
-            "pages": [
-              "architecture",
-              "sequence-diagrams"
-            ],
-            "description": "Arquitectura del sistema, patrones de diseño y diagramas de secuencia de los flujos principales de la aplicación"
-          },
-          {
-            "group": "3. Guías de Desarrollo",
-            "icon": "code",
-            "pages": [
-              "desarrollo-local",
-              "configuration",
-              "development/e2e-testing",
-              "troubleshooting"
-            ],
-            "description": "Configuración del entorno de desarrollo local, variables de entorno, pruebas end-to-end y resolución de problemas comunes"
-          },
-          {
-            "group": "4. Frontend",
-            "icon": "browser",
-            "pages": [
-              "frontend/overview",
-              "frontend/jsdos-integration"
-            ],
-            "description": "Arquitectura React, estructura de componentes e integración del emulador js-dos para la ejecución de juegos retro"
-          },
-          {
-            "group": "5. Backend y Microservicios",
-            "icon": "server",
-            "pages": [
-              "services/auth-service",
-              "services/user-service",
-              "services/game-catalog",
-              "services/score-service",
-              "services/ranking-service"
-            ],
-            "description": "Documentación técnica de los microservicios: autenticación, gestión de usuarios, catálogo de juegos, puntuaciones y clasificaciones"
-          },
-          {
-            "group": "6. Seguridad y Autenticación",
-            "icon": "shield",
-            "pages": [
-              "infrastructure/oauth2-authentication"
-            ],
-            "description": "Implementación de OAuth2 con GitHub y Google, gestión de tokens JWT y políticas de seguridad de la aplicación"
-          },
-          {
-            "group": "7. Infraestructura en AWS",
-            "icon": "cloud",
-            "pages": [
-              "infrastructure/overview",
-              "infrastructure/aws-topology",
-              "infrastructure/eks-cluster",
-              "infrastructure/networking",
-              "infrastructure/database-migrations",
-              "infrastructure/redis-troubleshooting",
-              "infrastructure/cdn-cloudfront",
-              "infrastructure/route53-ssl",
-              "infrastructure/monitoring"
-            ],
-            "description": "Infraestructura completa en AWS: clúster EKS, redes VPC, bases de datos RDS, Redis, CDN CloudFront, Route53, certificados SSL y monitorización"
-          },
-          {
-            "group": "8. Despliegue y CI/CD",
-            "icon": "rocket",
-            "pages": [
-              "cicd/overview",
-              "cicd/github-actions",
-              "infrastructure/argocd-gitops",
-              "deployment"
-            ],
-            "description": "Pipelines de integración y despliegue continuo con GitHub Actions, metodología GitOps con ArgoCD y procesos de despliegue automatizado en Kubernetes"
-          }
+        "group": "Inicio",
+        "pages": [
+          "index",
+          "quickstart",
+          "architecture"
         ]
       },
       {
-        "tab": "Referencia de la API",
-        "groups": [
-          {
-            "group": "1. Introducción",
-            "icon": "book-open",
-            "pages": [
-              "api-reference/backend-main",
-              "api-reference/kong-config"
-            ],
-            "description": "Arquitectura backend completa, convenciones de la API REST y configuración del API Gateway Kong"
-          },
-          {
-            "group": "2. Autenticación",
-            "icon": "key",
-            "pages": [
-              "api-reference/auth-service",
-              "api-reference/auth/login",
-              "api-reference/auth/register",
-              "api-reference/auth/verify"
-            ],
-            "description": "Endpoints de autenticación: inicio de sesión con OAuth2, registro de usuarios y verificación de tokens JWT"
-          },
-          {
-            "group": "3. Gestión de Usuarios",
-            "icon": "users",
-            "pages": [
-              "api-reference/user-service"
-            ],
-            "description": "API de gestión de perfiles de usuario, actualización de datos personales y configuración de preferencias"
-          },
-          {
-            "group": "4. Catálogo de Juegos",
-            "icon": "gamepad",
-            "pages": [
-              "api-reference/game-catalog-service",
-              "api-reference/games/list",
-              "api-reference/games/get"
-            ],
-            "description": "API del catálogo: listado de juegos disponibles, búsqueda con filtros y consulta de detalles de cada juego"
-          },
-          {
-            "group": "5. Puntuaciones y Clasificaciones",
-            "icon": "trophy",
-            "pages": [
-              "api-reference/score-service",
-              "api-reference/scores/submit",
-              "api-reference/scores/get",
-              "api-reference/ranking-service",
-              "api-reference/rankings/global",
-              "api-reference/rankings/by-game"
-            ],
-            "description": "API de puntuaciones: envío y consulta de resultados, tablas de clasificación globales y rankings por juego"
-          },
-          {
-            "group": "6. Especificaciones Técnicas",
-            "icon": "code",
-            "pages": [
-              "api-reference/frontend",
-              "api-reference/infrastructure-docs",
-              "api-reference/kubernetes-manifests"
-            ],
-            "description": "Especificaciones del frontend React, documentación de infraestructura con Terraform y manifiestos de Kubernetes"
-          }
+        "group": "Backend Unificado",
+        "pages": [
+          "backend/overview",
+          "backend/database-schema",
+          "backend/api-endpoints"
+        ]
+      },
+      {
+        "group": "Frontend",
+        "pages": [
+          "frontend/overview",
+          "frontend/jsdos-integration"
+        ]
+      },
+      {
+        "group": "Kong API Gateway",
+        "pages": [
+          "kong/overview",
+          "kong/configuration",
+          "kong/plugins"
+        ]
+      },
+      {
+        "group": "Infraestructura AWS",
+        "pages": [
+          "infrastructure/overview",
+          "infrastructure/terraform-bootstrap",
+          "infrastructure/eks-cluster",
+          "infrastructure/rds-database",
+          "infrastructure/database-migrations-guide",
+          "infrastructure/route53-ssl",
+          "infrastructure/cdn",
+          "infrastructure/monitoring",
+          "infrastructure/security",
+          "infrastructure/secrets-management",
+          "infrastructure/cost-optimization"
+        ]
+      },
+      {
+        "group": "Desarrollo Local",
+        "pages": [
+          "development/local-setup",
+          "development/docker-compose",
+          "development/testing-guide",
+          "development/e2e-testing",
+          "development/code-standards",
+          "development/contributing"
+        ]
+      },
+      {
+        "group": "CI/CD y GitOps",
+        "pages": [
+          "cicd/overview",
+          "cicd/github-actions",
+          "cicd/gitops-workflow",
+          "cicd/kubernetes-deployment"
+        ]
+      },
+      {
+        "group": "Troubleshooting",
+        "pages": [
+          "troubleshooting/index",
+          "troubleshooting/kubernetes"
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "GitHub",
-          "href": "https://github.com/retrogamecloud",
-          "icon": "github"
-        },
-        {
-          "anchor": "Jugar",
-          "href": "https://retrogamehub.games",
-          "icon": "gamepad"
-        }
-      ]
-    }
+    ]
   }
 }

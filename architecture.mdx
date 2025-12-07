@@ -1,5 +1,6 @@
 ---
-title: 2.1 Arquitectura del Sistema
+title: Arquitectura del Sistema
+sidebarTitle: 1.3. Arquitectura del Sistema
 description: Visión general de la arquitectura de microservicios cloud-native de Retro
   Game Hub desplegada en AWS EKS, incluyendo decisiones arquitectónicas, infraestructura
   y justificaciones técnicas
@@ -215,10 +216,11 @@ sequenceDiagram
   - Cluster multi-AZ con 1 writer y 2+ readers
   - Automatic failover en <30 segundos
   - Continuous backup y point-in-time recovery
-  - **ElastiCache Redis**:
-    - Cluster mode habilitado para sharding
-    - Multi-AZ con automatic failover
-    - Encryption in-transit y at-rest
+
+- **ElastiCache Redis**:
+  - Cluster mode habilitado para sharding
+  - Multi-AZ con automatic failover
+  - Encryption in-transit y at-rest
 
 ### Almacenamiento y Assets
 
