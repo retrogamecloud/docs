@@ -459,7 +459,7 @@ curl -X POST http://localhost:8000/api/auth/login \
 
 ```bash
 # Obtener perfil (requiere JWT)
-TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+TOKEN="jwt_access_token_here"
 
 curl http://localhost:8000/api/users/profile \
   -H "Authorization: Bearer $TOKEN"

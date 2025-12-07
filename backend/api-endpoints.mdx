@@ -50,7 +50,7 @@ Registra un nuevo usuario en la plataforma.
 **Response (201):**
 ```json
 {
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "accessToken": "jwt_access_token_here",
   "user": {
     "id": 1,
     "username": "player1",
@@ -80,7 +80,7 @@ Inicia sesión y obtiene un JWT válido por 24 horas.
 **Response (200):**
 ```json
 {
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "accessToken": "jwt_access_token_here",
   "user": {
     "id": 1,
     "username": "player1",
@@ -469,7 +469,7 @@ curl -X POST http://localhost:8000/api/auth/register \
 # Respuesta: { "accessToken": "eyJ...", "user": {...} }
 
 # 2. Guardar el token
-TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+TOKEN="jwt_access_token_here"
 
 # 3. Enviar puntuación
 curl -X POST http://localhost:8000/api/scores \
