@@ -64,9 +64,9 @@
       if (isMobile) {
         // Mobile: icon only with gradient
         playBtn.className = 'w-7 h-7 flex items-center justify-center rounded-lg';
-        playBtn.style.cssText = 'background: linear-gradient(135deg, #00ff88 0%, #00aa55 100%);';
+        playBtn.style.cssText = 'background: linear-gradient(135deg, #00ff88 0%, #00aa55 100%); padding: 0; min-width: 28px; min-height: 28px;';
         playBtn.innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="white" stroke="none">
             <polygon points="5 3 19 12 5 21 5 3"></polygon>
           </svg>
         `;
