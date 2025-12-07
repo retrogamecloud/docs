@@ -39,22 +39,10 @@ div:has(> img[alt*="Logo"]) {
 
 /* Mobile header spacing fix */
 @media (max-width: 1024px) {
-  /* Hide "More actions" button (3 dots) in mobile */
-  button[aria-label="More actions"] {
+  /* Hide "More actions" button (3 dots) in mobile - more specific selector */
+  .flex.lg\:hidden.items-center.gap-3 > button[aria-label="More actions"],
+  button.h-7.w-5[aria-label="More actions"] {
     display: none !important;
-  }
-  
-  /* Make search button show only icon in mobile */
-  #search-bar-entry-mobile .sr-only {
-    position: absolute !important;
-    width: 1px !important;
-    height: 1px !important;
-    padding: 0 !important;
-    margin: -1px !important;
-    overflow: hidden !important;
-    clip: rect(0, 0, 0, 0) !important;
-    white-space: nowrap !important;
-    border-width: 0 !important;
   }
   
   /* Prevent button overlap in mobile header */
