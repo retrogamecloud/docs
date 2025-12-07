@@ -1,0 +1,20 @@
+name: "CodeQL Config for Docs Repository"
+
+# Este repositorio solo contiene documentación MDX
+# No hay código JavaScript/TypeScript para analizar
+# Solo analizar GitHub Actions workflows
+
+queries:
+  - uses: security-and-quality
+
+# Paths a ignorar durante el análisis
+paths-ignore:
+  - '**.mdx'
+  - '**.md'
+  - '**.json'
+  - 'logo/**'
+  - 'images/**'
+
+# Paths a incluir (solo workflows)
+paths:
+  - '.github/workflows/**'
