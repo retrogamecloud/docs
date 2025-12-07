@@ -13,9 +13,9 @@
       "size": 10181
     },
     "architecture.mdx": {
-      "hash": "c531caa71ba62017fec6c3edf0f943673daaea451055143341deb5ca9a92f1e8",
-      "last_analyzed": "2025-12-02T03:43:41.104928",
-      "size": 16835
+      "hash": "56f612b921137579f75007c1c3c73849a9a13500c1c02f06046bdd5669b53999",
+      "last_analyzed": "2025-12-07T03:48:46.433022",
+      "size": 11103
     },
     "configuration.mdx": {
       "hash": "277c8e966a3b2f2802c98460e0d3cb0510db94d142db12579928997264c8be49",
@@ -38,9 +38,9 @@
       "size": 4260
     },
     "deployment.mdx": {
-      "hash": "5a47866393bc956b8d88041943909d23dbdad2425b27d237b7577136899b9436",
-      "last_analyzed": "2025-12-02T03:43:41.105083",
-      "size": 12336
+      "hash": "7bf9c4a97ebcaba954b3009f91ea91775d9df15453f1157df5b0ccff88673fbc",
+      "last_analyzed": "2025-12-07T03:48:46.433282",
+      "size": 41627
     },
     "index.mdx": {
       "hash": "33b6ec31cbb30026a23109b1ae1253bddfe8accb50d1a1fdf902c29df74fa1f8",
@@ -323,34 +323,34 @@
       "size": 10236
     },
     "AUTO_FIXES_REPORT.md": {
-      "hash": "bdfc9378639373694080991c93aaaa871e6a201fb82a3240582e525be7d4638b",
-      "last_analyzed": "2025-12-02T03:43:41.107858",
-      "size": 1849
+      "hash": "8e12bd4531ed45d7afa0fa7d9ec719b9c2902da907f6569f9daba3b8c3ae287c",
+      "last_analyzed": "2025-12-07T03:48:46.433338",
+      "size": 1538
     },
     "STRUCTURE_CHANGELOG.md": {
-      "hash": "d03a05297512e82dfeb7ed16d3efdcb5361d1b71934dd06c811f92939bf37fe5",
-      "last_analyzed": "2025-12-02T03:43:41.107884",
-      "size": 1524
+      "hash": "e0d4bd6a3dda0cc23c232117fc8fdef1417b528225e0aa2ef06875e89b153c7a",
+      "last_analyzed": "2025-12-07T03:48:46.433226",
+      "size": 1694
     },
     "CHANGELOG_WIKI_2025-11-20.md": {
       "hash": "d13877754ef905f75e10e04599d08786c84a78b89b5a478d17f4b058a96099e0",
-      "last_analyzed": "2025-12-02T03:43:41.107918",
+      "last_analyzed": "2025-12-07T03:48:46.433199",
       "size": 12710
     },
     "README.md": {
       "hash": "024bf7c7673705356f681d02d8192dcae1115ccbdf621307bae295c7f89abb0b",
-      "last_analyzed": "2025-12-02T03:43:41.107973",
+      "last_analyzed": "2025-12-07T03:48:46.433083",
       "size": 1394
     },
     "BROKEN_LINKS_REPORT.md": {
-      "hash": "825b4929a1677b9b8e2f59d0e0e5b1cbbeb11baa326b39916f719471d024d935",
-      "last_analyzed": "2025-12-02T03:43:41.108006",
-      "size": 4263
+      "hash": "b0c7c2c107f2be8f3bf0a9064894d092a0d7f8e34f67c368287abb91b69a068e",
+      "last_analyzed": "2025-12-07T03:48:46.433312",
+      "size": 3699
     },
     "IMPROVEMENTS.md": {
-      "hash": "033a0e4818ac7ce67c6a82d1a656c429be1a7daf84d9a464379167df5c57b14b",
-      "last_analyzed": "2025-12-02T03:43:41.108040",
-      "size": 4831
+      "hash": "1487c0e55d3db263a5dde113cd50bbb0c4f441aa6037079d61c24b1ddd30007a",
+      "last_analyzed": "2025-12-07T03:48:46.433053",
+      "size": 5041
     },
     "infrastructure/backup-recovery.mdx": {
       "hash": "290a0c58dd5f256e639b01d7e5cb34f8e3628b25eb42ba6caf54b0d526c3e28f",
@@ -373,9 +373,9 @@
       "size": 12403
     },
     "infrastructure/database.mdx": {
-      "hash": "3e971ce92ecdabf1668d795720eb233c904887d4b8d17b0b4f6d5304e10e17bf",
-      "last_analyzed": "2025-12-02T03:43:41.106134",
-      "size": 2840
+      "hash": "f60e75f4a8d76baa19b9a2b50268461a23f11ef6c3bf2c7215511e2e685d8f76",
+      "last_analyzed": "2025-12-07T03:48:46.433160",
+      "size": 10395
     },
     "development/contributing.mdx": {
       "hash": "dadd2f4227fb6fd730ad296e47e902e78e626a79cc89eabf563ba507e902d6eb",
@@ -383,9 +383,9 @@
       "size": 11217
     },
     "services/overview.mdx": {
-      "hash": "f7988800ebd95c63ae9452dd7e223b7dbff6bcb213e11c739790751056bfb4e3",
-      "last_analyzed": "2025-12-02T03:43:41.105319",
-      "size": 7378
+      "hash": "1bf2d11787791306475b2e7b3b408d9e6258748682d8692abc35849b45d18af3",
+      "last_analyzed": "2025-12-07T03:48:46.432896",
+      "size": 7383
     },
     "development/new-microservice-guide.mdx": {
       "hash": "931eac37507786d5f6a805bca5de6ad9331db98cce935c2e49e2ffa8d85e7ce8",
@@ -428,14 +428,14 @@
       "size": 2864
     },
     "infrastructure/disaster-recovery-playbook.mdx": {
-      "hash": "77c249c9b292754adcba8442993f08406ee432949b5f4d02d62b0f0675ef9dd8",
-      "last_analyzed": "2025-12-02T03:43:41.105647",
-      "size": 11821
+      "hash": "3bd7bcdb3815cf6597b5099bdc6af24f6eee9d26244d61720dc3ffce63325363",
+      "last_analyzed": "2025-12-07T03:48:46.432948",
+      "size": 25760
     },
     "infrastructure/database-migrations.mdx": {
-      "hash": "d49508e9529c5b5369cbd0a3522de21343a3c6050225c0bffa9c6cd9c793e56b",
-      "last_analyzed": "2025-12-02T03:43:41.106401",
-      "size": 12851
+      "hash": "f74f7aa8a95cd3be65d7587e6a8bf9a855c0486b1f4e749d09f074f5646b40b5",
+      "last_analyzed": "2025-12-07T03:48:46.432853",
+      "size": 25628
     },
     "development/e2e-testing.mdx": {
       "hash": "663b738f0ad48756e948a6b8027822a98f0371b057ecf438b1ad5be94370d0ce",
@@ -488,9 +488,9 @@
       "size": 3146
     },
     "infrastructure/version-compatibility.mdx": {
-      "hash": "d4532836c647749b44ec0389361cfc18151dd2713ad8c66c6b23c1027a32aa80",
-      "last_analyzed": "2025-12-02T03:43:41.106433",
-      "size": 9494
+      "hash": "16fa3ad0e7ee2586d5cf292173586090f4aa860fdc3135556d3a2a0358cc98fd",
+      "last_analyzed": "2025-12-07T03:48:46.432985",
+      "size": 8048
     },
     "troubleshooting/kubernetes.mdx": {
       "hash": "874fcce4a94cbe78a2cf14ee0ff71a2d486dfd83aed30ebdf518e3327361ea84",
@@ -514,7 +514,7 @@
     },
     "infrastructure/database-complete.mdx": {
       "hash": "b0e905a61ece6930b57cdddfe9ac1eb662ad114cc62ef31f3eacad891ec5d34d",
-      "last_analyzed": "2025-12-02T03:43:41.106334",
+      "last_analyzed": "2025-12-07T03:48:46.433122",
       "size": 3446
     },
     "development/onboarding-guide.mdx": {
@@ -524,7 +524,7 @@
     },
     "FIX_WORKFLOW_TRUNCATION.md": {
       "hash": "6e28a3c7dc04cd950a1279e2834a2d9e3c037434599518f1c5b32a83076f36ef",
-      "last_analyzed": "2025-12-02T03:43:41.107946",
+      "last_analyzed": "2025-12-07T03:48:46.433365",
       "size": 2512
     }
   },
