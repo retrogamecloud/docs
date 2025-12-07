@@ -101,11 +101,12 @@
       desktopContainer.insertBefore(desktopButtons, searchBar);
     }
 
-    // Add to mobile
+    // Add to mobile - insert at the beginning of the container
     if (mobileContainer && searchBarMobile) {
       const mobileButtons = createButtons(true);
       mobileButtons.id = 'custom-buttons-container-mobile';
-      mobileContainer.insertBefore(mobileButtons, searchBarMobile);
+      // Insert as first child to avoid overlap
+      mobileContainer.insertBefore(mobileButtons, mobileContainer.firstChild);
     }
   }
 
