@@ -23,6 +23,20 @@ img[alt*="Logo"] {
   mix-blend-mode: normal !important;
 }
 
+/* Center logo container on all devices */
+img[alt*="Logo"] {
+  margin: 0 auto !important;
+  display: block !important;
+}
+
+/* Force center alignment for logo parent div */
+div:has(> img[alt*="Logo"]) {
+  text-align: center !important;
+  display: flex !important;
+  justify-content: center !important;
+  width: 100% !important;
+}
+
 /* Override Mintlify defaults */
 body {
   background: var(--bg-primary) !important;
