@@ -1,9 +1,18 @@
 // Topbar custom buttons injection
 (function() {
   function addCustomButtons() {
-    // Wait for search bar to be available
+    // Try multiple selectors for different screen sizes
     const searchBar = document.getElementById('search-bar-entry');
-    if (!searchBar) {
+    const navBar = document.querySelector('nav') || document.querySelector('header');
+    
+    // For mobile, find the navigation container
+    const mobileNav = document.querySelector('[class*="mobile"]') || 
+                     document.querySelector('[class*="Mobile"]') ||
+                     document.querySelector('nav.flex');
+    
+    const targetContainer = searchBar?.parentElement || mobileNav || navBar;
+    
+    if (!targetContainer) {
       setTimeout(addCustomButtons, 100);
       return;
     }
@@ -13,14 +22,11 @@
       return;
     }
 
-    // Get the parent container of the search bar
-    const searchContainer = searchBar.parentElement;
-    if (!searchContainer) return;
-
     // Create container for custom buttons
     const buttonsContainer = document.createElement('div');
-    buttonsContainer.className = 'flex items-center gap-2 mr-3';
-    buttonsContainer.style.cssText = 'flex-shrink: 0;';
+    buttonsContainer.id = 'custom-buttons-container';
+    buttonsContainer.className = 'flex items-center gap-2';
+    buttonsContainer.style.cssText = 'flex-shrink: 0; margin-right: 12px;';
 
     // GitHub button
     const githubBtn = document.createElement('a');
@@ -63,8 +69,13 @@
     buttonsContainer.appendChild(githubBtn);
     buttonsContainer.appendChild(playBtn);
 
-    // Insert before search bar
-    searchContainer.insertBefore(buttonsContainer, searchBar);
+    // Insert into the navigation
+    if (searchBar) {
+      targetContainer.insertBefore(buttonsContainer, searchBar);
+    } else {
+      // For mobile, append to nav bar
+      targetContainer.appendChild(buttonsContainer);
+    }
   }
 
   // Run on load

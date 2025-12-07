@@ -33,6 +33,14 @@
   "footerSocials": {
     "github": "https://github.com/retrogamecloud"
   },
+  "search": {
+    "prompt": "Buscar en la documentación..."
+  },
+  "feedback": {
+    "thumbsRating": true,
+    "suggestEdit": true,
+    "raiseIssue": true
+  },
   "anchors": [
     {
       "name": "GitHub",

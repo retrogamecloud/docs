@@ -15,6 +15,14 @@
   --border-light: #333333;
 }
 
+/* Force transparent background for logo images */
+img[src*="logo.png"],
+img[alt*="Logo"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  mix-blend-mode: normal !important;
+}
+
 /* Override Mintlify defaults */
 body {
   background: var(--bg-primary) !important;
