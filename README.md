@@ -5,8 +5,8 @@
 
 Documentación técnica completa de RetroGameCloud. Incluye guías de desarrollo, arquitectura, despliegue, API endpoints, configuración de infraestructura y troubleshooting.
 
-**Documentación General:** [Ir al README Principal](https://github.com/retrogamecloud/.github/blob/main/README.md)  
-**Documentación Profesional:** [Acceder a la Wiki](https://www.retrogamehub.games/wiki)
+**README general:** [Ir al README Principal](https://github.com/retrogamecloud/.github/blob/main/profile/README.md)  
+**Documentación:** [Acceder a la Wiki](https://retrogamecloud.mintlify.app/)
 
 ---
 
