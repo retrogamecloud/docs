@@ -1,4 +1,4 @@
-# 📚 RetroGameCloud - Documentación
+# RetroGameCloud - Documentación
 
 [![Mintlify](https://img.shields.io/badge/Powered%20by-Mintlify-blue?logo=markdown)](https://mintlify.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -10,7 +10,7 @@ Documentación técnica completa de RetroGameCloud. Incluye guías de desarrollo
 
 ---
 
-## 📋 Tabla de Contenidos
+## Tabla de Contenidos
 
 - [Descripción](#descripción)
 - [Estructura de la Documentación](#estructura-de-la-documentación)
@@ -22,7 +22,7 @@ Documentación técnica completa de RetroGameCloud. Incluye guías de desarrollo
 
 ---
 
-## 📖 Descripción
+## Descripción
 
 Este repositorio contiene la **documentación técnica completa** de RetroGameCloud construida con Mintlify. La documentación incluye:
 
@@ -37,7 +37,7 @@ Este repositorio contiene la **documentación técnica completa** de RetroGameCl
 
 ---
 
-## 📂 Estructura de la Documentación
+## Estructura de la Documentación
 
 ```
 docs/
@@ -73,7 +73,7 @@ docs/
 
 ---
 
-## 🛠️ Desarrollo Local
+## Desarrollo Local
 
 ### Prerrequisitos
 
@@ -100,7 +100,7 @@ La documentación estará disponible en **http://localhost:3000**
 
 ---
 
-## ⚙️ Configuración
+## Configuración
 
 La configuración principal se encuentra en `docs.json`:
 
@@ -113,7 +113,7 @@ Personaliza el tema visual editando `retro-theme.css` y los componentes en JavaS
 
 ---
 
-## 🚀 Publicación de Cambios
+## Publicación de Cambios
 
 Los cambios se despliegan **automáticamente a producción** al hacer push a la rama `main`.
 
@@ -130,7 +130,7 @@ Los cambios se despliegan **automáticamente a producción** al hacer push a la 
 
 ---
 
-## 📖 Temas Documentados
+## Temas Documentados
 
 ### Backend
 - API REST endpoints completos
@@ -163,7 +163,7 @@ Los cambios se despliegan **automáticamente a producción** al hacer push a la 
 
 ---
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### El entorno de desarrollo no arranca
 
@@ -188,7 +188,7 @@ Verifica que:
 
 ---
 
-## 📚 Recursos
+## Recursos
 
 - [Documentación de Mintlify](https://mintlify.com/docs)
 - [Guías de MDX](https://mdxjs.com/docs/)
