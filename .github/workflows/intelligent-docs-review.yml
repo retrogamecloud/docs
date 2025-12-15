@@ -1,5 +1,8 @@
 name: Daily Documentation Analysis & Reorganization
 
+# WORKFLOW DESACTIVADO
+# Para reactivar, eliminar la línea "if: false" del job principal
+
 on:
   # Ejecutar después de cada push a main (análisis incremental automático)
   push:
@@ -49,8 +52,8 @@ jobs:
       pull-requests: write   # Necesario para crear PRs
       issues: write          # Necesario para crear issues si hay problemas
     
-    # Evitar loops infinitos: no ejecutar si el commit es del bot
-    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip-ci]')
+    # ⛔ WORKFLOW DESACTIVADO - Eliminar esta línea para reactivar
+    if: false
     
     steps:
       - name: Checkout docs repo
